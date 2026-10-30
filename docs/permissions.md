@@ -6,7 +6,7 @@ the install, grant and app registration scripts all read it.
 
 | Feature | Default | What you get | Permissions (read-only, application) |
 |---|---|---|---|
-| `Core` | always | Intune policies: exclusions, ASR configuration, MDAV baseline (Windows, macOS, Linux) | Graph: `DeviceManagementConfiguration.Read.All`, `GroupMember.Read.All` |
+| `Core` | always | Intune policies: exclusions, ASR configuration, MDAV baseline (Windows, macOS, Linux); people picker for assignments | Graph: `DeviceManagementConfiguration.Read.All`, `GroupMember.Read.All`, `User.ReadBasic.All` |
 | `Hunting` | on | Device state, local exclusions, effective ASR mode, Linux/macOS drift, local AI agents (Advanced Hunting) | Graph: `ThreatHunting.Read.All` |
 | `Indicators` | on | Allow indicators from Defender for Endpoint | Defender for Endpoint: `Ti.Read.All` |
 | `Response` | on | Response readiness: response actions of the last 90 days, investigations waiting for approval, forgotten isolations, untriaged alerts | Defender for Endpoint: `Machine.Read.All`, `Alert.Read.All` |

@@ -17,7 +17,7 @@ App Service Authentication (Entra ID).
 | Endpoint | Overview, Findings, Exclusions (policy, local, indicators, EDR), ASR rules (rules, device groups, devices, exclusions), Devices, Baseline |
 | AI agents | Agents (cloud / local), Conditional Access |
 | Access | Roles, Who can do what?, My access |
-| History | Changes between runs, accepted risks |
+| History | Changes between runs, exceptions and assignments |
 
 Every table can be filtered and exported as CSV. Device names link to the device page.
 
@@ -40,12 +40,22 @@ Every change is colour-coded: **green** = added, **red** = removed, **amber** = 
 *Before* that are gone are marked red and struck through, the new parts in *After* green – so a device going from
 `NetworkProtection=GOOD` to `NetworkProtection=BAD` is visible at a glance.
 
-## Accepted risks
+## Exceptions and assignments
 
-Administrators can **accept** a finding or an exclusion (in its detail row): justification, owner, optional ticket and an
-expiry date of at most one year. Accepted items stay visible with an "Accepted" tag, but no longer count as open, are
-hidden by default and do not trigger notifications. After the expiry date they are open again. **History › Accepted
-risks** lists all acceptances and an audit log of every accept and revoke – the record auditors ask for.
+The detail row of every finding and exclusion has a small workflow block with two independent parts:
+
+- **Assignment** – hand the item to whoever should fix it: an Entra user, a security group, a distribution list, or a
+  manually typed e-mail address. The people picker searches the directory as you type (`User.ReadBasic.All` and
+  `GroupMember.Read.All` from the Core feature); if the search is not available you can still enter an address. Assigned
+  items stay open. The assignee is shown in the findings list (with a filter), on **History › Exceptions & assignments ›
+  Assignments**, and is included in [notifications](operations.md#notifications) so a Power Automate flow can e-mail them.
+- **Exception** – consciously accept the risk: justification, owner, optional ticket and either an expiry date or
+  *no expiry (unlimited)*. Accepted items stay visible with an "Accepted" tag, but no longer count as open, are hidden by
+  default and do not trigger notifications. After the expiry date they are open again; unlimited exceptions stay until
+  revoked.
+
+**History › Exceptions & assignments** lists all exceptions, all assignments and an audit log of every accept, revoke,
+assign and unassign – the record auditors ask for.
 
 ## Language
 

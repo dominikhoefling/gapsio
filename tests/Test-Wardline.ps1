@@ -597,6 +597,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
                 return (V @(foreach ($id in @($Body.ids)) { if ($script:Users.ContainsKey($id)) { $script:Users[$id] } elseif ($script:Acc.groups.ContainsKey($id)) { $script:Acc.groups[$id] } }))
             }
             '^directoryObjects/(.+)$' { $id = $Matches[1]; if ($script:Users.ContainsKey($id)) { return $script:Users[$id] }; if ($script:Acc.groups.ContainsKey($id)) { return $script:Acc.groups[$id] }; throw (New-WlHttpException -Status 404 -Message 'nf') }
+            '^users\?\$filter=startswith\(displayName,''([^'']*)''\)' { $q = $Matches[1]; return (V @($script:Users.Values | Where-Object { [string]$_.displayName -like "$q*" })) }
+            '^groups\?\$filter=startswith\(displayName,''([^'']*)''\)' { $q = $Matches[1]; return (V @($script:Acc.groups.Values | Where-Object { [string]$_.displayName -like "$q*" })) }
             '^users/([^?]+)\?' { return $script:Users[$Matches[1]] }
             default { throw "Nicht simulierter Aufruf: $Method $Uri" }
         }
@@ -734,9 +736,51 @@ Write-Host '== Accepted risks and notifications' -ForegroundColor Cyan
     & $A ($a1.acceptedBy -eq 'alice@contoso.com' -and (Test-WlAcceptanceActive $a1)) 'Acceptance stored and active'
     $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'short'; owner = 'x'; expires = '2099-01-01' }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
     & $A ($bad -match 'justification') "Acceptance validation ($bad)"
-    $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'long enough text'; owner = 'x'; expires = [DateTime]::UtcNow.AddDays(400).ToString('yyyy-MM-dd') }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
-    & $A ($bad -match 'one year') 'Acceptance at most one year'
+    $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'long enough text'; owner = 'x'; expires = [DateTime]::UtcNow.AddYears(11).ToString('yyyy-MM-dd') }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'ten years') 'Acceptance at most ten years'
+    $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'long enough text'; owner = 'x'; expires = '2020-01-01' }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'future') 'Acceptance must be in the future'
     & $A (-not (Test-WlAcceptanceActive ([pscustomobject]@{ key = 'x'; expires = [DateTime]::UtcNow.AddDays(-1).ToString('yyyy-MM-dd') }))) 'Expired acceptance is not active'
+    $unl = Set-WlAcceptance -Data ([pscustomobject]@{ key = 'ffff6666'; kind = 'finding'; module = 'endpoint'; title = 'Unlimited'; justification = 'Permanent compensating control in place'; owner = 'CISO'; expires = $null }) -By 'alice@contoso.com'
+    & $A ($null -eq $unl.expires -and (Test-WlAcceptanceActive $unl)) 'Unlimited exception (no expiry) is active'
+    $unl2 = Set-WlAcceptance -Data ([pscustomobject]@{ key = 'ffff6666'; kind = 'finding'; module = 'endpoint'; title = 'Unlimited'; justification = 'Permanent compensating control in place'; owner = 'CISO'; expires = 'never' }) -By 'alice@contoso.com'
+    & $A ($null -eq $unl2.expires) "Expiry 'never' means unlimited"
+    Set-WlAcceptance -Data ([pscustomobject]@{ key = 'ffff6666' }) -By 'alice@contoso.com' -Revoke | Out-Null
+
+    # Assignments: user / group / distribution list / plain e-mail, one per key, audit-logged
+    $as1 = Set-WlAssignment -Data ([pscustomobject]@{ key = 'aaaa1111'; kind = 'finding'; module = 'endpoint'; title = 'New high'; assignee = [pscustomobject]@{ type = 'user'; id = 'u-bob'; displayName = 'Bob'; mail = 'bob@contoso.com' }; note = 'Please check' }) -By 'alice@contoso.com'
+    & $A ($as1.assignee.type -eq 'user' -and $as1.assignee.mail -eq 'bob@contoso.com' -and $as1.assignedBy -eq 'alice@contoso.com') 'Assignment to an Entra user stored'
+    $as2 = Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222'; assignee = 'secops@contoso.com' }) -By 'alice@contoso.com'
+    & $A ($as2.assignee.type -eq 'email' -and $as2.assignee.displayName -eq 'secops@contoso.com' -and $null -eq $as2.assignee.id) 'Assignment to a plain e-mail address (string shorthand)'
+    $as3 = Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222'; assignee = [pscustomobject]@{ type = 'distributionList'; id = 'g-dl'; displayName = 'Workplace DL'; mail = 'workplace@contoso.com' } }) -By 'alice@contoso.com'
+    & $A ($as3.assignee.type -eq 'distributionList' -and @(Get-WlAssignments | Where-Object { $_.key -eq 'bbbb2222' }).Count -eq 1) 'Re-assigning replaces the previous assignment (one per key)'
+    $bad = $null; try { Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222'; assignee = [pscustomobject]@{ type = 'email'; mail = 'not-an-address' } }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'e-mail') 'Assignment: invalid e-mail rejected'
+    $bad = $null; try { Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222'; assignee = [pscustomobject]@{ type = 'robot'; id = 'x'; displayName = 'y' } }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'type') 'Assignment: unknown assignee type rejected'
+    $bad = $null; try { Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222'; assignee = [pscustomobject]@{ type = 'group'; displayName = 'No id' } }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'object id') 'Assignment: group without directory id rejected'
+    $bad = $null; try { Set-WlAssignment -Data ([pscustomobject]@{ key = 'bbbb2222' }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'assignee is required') 'Assignment: empty assignee rejected'
+
+    # Directory search for the people picker
+    $script:Dir = @{ users = @([pscustomobject]@{ id = 'u-bob'; displayName = 'Bob Builder'; mail = 'bob@contoso.com'; userPrincipalName = 'bob@contoso.com'; accountEnabled = $true }, [pscustomobject]@{ id = 'u-old'; displayName = 'Bobby Old'; mail = $null; userPrincipalName = 'old@contoso.com'; accountEnabled = $false })
+        groups = @([pscustomobject]@{ id = 'g-sec'; displayName = 'Bob Security'; mail = $null; mailEnabled = $false; securityEnabled = $true; groupTypes = @() }, [pscustomobject]@{ id = 'g-dl'; displayName = 'Bob DL'; mail = 'bobdl@contoso.com'; mailEnabled = $true; securityEnabled = $false; groupTypes = @() }, [pscustomobject]@{ id = 'g-m365'; displayName = 'Bob Team'; mail = 'bobteam@contoso.com'; mailEnabled = $true; securityEnabled = $false; groupTypes = @('Unified') }) }
+    function Invoke-WlGraph { param($Path, [switch]$Beta, [switch]$All, $Method, $Body, $Headers)
+        if ($Path -match "^users\?.*startswith\(displayName,'Bob'\)") { return [pscustomobject]@{ value = $script:Dir.users } }
+        if ($Path -match "^groups\?.*startswith\(displayName,'Bob'\)") { return [pscustomobject]@{ value = $script:Dir.groups } }
+        if ($Path -match "^users\?.*O''Brien") { return [pscustomobject]@{ value = @() } }
+        if ($Path -match "^groups\?") { throw (New-WlHttpException -Status 403 -Message 'HTTP 403 Forbidden') }
+        throw "unexpected $Path"
+    }
+    $s = Search-WlDirectory -Query 'Bob'
+    & $A (@($s.results).Count -eq 4 -and @($s.results | Where-Object { $_.id -eq 'u-old' }).Count -eq 0) 'Directory search: users + groups, disabled accounts skipped'
+    & $A (($s.results | Where-Object { $_.id -eq 'g-dl' }).type -eq 'distributionList' -and ($s.results | Where-Object { $_.id -eq 'g-sec' }).type -eq 'group' -and ($s.results | Where-Object { $_.id -eq 'g-m365' }).type -eq 'group') 'Directory search: mail-enabled non-security group = distribution list; M365 group = group'
+    & $A ($s.results[0].type -eq 'user' -and $s.results[0].mail -eq 'bob@contoso.com') 'Directory search: users first, mail resolved'
+    $s = Search-WlDirectory -Query "O'Brien"
+    & $A (@($s.results).Count -eq 0 -and @($s.notices).Count -eq 1 -and $s.notices[0] -match 'Groups') 'Directory search: quotes escaped, missing group permission becomes a notice'
+    & $A (@((Search-WlDirectory -Query 'B').results).Count -eq 0) 'Directory search: needs at least two characters'
+    Remove-Item function:Invoke-WlGraph
 
     $env:WL_NOTIFY_WEBHOOK = 'https://example.invalid/hook'; $env:WL_NOTIFY_MIN_SEVERITY = 'High'
     $script:posted = $null
@@ -751,6 +795,7 @@ Write-Host '== Accepted risks and notifications' -ForegroundColor Cyan
         [pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'cccc3333' }, [pscustomobject]@{ collection = 'findings'; change = 'Changed'; key = 'eeee5555' })
     $n = Send-WlNotification -Module 'endpoint' -Changes $ch -Snapshot $snap
     & $A ($n -eq 1 -and @($script:posted.wardline.findings).Count -eq 1 -and $script:posted.wardline.findings[0].key -eq 'aaaa1111') 'Notification: only new findings >= High that are not accepted'
+    & $A ($script:posted.wardline.findings[0].assignee.mail -eq 'bob@contoso.com' -and $script:posted.attachments[0].content.body[1].text -match 'Bob <bob@contoso.com>') 'Notification: assignee included in payload and card'
     & $A ($script:posted.attachments[0].contentType -eq 'application/vnd.microsoft.card.adaptive' -and $script:posted.type -eq 'message') 'Notification: Teams adaptive card payload'
     $script:posted = $null
     $n = Send-WlNotification -Module 'endpoint' -Changes @([pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'bbbb2222' }) -Snapshot $snap
@@ -764,7 +809,7 @@ Write-Host '== Accepted risks and notifications' -ForegroundColor Cyan
     & $A (-not (Test-WlAcceptanceActive (@(Get-WlAcceptances | Where-Object { $_.key -eq 'cccc3333' })[0]))) 'Revoked acceptance is not active'
 } ${function:Assert}
 $log = $blobs['state/acceptances-log.json'] | ConvertFrom-Json
-Assert (@($log).Count -eq 2 -and $log[0].action -eq 'revoke' -and $log[1].action -eq 'accept') 'Acceptance audit log (accept, revoke)'
+Assert (@($log).Count -eq 8 -and $log[0].action -eq 'revoke' -and $log[-1].action -eq 'accept' -and @($log | Where-Object { $_.action -eq 'assign' }).Count -eq 3 -and $log[1].assignee.type -eq 'distributionList') 'Acceptance audit log (accept, revoke, assign with assignee)'
 
 Write-Host '== End-to-end: drift' -ForegroundColor Cyan
 $fixtures.settings['pol-win'][9] = (FxL "${p}excludedextensions" @('.log'))   # .ps1 removed
@@ -1188,6 +1233,26 @@ Assert (@($acc | Where-Object { $_.key -eq 'abcd1234' -and $_.active }).Count -e
 $r = Call 'acceptances/revoke' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body '{"key":"abcd1234"}'
 $r = Call 'acceptances' -Principal $adminP; $acc = ($r.Body | ConvertFrom-Json).acceptances
 Assert (@($acc | Where-Object { $_.key -eq 'abcd1234' -and -not $_.active -and $_.revokedBy }).Count -eq 1) 'Revoke via API'
+$r = Call 'acceptances' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = 'abcd1234'; kind = 'exclusion'; module = 'endpoint'; title = 'powershell.exe'; justification = 'Permanent: signed build tooling'; owner = 'Build team'; expires = $null } | ConvertTo-Json)
+Assert ([int]$r.StatusCode -eq 200 -and $null -eq ($r.Body | ConvertFrom-Json).acceptance.expires) 'POST acceptances: unlimited exception (expires null)'
+$r = Call 'acceptances' -Principal $adminP; $acc = ($r.Body | ConvertFrom-Json).acceptances
+Assert (@($acc | Where-Object { $_.key -eq 'abcd1234' -and $_.active -and $null -eq $_.expires }).Count -eq 1) 'GET acceptances: unlimited exception is active'
+$r = Call 'directory/search' -Principal $userP -Query @{ q = 'Ali' }; Assert ([int]$r.StatusCode -eq 403) 'directory/search: admins only'
+$r = Call 'directory/search' -Principal $adminP -Query @{ q = 'Ali' }; $ds = $r.Body | ConvertFrom-Json
+Assert ([int]$r.StatusCode -eq 200 -and @($ds.results).Count -eq 1 -and $ds.results[0].type -eq 'user' -and $ds.results[0].mail -eq 'alice@contoso.com') "directory/search finds Alice ($($r.Body))"
+$r = Call 'directory/search' -Principal $adminP -Query @{ q = 'Helpdesk' }; $ds = $r.Body | ConvertFrom-Json
+Assert (@($ds.results).Count -eq 2 -and @($ds.results | Where-Object { $_.type -eq 'group' }).Count -eq 2) 'directory/search finds groups'
+$r = Call 'assignments' -Method 'POST' -Principal $adminP -Body '{"key":"abcd1234","assignee":{"type":"email","mail":"ops@contoso.com"}}'
+Assert ([int]$r.StatusCode -eq 400) 'POST assignments without X-Wardline is rejected'
+$r = Call 'assignments' -Method 'POST' -Principal $userP -Headers @{ 'X-Wardline' = '1' } -Body '{}'; Assert ([int]$r.StatusCode -eq 403) 'Non-admin cannot assign'
+$r = Call 'assignments' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = 'abcd1234'; kind = 'exclusion'; module = 'endpoint'; title = 'powershell.exe'; assignee = @{ type = 'group'; id = 'g1'; displayName = 'Helpdesk-Team' }; note = 'Review' } | ConvertTo-Json)
+Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).assignment.assignee.type -eq 'group' -and ($r.Body | ConvertFrom-Json).assignment.assignedBy -eq 'u-alice@contoso.com') "POST assignments stores the assignment ($($r.Body))"
+$r = Call 'assignments' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body '{"key":"abcd1234","assignee":{"type":"email","mail":"nope"}}'; Assert ([int]$r.StatusCode -eq 400) 'Invalid assignee -> 400'
+$r = Call 'assignments' -Principal $adminP; Assert (@(($r.Body | ConvertFrom-Json).assignments | Where-Object { $_.key -eq 'abcd1234' }).Count -eq 1) 'GET assignments'
+$r = Call 'assignments/clear' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body '{"key":"abcd1234"}'
+$r = Call 'assignments' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and @(($r.Body | ConvertFrom-Json).assignments | Where-Object { $_.key -eq 'abcd1234' }).Count -eq 0) 'Clear assignment via API'
+$r = Call 'acceptances/log' -Principal $adminP; $lg = $r.Body | ConvertFrom-Json
+Assert ($lg[0].action -eq 'unassign' -and $lg[1].action -eq 'assign' -and $lg[1].assignee.displayName -eq 'Helpdesk-Team') 'Audit log via API includes assign/unassign'
 $env:WL_MODULES = $null
 $r = Call 'access' -Principal $adminP; Assert ([int]$r.StatusCode -eq 404) 'Default: access module off -> 404'
 $r = Call 'access/me' -Principal $userP; Assert ([int]$r.StatusCode -eq 404) 'Default: my access off -> 404'

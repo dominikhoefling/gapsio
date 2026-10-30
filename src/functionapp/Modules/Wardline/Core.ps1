@@ -747,9 +747,38 @@ function Get-WlAcceptances {
 function Test-WlAcceptanceActive {
     param($Acceptance, [datetime]$Now = [DateTime]::UtcNow)
     if (-not $Acceptance -or (Get-WlProp $Acceptance 'revokedAt')) { return $false }
+    $raw = [string](Get-WlProp $Acceptance 'expires')
+    if (-not $raw) { return $true }   # no expiry date = unlimited exception
     $exp = [datetime]::MinValue
-    if (-not [datetime]::TryParse([string](Get-WlProp $Acceptance 'expires'), [ref]$exp)) { return $false }
+    if (-not [datetime]::TryParse($raw, [ref]$exp)) { return $false }
     $exp.ToUniversalTime().Date.AddDays(1) -gt $Now
+}
+
+function ConvertTo-WlAssignee {
+    <#
+    .SYNOPSIS
+    Validates and normalises an assignee from the portal: an Entra user, a (security) group, a distribution list
+    or a manually entered e-mail address. Returns $null when nothing was assigned.
+    #>
+    param($Data)
+    if ($null -eq $Data) { return $null }
+    if ($Data -is [string]) { $Data = [pscustomobject]@{ type = 'email'; mail = $Data } }
+    $type = ([string](Get-WlProp $Data 'type')).Trim().ToLowerInvariant()
+    $mail = ([string](Get-WlProp $Data 'mail')).Trim()
+    $id = ([string](Get-WlProp $Data 'id')).Trim()
+    $name = ([string](Get-WlProp $Data 'displayName')).Trim()
+    if (-not $type -and -not $mail -and -not $id) { return $null }
+    $types = @{ 'user' = 'user'; 'group' = 'group'; 'distributionlist' = 'distributionList'; 'email' = 'email' }
+    if (-not $types.ContainsKey($type)) { throw [System.ArgumentException]::new('Assignee type must be user, group, distributionList or email.') }
+    $type = $types[$type]
+    if ($mail -and ($mail.Length -gt 320 -or $mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$')) { throw [System.ArgumentException]::new('The assignee e-mail address is not valid.') }
+    if ($type -eq 'email') { if (-not $mail) { throw [System.ArgumentException]::new('An e-mail address is required.') }; $id = ''; if (-not $name) { $name = $mail } }
+    else {
+        if ($id -notmatch '^[A-Za-z0-9._-]{1,64}$') { throw [System.ArgumentException]::new('A directory object id is required for a user or group assignee.') }
+        if (-not $name) { throw [System.ArgumentException]::new('A display name is required for a user or group assignee.') }
+    }
+    if ($name.Length -gt 200) { $name = $name.Substring(0, 200) }
+    [pscustomobject][ordered]@{ type = $type; id = $(if ($id) { $id } else { $null }); displayName = $name; mail = $(if ($mail) { $mail } else { $null }) }
 }
 
 function Set-WlAcceptance {
@@ -775,24 +804,111 @@ function Set-WlAcceptance {
         $owner = ([string](Get-WlProp $Data 'owner')).Trim()
         if ($just.Length -lt 10 -or $just.Length -gt 1000) { throw [System.ArgumentException]::new('A justification of 10–1000 characters is required.') }
         if (-not $owner -or $owner.Length -gt 200) { throw [System.ArgumentException]::new('An owner is required.') }
-        $exp = [datetime]::MinValue
-        if (-not [datetime]::TryParse([string](Get-WlProp $Data 'expires'), [ref]$exp)) { throw [System.ArgumentException]::new('A valid expiry date is required.') }
-        $exp = $exp.Date
-        if ($exp -le $now.Date -or $exp -gt $now.Date.AddDays(366)) { throw [System.ArgumentException]::new('The expiry date must be in the future and at most one year ahead.') }
+        $rawExp = ([string](Get-WlProp $Data 'expires')).Trim()
+        $expires = $null
+        if ($rawExp -and $rawExp -notin @('never', 'unlimited')) {
+            $exp = [datetime]::MinValue
+            if (-not [datetime]::TryParse($rawExp, [ref]$exp)) { throw [System.ArgumentException]::new('A valid expiry date is required (or none for an unlimited exception).') }
+            $exp = $exp.Date
+            if ($exp -le $now.Date -or $exp -gt $now.Date.AddYears(10)) { throw [System.ArgumentException]::new('The expiry date must be in the future and at most ten years ahead.') }
+            $expires = $exp.ToString('yyyy-MM-dd')
+        }
+        $assignee = ConvertTo-WlAssignee (Get-WlProp $Data 'assignee')
         $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
         $entry = [pscustomobject][ordered]@{
             key = $key; kind = (& $clip (Get-WlProp $Data 'kind') 30); module = (& $clip (Get-WlProp $Data 'module') 20)
             title = (& $clip (Get-WlProp $Data 'title') 300); justification = $just; owner = $owner; ticket = (& $clip (Get-WlProp $Data 'ticket') 100)
-            expires = $exp.ToString('yyyy-MM-dd'); acceptedBy = $By; acceptedAt = $now.ToString('o')
+            expires = $expires; assignee = $assignee; acceptedBy = $By; acceptedAt = $now.ToString('o')
         }
         $list.Add($entry); $action = 'accept'
     }
     Set-WlBlob -Container 'state' -Name 'acceptances.json' -Object @($list.ToArray())
+    Add-WlAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.justification; owner = $entry.owner; ticket = $entry.ticket; expires = $entry.expires; assignee = (Get-WlProp $entry 'assignee') })
+    $entry
+}
+
+function Add-WlAcceptanceLog {
+    <# .SYNOPSIS Prepends one entry to the audit log (state/acceptances-log.json), capped at 5000 entries. #>
+    param([Parameter(Mandatory)]$Entry)
     $log = [System.Collections.Generic.List[object]]::new()
-    $log.Add([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.justification; owner = $entry.owner; ticket = $entry.ticket; expires = $entry.expires })
+    $log.Add($Entry)
     try { foreach ($l in @(Get-WlBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } } } catch { }
     Set-WlBlob -Container 'state' -Name 'acceptances-log.json' -Object @($log.ToArray())
+}
+
+function Get-WlAssignments {
+    <#
+    .SYNOPSIS
+    Assignments (state/assignments.json): who is working on a finding or exclusion – an Entra user, a group, a
+    distribution list or a plain e-mail address. Independent of an exception: an item can be assigned and stay open.
+    #>
+    $a = @()
+    try { $a = @(Get-WlBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) } catch { }
+    $a
+}
+
+function Set-WlAssignment {
+    <#
+    .SYNOPSIS
+    Assigns (or with -Clear unassigns) a finding or exclusion. One assignment per key; every action is written to
+    the same audit log as the exceptions.
+    #>
+    param([Parameter(Mandatory)]$Data, [Parameter(Mandatory)][string]$By, [switch]$Clear)
+    $key = [string](Get-WlProp $Data 'key')
+    if ($key -notmatch '^[a-f0-9]{8,64}$') { throw [System.ArgumentException]::new('Invalid key.') }
+    $now = [DateTime]::UtcNow
+    $list = [System.Collections.Generic.List[object]]::new()
+    $existing = $null
+    foreach ($x in Get-WlAssignments) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
+    if ($Clear) {
+        if (-not $existing) { throw [System.ArgumentException]::new('No assignment for this key.') }
+        $entry = $existing; $action = 'unassign'
+    }
+    else {
+        $assignee = ConvertTo-WlAssignee (Get-WlProp $Data 'assignee')
+        if (-not $assignee) { throw [System.ArgumentException]::new('An assignee is required.') }
+        $entry = [pscustomobject][ordered]@{
+            key = $key; kind = (& $clip (Get-WlProp $Data 'kind') 30); module = (& $clip (Get-WlProp $Data 'module') 20)
+            title = (& $clip (Get-WlProp $Data 'title') 300); assignee = $assignee; note = (& $clip (Get-WlProp $Data 'note') 1000)
+            assignedBy = $By; assignedAt = $now.ToString('o')
+        }
+        $list.Add($entry); $action = 'assign'
+    }
+    Set-WlBlob -Container 'state' -Name 'assignments.json' -Object @($list.ToArray())
+    Add-WlAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.note; assignee = $entry.assignee })
     $entry
+}
+
+function Search-WlDirectory {
+    <#
+    .SYNOPSIS
+    People picker for assignments: users (User.ReadBasic.All), groups and distribution lists (GroupMember.Read.All)
+    whose name, UPN or e-mail starts with the query. Returns up to 10 of each; a missing permission yields an empty
+    list for that kind and a notice so the portal can fall back to a manual e-mail address.
+    #>
+    param([Parameter(Mandatory)][string]$Query)
+    $q = $Query.Trim()
+    if ($q.Length -lt 2 -or $q.Length -gt 100) { return [ordered]@{ results = @(); notices = @() } }
+    $esc = $q.Replace("'", "''")
+    $results = [System.Collections.Generic.List[object]]::new(); $notices = [System.Collections.Generic.List[string]]::new()
+    try {
+        $users = Invoke-WlGraph -Path "users?`$filter=startswith(displayName,'$esc') or startswith(userPrincipalName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,userPrincipalName,accountEnabled&`$top=10"
+        foreach ($u in @($users.value)) {
+            if ($u.PSObject.Properties['accountEnabled'] -and $u.accountEnabled -eq $false) { continue }
+            $results.Add([pscustomobject][ordered]@{ type = 'user'; id = [string]$u.id; displayName = [string]$u.displayName; mail = [string]($(if ($u.mail) { $u.mail } else { $u.userPrincipalName })) })
+        }
+    }
+    catch { $notices.Add("Users: $(Get-WlErrorText -Exception $_.Exception -Context 'User.ReadBasic.All')") }
+    try {
+        $groups = Invoke-WlGraph -Path "groups?`$filter=startswith(displayName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,mailEnabled,securityEnabled,groupTypes&`$top=10"
+        foreach ($g in @($groups.value)) {
+            $isDl = $g.mailEnabled -eq $true -and $g.securityEnabled -ne $true -and @($g.groupTypes) -notcontains 'Unified'
+            $results.Add([pscustomobject][ordered]@{ type = $(if ($isDl) { 'distributionList' } else { 'group' }); id = [string]$g.id; displayName = [string]$g.displayName; mail = $(if ($g.mail) { [string]$g.mail } else { $null }) })
+        }
+    }
+    catch { $notices.Add("Groups: $(Get-WlErrorText -Exception $_.Exception -Context 'GroupMember.Read.All')") }
+    [ordered]@{ results = @($results | Sort-Object { $_.type -ne 'user' }, displayName); notices = @($notices) }
 }
 #endregion
 
@@ -820,8 +936,10 @@ function Send-WlNotification {
             $f
         }) | Sort-Object { $order[[string]$_.severity] }
     if (-not $new.Count) { return $null }
+    $assigned = @{}; foreach ($a in Get-WlAssignments) { if ($a.assignee) { $assigned[[string]$a.key] = $a.assignee } }
+    $who = { param($f) $a = $assigned[[string]$f.key]; if ($a) { if ($a.mail) { "$($a.displayName) <$($a.mail)>" } else { [string]$a.displayName } } else { $null } }
     $portal = if ($env:WEBSITE_HOSTNAME) { "https://$($env:WEBSITE_HOSTNAME)/#/findings" } else { $null }
-    $lines = @($new | Select-Object -First 15 | ForEach-Object { "**$($_.severity)** · $(Get-WlProp $_.title 'en')$(if ($_.deviceName) { " · $($_.deviceName)" })" })
+    $lines = @($new | Select-Object -First 15 | ForEach-Object { "**$($_.severity)** · $(Get-WlProp $_.title 'en')$(if ($_.deviceName) { " · $($_.deviceName)" })$(if ($w = & $who $_) { " · → $w" })" })
     if ($new.Count -gt 15) { $lines += "… and $($new.Count - 15) more" }
     $title = "Wardline: $($new.Count) new finding(s) ($Module)"
     $body = @(@{ type = 'TextBlock'; text = $title; weight = 'Bolder'; size = 'Medium'; wrap = $true }) + @($lines | ForEach-Object { @{ type = 'TextBlock'; text = $_; wrap = $true; spacing = 'Small' } })
@@ -830,7 +948,7 @@ function Send-WlNotification {
     $payload = [ordered]@{
         type = 'message'; attachments = @(@{ contentType = 'application/vnd.microsoft.card.adaptive'; content = $card })
         # Plain fields for Power Automate or other receivers
-        wardline = [ordered]@{ module = $Module; title = $title; portal = $portal; findings = @($new | ForEach-Object { [ordered]@{ severity = $_.severity; category = $_.category; title = (Get-WlProp $_.title 'en'); device = $_.deviceName; key = $_.key } }) }
+        wardline = [ordered]@{ module = $Module; title = $title; portal = $portal; findings = @($new | ForEach-Object { [ordered]@{ severity = $_.severity; category = $_.category; title = (Get-WlProp $_.title 'en'); device = $_.deviceName; key = $_.key; assignee = $assigned[[string]$_.key] } }) }
     }
     try {
         Invoke-RestMethod -Method Post -Uri $url -ContentType 'application/json; charset=utf-8' -Body (ConvertTo-Json -InputObject $payload -Depth 12 -Compress) -TimeoutSec 20 | Out-Null

@@ -38,7 +38,9 @@ accepted) to a webhook:
 - **Teams**: create a workflow in the channel with the template *"Post to a channel when a webhook request is received"* and pass its URL.
   Wardline sends an Adaptive Card with the findings and a link to the portal.
 - **E-mail or anything else**: a Power Automate flow with the trigger *"When an HTTP request is received"* – the payload
-  also contains the plain field `wardline.findings` (severity, category, title, device).
+  also contains the plain field `wardline.findings` (severity, category, title, device, and `assignee` with `type`,
+  `displayName` and `mail` when the finding is [assigned](portal.md#exceptions-and-assignments) to someone). A flow can
+  use `assignee.mail` to notify the person, group or distribution list directly.
 
 ```powershell
 ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -NotifyWebhookUrl "https://…" -NotifyMinSeverity High
@@ -60,6 +62,6 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 
 | Container | Content |
 |---|---|
-| `state` | Current state per module, change history, run log, update info, accepted risks and their audit log |
+| `state` | Current state per module, change history, run log, update info, exceptions, assignments and their audit log |
 | `snapshots` | Dated snapshots of every run (optionally immutable) |
 | `config` | Your custom baseline (`mdav-baseline.json`) |

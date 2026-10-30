@@ -14,7 +14,7 @@
         'Get-WlHash', 'Get-WlSettingValues', 'Get-WlExclusionRisk', 'Get-WlIndicatorRisk',
         'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',
         'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlCollection',
-        'Get-WlModules', 'Test-WlModuleEnabled', 'Test-WlFeature', 'Get-WlVersion', 'Compare-WlVersion', 'Update-WlReleaseInfo', 'Get-WlAcceptances', 'Test-WlAcceptanceActive', 'Set-WlAcceptance', 'Send-WlNotification', 'Test-WlLicenseKey', 'Get-WlLicense', 'Set-WlLicense',
+        'Get-WlModules', 'Test-WlModuleEnabled', 'Test-WlFeature', 'Get-WlVersion', 'Compare-WlVersion', 'Update-WlReleaseInfo', 'Get-WlAcceptances', 'Test-WlAcceptanceActive', 'Set-WlAcceptance', 'Get-WlAssignments', 'Set-WlAssignment', 'Search-WlDirectory', 'Send-WlNotification', 'Test-WlLicenseKey', 'Get-WlLicense', 'Set-WlLicense',
         'Update-WlLocalExclusionState', 'Get-WlEndpointFindings', 'Test-WlBaseline'
     )
     CmdletsToExport   = @()
