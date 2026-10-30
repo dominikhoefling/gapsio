@@ -18,7 +18,8 @@ Set by the install script; change them in the Function App configuration or via 
 | `WL_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `WL_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
 | `WL_SCHEDULE_ACCESS` | `0 47 2 * * *` | Schedule of the access collection |
-| `WL_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-RetentionDays`) |
+| `WL_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-ChangeRetentionDays`) |
+| `WL_SNAPSHOT_RETENTION_DAYS` | `365` | Retention of the snapshots (`-SnapshotRetentionDays`); informational – the storage lifecycle rule enforces it |
 | `WL_DEVICE_INVENTORY` | `false` | Device inventory via Intune Remediations (`-DeviceInventory`) |
 | `WL_DEVICE_LOOKBACK_DAYS` | `7` | How far back device state is read from Advanced Hunting |
 | `WL_DATA_APP_ID` | – | Pre-created data-access app (workload identity federation) |

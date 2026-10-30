@@ -180,7 +180,20 @@
     // changes
     'ch.lede': ['What changed between two runs. Every run is also kept as a dated snapshot in your company’s storage account.', 'Was sich zwischen zwei Läufen verändert hat. Jeder Lauf wird zusätzlich als datierter Snapshot im Storage Account Ihres Unternehmens aufbewahrt.'],
     'ch.kind': ['Kind', 'Art'], 'ch.area': ['Area', 'Bereich'], 'ch.what': ['What', 'Was'], 'ch.before': ['Before', 'Vorher'], 'ch.after': ['After', 'Nachher'],
-    'ch.Added': ['Added', 'Neu'], 'ch.Changed': ['Changed', 'Geändert'], 'ch.Removed': ['Removed', 'Entfernt'],
+    'ch.Added': ['Added', 'Neu'], 'ch.Changed': ['Changed', 'Geändert'], 'ch.Removed': ['Removed', 'Entfernt'], 'ch.Other': ['Not broken down', 'Ohne Aufschlüsselung'],
+    'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
+    'ch.areas': ['By area', 'Nach Bereich'],
+    'chart.more': ['+ {0} more', '+ {0} weitere'], 'chart.total': ['Total: {0}', 'Gesamt: {0}'], 'chart.on': ['On', 'An'], 'chart.off': ['Off', 'Aus'],
+    'chart.na': ['Not applicable', 'Nicht anwendbar'], 'chart.unknown': ['Unknown', 'Unbekannt'], 'chart.share': ['{0} of {1} devices', '{0} von {1} Geräten'],
+    'chart.onShort': ['on', 'an'], 'chart.noRun': ['no run', 'kein Lauf'],
+    'd.glance': ['Protection at a glance', 'Schutz auf einen Blick'],
+    'd.glance.lede': ['Per Defender feature: on, off or unknown. Hover a segment for the devices, click it to filter the table.', 'Pro Defender-Funktion: an, aus oder unbekannt. Mouse-over zeigt die Geräte, ein Klick filtert die Tabelle.'],
+    'd.chartFilter': ['Chart selection', 'Diagramm-Auswahl'], 'd.platforms': ['Platforms', 'Plattformen'], 'd.runmode': ['Antivirus mode', 'Virenschutz-Modus'],
+    'd.sensorHealth': ['EDR sensor', 'EDR-Sensor'], 'd.sigs': ['Signatures current', 'Signaturen aktuell'],
+    'ov.trend': ['Trend (30 days)', 'Verlauf (30 Tage)'], 'ov.trend.findings': ['Open findings', 'Offene Befunde'], 'ov.trend.drift': ['Changes per day', 'Änderungen pro Tag'],
+    'ov.trend.none': ['The trend fills up with every run.', 'Der Verlauf füllt sich mit jedem Lauf.'], 'ov.trend.np': ['Network protection on', 'Netzwerkschutz an'],
+    'dv.np.EventsBlock': ['Network protection: derived from block events (no TVM assessment)', 'Netzwerkschutz: aus Block-Ereignissen abgeleitet (keine TVM-Bewertung)'],
+    'dv.np.EventsAudit': ['Network protection: only audit events – it runs in audit mode', 'Netzwerkschutz: nur Audit-Ereignisse – läuft im Überwachungsmodus'],
     'ch.none': ['No changes yet. Deviations are recorded here from the second run on.', 'Noch keine Änderungen. Ab dem zweiten Lauf werden Abweichungen hier festgehalten.'],
     'coll.policyExclusions': ['Exclusion (policy)', 'Exclusion (Richtlinie)'], 'coll.localExclusions': ['Exclusion (local)', 'Exclusion (lokal)'], 'coll.indicators': ['Indicator', 'Indikator'],
     'coll.devices': ['Device', 'Gerät'], 'coll.baseline': ['Baseline', 'Baseline'], 'coll.asrRules': ['ASR rule', 'ASR-Regel'], 'coll.asrGroups': ['ASR device group', 'ASR-Gerätegruppe'],
@@ -330,7 +343,7 @@
   }
 
   /** Table with search, optional filters, detail row and CSV export. */
-  function dataTable({ name, columns, rows, search, filters = [], detail, empty, sort }) {
+  function dataTable({ name, columns, rows, search, filters = [], detail, empty, sort, rowClass }) {
     const wrap = h('div');
     const q = h('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search.aria') });
     const filterEls = filters.map(f => {
@@ -362,7 +375,7 @@
       tbody.replaceChildren();
       const max = 1500;
       for (const r of current.slice(0, max)) {
-        const tr = h('tr', { class: detail ? 'clickable' : null, tabindex: detail ? '0' : null }, columns.map(c => h('td', null, c.cell ? c.cell(r) : c.text(r))));
+        const tr = h('tr', { class: [detail ? 'clickable' : '', rowClass ? rowClass(r) : ''].join(' ').trim() || null, tabindex: detail ? '0' : null }, columns.map(c => h('td', null, c.cell ? c.cell(r) : c.text(r))));
         if (detail) {
           const toggle = () => {
             const next = tr.nextElementSibling;
@@ -392,6 +405,191 @@
   function list(items) { return h('ul', null, arr(items).map(i => h('li', null, i))); }
   function tabs(view, items, active) {
     return h('div', { class: 'tabs', role: 'tablist' }, items.map(([id, label]) => h('button', { class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(id === active), onclick: () => { location.hash = `#/${view}?tab=${id}`; } }, label)));
+  }
+
+  // ---------- Charts: inline SVG, no library. Labels are always text nodes. ----------
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs, ...children) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'style') el.style.cssText = v;
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, String(v));
+    }
+    for (const c of children.flat(Infinity)) { if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c))); }
+    return el;
+  }
+  let tipEl = null;
+  function showTip(x, y, content) {
+    if (!tipEl) { tipEl = h('div', { class: 'chart-tip', role: 'tooltip' }); document.body.append(tipEl); }
+    tipEl.replaceChildren(...arr(content).flat().filter(Boolean));
+    tipEl.classList.add('show');
+    const w = tipEl.offsetWidth, ht = tipEl.offsetHeight, pad = 14;
+    let left = x + pad, top = y + pad;
+    if (left + w > window.innerWidth - 8) left = x - w - pad;
+    if (top + ht > window.innerHeight - 8) top = y - ht - pad;
+    tipEl.style.left = `${Math.max(8, left)}px`; tipEl.style.top = `${Math.max(8, top)}px`;
+  }
+  const hideTip = () => { if (tipEl) tipEl.classList.remove('show'); };
+  /** Hover, keyboard focus and click for one chart element. */
+  function interactive(el, content, onSelect) {
+    el.setAttribute('tabindex', '0');
+    el.addEventListener('mousemove', e => showTip(e.clientX, e.clientY, content()));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus', () => { const r = el.getBoundingClientRect(); showTip(r.right, r.top, content()); });
+    el.addEventListener('blur', hideTip);
+    if (onSelect) {
+      el.classList.add('selectable');
+      el.addEventListener('click', () => { hideTip(); onSelect(); });
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hideTip(); onSelect(); } });
+    }
+    return el;
+  }
+  function tipBody(title, lines, items) {
+    const max = 8, list = arr(items);
+    return [h('b', null, title), ...arr(lines).map(l => h('div', null, l)),
+      list.length ? h('ul', null, list.slice(0, max).map(i => h('li', null, i)), list.length > max ? h('li', { class: 'muted' }, t('chart.more', list.length - max)) : null) : null];
+  }
+  const pct = (a, b) => b ? Math.round((a / b) * 100) : 0;
+  /** Width available in the content area (views render off-DOM, so measure #main). */
+  function contentWidth() { const m = $('#main'); if (!m || !m.clientWidth) return 940; const cs = getComputedStyle(m); return m.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0); }
+
+  /** Donut: segments [{ id, label, value, color, items }]. Hover shows the items (e.g. device names), click selects. */
+  function donut({ title, segments, centre, sub, onSelect }) {
+    const segs = segments.filter(x => x.value > 0);
+    const total = segs.reduce((a, x) => a + x.value, 0);
+    const C = 50, R = 46, r = 31;
+    const pt = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
+    const arcPath = (a0, a1) => {
+      if (a1 - a0 > Math.PI * 2 - 1e-3) { const m = a0 + Math.PI; return `${arcPath(a0, m)}${arcPath(m, a0 + Math.PI * 2)}`; }
+      const large = a1 - a0 > Math.PI ? 1 : 0;
+      return `M${pt(R, a0)}A${R} ${R} 0 ${large} 1 ${pt(R, a1)}L${pt(r, a1)}A${r} ${r} 0 ${large} 0 ${pt(r, a0)}Z`;
+    };
+    const svg = sv('svg', { viewBox: '0 0 100 100', class: 'donut', role: 'img', 'aria-label': `${title}: ${segs.map(x => `${x.label} ${x.value}`).join(', ')}` });
+    if (!total) svg.append(sv('circle', { cx: C, cy: C, r: (R + r) / 2, fill: 'none', 'stroke-width': R - r, style: 'stroke:var(--rule)' }));
+    let a0 = -Math.PI / 2;
+    for (const x of segs) {
+      const a1 = a0 + (x.value / total) * Math.PI * 2;
+      const path = sv('path', { d: arcPath(a0, a1), class: segs.length === 1 ? 'seg full' : 'seg', style: `fill:${x.color}` });
+      svg.append(interactive(path, () => tipBody(`${title} · ${x.label}`, [t('chart.share', num(x.value), num(total)) + ` (${pct(x.value, total)} %)`], x.items), onSelect ? () => onSelect(x) : null));
+      a0 = a1;
+    }
+    svg.append(sv('text', { x: C, y: sub ? 50 : 54, 'text-anchor': 'middle', class: 'donut-centre' }, centre === undefined ? num(total) : centre));
+    if (sub) svg.append(sv('text', { x: C, y: 63, 'text-anchor': 'middle', class: 'donut-sub' }, sub));
+    const legend = h('ul', { class: 'chart-legend' }, segments.filter(x => x.value > 0 || x.always).map(x => {
+      const li = h('li', { style: `--c:${x.color}` }, h('span', null, x.label), h('b', null, num(x.value)));
+      if (onSelect && x.value > 0) { li.classList.add('selectable'); li.setAttribute('tabindex', '0'); li.addEventListener('click', () => onSelect(x)); li.addEventListener('keydown', e => { if (e.key === 'Enter') onSelect(x); }); }
+      return li;
+    }));
+    return h('figure', { class: 'chart donut-card' }, h('figcaption', { title }, title), svg, legend);
+  }
+
+  /** Stacked columns: buckets [{ id, label, title, values: { key: n }, items }]; keys [{ id, label, color }]. */
+  function columnChart({ title, buckets, keys, onSelect, note, width = 640 }) {
+    const W = Math.round(width), H = Math.round(Math.min(220, Math.max(150, width * 0.3))), padL = 34, padB = 24, padT = 8;
+    const sums = buckets.map(b => keys.reduce((a, k) => a + (Number(b.values && b.values[k.id]) || 0), 0));
+    const raw = Math.max(1, ...sums);
+    const step = Math.pow(10, Math.floor(Math.log10(raw)));
+    const max = [1, 2, 2.5, 5, 10].map(m => m * step).find(m => m >= raw) || raw;
+    const plotW = W - padL - 4, plotH = H - padB - padT;
+    const bw = plotW / Math.max(1, buckets.length);
+    const y = v => padT + plotH - (v / max) * plotH;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'columns', role: 'img', 'aria-label': `${title}: ${buckets.map((b, i) => `${b.label} ${sums[i]}`).join(', ')}` });
+    for (const v of [0, max / 2, max]) {
+      svg.append(sv('line', { x1: padL, x2: W - 4, y1: y(v), y2: y(v), class: 'grid' }), sv('text', { x: padL - 6, y: y(v) + 3.5, 'text-anchor': 'end', class: 'axis' }, num(Math.round(v * 10) / 10)));
+    }
+    const every = Math.ceil(buckets.length / (width < 600 ? 5 : 8));
+    buckets.forEach((b, i) => {
+      const x = padL + i * bw;
+      const g = sv('g', { class: 'col' });
+      let acc = 0;
+      for (const k of keys) {
+        const v = Number(b.values && b.values[k.id]) || 0;
+        if (!v) continue;
+        g.append(sv('rect', { x: x + bw * 0.15, width: Math.max(1, bw * 0.7), y: y(acc + v), height: Math.max(0.5, y(acc) - y(acc + v)), style: `fill:${k.color}` }));
+        acc += v;
+      }
+      if (b.empty) g.append(sv('line', { x1: x + bw * 0.2, x2: x + bw * 0.8, y1: y(0) - 1, y2: y(0) - 1, class: 'nodata' }));
+      const hit = sv('rect', { x, width: bw, y: padT, height: plotH, class: 'hit' });
+      g.append(hit);
+      interactive(hit, () => tipBody(b.title || b.label, b.empty ? [t('chart.noRun')] : [...keys.filter(k => b.values && b.values[k.id]).map(k => `${k.label}: ${num(b.values[k.id])}`), keys.length > 1 ? t('chart.total', num(sums[i])) : null].filter(Boolean), b.items), onSelect && sums[i] ? () => onSelect(b) : null);
+      svg.append(g);
+      if (i % every === 0 || (i === buckets.length - 1 && i % every >= every / 2)) svg.append(sv('text', { x: x + bw / 2, y: H - 6, 'text-anchor': 'middle', class: 'axis' }, b.label));
+    });
+    const legend = h('ul', { class: 'chart-legend inline' }, keys.map(k => h('li', { style: `--c:${k.color}` }, h('span', null, k.label))));
+    return h('figure', { class: 'chart columns-card' }, h('figcaption', null, title), svg, legend, note ? h('p', { class: 'muted small' }, note) : null);
+  }
+  /** Day keys (local yyyy-mm-dd) for the last n days, oldest first. */
+  function lastDays(n) {
+    const out = [], d = new Date(); d.setHours(12, 0, 0, 0);
+    for (let i = n - 1; i >= 0; i--) { const x = new Date(d); x.setDate(d.getDate() - i); out.push(dayKey(x)); }
+    return out;
+  }
+  function dayKey(v) { const d = v instanceof Date ? v : new Date(v); if (isNaN(d)) return ''; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  const dayShort = (k) => new Date(`${k}T12:00:00`).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+  const dayLong = (k) => new Date(`${k}T12:00:00`).toLocaleDateString(locale(), { dateStyle: 'full' });
+  const DRIFT_KEYS = () => [
+    { id: 'Added', label: code('ch', 'Added'), color: 'var(--sev-ok)' },
+    { id: 'Changed', label: code('ch', 'Changed'), color: 'var(--sev-mittel)' },
+    { id: 'Removed', label: code('ch', 'Removed'), color: 'var(--sev-krit)' }];
+
+  /** Before/after with the differing parts marked (separators ; and , keep their place). */
+  function diffParts(before, after) {
+    const split = (v) => String(v || '').split(/(;\s*|,\s*)/);
+    const sep = (x) => !x || /^[;,]\s*$/.test(x);
+    const bag = (parts) => { const m = new Map(); parts.forEach(x => { if (!sep(x)) m.set(x, (m.get(x) || 0) + 1); }); return m; };
+    const mark = (parts, other, cls) => parts.map(x => { if (sep(x)) return x; const n = other.get(x) || 0; if (n > 0) { other.set(x, n - 1); return x; } return h('mark', { class: cls }, x); });
+    const b = split(before), a = split(after);
+    return { before: mark(b, bag(a), 'del'), after: mark(a, bag(b), 'ins') };
+  }
+  function changeCells(r) {
+    if (r.change === 'Added') return { before: h('span', { class: 'muted' }, '–'), after: h('span', { class: 'diff ins-all' }, r.after || '–') };
+    if (r.change === 'Removed') return { before: h('span', { class: 'diff del-all' }, r.before || '–'), after: h('span', { class: 'muted' }, '–') };
+    const d = diffParts(r.before, r.after);
+    return { before: h('span', { class: 'diff' }, d.before), after: h('span', { class: 'diff' }, d.after) };
+  }
+  const changeKind = (r) => h('span', { class: `chg chg-${r.change}` }, code('ch', r.change));
+
+  /** Overview: open findings and drift per day over the last 30 days, from the run index. */
+  function trendCharts(runs, avail) {
+    const chartW = avail && avail > 760 ? (avail - 14) / 2 - 30 : Math.max(340, (avail || 700) - 30);
+    const days = lastDays(30);
+    const withFindings = runs.filter(r => r.findings && (r.module === 'endpoint' || r.module === 'agents'));
+    if (!runs.length) return null;
+    // Open findings: the last run of each module per day, carried forward over days without a run
+    const perModule = {};
+    for (const r of [...withFindings].sort((a, b) => String(a.at).localeCompare(String(b.at)))) (perModule[r.module] = perModule[r.module] || {})[dayKey(r.at)] = r.findings;
+    const last = {};
+    const fBuckets = days.map(k => {
+      const values = {}; let any = false;
+      for (const m of Object.keys(perModule)) {
+        if (perModule[m][k]) last[m] = perModule[m][k];
+        else if (!last[m]) { const before = Object.keys(perModule[m]).filter(d => d < k).sort().pop(); if (before) last[m] = perModule[m][before]; }
+        if (last[m]) { any = true; for (const sv2 of SEV) values[sv2] = (values[sv2] || 0) + (Number(last[m][sv2]) || 0); }
+      }
+      return { id: k, label: dayShort(k), title: dayLong(k), values, empty: !any };
+    });
+    const dBuckets = days.map(k => {
+      const values = {}; const mods = {};
+      for (const r of runs.filter(x => dayKey(x.at) === k)) {
+        const d = r.drift || {};
+        let known = 0;
+        for (const key of ['Added', 'Changed', 'Removed']) { values[key] = (values[key] || 0) + (Number(d[key]) || 0); known += Number(d[key]) || 0; }
+        const rest = Math.max(0, (Number(r.changes) || 0) - known); if (rest) values.Other = (values.Other || 0) + rest;
+        if (r.changes) mods[r.module] = (mods[r.module] || 0) + Number(r.changes);
+      }
+      const top = Object.entries(mods).sort((a, b) => b[1] - a[1])[0];
+      return { id: k, label: dayShort(k), title: dayLong(k), values, module: top ? top[0] : 'endpoint', items: Object.entries(mods).map(([m, n]) => `${code('mod', m)}: ${num(n)}`) };
+    });
+    const out = h('div', { class: 'trend' });
+    if (withFindings.length) out.append(columnChart({ width: chartW, title: t('ov.trend.findings'), buckets: fBuckets, keys: SEV.map(x => ({ id: x, label: code('sev', x), color: `var(${SEV_VAR[x]})` })), onSelect: () => { location.hash = '#/findings'; } }));
+    out.append(columnChart({
+      width: chartW, title: t('ov.trend.drift'), buckets: dBuckets, keys: [...DRIFT_KEYS(), ...(dBuckets.some(b => b.values.Other) ? [{ id: 'Other', label: code('ch', 'Other'), color: 'var(--muted)' }] : [])],
+      onSelect: b => { location.hash = `#/changes?module=${b.module}&day=${b.id}`; }
+    }));
+    if (!withFindings.length) out.append(h('p', { class: 'muted small' }, t('ov.trend.none')));
+    return out;
   }
 
   // ---------- Loading data ----------
@@ -542,6 +740,8 @@
       }
 
       const runs = await api('runs').catch(() => []);
+      const trend = trendCharts(arr(runs), contentWidth());
+      if (trend) main.append(h('h2', null, t('ov.trend')), trend);
       if (arr(runs).length) {
         main.append(h('h2', null, t('ov.runs')), dataTable({
           name: 'runs', rows: arr(runs).slice(0, 20), search: r => r.module,
@@ -711,10 +911,30 @@
       const problem = r => Object.values(r.checks || {}).includes('BAD') || (r.avMode && r.avMode !== '0') || r.localExclusions > 0 || r.exclusionAlerts > 0 || r.asrBelowMinimum > 0;
       const asrName = {}; arr(ep.asrCatalog).forEach(x => { asrName[x.id] = x.name; });
       const modeText = (r) => L[`mode.${r.avModeText}`] ? t(`mode.${r.avModeText}`) : (r.avModeText || '–');
-      main.append(dataTable({
+
+      // Charts: one donut per protection feature (+ platform, antivirus mode, sensor, signatures)
+      const onOff = (v) => v === 'GOOD' ? 'on' : v === 'BAD' ? 'off' : v === 'N/A' ? 'na' : 'unknown';
+      const STATE_SEGS = [['on', 'chart.on', 'var(--sev-ok)'], ['off', 'chart.off', 'var(--sev-krit)'], ['na', 'chart.na', 'var(--rule)'], ['unknown', 'chart.unknown', 'var(--muted)']];
+      const PALETTE = ['var(--accent)', 'var(--sev-niedrig)', 'var(--sev-mittel)', 'var(--sev-hoch)', 'var(--ink-2)', 'var(--muted)', 'var(--rule-strong)'];
+      const modeClass = (r) => r.avMode === '0' ? 'Active' : r.avMode === '4' ? 'EdrBlock' : r.avMode === '1' || r.avMode === '2' ? 'Passive' : 'Unknown';
+      const sigState = (r) => /^(true|1)$/i.test(String(r.signatureUpToDate)) ? 'on' : /^(false|0)$/i.test(String(r.signatureUpToDate)) ? 'off' : 'unknown';
+      const sensorState = (r) => !r.sensorHealth ? 'unknown' : /^active$/i.test(r.sensorHealth) ? 'on' : 'off';
+      const FEATURES = ['TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode'];
+      const charts = [
+        ...FEATURES.map(k => ({ id: k, title: code('chk', k), get: r => onOff(c(r, k)), segs: STATE_SEGS, rate: true })),
+        { id: 'sig', title: t('d.sigs'), get: sigState, segs: STATE_SEGS, rate: true },
+        { id: 'sensor', title: t('d.sensorHealth'), get: sensorState, segs: [['on', 'chart.on', 'var(--sev-ok)'], ['off', 'problem', 'var(--sev-krit)'], ['unknown', 'chart.unknown', 'var(--muted)']], rate: true, label: (r) => r.sensorHealth },
+        { id: 'mode', title: t('d.runmode'), get: modeClass, segs: [['Active', 'mode.Active', 'var(--sev-ok)'], ['EdrBlock', 'mode.EdrBlock', 'var(--sev-hoch)'], ['Passive', 'mode.Passive', 'var(--sev-krit)'], ['Unknown', 'mode.Unknown', 'var(--muted)']] },
+        { id: 'os', title: t('d.platforms'), get: r => r.os || '–', segs: [...new Set(rows.map(r => r.os || '–'))].sort().map((o, i) => [o, null, PALETTE[i % PALETTE.length]]) }];
+      const chartOptions = [];
+      charts.forEach(ch => ch.segs.forEach(([id, lk]) => chartOptions.push({ value: `${ch.id}|${id}`, label: `${ch.title}: ${lk ? t(lk) : id}` })));
+      const chartTest = (r, v) => { const [cid, sid] = v.split('|'); const ch = charts.find(x => x.id === cid); return ch ? ch.get(r) === sid : true; };
+
+      const table = dataTable({
         name: 'devices', rows, sort: (a, b) => (problem(b) - problem(a)) || String(a.deviceName).localeCompare(String(b.deviceName)),
         search: r => `${r.deviceName} ${r.os} ${r.deviceGroup || ''}`,
         filters: [
+          { label: t('d.chartFilter'), options: chartOptions, test: chartTest },
           { label: t('d.platform'), options: [...new Set(rows.map(r => r.os).filter(Boolean))].sort(), test: (r, v) => r.os === v },
           { label: t('d.group'), options: [...new Set(rows.map(r => r.deviceGroup).filter(Boolean))].sort(), test: (r, v) => r.deviceGroup === v },
           { type: 'check', label: t('d.onlyIssues'), test: problem }],
@@ -735,7 +955,29 @@
           [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${code('chk', k)}: ${v === 'GOOD' ? t('ok') : v === 'BAD' ? t('problem') : t('na')}`))],
           [t('d.asr'), r.asr ? list(Object.entries(r.asr).map(([k, v]) => `${asrName[k] || k}: ${v === 'n/a' ? t('na') : code('asr', v)}`)) : null]]),
         empty: t('d.none')
-      }));
+      });
+      if (rows.length) {
+        const chartSel = table.querySelector('select');
+        const select = (cid, sid) => { chartSel.value = `${cid}|${sid}`; chartSel.dispatchEvent(new Event('change')); table.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+        const cards = charts.map(ch => {
+          const groups = {};
+          for (const r of rows) (groups[ch.get(r)] = groups[ch.get(r)] || []).push(r);
+          const segments = ch.segs.map(([id, lk, color]) => ({
+            id, label: lk ? t(lk) : id, color, value: (groups[id] || []).length,
+            items: (groups[id] || []).map(r => `${r.deviceName}${ch.label && ch.label(r) ? ` (${ch.label(r)})` : ''}`).sort()
+          }));
+          // Share of devices with the feature on – unknown counts against it, not applicable does not count
+          const on = (groups.on || groups.Active || []).length, base = rows.length - (groups.na || []).length;
+          const known = rows.length - (groups.unknown || groups.Unknown || []).length - (groups.na || []).length;
+          return donut({
+            title: ch.title, segments, centre: ch.rate || ch.id === 'mode' ? (known ? `${pct(on, base)} %` : '–') : num(rows.length),
+            sub: !(ch.rate || ch.id === 'mode') ? t('v.devices') : !known ? t('chart.unknown') : ch.id === 'mode' ? t('mode.Active').toLowerCase() : t('chart.onShort'),
+            onSelect: x => select(ch.id, x.id)
+          });
+        });
+        main.append(h('h2', null, t('d.glance')), h('p', { class: 'muted small' }, t('d.glance.lede')), h('div', { class: 'glance' }, cards));
+      }
+      main.append(table);
     },
 
     async device(main, params) {
@@ -760,7 +1002,8 @@
 
       const order = ['AntivirusEnabled', 'RealtimeProtection', 'BehaviorMonitoring', 'CloudProtection', 'PUAProtection', 'TamperProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode', 'AntivirusSignatureVersion', 'SensorEnabled', 'ImpairedCommunications', 'PassiveModeOff'];
       const checks = Object.keys(d.checks || {}).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
-      main.append(h('h2', null, t('dv.protection')), checks.length ? h('div', { class: 'checks' }, checks.map(k => h('div', { class: 'check-item' }, checkCell(d.checks[k]), ' ', code('chk', k)))) : h('p', { class: 'muted' }, t('dv.none')));
+      main.append(h('h2', null, t('dv.protection')), checks.length ? h('div', { class: 'checks' }, checks.map(k => h('div', { class: 'check-item' }, checkCell(d.checks[k]), ' ', code('chk', k)))) : h('p', { class: 'muted' }, t('dv.none')),
+        d.networkProtectionSource ? h('p', { class: 'muted small' }, t(`dv.np.${d.networkProtectionSource}`)) : null);
 
       const cat = {}; arr(ep.asrCatalog).forEach(x => { cat[x.id] = x; });
       const rules = arr(ep.asrRules);
@@ -813,7 +1056,9 @@
       const mine = changes.filter(c => JSON.stringify(c.label || '').includes(d.deviceName)).slice(0, 50);
       main.append(h('h2', null, t('dv.changes')), mine.length ? dataTable({
         name: `changes-${d.deviceName}`, rows: mine, search: r => tx(r.label),
-        columns: [{ title: t('col.time'), text: r => fmtDate(r.at) }, { title: t('ch.kind'), text: r => code('ch', r.change) }, { title: t('ch.what'), text: r => tx(r.label) }, { title: t('ch.after'), text: r => r.after || '–' }]
+        rowClass: r => `chg-row chg-row-${r.change}`,
+        columns: [{ title: t('col.time'), text: r => fmtDate(r.at) }, { title: t('ch.kind'), cell: changeKind, text: r => code('ch', r.change) }, { title: t('ch.what'), text: r => tx(r.label) },
+          { title: t('ch.before'), cell: r => changeCells(r).before, text: r => r.before || '–' }, { title: t('ch.after'), cell: r => changeCells(r).after, text: r => r.after || '–' }]
       }) : h('p', { class: 'muted' }, t('dv.none')));
     },
 
@@ -1168,21 +1413,47 @@
       let rows; try { rows = state.changes[mod] || (state.changes[mod] = await api(`changes?module=${mod}`)); } catch (e) { main.append(noData(e, mod)); return; }
       rows = arr(rows);
       const area = (r) => code('coll', r.collection);
-      main.append(dataTable({
+      const days = [...new Set(rows.map(r => dayKey(r.at)).filter(Boolean))].sort().reverse();
+      const table = dataTable({
         name: `changes-${mod}`, rows,
         search: r => `${tx(r.label)} ${r.before || ''} ${r.after || ''}`,
         filters: [
+          { label: t('ch.day'), options: days, optionLabel: dayShort, test: (r, v) => dayKey(r.at) === v },
           { label: t('ch.kind'), options: ['Added', 'Changed', 'Removed'], optionLabel: c => code('ch', c), test: (r, v) => r.change === v },
           { label: t('ch.area'), options: [...new Set(rows.map(r => r.collection))].sort(), optionLabel: c => code('coll', c), test: (r, v) => r.collection === v }],
+        rowClass: r => `chg-row chg-row-${r.change}`,
         columns: [
           { title: t('col.time'), text: r => fmtDate(r.at) },
-          { title: t('ch.kind'), text: r => code('ch', r.change) },
+          { title: t('ch.kind'), cell: changeKind, text: r => code('ch', r.change) },
           { title: t('ch.area'), text: area },
           { title: t('ch.what'), text: r => tx(r.label) },
-          { title: t('ch.before'), text: r => r.before || '–' },
-          { title: t('ch.after'), text: r => r.after || '–' }],
+          { title: t('ch.before'), cell: r => changeCells(r).before, text: r => r.before || '–' },
+          { title: t('ch.after'), cell: r => changeCells(r).after, text: r => r.after || '–' }],
         empty: t('ch.none')
-      }));
+      });
+      if (rows.length) {
+        // Changes per day: from the first change (at least 14, at most 90 days)
+        const first = days.length ? days[days.length - 1] : dayKey(new Date());
+        const span = Math.min(90, Math.max(14, Math.round((Date.now() - new Date(`${first}T12:00:00`)) / 864e5) + 1));
+        const byDay = {};
+        for (const r of rows) {
+          const k = dayKey(r.at); if (!k) continue;
+          const b = byDay[k] || (byDay[k] = { values: {}, areas: {} });
+          b.values[r.change] = (b.values[r.change] || 0) + 1;
+          b.areas[r.collection] = (b.areas[r.collection] || 0) + 1;
+        }
+        const buckets = lastDays(span).map(k => ({
+          id: k, label: dayShort(k), title: dayLong(k), values: (byDay[k] || {}).values || {},
+          items: Object.entries((byDay[k] || {}).areas || {}).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${code('coll', c)}: ${num(n)}`)
+        }));
+        const daySel = table.querySelector('select');
+        main.append(columnChart({
+          width: Math.max(480, contentWidth() - 30), title: t('ch.chart'), buckets, keys: DRIFT_KEYS(), note: t('ch.chart.hint'),
+          onSelect: b => { daySel.value = b.id; daySel.dispatchEvent(new Event('change')); table.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }));
+      }
+      main.append(table);
+      if (params.get('day') && days.includes(params.get('day'))) { const sel = table.querySelector('select'); sel.value = params.get('day'); sel.dispatchEvent(new Event('change')); }
     }
   };
 

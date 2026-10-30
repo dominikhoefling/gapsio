@@ -20,6 +20,35 @@ $data = [ordered]@{
     acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }
     'acceptances/log' = @(& $read 'acceptances-log.json')
 }
+# Demo: 30 days of history so the trend and drift charts have something to show
+$rand = [Random]::new(42)
+$now = [DateTime]::UtcNow
+$latestEp = @($data.runs | Where-Object { $_.module -eq 'endpoint' -and $_.findings })[0]
+$latestAg = @($data.runs | Where-Object { $_.module -eq 'agents' -and $_.findings })[0]
+$hist = [System.Collections.Generic.List[object]]::new()
+foreach ($d in 1..29) {
+    $day = $now.Date.AddDays(-$d).AddHours(2).AddMinutes(17)
+    foreach ($src in @($latestEp, $latestAg)) {
+        if (-not $src) { continue }
+        $f = [ordered]@{}
+        foreach ($sev in 'Critical', 'High', 'Medium', 'Low') { $f[$sev] = [Math]::Max(0, [int]$src.findings.$sev + [int][Math]::Floor($d / 9) + $rand.Next(-1, 2)) }
+        $drift = [ordered]@{ Added = $rand.Next(0, 4); Changed = $rand.Next(0, 6); Removed = $rand.Next(0, 3) }
+        if ($rand.Next(0, 5) -eq 0) { $drift = [ordered]@{ Added = 0; Changed = 0; Removed = 0 } }
+        $hist.Add([pscustomobject]@{ module = $src.module; at = $day.AddMinutes($(if ($src.module -eq 'agents') { 15 } else { 0 })).ToString('o'); durationSec = $rand.Next(40, 140)
+                changes = $drift.Added + $drift.Changed + $drift.Removed; drift = $drift; findings = $f; protection = $src.protection; warnings = 0; snapshot = '' })
+    }
+}
+$data.runs = @($data.runs) + @($hist)
+$tmpl = @($data.changes | Where-Object { $_ })
+if ($tmpl.Count) {
+    $extra = foreach ($r in $hist | Where-Object { $_.module -eq 'endpoint' }) {
+        foreach ($kind in 'Added', 'Changed', 'Removed') {
+            $pool = @($tmpl | Where-Object { $_.change -eq $kind }); if (-not $pool.Count) { $pool = $tmpl }
+            for ($i = 0; $i -lt [int]$r.drift.$kind; $i++) { $c = $pool[$rand.Next(0, $pool.Count)] | ConvertTo-Json -Depth 10 | ConvertFrom-Json; $c.at = $r.at; $c.change = $kind; $c }
+        }
+    }
+    $data.changes = @($data.changes) + @($extra)
+}
 # Demo: one active acceptance (hygiene finding) to show the accepted-risk workflow
 $hyg = @($data.endpoint.findings | Where-Object { $_.category -eq 'Hygiene' })[0]
 if ($hyg) {

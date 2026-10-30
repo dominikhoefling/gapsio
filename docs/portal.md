@@ -21,6 +21,25 @@ App Service Authentication (Entra ID).
 
 Every table can be filtered and exported as CSV. Device names link to the device page.
 
+## Charts
+
+- **Overview › Trend (30 days)**: open findings per severity (accepted ones excluded) and changes per day (added, changed,
+  removed). Click a day to open the changes of that day.
+- **Devices › Protection at a glance**: one donut per Defender feature – tamper, real-time, cloud, behaviour and PUA
+  protection, network protection, controlled folder access, EDR in block mode, signatures, EDR sensor, antivirus mode and
+  platforms. The centre shows the share of devices with the feature on (unknown counts against it, not applicable does
+  not count). Hover a segment to see the devices, click it to filter the device table.
+- **History › Changes**: changes per day with details per area on hover; a click filters the table to that day.
+
+Charts are plain SVG rendered by the portal – no external library, nothing leaves the browser. The trend fills up with
+every run from this version on; changes per day also use the existing change history.
+
+## Change history
+
+Every change is colour-coded: **green** = added, **red** = removed, **amber** = changed. For changed items the parts of
+*Before* that are gone are marked red and struck through, the new parts in *After* green – so a device going from
+`NetworkProtection=GOOD` to `NetworkProtection=BAD` is visible at a glance.
+
 ## Accepted risks
 
 Administrators can **accept** a finding or an exclusion (in its detail row): justification, owner, optional ticket and an

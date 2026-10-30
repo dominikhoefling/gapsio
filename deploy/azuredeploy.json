@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "4888708790166354774"
+      "templateHash": "13442538837835705750"
     }
   },
   "parameters": {
@@ -87,7 +87,25 @@
       "minValue": 30,
       "maxValue": 3650,
       "metadata": {
-        "description": "Retention of snapshots and change history in days."
+        "description": "Retention of snapshots and change history in days (used when the specific values below are 0)."
+      }
+    },
+    "snapshotRetentionDays": {
+      "type": "int",
+      "defaultValue": 0,
+      "minValue": 0,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention of dated snapshots in days (storage lifecycle and immutability period). 0 = retentionDays."
+      }
+    },
+    "changeRetentionDays": {
+      "type": "int",
+      "defaultValue": 0,
+      "minValue": 0,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention of the change history (drift between runs) in days. 0 = retentionDays."
       }
     },
     "enableImmutability": {
@@ -207,6 +225,8 @@
     }
   },
   "variables": {
+    "snapshotDays": "[if(greater(parameters('snapshotRetentionDays'), 0), parameters('snapshotRetentionDays'), parameters('retentionDays'))]",
+    "changeDays": "[if(greater(parameters('changeRetentionDays'), 0), parameters('changeRetentionDays'), parameters('retentionDays'))]",
     "suffix": "[uniqueString(resourceGroup().id, parameters('namePrefix'))]",
     "cleanPrefix": "[toLower(replace(parameters('namePrefix'), '-', ''))]",
     "storageName": "[if(empty(parameters('customStorageAccountName')), take(format('{0}{1}', variables('cleanPrefix'), variables('suffix')), 24), toLower(parameters('customStorageAccountName')))]",
@@ -293,7 +313,7 @@
       "apiVersion": "2023-05-01",
       "name": "[format('{0}/default/snapshots/default', variables('storageName'))]",
       "properties": {
-        "immutabilityPeriodSinceCreationInDays": "[parameters('retentionDays')]",
+        "immutabilityPeriodSinceCreationInDays": "[variables('snapshotDays')]",
         "allowProtectedAppendWrites": false
       },
       "dependsOn": [
@@ -343,7 +363,7 @@
                       "daysAfterModificationGreaterThan": 30
                     },
                     "delete": {
-                      "daysAfterModificationGreaterThan": "[parameters('retentionDays')]"
+                      "daysAfterModificationGreaterThan": "[variables('snapshotDays')]"
                     }
                   }
                 }
@@ -537,7 +557,11 @@
             },
             {
               "name": "WL_CHANGE_RETENTION_DAYS",
-              "value": "[string(parameters('retentionDays'))]"
+              "value": "[string(variables('changeDays'))]"
+            },
+            {
+              "name": "WL_SNAPSHOT_RETENTION_DAYS",
+              "value": "[string(variables('snapshotDays'))]"
             },
             {
               "name": "WL_DEVICE_INVENTORY",

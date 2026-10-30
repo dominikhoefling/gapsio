@@ -33,7 +33,7 @@ function New-WlDevice {
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null
-        checks = [ordered]@{}; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
+        checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
     }
 }
 
@@ -431,6 +431,22 @@ DeviceTvmSecureConfigurationAssessment
         if (-not $name) { continue }
         $result = if (-not [bool]$r.IsApplicable) { 'N/A' } elseif ([bool]$r.IsCompliant) { 'GOOD' } else { 'BAD' }
         if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
+    }
+
+    # Network protection: when TVM has no assessment for a device, its network protection events (30 days) show that it
+    # is on – blocking (GOOD) or audit only (BAD). Devices without events stay unknown.
+    $qNp = @"
+// WardlineNetworkProtection
+DeviceEvents
+| where ActionType in ("ExploitGuardNetworkProtectionBlocked", "ExploitGuardNetworkProtectionAudited")
+| summarize Blocked = countif(ActionType endswith "Blocked"), Audited = countif(ActionType endswith "Audited"), Last = max(Timestamp) by DeviceId
+"@
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qNp -Context 'Advanced Hunting network protection events')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if (-not $devices.ContainsKey($id) -or $devices[$id].checks.Contains('NetworkProtection')) { continue }
+        $devices[$id].checks['NetworkProtection'] = if ([int]$r.Blocked -gt 0) { 'GOOD' } else { 'BAD' }
+        $devices[$id].networkProtectionSource = if ([int]$r.Blocked -gt 0) { 'EventsBlock' } else { 'EventsAudit' }
     }
 
     $qInfoG = @"
