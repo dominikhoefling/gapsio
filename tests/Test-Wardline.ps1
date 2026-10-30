@@ -263,8 +263,10 @@ $hunting = @{
     )
     TvmMac = @(
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; ConfigurationId = 'scid-5001'; ConfigurationName = 'Turn on tamper protection'; IsApplicable = $true; IsCompliant = $false },
-        [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; ConfigurationId = 'scid-5002'; ConfigurationName = 'Enable real-time protection'; IsApplicable = $true; IsCompliant = $true }
+        [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; ConfigurationId = 'scid-5002'; ConfigurationName = 'Enable real-time protection'; IsApplicable = $true; IsCompliant = $true },
+        [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; ConfigurationId = 'scid-5003'; ConfigurationName = 'Grant Full Disk Access to Microsoft Defender'; IsApplicable = $true; IsCompliant = $true }
     )
+    AgentVersions = @([pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; SoftwareVersion = '101.2510.0001' })
     Info = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25090.3'; AvEngVer = '1.1.25090.2'; AvSigVer = '1.435.100.0'; AvSigTime = (T 0) },
         [pscustomobject]@{ DeviceId = 'd-win2'; AvMode = '1'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25040.1'; AvEngVer = '1.1.25040.1'; AvSigVer = '1.430.10.0'; AvSigTime = (T 10) },
@@ -543,6 +545,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             elseif ($q -match 'DeviceRegistryEvents') { $script:Hunt.Registry }
             elseif ($q -match 'MpPreference') { $script:Hunt.Ps }
             elseif ($q -match 'DeviceProcessEvents') { $script:Hunt.Process }
+            elseif ($q -match 'DeviceTvmSoftwareInventory') { $script:Hunt.AgentVersions }
             elseif ($q -match 'DeviceTvmSecureConfigurationAssessmentKB') { $script:Hunt.TvmMac }
             elseif ($q -match 'DeviceTvmSecureConfigurationAssessment') { $script:Hunt.Tvm }
             elseif ($q -match 'DeviceTvmInfoGathering') { $script:Hunt.Info }
@@ -1114,6 +1117,35 @@ Write-Host '== Response readiness (unit)' -ForegroundColor Cyan
     & $A (@(Get-WlResponseFindings -Facts ([pscustomobject]@{ actions = @(); alerts = @() }) -WindowsDevices 10).Count -eq 0) 'Response: small fleet -> no readiness finding'
     & $A (@(Get-WlResponseFindings -Facts $null -WindowsDevices 50).Count -eq 0) 'Response: feature off -> nothing'
 } ${function:Assert} ${function:T}
+
+Write-Host '== macOS/Linux platform (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $devs = @{}
+    $mk = { param($id, $os, $ver, $mb, $checks) $d = New-WlDevice -Id $id -Name $id -Os $os; $d.agentVersion = $ver; $d.managedBy = $mb; foreach ($k in $checks.Keys) { $d.checks[$k] = $checks[$k] }; $devs[$id] = $d }
+    & $mk 'MAC-A' 'macOS' '101.2510.0001' 'Intune' @{ FullDiskAccess = 'GOOD'; SystemExtensions = 'GOOD' }
+    & $mk 'MAC-B' 'macOS' '101.2503.0002' 'Jamf' @{ FullDiskAccess = 'BAD'; SystemExtensions = 'GOOD' }
+    & $mk 'MAC-C' 'macOS' '101.2509.0001' 'Jamf' @{ FullDiskAccess = 'GOOD'; SystemExtensions = 'BAD' }
+    & $mk 'LNX-A' 'Linux' '101.2509.0000' $null @{}
+    & $mk 'LNX-B' 'Linux' '101.2406.0000' $null @{}
+    & $mk 'WIN-A' 'Windows11' $null 'Intune' @{}
+    $pols = @([pscustomobject]@{ id = 'p1'; name = 'Mac AV'; platforms = 'macOS' })
+    $r = @(Get-WlPlatformFindings -Devices $devs -Policies $pols)
+    & $A (@($r | Where-Object { $_.category -ne 'Platform' }).Count -eq 0) 'Platform: all findings in category Platform'
+    & $A (@($r | Where-Object { $_.title.en -eq 'Defender on macOS without Full Disk Access' -and $_.deviceName -eq 'MAC-B' -and $_.severity -eq 'High' }).Count -eq 1) 'Platform: Full Disk Access missing on MAC-B only'
+    & $A (@($r | Where-Object { $_.title.en -match 'system extensions not approved' -and $_.deviceName -eq 'MAC-C' }).Count -eq 1) 'Platform: system extensions on MAC-C only'
+    & $A (@($r | Where-Object { $_.title.en -eq '1 macOS device(s) with a Defender agent 6+ months behind' -and $_.detail.en -match 'MAC-B \(101.2503.0002\)' -and $_.detail.en -match '101.2510.0001' }).Count -eq 1) 'Platform: macOS agent 7 months behind newest'
+    & $A (@($r | Where-Object { $_.title.en -eq '1 Linux device(s) with a Defender agent 6+ months behind' -and $_.detail.en -match 'auditd' }).Count -eq 1) 'Platform: Linux agent old, auditd note for < 101.2408'
+    & $A (@($r | Where-Object { $_.title.en -eq '2 Linux device(s) without an Intune Defender policy' -and $_.severity -eq 'Medium' -and $_.detail.en -match 'mdatp_managed.json' }).Count -eq 1) 'Platform: Linux without policy'
+    & $A (@($r | Where-Object { $_.title.en -match 'macOS device\(s\) without an Intune Defender policy' }).Count -eq 0) 'Platform: macOS has a policy -> no finding'
+    $r2 = @(Get-WlPlatformFindings -Devices $devs -Policies @())
+    $m = @($r2 | Where-Object { $_.title.en -eq '3 macOS device(s) without an Intune Defender policy' })
+    & $A ($m.Count -eq 1 -and $m[0].severity -eq 'Medium' -and $m[0].detail.en -match '2 of them are managed outside Intune \(Jamf\)') 'Platform: macOS without policy, mixed management -> Medium with Jamf note'
+    $devs['MAC-A'].managedBy = 'Jamf'
+    $r3 = @(Get-WlPlatformFindings -Devices $devs -Policies @())
+    & $A (@($r3 | Where-Object { $_.title.en -eq '3 macOS device(s) without an Intune Defender policy' -and $_.severity -eq 'Low' }).Count -eq 1) 'Platform: all Macs on Jamf -> Low'
+    & $A (@(Get-WlPlatformFindings -Devices @{ w = $devs['WIN-A'] } -Policies @()).Count -eq 0) 'Platform: Windows-only fleet -> nothing'
+} ${function:Assert}
 
 Write-Host '== Versions and update check' -ForegroundColor Cyan
 & $mod {
