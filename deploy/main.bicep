@@ -10,6 +10,27 @@ param location string = resourceGroup().location
 @maxLength(10)
 param namePrefix string = 'wardline'
 
+@description('Optional custom Function App name (instead of <namePrefix>-<suffix>).')
+param customFunctionAppName string = ''
+
+@description('Optional custom storage account name (3–24 lowercase letters/digits, globally unique).')
+param customStorageAccountName string = ''
+
+@description('Optional custom name of the runner managed identity.')
+param customRunnerIdentityName string = ''
+
+@description('Optional custom name of the deploy managed identity (Deploy to Azure path).')
+param customDeployIdentityName string = ''
+
+@description('Optional custom App Service plan name.')
+param customPlanName string = ''
+
+@description('Optional custom Log Analytics workspace name.')
+param customLogWorkspaceName string = ''
+
+@description('Optional custom Application Insights name.')
+param customAppInsightsName string = ''
+
 @description('Client ID of the portal app registration (set by setup/Install-Wardline.ps1). Empty = the portal stays locked.')
 param ssoClientId string = ''
 
@@ -61,8 +82,13 @@ param tags object = {
 
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var cleanPrefix = toLower(replace(namePrefix, '-', ''))
-var storageName = take('${cleanPrefix}${suffix}', 24)
-var functionAppName = '${namePrefix}-${suffix}'
+var storageName = empty(customStorageAccountName) ? take('${cleanPrefix}${suffix}', 24) : toLower(customStorageAccountName)
+var functionAppName = empty(customFunctionAppName) ? '${namePrefix}-${suffix}' : customFunctionAppName
+var runnerIdentityName = empty(customRunnerIdentityName) ? 'id-${namePrefix}-runner' : customRunnerIdentityName
+var deployIdentityName = empty(customDeployIdentityName) ? 'id-${namePrefix}-deploy' : customDeployIdentityName
+var planName = empty(customPlanName) ? 'plan-${namePrefix}-${suffix}' : customPlanName
+var logWorkspaceName = empty(customLogWorkspaceName) ? 'log-${namePrefix}-${suffix}' : customLogWorkspaceName
+var appInsightsName = empty(customAppInsightsName) ? 'appi-${namePrefix}-${suffix}' : customAppInsightsName
 var modules = 'endpoint${enableAgents ? ',agents' : ''}${enableAccess ? ',access' : ''}'
 
 var roles = {
@@ -75,7 +101,7 @@ var roles = {
 
 // ---------- Identity ----------
 resource runner 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-${namePrefix}-runner'
+  name: runnerIdentityName
   location: location
   tags: tags
 }
@@ -179,7 +205,7 @@ resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05
 
 // ---------- Monitoring ----------
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: 'log-${namePrefix}-${suffix}'
+  name: logWorkspaceName
   location: location
   tags: tags
   properties: {
@@ -191,7 +217,7 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 }
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'appi-${namePrefix}-${suffix}'
+  name: appInsightsName
   location: location
   tags: tags
   kind: 'web'
@@ -245,7 +271,7 @@ resource raMetrics 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 // ---------- Function App (Flex Consumption, PowerShell 7.4) ----------
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
-  name: 'plan-${namePrefix}-${suffix}'
+  name: planName
   location: location
   tags: tags
   kind: 'functionapp'
@@ -376,14 +402,14 @@ resource auth 'Microsoft.Web/sites/config@2024-04-01' = if (!empty(ssoClientId))
 
 // ---------- Optional: code deployment for the Deploy to Azure button ----------
 resource deployer 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (!empty(packageUri)) {
-  name: 'id-${namePrefix}-deploy'
+  name: deployIdentityName
   location: location
   tags: tags
 }
 
 resource raDeploy 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(packageUri)) {
   scope: functionApp
-  name: guid(functionApp.id, 'id-${namePrefix}-deploy', roles.websiteContributor)
+  name: guid(functionApp.id, deployIdentityName, roles.websiteContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.websiteContributor)
     principalId: deployer!.properties.principalId
@@ -392,7 +418,7 @@ resource raDeploy 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!em
 }
 
 resource deployCode 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (!empty(packageUri)) {
-  name: 'deploy-${namePrefix}-code'
+  name: 'deploy-${deployIdentityName}-code'
   location: location
   tags: tags
   kind: 'AzureCLI'
