@@ -10,7 +10,7 @@
     Requires: Azure CLI signed in ("az login") as Privileged Role Administrator or Global Administrator.
 
 .EXAMPLE
-    ./setup/Grant-WardlinePermissions.ps1 -PrincipalId <objectId of the managed identity> -Features Hunting,Indicators,Coverage,Agents
+    ./setup/Grant-WardlinePermissions.ps1 -PrincipalId <objectId of the managed identity> -Features Hunting,Indicators,Coverage,Response,Agents
 
 .EXAMPLE
     ./setup/Grant-WardlinePermissions.ps1 -Features Hunting,Agents -ShowOnly
@@ -18,7 +18,7 @@
 [CmdletBinding()]
 param(
     [string]$PrincipalId,
-    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Agents'),
+    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Response', 'Agents'),
     [switch]$Prune,
     [switch]$ShowOnly
 )

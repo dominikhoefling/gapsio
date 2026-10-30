@@ -114,3 +114,24 @@ and policy reach:
   nor security settings management reach them, so none of the Defender policies Wardline evaluates apply.
 - **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
   Audit is an evaluation step, not a protection state.
+
+## Response readiness
+
+Feature `Response` (default on; Defender for Endpoint API `Machine.Read.All`, `Alert.Read.All`). Protection
+settings are one half of Defender; whether anyone can and does respond is the other. Wardline reads the response
+actions of the last 90 days and the alerts of the last 30 days with their automated-investigation state:
+
+- **Investigations waiting for approval** (High) – automated investigation found remediation actions, the device
+  group is on semi-automation and nobody approved for more than a day. The threat stays until someone clicks.
+- **Untriaged alerts** (Medium) – Medium/High alerts still *New* after seven days.
+- **Forgotten isolations** (Medium) – a device isolated for more than seven days without release.
+- **Failed or stuck actions** (Low) – three or more actions failed, timed out or pending for 2+ days.
+- **Response never exercised** (Low) – 25+ Windows devices and no isolation, live response, investigation
+  package or code restriction in 90 days: nobody has verified that response works (permissions, live response
+  enabled, servers included).
+- **Live response with scripts** (Low) – who ran or uploaded scripts through live response; a prompt to check
+  the library and the *unsigned script execution* setting.
+
+Not available through any API and therefore not shown: the automation level per device group and the
+live-response tenant settings (enabled, for servers, unsigned scripts). Both have to be checked in the portal
+under *Settings → Endpoints*.

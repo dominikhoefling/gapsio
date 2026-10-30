@@ -20,7 +20,7 @@
     Requires: Azure CLI signed in ("az login") as Application Administrator (apps) and Privileged Role Administrator (consent).
 
 .EXAMPLE
-    ./setup/New-WardlineAppRegistrations.ps1 -Features Hunting,Indicators,Coverage,Agents -AdminGroupId <objectId>
+    ./setup/New-WardlineAppRegistrations.ps1 -Features Hunting,Indicators,Coverage,Response,Agents -AdminGroupId <objectId>
 
 .EXAMPLE
     # Later, after the installation: allow the managed identity to sign in to the data app
@@ -32,7 +32,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Agents'),
+    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Response', 'Agents'),
     [string]$AdminGroupId,
     [string]$PortalName = 'Wardline Portal',
     [string]$DataName = 'Wardline Data Access',

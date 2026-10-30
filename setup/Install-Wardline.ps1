@@ -43,7 +43,7 @@
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location westeurope
 
 .EXAMPLE
-    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Agents,Access -EnableImmutability -SnapshotRetentionDays 730 -ChangeRetentionDays 365
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Response,Agents,Access -EnableImmutability -SnapshotRetentionDays 730 -ChangeRetentionDays 365
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <appId> -DataAppId <appId>
@@ -73,7 +73,7 @@ param(
     [ValidateRange(30, 3650)][int]$ChangeRetentionDays,
     [switch]$EnableImmutability,
     [ValidateSet('Standard_LRS', 'Standard_ZRS', 'Standard_GRS')][string]$StorageSku = 'Standard_LRS',
-    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Agents'),
+    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Response', 'Agents'),
     [string]$AdminGroupId,
     [switch]$RestrictToAssignedUsers,
     [string]$PortalAppId,
@@ -99,7 +99,7 @@ $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-WardlineFeatures -Features $featureList
 $modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' })
-$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory' } | ForEach-Object { $_.ToLowerInvariant() })
+$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
     Write-Host "`nWardline features: $($featureList -join ', ')" -ForegroundColor Cyan

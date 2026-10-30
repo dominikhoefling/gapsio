@@ -10,7 +10,7 @@ Roles: Application Administrator (apps) and Privileged Role Administrator (conse
 
 ```powershell
 az login
-./setup/New-WardlineAppRegistrations.ps1 -Features Hunting,Indicators,Coverage,Agents -AdminGroupId <objectId>
+./setup/New-WardlineAppRegistrations.ps1 -Features Hunting,Indicators,Coverage,Response,Agents -AdminGroupId <objectId>
 ```
 
 This creates (idempotently):
@@ -27,7 +27,7 @@ Hand over both app IDs to the Azure team.
 No Entra admin role needed.
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <portal appId> -DataAppId <data appId> -Features Hunting,Indicators,Coverage,Agents
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <portal appId> -DataAppId <data appId> -Features Hunting,Indicators,Coverage,Response,Agents
 ```
 
 The script adds the redirect URI to the portal app and the federated credential to the data app if it is allowed to.
@@ -51,6 +51,6 @@ managed identity and audience `api://AzureADTokenExchange`. Storage access alway
 Install with `-SkipPermissionGrant`. The script prints the command for the identity team:
 
 ```powershell
-./setup/Grant-WardlinePermissions.ps1 -PrincipalId <objectId of the managed identity> -Features Hunting,Indicators,Coverage,Agents -Prune
+./setup/Grant-WardlinePermissions.ps1 -PrincipalId <objectId of the managed identity> -Features Hunting,Indicators,Coverage,Response,Agents -Prune
 ./setup/Grant-WardlinePermissions.ps1 -Features Hunting,Agents -ShowOnly     # preview
 ```

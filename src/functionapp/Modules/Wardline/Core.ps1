@@ -29,7 +29,7 @@ function Get-WlModules {
 function Test-WlFeature {
     <#
     .SYNOPSIS
-    Endpoint sub-features from the app setting WL_FEATURES (comma-separated): hunting, indicators, inventory.
+    Endpoint sub-features from the app setting WL_FEATURES (comma-separated): hunting, indicators, inventory, coverage, response.
     A feature that is not selected was not granted a permission, so its data source is skipped quietly.
     Default (setting missing, e.g. older installations): hunting and indicators.
     #>
