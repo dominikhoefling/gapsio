@@ -49,13 +49,24 @@
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -DeviceInventory -DeviceInventoryGroupId <device group objectId>
+
+.EXAMPLE
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-security -Location germanywestcentral -NamingMode Customized -FunctionAppName sec-wardline-fa-gwc-prd -StorageAccountName secwardlinegwcprd01 -RunnerIdentityName sec-wardline-mi-runner-gwc-prd -PlanName sec-wardline-plan-gwc-prd
 #>
 [CmdletBinding()]
 param(
     [string]$ResourceGroup,
     [string]$Location = 'westeurope',
     [string]$SubscriptionId,
+    [ValidateSet('Default', 'Customized')][string]$NamingMode = 'Default',
     [ValidatePattern('^[a-z0-9]{3,10}$')][string]$NamePrefix = 'wardline',
+    [string]$FunctionAppName,
+    [ValidatePattern('^[a-z0-9]{3,24}$')][string]$StorageAccountName,
+    [string]$RunnerIdentityName,
+    [string]$DeployIdentityName,
+    [string]$PlanName,
+    [string]$LogWorkspaceName,
+    [string]$AppInsightsName,
     [ValidateRange(30, 3650)][int]$RetentionDays = 365,
     [switch]$EnableImmutability,
     [ValidateSet('Standard_LRS', 'Standard_ZRS', 'Standard_GRS')][string]$StorageSku = 'Standard_LRS',
@@ -92,6 +103,22 @@ if ($ShowPermissions) {
 }
 if (-not $ResourceGroup) { throw 'Parameter -ResourceGroup is required.' }
 
+$hasCustomNames = @(
+    $FunctionAppName,
+    $StorageAccountName,
+    $RunnerIdentityName,
+    $DeployIdentityName,
+    $PlanName,
+    $LogWorkspaceName,
+    $AppInsightsName
+).Where({ $_ }).Count -gt 0
+if ($NamingMode -eq 'Default' -and $hasCustomNames) {
+    throw 'Custom names were provided, but -NamingMode is Default. Use -NamingMode Customized when setting custom resource names.'
+}
+if ($NamingMode -eq 'Customized' -and -not $hasCustomNames) {
+    Write-Note 'NamingMode is Customized, but no custom names were provided. Default generated names will be used.'
+}
+
 # ---------------------------------------------------------------- Prerequisites
 Write-Step 'Checking prerequisites'
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) { throw 'Azure CLI (az) not found. macOS: brew install azure-cli · Windows: winget install Microsoft.AzureCLI · or use Azure Cloud Shell.' }
@@ -105,6 +132,7 @@ Write-Ok "Tenant:       $tenantId"
 $me = Invoke-Graph -Uri 'https://graph.microsoft.com/v1.0/me?$select=id,userPrincipalName'
 Write-Ok "Signed in:    $($me.userPrincipalName)"
 Write-Ok "Features:     $($featureList -join ', ')"
+Write-Ok "Naming mode:  $NamingMode"
 
 # Updates: keep the region of an existing installation unless -Location is given explicitly
 if (-not $PSBoundParameters.ContainsKey('Location')) {
@@ -112,8 +140,8 @@ if (-not $PSBoundParameters.ContainsKey('Location')) {
     if ($rgLocation -and $rgLocation.Trim()) { $Location = $rgLocation.Trim(); Write-Ok "Region:       $Location (existing resource group)" }
 }
 
-$template = Join-Path $root 'deploy/azuredeploy.json'
-if (-not (Test-Path $template)) { $template = Join-Path $root 'deploy/main.bicep' }
+$template = Join-Path $root 'deploy/main.bicep'
+if (-not (Test-Path $template)) { $template = Join-Path $root 'deploy/azuredeploy.json' }
 
 function Deploy-Infrastructure {
     param([string]$SsoClientId = '')
@@ -124,6 +152,15 @@ function Deploy-Infrastructure {
         "enableAgents=$(($modules -contains 'agents').ToString().ToLower())", "enableAccess=$(($modules -contains 'access').ToString().ToLower())",
         "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId"
     )
+    if ($NamingMode -eq 'Customized') {
+        if ($FunctionAppName) { $params += "customFunctionAppName=$FunctionAppName" }
+        if ($StorageAccountName) { $params += "customStorageAccountName=$StorageAccountName" }
+        if ($RunnerIdentityName) { $params += "customRunnerIdentityName=$RunnerIdentityName" }
+        if ($DeployIdentityName) { $params += "customDeployIdentityName=$DeployIdentityName" }
+        if ($PlanName) { $params += "customPlanName=$PlanName" }
+        if ($LogWorkspaceName) { $params += "customLogWorkspaceName=$LogWorkspaceName" }
+        if ($AppInsightsName) { $params += "customAppInsightsName=$AppInsightsName" }
+    }
     $out = Invoke-Az -Arguments (@('deployment', 'group', 'create', '-g', $ResourceGroup, '-n', $name, '--template-file', $template, '--query', 'properties.outputs', '-o', 'json', '--parameters') + $params)
     $o = $out | ConvertFrom-Json
     [pscustomobject]@{

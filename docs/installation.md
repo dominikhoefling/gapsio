@@ -5,7 +5,7 @@ features or settings – data and history are kept.
 
 What the script does:
 
-1. Deploys the resource group and Azure resources (storage, Function App, monitoring, managed identity) from `deploy/azuredeploy.json`
+1. Deploys the resource group and Azure resources (storage, Function App, monitoring, managed identity) from `deploy/main.bicep` (fallback: `deploy/azuredeploy.json`)
 2. Creates the portal app registration for sign-in (no client secret, app role `Wardline.Admin`) – or attaches an existing one
 3. Enables sign-in to the portal (App Service Authentication with Entra ID)
 4. Grants the read-only permissions of the selected features – or attaches an existing data-access app
@@ -24,6 +24,8 @@ What the script does:
 | `-EnableImmutability` | Store snapshots immutably (WORM). The policy is not locked initially; locking is a deliberate decision in the Azure portal. |
 | `-StorageSku Standard_ZRS` | Zone-redundant storage |
 | `-NamePrefix wardline` | Prefix for resource names (3–10 lower-case letters/digits) |
+| `-NamingMode Default` / `-NamingMode Customized` | Default = generated names from `NamePrefix`; Customized = use explicit resource names below |
+| `-FunctionAppName`, `-StorageAccountName`, `-RunnerIdentityName`, `-DeployIdentityName`, `-PlanName`, `-LogWorkspaceName`, `-AppInsightsName` | Optional custom Azure resource names (used when `-NamingMode Customized`) |
 | `-PortalAppId`, `-DataAppId` | Attach app registrations created by the identity team ([separation of duties](separation-of-duties.md)) |
 | `-SkipPermissionGrant` | Deploy everything but print the grant command for the identity team |
 | `-ShowPermissions` | Only show the permissions of the selected features, change nothing |

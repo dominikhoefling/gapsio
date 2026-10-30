@@ -3,6 +3,13 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "namePrefix": { "value": "wardline" },
+    "customFunctionAppName": { "value": "" },
+    "customStorageAccountName": { "value": "" },
+    "customRunnerIdentityName": { "value": "" },
+    "customDeployIdentityName": { "value": "" },
+    "customPlanName": { "value": "" },
+    "customLogWorkspaceName": { "value": "" },
+    "customAppInsightsName": { "value": "" },
     "retentionDays": { "value": 365 },
     "enableImmutability": { "value": false },
     "storageSku": { "value": "Standard_LRS" },
