@@ -956,6 +956,7 @@
         "de": "Linux: Echtzeitschutz (enforcementLevel = real_time)"
       },
       "severity": "Critical",
+      "definitionId": "linux_mdatp_managed_antivirusengine_enforcementlevel",
       "definitionIdPattern": "^linux_.*antivirusengine_enforcementlevel$",
       "expect": {
         "op": "display",
@@ -987,22 +988,17 @@
         "de": "Linux: Tamper Protection im Block-Modus"
       },
       "severity": "High",
-      "definitionIdPattern": "^linux_.*tamperprotection_enforcementlevel$",
-      "expect": {
-        "op": "display",
-        "pattern": "block"
-      },
       "expectText": {
-        "en": "tamperProtection/enforcementLevel = block",
-        "de": "tamperProtection/enforcementLevel = block"
+        "en": "Enabled on all Linux devices",
+        "de": "Aktiv auf allen Linux-Geräten"
       },
       "rationale": {
-        "en": "Prevents Defender from being stopped, uninstalled or reconfigured on the server.",
-        "de": "Verhindert, dass Defender auf dem Server gestoppt, deinstalliert oder umkonfiguriert wird."
+        "en": "Prevents Defender from being stopped, uninstalled or reconfigured on the server. The Intune Settings Catalog has no tamperProtection setting for Linux, so only the device state is rated here.",
+        "de": "Verhindert, dass Defender auf dem Server gestoppt, deinstalliert oder umkonfiguriert wird. Der Intune Settings Catalog hat für Linux keine tamperProtection-Einstellung, daher wird hier nur der Gerätezustand bewertet."
       },
       "remediation": {
-        "en": "Linux policy › Tamper protection › Enforcement level = block.",
-        "de": "Linux-Richtlinie › Tamper protection › Enforcement level = block."
+        "en": "Enable tenant-wide in the Defender portal or set tamperProtection/enforcementLevel = block in mdatp_managed.json (Defender for Endpoint security settings management or configuration management).",
+        "de": "Mandantenweit im Defender-Portal aktivieren oder tamperProtection/enforcementLevel = block in mdatp_managed.json setzen (Defender for Endpoint Security Settings Management bzw. Konfigurationsmanagement)."
       },
       "effective": "TamperProtection"
     },
@@ -1018,6 +1014,7 @@
         "de": "Linux: Nur verwaltete Exclusions (admin_only)"
       },
       "severity": "High",
+      "definitionId": "linux_mdatp_managed_antivirusengine_exclusionsmergepolicy",
       "definitionIdPattern": "^linux_.*exclusion.*mergepolicy$",
       "expect": {
         "op": "display",
@@ -1048,6 +1045,7 @@
         "de": "Linux: Bedrohungstypen nur zentral (admin_only)"
       },
       "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettingsmergepolicy",
       "definitionIdPattern": "^linux_.*threattype.*mergepolicy$",
       "expect": {
         "op": "display",
@@ -1078,6 +1076,7 @@
         "de": "Linux: Verhaltensüberwachung aktiv"
       },
       "severity": "High",
+      "definitionId": "linux_mdatp_managed_antivirusengine_behaviormonitoring",
       "definitionIdPattern": "^linux_.*behaviormonitoring$",
       "expect": {
         "op": "display",
@@ -1109,6 +1108,7 @@
         "de": "Linux: Cloud-Schutz aktiv"
       },
       "severity": "High",
+      "definitionId": "linux_mdatp_managed_cloudservice_enabled",
       "definitionIdPattern": "^linux_.*cloudservice_enabled$",
       "expect": {
         "op": "display",
@@ -1140,6 +1140,7 @@
         "de": "Linux: Cloud-Blockierstufe mindestens hoch"
       },
       "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_cloudservice_cloudblocklevel",
       "definitionIdPattern": "^linux_.*cloudblocklevel$",
       "expect": {
         "op": "display",
@@ -1170,6 +1171,7 @@
         "de": "Linux: Automatische Probenübermittlung"
       },
       "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_cloudservice_automaticsamplesubmissionconsent",
       "definitionIdPattern": "^linux_.*automaticsamplesubmissionconsent$",
       "expect": {
         "op": "display",
@@ -1200,6 +1202,7 @@
         "de": "Linux: PUA blockieren"
       },
       "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettings_item_value",
       "definitionIdPattern": "^linux_.*threattypesettings.*_value$",
       "expect": {
         "op": "display",
@@ -1219,6 +1222,7 @@
       },
       "effective": "PUAProtection",
       "groupFilter": {
+        "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettings_item_key",
         "definitionIdPattern": "^linux_.*threattypesettings.*_key$",
         "expect": {
           "op": "display",
@@ -1238,6 +1242,7 @@
         "de": "Linux: Network Protection blockiert"
       },
       "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_networkprotection_enforcementlevel",
       "definitionIdPattern": "^linux_.*networkprotection_enforcementlevel$",
       "expect": {
         "op": "display",

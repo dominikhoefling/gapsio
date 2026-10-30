@@ -98,10 +98,23 @@ function New-WlSettingInstance {
             $children = foreach ($k in @($item.Keys)) {
                 $cid = $childIds | Where-Object { $_ -eq "$($Id)_$k" } | Select-Object -First 1
                 if (-not $cid) { $cid = $childIds | Where-Object { $_ -like "*_$k" } | Select-Object -First 1 }
+                # Settings that depend on an option (e.g. ASR per-rule exclusions) are not in childIds but exist as
+                # definitions; Move-WlDependentSettings nests them under the option afterwards.
+                if (-not $cid -and (Get-WlDefinition -Id "$($Id)_$k" -Fetch $Fetch)) { $cid = "$($Id)_$k" }
                 if (-not $cid) { $Log.Add("CHILD MISSING $Id › $k (available: $($childIds -join ', '))"); continue }
                 $ci = New-WlSettingInstance -Id $cid -Value $item[$k] -Fetch $Fetch -Log $Log
                 if ($ci) { $ci }
             }
+            $children = @($children | Where-Object { $_ })
+            # An item whose children depend on a parent setting that did not resolve (e.g. Linux exclusions without
+            # a valid $type) would be rejected by Intune – skip it instead.
+            $have = @($children | ForEach-Object { [string]$_['settingDefinitionId'] })
+            $orphan = $children | Where-Object {
+                $d = Get-WlDefinition -Id $_['settingDefinitionId'] -Fetch $Fetch
+                $parents = @(@($d.dependentOn) | ForEach-Object { [string]$_.parentSettingId } | Where-Object { $_ })
+                $parents.Count -and -not @($parents | Where-Object { $have -contains $_ }).Count
+            } | Select-Object -First 1
+            if ($orphan) { $Log.Add("ITEM SKIPPED $Id › $([string]$orphan['settingDefinitionId']) requires a parent setting that did not resolve"); continue }
             $children = @(Move-WlDependentSettings -Instances @($children) -Fetch $Fetch)
             if ($children.Count) { [ordered]@{ children = $children } }
         }

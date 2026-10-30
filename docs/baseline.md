@@ -12,7 +12,7 @@ storage account. It then takes precedence over the shipped one – also after up
 | `id` | Unique name of the check |
 | `platform` | `Windows`, `macOS` or `Linux` |
 | `definitionId` | Exact Settings Catalog setting ID |
-| `definitionIdPattern` | Regex instead of an exact ID (used for Linux, whose IDs are not documented) |
+| `definitionIdPattern` | Regex as an alternative or fallback to the exact ID (Linux checks carry both) |
 | `expect` | `{ "op": "eq" \| "in" \| "gte" \| "lte" \| "range" \| "match" \| "display", … }` |
 | `effective` | Effective check on the device: a TVM `scid-…`, a check name such as `TamperProtection`, or `avmode` |
 | `severity` | `Critical`, `High`, `Medium`, `Low` |

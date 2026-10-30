@@ -10,7 +10,7 @@ the install, grant and app registration scripts all read it.
 | `Hunting` | on | Device state, local exclusions, effective ASR mode, Linux/macOS drift, local AI agents (Advanced Hunting) | Graph: `ThreatHunting.Read.All` |
 | `Indicators` | on | Allow indicators from Defender for Endpoint | Defender for Endpoint: `Ti.Read.All` |
 | `Coverage` | on | Intune-managed devices that are not onboarded to Defender for Endpoint (sensor problems and device discovery need only `Hunting`) | Graph: `DeviceManagementManagedDevices.Read.All` |
-| `Agents` | on | Entra Agent ID, Agent 365 registry, Conditional Access coverage | Graph: `AgentIdentityBlueprint.Read.All`, `AgentIdentityBlueprintPrincipal.Read.All`, `AgentIdentity.Read.All`, `User.ReadBasic.All`, `AgentInstance.Read.All`, `Policy.Read.All` |
+| `Agents` | on | Entra Agent ID, Agent 365 package catalog, Conditional Access coverage | Graph: `AgentIdentityBlueprint.Read.All`, `AgentIdentityBlueprintPrincipal.Read.All`, `AgentIdentity.Read.All`, `User.ReadBasic.All`, `CopilotPackages.Read.All`, `AgentInstance.Read.All` (legacy fallback), `Policy.Read.All` |
 | `Access` | off | Admin roles: active, eligible via PIM, requestable via access packages (Entra ID and Intune) | Graph: `RoleManagement.Read.Directory`, `RoleAssignmentSchedule.Read.Directory`, `RoleEligibilitySchedule.Read.Directory`, `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `EntitlementManagement.Read.All`, `DeviceManagementRBAC.Read.All`, `Directory.Read.All` |
 | `Inventory` | off | Device inventory via Intune Remediations (use `-DeviceInventory`) | Graph: `DeviceManagementScripts.Read.All`, `DeviceManagementManagedDevices.Read.All` |
 

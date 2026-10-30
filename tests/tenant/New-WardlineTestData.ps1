@@ -198,18 +198,21 @@ if (-not $SkipIntune) {
         }
     )
 
-    # Linux: build the IDs from the search above (candidate patterns) so the policy is created even if the IDs differ
+    # Linux: IDs verified against the Settings Catalog (10/2026): linux_mdatp_managed_antivirusengine_*, linux_mdatp_managed_cloudservice_*,
+    # linux_mdatp_managed_exclusionsettings_exclusions (children: _item_$type [0 = path, 1 = file name], _item_path, _item_isdirectory, _item_name; no scopes).
+    # The search above (candidate patterns) is still used so the policy is created even if the IDs differ in a tenant.
     $lx = { param($pattern) @($script:LinuxIds | Where-Object { $_ -match $pattern -and $_ -notmatch '_item_' }) | Select-Object -First 1 }
     $linuxSpec = [ordered]@{}
     $id = & $lx '^linux_.*antivirusengine_enforcementlevel$'; if ($id) { $linuxSpec[$id] = 'passive' }            # -> deviation
     $id = & $lx '^linux_.*exclusion.*mergepolicy$'; if ($id) { $linuxSpec[$id] = 'merge|0' }                      # -> deviation
     $id = & $lx '^linux_.*behaviormonitoring$'; if ($id) { $linuxSpec[$id] = 'enabled|1' }                         # -> OK
+    $id = & $lx '^linux_.*cloudservice_cloudblocklevel$'; if ($id) { $linuxSpec[$id] = 'normal|0' }                # -> deviation
     $id = & $lx '^linux_.*(exclusionsettings_exclusions|antivirusengine_exclusions)$'
     if ($id) {
         $linuxSpec[$id] = @(
-            [ordered]@{ '$type' = 'excludedpath|0'; 'path' = '/opt/wardline-test'; 'isdirectory' = 'true'; 'scopes' = @('epp', 'global') },
-            [ordered]@{ '$type' = 'excludedpath|0'; 'path' = '/tmp/wardline-test'; 'isdirectory' = 'true'; 'scopes' = @('epp') },
-            [ordered]@{ '$type' = 'excludedfilename|2'; 'name' = 'python3' })
+            [ordered]@{ '$type' = 'excludedpath|0'; 'path' = '/opt/wardline-test'; 'isdirectory' = 'true' },
+            [ordered]@{ '$type' = 'excludedpath|0'; 'path' = '/tmp/wardline-test'; 'isdirectory' = 'true' },
+            [ordered]@{ '$type' = 'excludedfilename|1'; 'name' = 'python3' })
     }
     if ($linuxSpec.Count) { $policies += @{ name = "$Prefix Linux exclusions and deviations"; platforms = 'linux'; technologies = @('linuxMdm', 'microsoftSense', 'mdm,microsoftSense'); spec = $linuxSpec } }
     else { Write-Note 'No Linux Defender settings found in the Settings Catalog – Linux test policy skipped' }
@@ -220,7 +223,8 @@ if (-not $SkipIntune) {
         $existing = @(Get-WlGAll -Uri "$beta/deviceManagement/configurationPolicies?`$select=id,name") | Where-Object { $_.name -eq $pol.name } | Select-Object -First 1
         if ($existing) { Write-Ok "already present ($($existing.id)) – skipped"; continue }
         $log = [System.Collections.Generic.List[string]]::new()
-        $settings = New-WlSettingsList -Spec $pol.spec -Fetch $fetch -Log $log
+        # @(): a policy with a single setting must still be sent as an array (otherwise "payload does not match schema")
+        $settings = @(New-WlSettingsList -Spec $pol.spec -Fetch $fetch -Log $log)
         $log | ForEach-Object { $report.Add("   $_") }
         if (-not $settings.Count) { Write-Note 'No setting could be resolved – policy not created (see report)'; continue }
         try {
