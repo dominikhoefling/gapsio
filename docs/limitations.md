@@ -1,6 +1,6 @@
 # Known limitations
 
-- **Beta APIs**: Intune policies (`configurationPolicies`, `intents`, `deviceConfigurations`, Intune RBAC) and the agent
+- **Beta APIs**: Intune policies (`configurationPolicies`, `intents`, `deviceConfigurations`), Defender unified RBAC (`roleManagement/defender`) and the agent
   APIs only exist in Microsoft Graph *beta*. Microsoft may change them.
 - **Settings Catalog IDs**: the baseline uses the known Defender CSP IDs and patterns for macOS. After the first run the
   baseline page lists every Defender setting found in the tenant – use it to verify and adjust IDs.

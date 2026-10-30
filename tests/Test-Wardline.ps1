@@ -319,35 +319,43 @@ $users = @{
     'u-hank'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-hank'; userPrincipalName = 'hank@contoso.com'; displayName = 'Hank'; userType = 'Member' }
 }
 $grp = { param($id, $name) [pscustomobject]@{ '@odata.type' = '#microsoft.graph.group'; id = $id; displayName = $name } }
-$GA = '62e90394-69f5-4237-9190-012177145e10'; $HD = '729827e3-9c14-49f7-bb1b-9608f156bbb8'; $SR = '5d6b6bb7-de71-4623-b4af-96380a352509'
+$GA = '62e90394-69f5-4237-9190-012177145e10'; $SR = '5d6b6bb7-de71-4623-b4af-96380a352509'
+$XSO = 'xdr-secops'; $XRD = 'xdr-reader'; $XCF = 'xdr-config'
+$xdrRole = { param($id, $name, $actions) [pscustomobject]@{ id = $id; displayName = $name; description = ''; isBuiltIn = $true; rolePermissions = @([pscustomobject]@{ allowedResourceActions = @($actions) }) } }
 $access = @{
+    groups = @{ 'g1' = (& $grp 'g1' 'Helpdesk-Team'); 'g4' = (& $grp 'g4' 'Helpdesk-Candidates') }
     roleDefs = @(
-        [pscustomobject]@{ id = $GA; templateId = $GA; displayName = 'Global Administrator'; isBuiltIn = $true; isPrivileged = $true; rolePermissions = @([pscustomobject]@{ allowedResourceActions = @('microsoft.directory/allEntities/allProperties/allTasks') }) },
-        [pscustomobject]@{ id = $HD; templateId = $HD; displayName = 'Helpdesk Administrator'; isBuiltIn = $true; isPrivileged = $true; rolePermissions = @([pscustomobject]@{ allowedResourceActions = @('microsoft.directory/users/password/update', 'microsoft.directory/users/invalidateAllRefreshTokens') }) },
-        [pscustomobject]@{ id = $SR; templateId = $SR; displayName = 'Security Reader'; isBuiltIn = $true; isPrivileged = $false; rolePermissions = @([pscustomobject]@{ allowedResourceActions = @('microsoft.directory/policies/standard/read') }) }
+        (& $xdrRole $XSO 'SecOps Responder' @('microsoft.xdr/secops/securitydata/basic/read', 'microsoft.xdr/secops/securitydata/response/manage', 'microsoft.xdr/secops/securitydata/liveresponse-basic/manage')),
+        (& $xdrRole $XRD 'Defender Reader' @('microsoft.xdr/secops/securitydata/basic/read', 'microsoft.xdr/securityposture/posturemanagement/read')),
+        (& $xdrRole $XCF 'Defender Settings Admin' @('microsoft.xdr/configuration/security/manage'))
     )
-    active = @(
-        [pscustomobject]@{ principalId = 'u-alice'; roleDefinitionId = $GA; directoryScopeId = '/'; assignmentType = 'Assigned'; memberType = 'Direct'; principal = $users['u-alice'] },
-        [pscustomobject]@{ principalId = 'g1'; roleDefinitionId = $HD; directoryScopeId = '/'; assignmentType = 'Assigned'; memberType = 'Direct'; principal = (& $grp 'g1' 'Helpdesk-Team') },
-        [pscustomobject]@{ principalId = 'u-dave'; roleDefinitionId = $HD; directoryScopeId = '/'; assignmentType = 'Assigned'; memberType = 'Group'; principal = $users['u-dave'] },
-        [pscustomobject]@{ principalId = 'u-bob'; roleDefinitionId = $SR; directoryScopeId = '/'; assignmentType = 'Activated'; memberType = 'Direct'; endDateTime = (T -1); principal = $users['u-bob'] }
+    # unifiedRoleAssignmentMultiple: principalIds + appScopeIds ("/" = all data sources, "Mde" = Defender for Endpoint)
+    assignments = @(
+        [pscustomobject]@{ id = 'xa1'; displayName = 'SecOps – everything'; roleDefinitionId = $XSO; principalIds = @('u-alice'); appScopeIds = @('/') },
+        [pscustomobject]@{ id = 'xa2'; displayName = 'SecOps – endpoints'; roleDefinitionId = $XSO; principalIds = @('g1'); appScopeIds = @('Mde') },
+        [pscustomobject]@{ id = 'xa3'; displayName = 'Readers'; roleDefinitionId = $XRD; principalIds = @('u-bob'); appScopeIds = @('Mde', 'Mdi') },
+        [pscustomobject]@{ id = 'xa4'; displayName = 'Settings'; roleDefinitionId = $XCF; principalIds = @('u-carol'); appScopeIds = @('/') }
     )
-    eligible = @(
-        [pscustomobject]@{ principalId = 'u-carol'; roleDefinitionId = $GA; directoryScopeId = '/'; memberType = 'Direct'; endDateTime = (T -180); principal = $users['u-carol'] },
-        [pscustomobject]@{ principalId = 'g2'; roleDefinitionId = $SR; directoryScopeId = '/administrativeUnits/au-1'; memberType = 'Direct'; principal = (& $grp 'g2' 'PIM-SecOps') }
-    )
-    members = @{ 'g1' = @($users['u-dave'], $users['u-erin']); 'g2' = @($users['u-frank']); 'g4' = @($users['u-hank']) }
+    members = @{ 'g1' = @($users['u-dave'], $users['u-erin']); 'g4' = @($users['u-hank']) }
     pimGroups = @{ 'g1' = @([pscustomobject]@{ groupId = 'g1'; principalId = 'u-gina'; accessId = 'member'; endDateTime = (T -30) }) }
-    intuneDefs = @([pscustomobject]@{ id = 'ir1'; displayName = 'Intune Endpoint Security Manager'; description = ''; isBuiltIn = $true })
-    intuneAssign = @{ 'ir1' = @([pscustomobject]@{ id = 'ra1'; displayName = 'ESM Helpdesk' }) }
-    intuneDetail = @{ 'ra1' = [pscustomobject]@{ id = 'ra1'; members = @('g1'); scopeMembers = @(); scopeType = 'allDevicesAndLicensedUsers' } }
+    pimActivations = @{ 'g1' = @([pscustomobject]@{ groupId = 'g1'; principalId = 'u-gina'; accessId = 'member'; action = 'selfActivate'; createdDateTime = (T 10) }) }
+    signIns = @(
+        [pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 2) },
+        [pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 9) },
+        [pscustomobject]@{ userId = 'u-gina'; createdDateTime = (T 10) }
+    )
+    # Entra roles bypassing unified RBAC
+    entraBypass = @(
+        [pscustomobject]@{ principalId = 'u-alice'; roleDefinitionId = $GA; directoryScopeId = '/'; principal = $users['u-alice'] },
+        [pscustomobject]@{ principalId = 'u-bob'; roleDefinitionId = $SR; directoryScopeId = '/'; principal = $users['u-bob'] }
+    )
     aps = @(
         [pscustomobject]@{ id = 'ap1'; displayName = 'Helpdesk access'; assignmentPolicies = @([pscustomobject]@{ id = 'pol1'; displayName = 'Candidates'; allowedTargetScope = 'specificDirectoryUsers'; requestorSettings = [pscustomobject]@{ enableTargetsToSelfAddAccess = $true }; specificAllowedTargets = @([pscustomobject]@{ '@odata.type' = '#microsoft.graph.groupMembers'; groupId = 'g4' }) }) },
-        [pscustomobject]@{ id = 'ap2'; displayName = 'Security Reader for everyone'; assignmentPolicies = @([pscustomobject]@{ id = 'pol2'; displayName = 'All employees'; allowedTargetScope = 'allMemberUsers'; requestorSettings = [pscustomobject]@{ enableTargetsToSelfAddAccess = $true }; specificAllowedTargets = @() }) }
+        [pscustomobject]@{ id = 'ap2'; displayName = 'SecOps for everyone'; assignmentPolicies = @([pscustomobject]@{ id = 'pol2'; displayName = 'All employees'; allowedTargetScope = 'allMemberUsers'; requestorSettings = [pscustomobject]@{ enableTargetsToSelfAddAccess = $true }; specificAllowedTargets = @() }) }
     )
     apDetail = @{
         'ap1' = [pscustomobject]@{ resourceRoleScopes = @([pscustomobject]@{ role = [pscustomobject]@{ originSystem = 'AadGroup'; originId = 'Member_g1'; resource = [pscustomobject]@{ originId = 'g1' } }; scope = [pscustomobject]@{ originId = 'g1' } }) }
-        'ap2' = [pscustomobject]@{ resourceRoleScopes = @([pscustomobject]@{ role = [pscustomobject]@{ originSystem = 'DirectoryRole'; originId = 'Eligible'; resource = [pscustomobject]@{ originId = $SR } }; scope = [pscustomobject]@{ originId = '/' } }) }
+        'ap2' = [pscustomobject]@{ resourceRoleScopes = @([pscustomobject]@{ role = [pscustomobject]@{ originSystem = 'AadGroup'; originId = 'Member_g1'; resource = [pscustomobject]@{ originId = 'g1' } }; scope = [pscustomobject]@{ originId = 'g1' } }) }
     }
     apAssignments = @([pscustomobject]@{ state = 'delivered'; accessPackage = [pscustomobject]@{ id = 'ap1'; displayName = 'Helpdesk access' }; target = [pscustomobject]@{ objectId = 'u-erin'; principalName = 'erin@contoso.com'; displayName = 'Erin' }; schedule = [pscustomobject]@{ expiration = [pscustomobject]@{ endDateTime = (T -90) } } })
 }
@@ -570,17 +578,20 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^deviceManagement/deviceConfigurations/[^/]+/assignments' { return (V @($script:Fx.assignments[0])) }
             '^groups/([^/?]+)\?\$select=id,displayName' { $id = $Matches[1]; return [pscustomobject]@{ id = $id; displayName = $script:Fx.groups[$id] } }
             '^groups/([^/]+)/transitiveMembers' { return (V $script:Acc.members[$Matches[1]]) }
-            '^roleManagement/directory/roleDefinitions' { return (V $script:Acc.roleDefs) }
-            '^roleManagement/directory/roleAssignmentScheduleInstances' { return (V $script:Acc.active) }
-            '^roleManagement/directory/roleEligibilityScheduleInstances' { return (V $script:Acc.eligible) }
+            '^roleManagement/defender/roleDefinitions' { return (V $script:Acc.roleDefs) }
+            '^roleManagement/defender/roleAssignments' { return (V $script:Acc.assignments) }
+            '^roleManagement/directory/roleAssignments\?' { return (V $script:Acc.entraBypass) }
             "^identityGovernance/privilegedAccess/group/eligibilityScheduleInstances\?\`$filter=groupId eq '([^']+)'" { return (V $script:Acc.pimGroups[$Matches[1]]) }
-            '^deviceManagement/roleDefinitions\?' { return (V $script:Acc.intuneDefs) }
-            '^deviceManagement/roleDefinitions/([^/]+)/roleAssignments' { return (V $script:Acc.intuneAssign[$Matches[1]]) }
-            '^deviceManagement/roleAssignments/([^/?]+)$' { return $script:Acc.intuneDetail[$Matches[1]] }
+            "^identityGovernance/privilegedAccess/group/assignmentScheduleRequests\?\`$filter=groupId eq '([^']+)'" { return (V $script:Acc.pimActivations[$Matches[1]]) }
+            '^auditLogs/signIns\?' { if ($Uri -notmatch '80ccca67-54bd-44ab-8625-4b79c4dc7775') { throw 'sign-in filter without Defender portal appId' }; return (V $script:Acc.signIns) }
             '^identityGovernance/entitlementManagement/accessPackages\?' { return (V $script:Acc.aps) }
             '^identityGovernance/entitlementManagement/accessPackages/([^?]+)\?' { return $script:Acc.apDetail[$Matches[1]] }
             '^identityGovernance/entitlementManagement/assignments' { return (V $script:Acc.apAssignments) }
-            '^directoryObjects/(.+)$' { $id = $Matches[1]; if ($script:Users.ContainsKey($id)) { return $script:Users[$id] } ; throw (New-WlHttpException -Status 404 -Message 'nf') }
+            '^directoryObjects/getByIds' {
+                if ($Method -ne 'POST') { throw 'getByIds must be POST' }
+                return (V @(foreach ($id in @($Body.ids)) { if ($script:Users.ContainsKey($id)) { $script:Users[$id] } elseif ($script:Acc.groups.ContainsKey($id)) { $script:Acc.groups[$id] } }))
+            }
+            '^directoryObjects/(.+)$' { $id = $Matches[1]; if ($script:Users.ContainsKey($id)) { return $script:Users[$id] }; if ($script:Acc.groups.ContainsKey($id)) { return $script:Acc.groups[$id] }; throw (New-WlHttpException -Status 404 -Message 'nf') }
             '^users/([^?]+)\?' { return $script:Users[$Matches[1]] }
             default { throw "Nicht simulierter Aufruf: $Method $Uri" }
         }
@@ -860,19 +871,51 @@ $ac = $blobs['state/access-latest.json'] | ConvertFrom-Json -Depth 64
 Assert ($ac.warnings.Count -eq 0) "Warnings in the access run: $($ac.warnings -join ' | ')"
 $e = @($ac.entitlements)
 function Has { param($upn, $role, $state, $via) @($e | Where-Object { $_.upn -eq $upn -and $_.role -eq $role -and $_.state -eq $state -and $_.via -like $via }).Count -ge 1 }
-Assert (Has 'alice@contoso.com' 'Global Administrator' 'Active' 'direct') 'Alice GA active direct'
-Assert (Has 'bob@contoso.com' 'Security Reader' 'Activated' 'direct') 'Bob SR activated'
-Assert (Has 'carol@contoso.com' 'Global Administrator' 'Eligible' 'direct') 'Carol GA eligible'
-Assert (Has 'dave@contoso.com' 'Helpdesk Administrator' 'Active' 'Group: Helpdesk-Team') 'Dave HD via group'
-Assert (-not (Has 'dave@contoso.com' 'Helpdesk Administrator' 'Active' 'direct')) 'Dave not listed twice as direct (memberType Group)'
-Assert (Has 'frank@contoso.com' 'Security Reader' 'Eligible' 'Group: PIM-SecOps') 'Frank SR eligible via group'
-Assert (Has 'gina@contoso.com' 'Helpdesk Administrator' 'Eligible' 'PIM for groups: Helpdesk-Team') 'Gina HD eligible via PIM for groups'
-Assert (Has 'gina@contoso.com' 'Intune Endpoint Security Manager' 'Eligible' 'PIM for groups: Helpdesk-Team') 'Gina Intune role eligible via PIM for groups'
-Assert (Has 'erin@contoso.com' 'Intune Endpoint Security Manager' 'Active' 'Group: Helpdesk-Team') 'Erin Intune role via group'
-Assert (Has 'hank@contoso.com' 'Helpdesk Administrator' 'Requestable' 'Access package: Helpdesk access*') 'Hank HD requestable'
-Assert (Has 'erin@contoso.com' 'Helpdesk Administrator' 'Active' 'Access package: Helpdesk access (assigned*') 'Erin assigned via package'
-Assert (@($ac.audiences | Where-Object { $_.audience -eq 'allMemberUsers' -and $_.grants[0].role -eq 'Security Reader' }).Count -eq 1) 'Open package for all members'
-Assert (@($e | Where-Object { $_.scope -like 'Administrative Unit*' }).Count -ge 1) 'AU scope detected'
+function Ent { param($upn, $role, $state) @($e | Where-Object { $_.upn -eq $upn -and $_.role -eq $role -and $_.state -eq $state })[0] }
+Assert ($ac.summary.roles -eq 3 -and @($ac.roles | Where-Object { $_.platform -ne 'Defender' }).Count -eq 0) 'Only Defender unified RBAC roles'
+Assert (@($ac.roles | Where-Object { $_.name -eq 'SecOps Responder' })[0].privileged -eq $true -and @($ac.roles | Where-Object { $_.name -eq 'Defender Reader' })[0].privileged -eq $false) 'Response/live response marks a role as privileged, read does not'
+Assert ((@($ac.roles | Where-Object { $_.name -eq 'SecOps Responder' })[0].permissionGroups -join ',') -eq 'secops') 'Permission groups derived from microsoft.xdr/<group>/'
+Assert (Has 'alice@contoso.com' 'SecOps Responder' 'Active' 'direct') 'Alice SecOps active direct'
+Assert ((Ent 'alice@contoso.com' 'SecOps Responder' 'Active').allDataSources -eq $true -and (Ent 'alice@contoso.com' 'SecOps Responder' 'Active').assignment -eq 'SecOps – everything') 'Alice: "/" = all data sources, assignment name kept'
+Assert (Has 'dave@contoso.com' 'SecOps Responder' 'Active' 'Group: Helpdesk-Team') 'Dave SecOps via group'
+Assert ((Ent 'dave@contoso.com' 'SecOps Responder' 'Active').scope -eq 'Defender for Endpoint' -and ((Ent 'dave@contoso.com' 'SecOps Responder' 'Active').dataSources -join ',') -eq 'Mde') 'Group assignment scoped to Mde data source'
+Assert ((Ent 'bob@contoso.com' 'Defender Reader' 'Active').scope -eq 'Defender for Endpoint, Defender for Identity') 'Multiple data sources listed'
+Assert (Has 'gina@contoso.com' 'SecOps Responder' 'Eligible' 'PIM for groups: Helpdesk-Team') 'Gina SecOps eligible via PIM for groups'
+Assert ((Ent 'gina@contoso.com' 'SecOps Responder' 'Eligible').lastActivated -and (Ent 'gina@contoso.com' 'SecOps Responder' 'Eligible').usage -eq 'Used') 'Gina: last PIM activation recorded, portal sign-in counts as used'
+Assert (Has 'hank@contoso.com' 'SecOps Responder' 'Requestable' 'Access package: Helpdesk access*') 'Hank SecOps requestable via package'
+Assert (Has 'erin@contoso.com' 'SecOps Responder' 'Active' 'Access package: Helpdesk access (assigned*') 'Erin assigned via package'
+Assert (@($ac.audiences | Where-Object { $_.audience -eq 'allMemberUsers' -and $_.grants[0].role -eq 'SecOps Responder' }).Count -eq 1) 'Open package for all members'
+Assert ((Ent 'alice@contoso.com' 'SecOps Responder' 'Active').usage -eq 'Used' -and ([datetime](Ent 'alice@contoso.com' 'SecOps Responder' 'Active').lastUsed).ToUniversalTime() -eq ([datetime](T 2)).ToUniversalTime()) 'Alice: latest portal sign-in is last used'
+Assert ((Ent 'carol@contoso.com' 'Defender Settings Admin' 'Active').usage -eq 'Unused' -and -not (Ent 'carol@contoso.com' 'Defender Settings Admin' 'Active').lastUsed) 'Carol: no sign-in in 30 days = unused'
+Assert (([datetime]$ac.principalUsage.'u-alice').ToUniversalTime() -eq ([datetime](T 2)).ToUniversalTime() -and $ac.usageObservedSince) 'Usage carried in snapshot for the next run'
+$byp = @($ac.bypass)
+Assert (@($byp | Where-Object { $_.upn -eq 'alice@contoso.com' -and $_.role -eq 'Global Administrator' -and $_.level -eq 'High' }).Count -eq 1) 'Alice GA listed as bypass (High)'
+Assert (@($byp | Where-Object { $_.upn -eq 'bob@contoso.com' -and $_.role -eq 'Security Reader' -and $_.level -eq 'Low' }).Count -eq 1) 'Bob Security Reader listed as bypass (Low)'
+Assert (@($e | Where-Object { $_.role -in 'Global Administrator', 'Security Reader' }).Count -eq 0) 'Entra roles not mixed into the unified RBAC table'
+$af = @($ac.findings)
+Assert (@($af | Where-Object { $_.category -ne 'LeastPrivilege' }).Count -eq 0 -and $af.Count -ge 5) "Access findings are LeastPrivilege ($($af.Count))"
+Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Carol' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Finding: Carol holds settings permission but never used the portal'
+Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Dave' }).Count -eq 1) 'Finding: Dave (via group) never used the portal'
+Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Alice' }).Count -eq 0) 'No unused finding for Alice (used 2 days ago)'
+Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Bob' }).Count -eq 0) 'No unused finding for read-only role'
+Assert (@($af | Where-Object { $_.title.en -like '*full Defender access through Entra roles' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: GA bypasses unified RBAC'
+Assert (@($af | Where-Object { $_.title.en -like '*read all Defender data through Entra reader roles' }).Count -eq 1) 'Finding: Security Reader bypass'
+Assert (@($af | Where-Object { $_.title.en -like '*permanent response permissions on all data sources' }).Count -eq 0) 'Standing finding needs 3+ people (only Alice and Carol)'
+Assert (@($af | Where-Object { $_.title.en -like '*assignment(s) to individual users' }).Count -eq 1) 'Finding: direct user assignments'
+Assert (@($af | Where-Object { $_.title.en -like 'Eligible Defender role never activated*' }).Count -eq 0) 'Gina activated her eligibility – no idle finding'
+Assert ($ac.summary.standingPrivileged -eq 2 -and $ac.summary.unusedActive -ge 3 -and $ac.summary.bypassUsers -eq 2) "Access summary (standing $($ac.summary.standingPrivileged), unused $($ac.summary.unusedActive), bypass $($ac.summary.bypassUsers))"
+
+# Second run: a previous snapshot with an older sign-in and an eligible user who never activated
+$access.pimActivations['g1'] = @()
+$access.signIns = @([pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 2) })
+$ra2 = Invoke-WlAccessCollection 6>$null
+$ac2 = $blobs['state/access-latest.json'] | ConvertFrom-Json -Depth 64
+$e = @($ac2.entitlements)
+Assert (([datetime](Ent 'gina@contoso.com' 'SecOps Responder' 'Eligible').lastUsed).ToUniversalTime() -eq ([datetime](T 10)).ToUniversalTime() -and (Ent 'gina@contoso.com' 'SecOps Responder' 'Eligible').usage -eq 'Used') 'Sign-in from the previous snapshot carried forward'
+Assert (@($ac2.findings | Where-Object { $_.title.en -like 'Eligible Defender role never activated: Gina' }).Count -eq 0) 'Portal usage within window still counts for eligible user'
+$access.pimActivations['g1'] = @([pscustomobject]@{ groupId = 'g1'; principalId = 'u-gina'; accessId = 'member'; action = 'selfActivate'; createdDateTime = (T 10) })
+$access.signIns = @([pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 2) }, [pscustomobject]@{ userId = 'u-gina'; createdDateTime = (T 10) })
+$e = @($ac.entitlements)
 
 Write-Host '== API' -ForegroundColor Cyan
 Add-Type -TypeDefinition 'public class HttpResponseContext { public object StatusCode; public object Body; public string ContentType; public System.Collections.Hashtable Headers; }' -ErrorAction SilentlyContinue

@@ -11,7 +11,7 @@ it uses read-only permissions only, granted per feature.
   and Defender coverage gaps. [More](modules/endpoint.md)
 - **AI agents** – cloud agents from Entra Agent ID and Agent 365 with blueprint, agent and agent user IDs, Conditional
   Access coverage, and local AI agents on endpoints. [More](modules/agents.md)
-- **Access** (optional) – who holds which admin role: active, eligible via PIM or requestable via access packages.
+- **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role (direct, group, PIM eligible, access package), for which data sources, and whether the permission was ever used.
   [More](modules/access.md)
 - **History** – dated snapshots in your storage account, drift between runs, accepted risks with audit log,
   notifications about new findings to Teams or Power Automate, CSV export of every table.

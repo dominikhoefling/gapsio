@@ -13,7 +13,7 @@ storage keys, read-only permissions only – granted per feature.
   a page per device, Defender coverage gaps and exclusions without any activity in 30 days
 - **AI agents** – cloud agents (Entra Agent ID, Agent 365, Defender AgentsInfo) with blueprint, agent and agent user IDs
   and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
-- **Access** (optional) – admin roles: active, eligible via PIM, requestable via access packages
+- **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role, how (direct, group, PIM eligible, access package), for which data sources – and whether it was ever used
 - **History** – dated snapshots and drift between runs, accepted risks with audit log, notifications to Teams, CSV export; portal in English and German
 
 ## Quick start (Azure Cloud Shell, PowerShell)
