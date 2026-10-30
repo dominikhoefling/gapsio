@@ -168,7 +168,7 @@ AgentsInfo
           LocalUser = tostring(m.upn), AutoApprove = tostring(m.autoApprove), TrustedProcess = tostring(m.trustedProcess), Process = tostring(m.relatedProcess),
           LocalMcps = tostring(m.localMcps), McpServers = tostring(RawAgentInfo.mcpServers)
 "@
-    @(Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting AgentsInfo' | Where-Object { $_ })
+    @(Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting AgentsInfo' -ShardColumn 'AgentId' | Where-Object { $_ })
 }
 
 function Get-WlCaPolicies {
