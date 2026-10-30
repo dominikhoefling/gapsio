@@ -9,7 +9,7 @@
     PowerShellVersion = '7.2'
     FunctionsToExport = @(
         'Get-WlSetting', 'Reset-WlWarnings', 'Add-WlWarning', 'Get-WlWarnings',
-        'Get-WlToken', 'Invoke-WlRest', 'Invoke-WlGraph', 'Invoke-WlGraphSafe', 'Invoke-WlHunting',
+        'Get-WlToken', 'Invoke-WlRest', 'Invoke-WlGraph', 'Invoke-WlGraphSafe', 'Invoke-WlGraphV1First', 'Invoke-WlHunting',
         'Get-WlBlob', 'Get-WlBlobText', 'Set-WlBlob', 'Add-WlQueueMessage',
         'Get-WlHash', 'Get-WlSettingValues', 'Get-WlExclusionRisk', 'Get-WlIndicatorRisk',
         'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',

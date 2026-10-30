@@ -17,14 +17,16 @@
 function Get-WlGraphListExpand {
     # Load a list with $expand=sponsors; if that fails (older API versions), retry without expand.
     param([string]$Path, [string]$Context)
-    try { return @(Invoke-WlGraph -All -Path "$Path&`$expand=sponsors(`$select=id,displayName,userPrincipalName)") }
-    catch { return @(Invoke-WlGraphSafe -All -Path $Path -Context $Context) }
+    $expand = "$Path&`$expand=sponsors(`$select=id,displayName,userPrincipalName)"
+    try { return @(Invoke-WlGraph -All -Path $expand) } catch { }
+    try { return @(Invoke-WlGraph -Beta -All -Path $expand) } catch { }
+    @(Invoke-WlGraphV1First -All -Path $Path -Context $Context)
 }
 
 function Get-WlAgentDirectory {
-    $bp = Invoke-WlGraphSafe -All -Context 'Agent identity blueprints (AgentIdentityBlueprint.Read.All)' `
+    $bp = Invoke-WlGraphV1First -All -Context 'Agent identity blueprints (AgentIdentityBlueprint.Read.All)' `
         -Path 'applications/microsoft.graph.agentIdentityBlueprint?$select=id,appId,displayName,createdDateTime,publisherDomain,signInAudience'
-    $bpp = Invoke-WlGraphSafe -All -Context 'Blueprint principals (AgentIdentityBlueprintPrincipal.Read.All)' `
+    $bpp = Invoke-WlGraphV1First -All -Context 'Blueprint principals (AgentIdentityBlueprintPrincipal.Read.All)' `
         -Path 'servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal?$select=id,appId,displayName,accountEnabled,appOwnerOrganizationId,createdDateTime'
     $ids = Get-WlGraphListExpand -Context 'Agent identities (AgentIdentity.Read.All)' `
         -Path 'servicePrincipals/microsoft.graph.agentIdentity?$select=id,appId,displayName,accountEnabled,agentIdentityBlueprintId,createdByAppId,createdDateTime,disabledByMicrosoftStatus'
@@ -60,7 +62,7 @@ AgentsInfo
 }
 
 function Get-WlCaPolicies {
-    $pol = Invoke-WlGraphSafe -All -Context 'Conditional Access policies (Policy.Read.All)' -Path 'identity/conditionalAccess/policies'
+    $pol = Invoke-WlGraphV1First -All -Context 'Conditional Access policies (Policy.Read.All)' -Path 'identity/conditionalAccess/policies'
     $sd = $null
     try { $sd = Invoke-WlGraph -Path 'policies/identitySecurityDefaultsEnforcementPolicy' } catch { }
     [pscustomobject]@{ Policies = @($pol | Where-Object { $_ }); SecurityDefaults = [bool](Get-WlProp $sd 'isEnabled') }
