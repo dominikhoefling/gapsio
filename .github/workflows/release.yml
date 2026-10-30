@@ -38,7 +38,7 @@ jobs:
       # (free for public repositories; private repositories need GitHub Enterprise Cloud)
       - name: Build provenance attestation
         if: github.event.repository.visibility == 'public'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/release/*'
 
