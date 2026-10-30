@@ -1287,6 +1287,39 @@ Assert ($histBefore -ge 2 -and $histAfter -ge $histBefore) "Change history survi
     }
     finally { [Globalization.CultureInfo]::CurrentCulture = $saved }
 } ${function:Assert}
+# Advanced Hunting sharding: result sets at the 100k-row limit are counted and re-run in hash shards
+& $mod {
+    param($A)
+    $calls = [System.Collections.Generic.List[string]]::new()
+    $script:WlHuntingRowLimit = 1000
+    $orig = ${function:Invoke-WlHunting}
+    ${function:Invoke-WlHunting} = {
+        param([string]$Query, [string]$Timespan = 'P30D')
+        $calls.Add($Query)
+        if ($Query -match '\| summarize Rows = count\(\)$') { return @([pscustomobject]@{ Rows = 2500 }) }
+        if ($Query -match '\| where hash\(DeviceId, (\d+)\) == (\d+)$') { $n = [int]$Matches[1]; $i = [int]$Matches[2]; return @(0..($n * 100) | Where-Object { ($_ % $n) -eq $i } | ForEach-Object { [pscustomobject]@{ DeviceId = "d$_" } }) }
+        if ($Query -match '\| take 10$') { return @(1..10 | ForEach-Object { [pscustomobject]@{ DeviceId = "d$_" } }) }
+        @(1..1000 | ForEach-Object { [pscustomobject]@{ DeviceId = "d$_" } })
+    }
+    try {
+        Reset-WlWarnings
+        $rows = Invoke-WlHuntingSharded -Query "DeviceInfo`n| project DeviceId" -Context 'test' 6>$null
+        & $A ($calls.Count -eq 1 + 1 + 4) "Sharding: 1 probe + 1 count + 4 shards for 2500 rows, got $($calls.Count) calls"
+        & $A ($calls[1] -like "*`n| summarize Rows = count()") 'Sharding: count query appended'
+        & $A ($calls[2] -like "DeviceInfo`n| project DeviceId`n| where hash(DeviceId, 4) == 0") 'Sharding: shard predicate appended to the original query'
+        & $A (@($rows).Count -eq 401 -and @($rows | Select-Object -ExpandProperty DeviceId -Unique).Count -eq 401) "Sharding: shards concatenated without duplicates ($(@($rows).Count))"
+        & $A (@(Get-WlWarnings).Count -eq 0) 'Sharding: no warning when shards are complete'
+        $small = Invoke-WlHuntingSharded -Query "DeviceInfo | take 10" -Context 'test'; & $A ($calls.Count -eq 7) 'Sharding: queries below the limit run once'
+        $script:WlHuntingRowLimit = 101; $calls.Clear(); Reset-WlWarnings
+        ${function:Invoke-WlHunting} = { param([string]$Query, [string]$Timespan) $calls.Add($Query); if ($Query -match 'summarize Rows') { return @([pscustomobject]@{ Rows = 150 }) }; @(1..101 | ForEach-Object { [pscustomobject]@{ DeviceId = "d$_" } }) }
+        $null = Invoke-WlHuntingSharded -Query 'DeviceInfo' -Context 'probe' 6>$null 3>$null
+        & $A (@(Get-WlWarnings | Where-Object { $_ -like 'probe: shard * still hit the 101-row limit*' }).Count -eq 2) 'Sharding: warning when a shard is still truncated'
+    }
+    finally { ${function:Invoke-WlHunting} = $orig; $script:WlHuntingRowLimit = 100000 }
+    $t0 = [DateTime]::UtcNow; $script:WlHuntingCalls.Clear(); 1..5 | ForEach-Object { Wait-WlHuntingBudget }
+    & $A ($script:WlHuntingCalls.Count -eq 5 -and ([DateTime]::UtcNow - $t0).TotalSeconds -lt 2) 'Hunting budget: no pause below the per-minute limit'
+    $script:WlHuntingCalls.Clear()
+} ${function:Assert}
 $env:WL_MODULES = 'endpoint,agents,access'
 $env:WEBSITE_AUTH_ENABLED = $null
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without enabled authentication: 503 (header is not trusted)'

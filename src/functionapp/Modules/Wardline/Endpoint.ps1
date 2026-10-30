@@ -1398,7 +1398,7 @@ function Add-WlExclusionUsage {
     }
     if ($exts.Count) { $parts += "(DeviceFileEvents | where Timestamp > ago(30d) | extend e = tolower(extract(@'(\.[^.\\/]+)$', 1, FileName)) | where e in (exts) | summarize Hits = count(), Last = max(Timestamp) by Key = strcat('e|', e))" }
     $q = "// WardlineUsage`nlet names = $(& $dyn $names);`nlet files = $(& $dyn $files);`nlet paths = $(& $dyn $paths);`nlet exts = $(& $dyn $exts);`nunion $($parts -join ",`n")"
-    $rows = Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting exclusion usage (30 days)'
+    $rows = Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting exclusion usage (30 days)' -ShardColumn 'Key'
     if ($null -eq $rows) { return }
     $hits = @{}
     foreach ($r in @($rows)) { if ($r -and $r.Key) { $hits[[string]$r.Key] = $r } }

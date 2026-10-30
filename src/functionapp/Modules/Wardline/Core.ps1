@@ -330,20 +330,69 @@ function Invoke-WlGraphV1First {
 function Invoke-WlHunting {
     <#
     .SYNOPSIS
-    Advanced Hunting via Microsoft Graph (security/runHuntingQuery, v1.0).
+    Advanced Hunting via Microsoft Graph (security/runHuntingQuery, v1.0). Keeps within the tenant budget of
+    45 calls per minute by pausing when needed.
     #>
     param([Parameter(Mandatory)][string]$Query, [string]$Timespan = 'P30D')
+    Wait-WlHuntingBudget
     $body = @{ Query = $Query }
     if ($Timespan) { $body.Timespan = $Timespan }
     $r = Invoke-WlRest -Uri 'https://graph.microsoft.com/v1.0/security/runHuntingQuery' -Method POST -Body $body -Resource 'https://graph.microsoft.com'
     @($r.results)
 }
 
+# Advanced Hunting API limits: 100,000 rows per query, 45 calls per minute, 10 minutes running time per hour.
+$script:WlHuntingRowLimit = 100000
+$script:WlHuntingCallsPerMinute = 40
+$script:WlHuntingCalls = [System.Collections.Generic.List[datetime]]::new()
+function Wait-WlHuntingBudget {
+    $now = [DateTime]::UtcNow
+    $script:WlHuntingCalls.RemoveAll({ param($t) $t -lt $now.AddSeconds(-60) }) | Out-Null
+    if ($script:WlHuntingCalls.Count -ge $script:WlHuntingCallsPerMinute) {
+        $wait = [int][Math]::Ceiling((($script:WlHuntingCalls[0].AddSeconds(61)) - $now).TotalSeconds)
+        if ($wait -gt 0) { Start-Sleep -Seconds $wait }
+        $script:WlHuntingCalls.Clear()
+    }
+    $script:WlHuntingCalls.Add([DateTime]::UtcNow)
+}
+
+function Invoke-WlHuntingSharded {
+    <#
+    .SYNOPSIS
+    Advanced Hunting for result sets that may exceed the 100,000-row limit of the API (large fleets). Runs the query
+    once; when the row limit is hit, counts the full result and re-runs it in N shards selected with
+    hash(<ShardColumn>, N) == i, so every row is returned exactly once. The shard column must be in the query's
+    output (all device queries project DeviceId). Returns the rows; sets $script:WlHuntingTruncated when a shard
+    is still truncated so the caller can warn.
+    #>
+    param([Parameter(Mandatory)][string]$Query, [string]$Timespan = 'P30D', [string]$ShardColumn = 'DeviceId', [string]$Context = 'Advanced Hunting')
+    $limit = $script:WlHuntingRowLimit
+    $rows = Invoke-WlHunting -Query $Query -Timespan $Timespan
+    if ($rows.Count -lt $limit) { return $rows }
+    # Truncated: find out how many rows there really are and split
+    $total = $limit
+    try { $c = Invoke-WlHunting -Query "$Query`n| summarize Rows = count()" -Timespan $Timespan; if ($c.Count) { $total = [long]$c[0].Rows } } catch { }
+    $n = [int][Math]::Ceiling($total / ($limit * 0.8))
+    if ($n -lt 2) { $n = 2 }
+    if ($n -gt 400) { Add-WlWarning "${Context}: $total rows – more than $($limit * 0.8 * 400) rows cannot be collected in one run."; $n = 400 }
+    Write-Information "Wardline: $Context has $total rows – collecting in $n shards." -InformationAction Continue
+    $out = [System.Collections.Generic.List[object]]::new()
+    for ($i = 0; $i -lt $n; $i++) {
+        $part = Invoke-WlHunting -Query "$Query`n| where hash($ShardColumn, $n) == $i" -Timespan $Timespan
+        if ($part.Count -ge $limit) { Add-WlWarning "${Context}: shard $i of $n still hit the $limit-row limit – results are incomplete." }
+        foreach ($r in $part) { if ($null -ne $r) { $out.Add($r) } }
+    }
+    $out.ToArray()
+}
+
 function Invoke-WlHuntingSafe {
-    # Skipped quietly when the Hunting feature (ThreatHunting.Read.All) is not selected.
-    param([Parameter(Mandatory)][string]$Query, [Parameter(Mandatory)][string]$Context, [string]$Timespan = 'P30D')
+    # Skipped quietly when the Hunting feature (ThreatHunting.Read.All) is not selected. Large results are sharded.
+    param([Parameter(Mandatory)][string]$Query, [Parameter(Mandatory)][string]$Context, [string]$Timespan = 'P30D', [string]$ShardColumn = 'DeviceId', [switch]$NoShard)
     if (-not (Test-WlFeature -Name 'hunting')) { return $null }
-    try { Invoke-WlHunting -Query $Query -Timespan $Timespan }
+    try {
+        if ($NoShard) { return (Invoke-WlHunting -Query $Query -Timespan $Timespan) }
+        Invoke-WlHuntingSharded -Query $Query -Timespan $Timespan -ShardColumn $ShardColumn -Context $Context
+    }
     catch { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context "$Context ThreatHunting.Read.All")"; $null }
 }
 #endregion
