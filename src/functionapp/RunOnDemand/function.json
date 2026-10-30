@@ -1,0 +1,5 @@
+{
+  "bindings": [
+    { "name": "QueueItem", "type": "queueTrigger", "direction": "in", "queueName": "wl-run", "connection": "AzureWebJobsStorage" }
+  ]
+}
