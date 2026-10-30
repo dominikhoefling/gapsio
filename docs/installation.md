@@ -17,7 +17,7 @@ What the script does:
 |---|---|
 | `-ResourceGroup` | Resource group (created if it does not exist) |
 | `-Location westeurope` | Azure region |
-| `-Features Hunting,Indicators,Coverage,Agents` | Features to enable (default shown; `Core` is always included). See [features and permissions](permissions.md). |
+| `-Features Hunting,Indicators,Coverage,Response,Agents` | Features to enable (default shown; `Core` is always included). See [features and permissions](permissions.md). |
 | `-AdminGroupId <objectId>` | Group that additionally receives the *Wardline Administrator* role |
 | `-RestrictToAssignedUsers` | Only assigned users may sign in (otherwise all users of the tenant can open "My access" when the Access feature is on) |
 | `-SnapshotRetentionDays 730` | Retention of the dated snapshots (storage lifecycle and, with `-EnableImmutability`, the WORM period; default 365) |

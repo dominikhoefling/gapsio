@@ -36,11 +36,11 @@
     'noaccess': ['Wardline is only available to administrators (app role “Wardline Administrator”). Please contact your security team.', 'Wardline steht nur Administratoren zur Verfügung (App-Rolle „Wardline Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents', 'KI-Agents'], 'nav.access': ['Access', 'Zugriffe'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Access', 'Zugriffe'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
-    'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents', 'Agents'], 'mod.access': ['Access', 'Zugriffe'],
+    'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents (beta)', 'Agents (Beta)'], 'mod.access': ['Access', 'Zugriffe'],
     // severities and categories
     'sev.Critical': ['Critical', 'Kritisch'], 'sev.High': ['High', 'Hoch'], 'sev.Medium': ['Medium', 'Mittel'], 'sev.Low': ['Low', 'Niedrig'], 'sev.Info': ['Info', 'Info'],
     'cat.Combined': ['Combined', 'Kombiniert'], 'cat.Device': ['Device', 'Gerät'], 'cat.Exclusion': ['Exclusion', 'Exclusion'], 'cat.Indicator': ['Indicator', 'Indikator'],
@@ -123,7 +123,8 @@
     'a.ownGroup': ['(no group)', '(ohne Gruppe)'],
     'asr.Block': ['Block', 'Block'], 'asr.Warn': ['Warn', 'Warnen'], 'asr.Audit': ['Audit', 'Audit'], 'asr.Off': ['Off', 'Aus'],
     // agents
-    'g.title': ['AI agents', 'KI-Agents'],
+    'g.title': ['AI agents (beta)', 'KI-Agents (Beta)'],
+    'g.beta': ['Beta: Entra Agent ID and Agent 365 are new and their APIs still change. This module is tested against the public API contracts, not yet against a fully licensed tenant – treat the data as indicative and report gaps.', 'Beta: Entra Agent ID und Agent 365 sind neu, ihre APIs ändern sich noch. Dieses Modul ist gegen die öffentlichen API-Verträge getestet, noch nicht gegen einen voll lizenzierten Mandanten – die Daten als Hinweis verstehen und Lücken melden.'],
     'g.lede': ['Cloud agents (Copilot Studio, Foundry, custom) with blueprint, agent identity and agent user – and local agents running on endpoints (coding assistants, IDE extensions). Conditional Access is rated separately for the agent identity and the agent user: a policy for one does not apply to the other, and “All users” does not include agent users.', 'Cloud-Agents (Copilot Studio, Foundry, eigene) mit Blueprint, Agent-Identität und Agent-User – und lokale Agents auf Endgeräten (Coding-Assistenten, IDE-Erweiterungen). Conditional Access wird für Agent-Identität und Agent-User getrennt bewertet: Eine Richtlinie für das eine gilt nicht für das andere, und „Alle Benutzer“ schließt Agent-User nicht ein.'],
     'g.secdef': ['Security defaults are enabled – Conditional Access is not evaluated.', 'Sicherheitsstandards (Security Defaults) sind aktiv – Conditional Access wird nicht ausgewertet.'],
     'g.tab.cloud': ['Cloud agents ({0})', 'Cloud-Agents ({0})'], 'g.tab.local': ['Local agents ({0})', 'Lokale Agents ({0})'],
@@ -223,7 +224,7 @@
     'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.bypass': ['Entra bypass role', 'Entra-Bypass-Rolle'], 'coll.agents': ['Agent', 'Agent'],
     'coll.blueprints': ['Blueprint', 'Blueprint'], 'coll.policies': ['CA policy', 'CA-Richtlinie'], 'coll.coverage': ['Coverage', 'Abdeckung'],
     // categories, coverage, usage
-    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'], 'cat.LeastPrivilege': ['Least privilege', 'Least Privilege'],
+    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'], 'cat.LeastPrivilege': ['Least privilege', 'Least Privilege'], 'cat.Response': ['Response', 'Response'],
     'cov.NotOnboarded': ['Not onboarded (Intune device)', 'Nicht onboarded (Intune-Gerät)'], 'cov.CanBeOnboarded': ['Discovered, can be onboarded', 'Erkannt, kann onboarded werden'],
     'cov.SensorInactive': ['Sensor inactive', 'Sensor inaktiv'], 'cov.Misconfigured': ['Sensor misconfigured', 'Sensor falsch konfiguriert'],
     'cov.ImpairedCommunications': ['Impaired communications', 'Eingeschränkte Kommunikation'], 'cov.NoSensorData': ['No sensor data', 'Keine Sensordaten'], 'cov.SensorIssue': ['Sensor problem', 'Sensorproblem'],
@@ -1204,7 +1205,7 @@
     },
 
     async agents(main, params) {
-      main.append(h('h1', null, t('g.title')), h('p', { class: 'lede' }, t('g.lede')));
+      main.append(h('h1', null, t('g.title')), h('p', { class: 'lede' }, t('g.lede')), h('p', { class: 'muted small' }, t('g.beta')));
       let ag; try { ag = await loadAgents(); } catch (e) { main.append(noData(e, 'agents')); return; }
       if (ag.securityDefaults) main.append(h('div', { class: 'warnings' }, t('g.secdef')));
       if (ag.registryStatus === 'NotAvailable') main.append(h('p', { class: 'muted small' }, t('g.registry.na')));

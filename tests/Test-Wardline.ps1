@@ -515,7 +515,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
     param($Fx, $Hunt, $Acc, $Users, $Blobs, $Queue)
     $script:Fx = $Fx; $script:Hunt = $Hunt; $script:Acc = $Acc; $script:Users = $Users; $script:Blobs = $Blobs; $script:Queue = $Queue
     $script:HuntQueries = [System.Collections.Generic.List[string]]::new()
-    $env:WL_STORAGE_ACCOUNT = 'teststorage'; $env:WL_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:WL_FEATURES = 'hunting,indicators,coverage'
+    $env:WL_STORAGE_ACCOUNT = 'teststorage'; $env:WL_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:WL_FEATURES = 'hunting,indicators,coverage,response'
 
     function script:V { param($Items) [pscustomobject]@{ value = @($Items) } }
 
@@ -552,6 +552,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
             return [pscustomobject]@{ schema = @(); results = @($rows) }
         }
         if ($Uri -match 'api.securitycenter.microsoft.com/api/indicators') { return (V $script:Fx.indicators) }
+        if ($Uri -match 'api.securitycenter.microsoft.com/api/machineactions') { return (V $script:Fx.machineActions) }
+        if ($Uri -match 'api.securitycenter.microsoft.com/api/alerts') { return (V $script:Fx.mdeAlerts) }
 
         $path = ($Uri -replace '^https://graph.microsoft.com/(v1.0|beta)/', '')
         switch -Regex ($path) {
@@ -1078,6 +1080,40 @@ Write-Host '== Inventory hygiene (unit)' -ForegroundColor Cyan
     $i = @(Get-WlInventoryFindings -Devices $devs -SettingValues $sv -Asr $null)
     & $A (@($i | Where-Object { $_.title.en -match 'device group' }).Count -eq 0) 'Inventory: no groups used at all -> no ungrouped finding'
 } ${function:Assert}
+
+Write-Host '== Response readiness (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A, $T)
+    $act = { param($type, $status, $dev, $daysAgo, $who, $cmds) [pscustomobject]@{ id = [guid]::NewGuid().ToString(); type = $type; status = $status; requestor = $who; deviceId = $dev; deviceName = $dev; at = (& $T $daysAgo); updated = (& $T $daysAgo); commands = @($cmds) } }
+    $al = { param($sev, $status, $inv, $dev, $daysAgo) [pscustomobject]@{ id = [guid]::NewGuid().ToString(); title = "Alert on $dev"; severity = $sev; status = $status; investigationState = $inv; deviceId = $dev; deviceName = $dev; at = (& $T $daysAgo); assignedTo = $null } }
+    $facts = [pscustomobject]@{
+        actions = @(
+            (& $act 'Isolate' 'Succeeded' 'PC-ISO' 20 'ir@contoso.com' @()),
+            (& $act 'Isolate' 'Succeeded' 'PC-FREED' 20 'ir@contoso.com' @()), (& $act 'Unisolate' 'Succeeded' 'PC-FREED' 15 'ir@contoso.com' @()),
+            (& $act 'Isolate' 'Succeeded' 'PC-FRESH' 2 'ir@contoso.com' @()),
+            (& $act 'LiveResponse' 'Succeeded' 'PC-LR' 5 'alice@contoso.com' @('GetFile', 'RunScript')),
+            (& $act 'RunAntiVirusScan' 'Failed' 'PC-A' 3 'x' @()), (& $act 'RunAntiVirusScan' 'TimeOut' 'PC-B' 3 'x' @()), (& $act 'CollectInvestigationPackage' 'Pending' 'PC-C' 4 'x' @())
+        )
+        alerts  = @(
+            (& $al 'High' 'InProgress' 'PendingApproval' 'PC-WAIT' 3),
+            (& $al 'Medium' 'InProgress' 'PendingApproval' 'PC-NEWWAIT' 0),
+            (& $al 'High' 'New' 'Benign' 'PC-OLD' 10), (& $al 'Low' 'New' 'Benign' 'PC-LOW' 10), (& $al 'High' 'New' 'Benign' 'PC-RECENT' 2),
+            (& $al 'High' 'Resolved' 'Remediated' 'PC-DONE' 10)
+        )
+    }
+    $r = @(Get-WlResponseFindings -Facts $facts -WindowsDevices 50)
+    & $A (@($r | Where-Object { $_.category -ne 'Response' }).Count -eq 0) 'Response: all findings in category Response'
+    & $A (@($r | Where-Object { $_.title.en -eq '1 automated investigation(s) waiting for approval' -and $_.severity -eq 'High' -and $_.detail.en -match 'PC-WAIT' -and $_.detail.en -notmatch 'PC-NEWWAIT' }).Count -eq 1) 'Response: pending approval older than a day only'
+    & $A (@($r | Where-Object { $_.title.en -eq '1 alert(s) untouched for 7+ days' -and $_.detail.en -match 'PC-OLD' }).Count -eq 1) 'Response: stale New alerts (Medium+, 7+ days), Low and recent ignored'
+    & $A (@($r | Where-Object { $_.title.en -eq 'Device isolated for more than 7 days' }).Count -eq 1 -and @($r | Where-Object { $_.deviceName -eq 'PC-ISO' }).Count -eq 1) 'Response: forgotten isolation only (released and fresh ones ignored)'
+    & $A (@($r | Where-Object { $_.title.en -eq '3 response action(s) failed or stuck' }).Count -eq 1) 'Response: failed/timeout/pending counted'
+    & $A (@($r | Where-Object { $_.title.en -match 'live response session\(s\) ran or uploaded scripts' -and $_.detail.en -match 'alice@contoso.com' }).Count -eq 1) 'Response: live response with RunScript'
+    & $A (@($r | Where-Object { $_.title.en -eq 'Response capabilities never used in 90 days' }).Count -eq 0) 'Response: capabilities were exercised -> no readiness finding'
+    $r2 = @(Get-WlResponseFindings -Facts ([pscustomobject]@{ actions = @(); alerts = @() }) -WindowsDevices 50)
+    & $A ($r2.Count -eq 1 -and $r2[0].title.en -eq 'Response capabilities never used in 90 days') 'Response: nothing in 90 days on 50 devices -> readiness finding'
+    & $A (@(Get-WlResponseFindings -Facts ([pscustomobject]@{ actions = @(); alerts = @() }) -WindowsDevices 10).Count -eq 0) 'Response: small fleet -> no readiness finding'
+    & $A (@(Get-WlResponseFindings -Facts $null -WindowsDevices 50).Count -eq 0) 'Response: feature off -> nothing'
+} ${function:Assert} ${function:T}
 
 Write-Host '== Versions and update check' -ForegroundColor Cyan
 & $mod {

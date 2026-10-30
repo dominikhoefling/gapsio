@@ -58,7 +58,7 @@ try {
             Send-Response -Status 200 -Body ([ordered]@{
                     oid = $principal.oid; upn = $principal.upn; displayName = $principal.displayName
                     isAdmin = $principal.isAdmin; roles = $principal.roles; modules = @($modules)
-                    features = @(@('hunting', 'indicators', 'coverage', 'inventory') | Where-Object { Test-WlFeature -Name $_ })
+                    features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response') | Where-Object { Test-WlFeature -Name $_ })
                     tenantId = Get-WlSetting -Name 'WL_TENANT_ID'; version = (Get-WlVersion)
                     update = $(if ($principal.isAdmin) { try { Get-WlBlob -Container 'state' -Name 'release.json' } catch { $null } })
                     license = $(if ($principal.isAdmin) { try { $l = Get-WlLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })

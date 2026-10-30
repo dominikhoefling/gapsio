@@ -37,6 +37,130 @@ function New-WlDevice {
     }
 }
 
+#region Response readiness (MDE API: machine actions and alert investigation state)
+$script:WlResponseFacts = $null
+function Get-WlResponseFacts {
+    <#
+    .SYNOPSIS
+    Response actions of the last 90 days (isolation, live response, investigation package, AV scan …) and alerts of the
+    last 30 days with their automated-investigation state. Feature 'response' (Machine.Read.All, Alert.Read.All).
+    The automation level per device group and the live-response tenant settings are not exposed by any API; what can
+    be seen is whether response capabilities are used, whether remediations wait for approval and whether isolations
+    are forgotten.
+    #>
+    if (-not (Test-WlFeature -Name 'response')) { return $null }
+    $res = 'https://api.securitycenter.microsoft.com'
+    $base = (Get-WlSetting -Name 'WL_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+    $pull = {
+        param($Path, $Context)
+        $items = [System.Collections.Generic.List[object]]::new()
+        $uri = "$base/$Path"
+        try {
+            while ($uri) {
+                $r = Invoke-WlRest -Uri $uri -Resource $res
+                foreach ($i in @($r.value)) { if ($i) { $items.Add($i) } }
+                $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
+            }
+        }
+        catch { Add-WlWarning "${Context}: $($_.Exception.Message)" }
+        $items.ToArray()
+    }
+    $since90 = [DateTime]::UtcNow.AddDays(-90).ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $since30 = [DateTime]::UtcNow.AddDays(-30).ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $actions = @(& $pull "machineactions?`$filter=creationDateTimeUtc ge $since90" 'MDE response actions (Machine.Read.All)')
+    $alerts = @(& $pull "alerts?`$filter=alertCreationTime ge $since30" 'MDE alerts (Alert.Read.All)')
+    $script:WlResponseFacts = [pscustomobject]@{
+        since90 = $since90; since30 = $since30
+        actions = @($actions | ForEach-Object {
+                [pscustomobject]@{
+                    id = [string]$_.id; type = [string]$_.type; status = [string]$_.status; requestor = [string](Get-WlProp $_ 'requestor')
+                    deviceId = [string](Get-WlProp $_ 'machineId'); deviceName = [string](Get-WlProp $_ 'computerDnsName')
+                    at = [string](Get-WlProp $_ 'creationDateTimeUtc'); updated = [string](Get-WlProp $_ 'lastUpdateDateTimeUtc')
+                    commands = @(@(Get-WlProp $_ 'commands') | ForEach-Object { [string](Get-WlProp $_ 'command') } | Where-Object { $_ })
+                }
+            })
+        alerts  = @($alerts | ForEach-Object {
+                [pscustomobject]@{
+                    id = [string]$_.id; title = [string](Get-WlProp $_ 'title'); severity = [string](Get-WlProp $_ 'severity'); status = [string](Get-WlProp $_ 'status')
+                    investigationState = [string](Get-WlProp $_ 'investigationState'); deviceId = [string](Get-WlProp $_ 'machineId'); deviceName = [string](Get-WlProp $_ 'computerDnsName')
+                    at = [string](Get-WlProp $_ 'alertCreationTime'); assignedTo = [string](Get-WlProp $_ 'assignedTo')
+                }
+            })
+    }
+    $script:WlResponseFacts
+}
+
+function Get-WlResponseFindings {
+    param([object]$Facts, [int]$WindowsDevices)
+    $f = [System.Collections.Generic.List[object]]::new()
+    if (-not $Facts) { return @() }
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $now = [DateTime]::UtcNow
+    $age = { param($at) try { ($now - (ConvertTo-WlUtc $at)).TotalDays } catch { 0 } }
+    $acts = @($Facts.actions); $alerts = @($Facts.alerts)
+
+    # 1) Remediation actions waiting for approval for more than 24 hours (semi-automation without anyone approving)
+    $pending = @($alerts | Where-Object { $_.investigationState -eq 'PendingApproval' -and (& $age $_.at) -ge 1 })
+    if ($pending.Count) {
+        $devs = @($pending | ForEach-Object { $_.deviceName } | Where-Object { $_ } | Sort-Object -Unique)
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Response' -Title (& $T "$($pending.Count) automated investigation(s) waiting for approval" "$($pending.Count) automatisierte Untersuchung(en) warten auf Genehmigung") `
+                    -Detail (& $T "Automated investigation found remediation actions but the device group is set to semi-automation and nobody has approved them for more than a day. Devices: $($devs -join ', '). Until approved, the threat stays." `
+                        "Die automatisierte Untersuchung hat Bereinigungsaktionen gefunden, aber die Gerätegruppe steht auf Semi-Automatisierung und seit über einem Tag hat niemand genehmigt. Geräte: $($devs -join ', '). Bis zur Genehmigung bleibt die Bedrohung.") `
+                    -Recommendation (& $T 'Approve or reject in Action center. If approvals are regularly late, raise the automation level of the device group to Full – remediate threats automatically.' 'Im Action Center genehmigen oder ablehnen. Wenn Genehmigungen regelmäßig liegen bleiben, die Automatisierungsstufe der Gerätegruppe auf „Vollständig“ heben.') -Subject 'resp|pending-approval' -StableKey))
+    }
+
+    # 2) Alerts of Medium+ severity still New after 7 days (nobody triaged)
+    $stale = @($alerts | Where-Object { $_.status -eq 'New' -and $_.severity -in 'Medium', 'High' -and (& $age $_.at) -ge 7 })
+    if ($stale.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Response' -Title (& $T "$($stale.Count) alert(s) untouched for 7+ days" "$($stale.Count) Alert(s) seit 7+ Tagen unbearbeitet") `
+                    -Detail (& $T "Medium or high severity alerts are still in state New after a week – nobody has looked at them: $((@($stale | Sort-Object at | Select-Object -First 5 | ForEach-Object { "$($_.title) ($($_.deviceName))" })) -join '; ')$(if ($stale.Count -gt 5) { ' …' })." `
+                        "Alerts mittlerer oder hoher Schwere stehen nach einer Woche noch auf „Neu“ – niemand hat sie angesehen: $((@($stale | Sort-Object at | Select-Object -First 5 | ForEach-Object { "$($_.title) ($($_.deviceName))" })) -join '; ')$(if ($stale.Count -gt 5) { ' …' }).") `
+                    -Recommendation (& $T 'Triage and assign the alerts. Check whether the SOC has a working queue and notification for Defender alerts (e.g. email notifications or Sentinel).' 'Alerts triagieren und zuweisen. Prüfen, ob das SOC eine funktionierende Warteschlange und Benachrichtigung für Defender-Alerts hat (E-Mail-Benachrichtigung oder Sentinel).') -Subject 'resp|stale-alerts' -StableKey))
+    }
+
+    # 3) Devices isolated for more than 7 days without release
+    $iso = @{}
+    foreach ($a in @($acts | Where-Object { $_.type -in 'Isolate', 'Unisolate' -and $_.status -eq 'Succeeded' } | Sort-Object { ConvertTo-WlUtc $_.at })) {
+        if ($a.type -eq 'Isolate') { $iso[$a.deviceId] = $a } else { $iso.Remove($a.deviceId) }
+    }
+    foreach ($a in @($iso.Values | Where-Object { (& $age $_.at) -ge 7 })) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Response' -Title (& $T 'Device isolated for more than 7 days' 'Gerät seit mehr als 7 Tagen isoliert') `
+                    -Detail (& $T "$($a.deviceName) was isolated on $($a.at.Substring(0,10)) by $($a.requestor) and has not been released. Long isolations usually mean a forgotten incident – or a device that should be reimaged instead." `
+                        "$($a.deviceName) wurde am $($a.at.Substring(0,10)) von $($a.requestor) isoliert und nicht wieder freigegeben. Lange Isolationen sind meist ein vergessener Vorfall – oder ein Gerät, das besser neu aufgesetzt wird.") `
+                    -Recommendation (& $T 'Close the incident: release the device or reimage and offboard it.' 'Vorfall abschließen: Gerät freigeben oder neu aufsetzen und offboarden.') -Subject 'resp|isolated' -DeviceId $a.deviceId -DeviceName $a.deviceName))
+    }
+
+    # 4) Response actions failed or stuck (Pending/InProgress > 2 days)
+    $stuck = @($acts | Where-Object { ($_.status -in 'Pending', 'InProgress' -and (& $age $_.at) -ge 2) -or $_.status -in 'Failed', 'TimeOut' })
+    if ($stuck.Count -ge 3) {
+        $byType = @($stuck | Group-Object type | ForEach-Object { "$($_.Name): $($_.Count)" }) -join ', '
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Response' -Title (& $T "$($stuck.Count) response action(s) failed or stuck" "$($stuck.Count) Response-Aktion(en) fehlgeschlagen oder hängen") `
+                    -Detail (& $T "In the last 90 days response actions did not complete ($byType). Common causes: device offline, sensor unhealthy, or live response disabled for servers." "In den letzten 90 Tagen wurden Response-Aktionen nicht abgeschlossen ($byType). Häufige Ursachen: Gerät offline, Sensor nicht gesund oder Live Response für Server deaktiviert.") `
+                    -Recommendation (& $T 'Review the failed actions in Action center and check sensor health of the affected devices.' 'Fehlgeschlagene Aktionen im Action Center prüfen und die Sensor-Gesundheit der betroffenen Geräte kontrollieren.') -Subject 'resp|stuck' -StableKey))
+    }
+
+    # 5) Response capabilities never exercised (readiness) – 25+ Windows devices and no isolation, live response or investigation package in 90 days
+    $exercised = @($acts | Where-Object { $_.type -in 'Isolate', 'LiveResponse', 'CollectInvestigationPackage', 'RestrictCodeExecution', 'StopAndQuarantineFile' })
+    if ($WindowsDevices -ge 25 -and $exercised.Count -eq 0) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Response' -Title (& $T 'Response capabilities never used in 90 days' 'Response-Fähigkeiten in 90 Tagen nie genutzt') `
+                    -Detail (& $T "No isolation, live response session, investigation package or code restriction was run in the last 90 days across $WindowsDevices Windows devices. Either nothing happened – or the team has never tested whether these actions work (permissions, live response enabled, servers included)." `
+                        "In den letzten 90 Tagen wurde auf $WindowsDevices Windows-Geräten keine Isolation, Live-Response-Sitzung, kein Untersuchungspaket und keine Codebeschränkung ausgeführt. Entweder ist nichts passiert – oder das Team hat nie getestet, ob diese Aktionen funktionieren (Berechtigungen, Live Response aktiviert, Server eingeschlossen).") `
+                    -Recommendation (& $T 'Run a response drill on a test device: isolate, open a live response session, collect an investigation package, release. Verify that live response (and for servers) is enabled under Settings → Endpoints → Advanced features.' 'Response-Übung auf einem Testgerät: isolieren, Live-Response-Sitzung öffnen, Untersuchungspaket sammeln, freigeben. Prüfen, dass Live Response (und für Server) unter Einstellungen → Endpunkte → Erweiterte Funktionen aktiviert ist.') -Subject 'resp|never' -StableKey))
+    }
+
+    # 6) Live response sessions that ran scripts – worth knowing who does it (information, Low)
+    $scripts = @($acts | Where-Object { $_.type -eq 'LiveResponse' -and @($_.commands | Where-Object { $_ -match '^(RunScript|PutFile)' }).Count -gt 0 })
+    if ($scripts.Count) {
+        $who = @($scripts | ForEach-Object { $_.requestor } | Where-Object { $_ } | Sort-Object -Unique)
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Response' -Title (& $T "$($scripts.Count) live response session(s) ran or uploaded scripts" "$($scripts.Count) Live-Response-Sitzung(en) mit Skriptausführung oder -upload") `
+                    -Detail (& $T "Scripts were run or uploaded through live response by: $($who -join ', '). Live response with script execution is the most powerful action in Defender – make sure 'unsigned script execution' is off and the scripts in the library are reviewed." `
+                        "Über Live Response wurden Skripte ausgeführt oder hochgeladen von: $($who -join ', '). Live Response mit Skriptausführung ist die mächtigste Aktion in Defender – sicherstellen, dass „Ausführung nicht signierter Skripte“ aus ist und die Skripte in der Bibliothek geprüft sind.") `
+                    -Recommendation (& $T 'Keep the live response library curated and signed; restrict live-response permissions (unified RBAC: liveresponse-advanced) to the IR team.' 'Live-Response-Bibliothek kuratiert und signiert halten; Live-Response-Rechte (Unified RBAC: liveresponse-advanced) auf das IR-Team begrenzen.') -Subject 'resp|scripts' -StableKey))
+    }
+    @($f)
+}
+#endregion
+
 #region Policies (Intune / security settings management)
 function Get-WlAssignmentText {
     # Assignment texts: "All devices", "All users", "Group: <name>", "Excluded: <name>" (translated in the portal)
@@ -1882,6 +2006,7 @@ function Invoke-WlEndpointCollection {
     $baseline = Get-WlBaseline
     $pol = Get-WlEndpointPolicies
     $indicators = Get-WlAllowIndicators
+    $response = Get-WlResponseFacts
     $devices = Get-WlDeviceStates
 
     $prevLocal = @()
@@ -1899,7 +2024,8 @@ function Invoke-WlEndpointCollection {
 
     $baselineResults = Test-WlBaseline -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents) +
-        @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present })))
+        @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
+        @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count)
 
     $deviceList = foreach ($d in $devices.Values) {
         $d.key = Get-WlHash "dev|$($d.deviceId)"
@@ -1938,6 +2064,8 @@ function Invoke-WlEndpointCollection {
             unusedExclusions       = @(@($pol.Exclusions) + @($local | Where-Object { $_.present }) | Where-Object { $_.usage -eq 'Unused' }).Count
             baselineOk             = @($baselineResults | Where-Object { $_.status -eq 'OK' }).Count
             baselineTotal          = @($baselineResults).Count
+            responseActions90d     = $(if ($response) { @($response.actions).Count } else { $null })
+            alertsPendingApproval  = $(if ($response) { @($response.alerts | Where-Object { $_.investigationState -eq 'PendingApproval' }).Count } else { $null })
         }
         policies             = @($pol.Policies)
         policyExclusions     = @($pol.Exclusions)
@@ -1950,6 +2078,7 @@ function Invoke-WlEndpointCollection {
         asrGroups            = @($asr.groups)
         asrCatalog           = @($asr.catalog)
         localConfigEvents    = @($linuxEvents | Select-Object -Last 500)
+        responseActions      = @($(if ($response) { $response.actions } else { @() }))
         findings             = @($findings)
         seenDefenderSettings = $seen
         warnings             = @(Get-WlWarnings)

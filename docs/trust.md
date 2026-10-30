@@ -24,7 +24,7 @@ and listed on [features and permissions](permissions.md). Show exactly what an i
 changing anything:
 
 ```powershell
-./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Indicators,Coverage,Agents
+./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Indicators,Coverage,Response,Agents
 ```
 
 Who holds the permissions is your choice: the managed identity of the Function App (default) or a data-access app

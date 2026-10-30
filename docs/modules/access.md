@@ -3,7 +3,7 @@
 Off by default. Enable with the feature `Access`:
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Agents,Access
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,Access
 ```
 
 The module looks at **one thing only: Microsoft Defender XDR unified RBAC** – the roles and assignments under *Permissions → Roles* in the Defender portal (Graph: `roleManagement/defender`).

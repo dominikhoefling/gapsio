@@ -56,6 +56,24 @@
       ]
     },
     {
+      "id": "Response",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: response readiness – response actions of the last 90 days, investigations waiting for approval, forgotten isolations, untriaged alerts",
+      "permissions": [
+        {
+          "resource": "mde",
+          "value": "Machine.Read.All",
+          "why": "Read response actions (isolation, live response, investigation package …)"
+        },
+        {
+          "resource": "mde",
+          "value": "Alert.Read.All",
+          "why": "Read alerts with their automated-investigation state"
+        }
+      ]
+    },
+    {
       "id": "Coverage",
       "default": true,
       "module": "endpoint",
