@@ -66,3 +66,21 @@ Findings that only appear when several signals meet, for example:
 - passive mode **and** local exclusions
 - local exclusions effective because `DisableLocalAdminMerge` / `exclusionsMergePolicy` is missing
 - a local AI agent with auto-approve on a weakened device (see [AI agents](agents.md))
+
+## Dependency findings
+
+Many Defender features silently depend on another one. The *Dependency* category flags settings that are
+configured but cannot work:
+
+| Configured | Needs | Otherwise |
+|---|---|---|
+| ASR rules in block/warn | `CloudBlockLevel` ≥ High (High Plus for EDR alerts) | blocks happen, but no alerts |
+| Reputation-based ASR rules (prevalence, ransomware), EDR in block mode, portal tamper-protection toggle, BAFS | cloud-delivered protection | inert on devices with cloud protection off |
+| Custom indicators, network protection, web content filtering | behavior monitoring | silently stop working |
+| ASR, network protection, cloud protection, indicators | Defender Antivirus in active mode | not enforced in passive mode |
+| Tamper protection for exclusions | `DisableLocalAdminMerge` = 1 via Intune / security settings management | local admins can still add exclusions |
+| Network protection on Windows Server | `AllowNetworkProtectionOnWinServer` (+ `AllowDatagramProcessingOnWinServer`) | stays off on servers |
+| File hash indicators | `EnableFileHashComputation` | new files are matched late |
+
+Indicator pitfalls are reported too: private (RFC 1918) IP indicators are ignored, URL indicators with a path
+only match in Microsoft Edge, and an allow and a block indicator for the same value resolve by creation order.

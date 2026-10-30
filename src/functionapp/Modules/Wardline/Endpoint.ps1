@@ -296,6 +296,7 @@ function Get-WlEndpointPolicies {
 #endregion
 
 #region Allow indicators (MDE API)
+$script:WlIndicatorFacts = $null
 function Get-WlAllowIndicators {
     if (-not (Test-WlFeature -Name 'indicators')) { return }
     $res = 'https://api.securitycenter.microsoft.com'
@@ -311,6 +312,20 @@ function Get-WlAllowIndicators {
     catch {
         Add-WlWarning "MDE indicators: $($_.Exception.Message)"
         return
+    }
+    # Facts about all indicators (any action) for the dependency checks: which types exist, and values that carry
+    # both an Allow and a Block/Warn action (SmartScreen then picks whichever was created first).
+    $types = @{}; $byValue = @{}
+    foreach ($i in $items) {
+        $t = [string](Get-WlProp $i 'indicatorType'); $v = ([string](Get-WlProp $i 'indicatorValue')).ToLowerInvariant(); $a = [string](Get-WlProp $i 'action')
+        if ($t) { $types[$t] = $true }
+        if (-not $byValue.ContainsKey($v)) { $byValue[$v] = [ordered]@{ type = $t; value = [string](Get-WlProp $i 'indicatorValue'); allow = $false; block = $false } }
+        if ($a -match '^Allow') { $byValue[$v].allow = $true } elseif ($a -match '^(Block|Warn|Alert)') { $byValue[$v].block = $true }
+    }
+    $script:WlIndicatorFacts = [ordered]@{
+        total     = $items.Count
+        types     = @($types.Keys | Sort-Object)
+        conflicts = @($byValue.Values | Where-Object { $_.allow -and $_.block } | ForEach-Object { [pscustomobject]$_ })
     }
     $out = foreach ($i in $items) {
         $action = [string](Get-WlProp $i 'action')
@@ -1369,6 +1384,141 @@ function New-WlFinding {
     }
 }
 
+function Get-WlDependencyFindings {
+    <#
+    .SYNOPSIS
+    Interdependency findings: settings that are configured but inert because a prerequisite is missing.
+    Sources: Defender product documentation and "Microsoft Defender for Endpoint in Depth" (2nd ed.), in particular
+    the dependency table (ch. 13) and the notes on cloud block level, behavior monitoring and passive mode.
+      - Cloud block level below High: ASR rules do not raise alerts (EDR alerts need High Plus)
+      - Cloud protection off: reputation-based ASR rules, EDR in block mode, BAFS and the tenant-wide Tamper
+        Protection toggle (delivered through the cloud protection channel) do not work
+      - Behavior monitoring off: indicators, network protection and web content filtering stop working
+      - Passive mode: ASR, network protection, cloud protection and indicators are not enforced
+      - Tamper Protection for exclusions needs DisableLocalAdminMerge
+      - Network protection on Windows Server needs AllowNetworkProtectionOnWinServer
+      - Indicators: RFC1918 IPs are ignored, URL paths only match in Edge, Allow+Block on the same value,
+        file indicators without EnableFileHashComputation
+    #>
+    param([hashtable]$Devices, [object[]]$Baseline, [object[]]$SettingValues, $Asr, [object[]]$Indicators)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $byId = @{}; foreach ($b in @($Baseline)) { if ($b) { $byId[$b.id] = $b } }
+    $bad = { param($id) $byId[$id] -and $byId[$id].status -in 'Deviation', 'NotConfigured', 'NotAssigned', 'Inconsistent' }
+    $svOn = { param($pattern) @($SettingValues | Where-Object { $_ -and $_.definitionId -match $pattern -and (Test-WlAssigned $_.assignments) -and [string]$_.value -match '_1$|true' }).Count -gt 0 }
+    $rules = @(Get-WlProp $Asr 'rules')
+    $activeRules = @($rules | Where-Object { $_ -and @($_.configured | Where-Object { $_.assigned -and $_.mode -in 'Block', 'Warn' }).Count -gt 0 })
+    $reputationRules = @($rules | Where-Object { $_ -and $_.id -in 'prevalence', 'ransomware' -and @($_.configured | Where-Object { $_.assigned -and $_.mode -ne 'Off' }).Count -gt 0 })
+    $winDevices = @($Devices.Values | Where-Object { ([string]$_.os) -match '^Windows' })
+    $hasIndicators = [bool]($script:WlIndicatorFacts -and $script:WlIndicatorFacts.total -gt 0) -or @($Indicators).Count -gt 0
+
+    # 1) Cloud block level below High while ASR rules block/warn -> no ASR alerts
+    if ($activeRules.Count -gt 0 -and (& $bad 'cloud-block-level')) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Dependency' -Title (& $T 'ASR rules block without alerting: cloud block level below High' 'ASR-Regeln blockieren ohne Alarm: Cloud-Blockierstufe unter Hoch') `
+                    -Detail (& $T "$($activeRules.Count) ASR rule(s) are assigned in block or warn mode, but the cloud block level is not at least High ($($byId['cloud-block-level'].status)). Below High, Defender raises no alerts for ASR events at all; EDR alerts tied to ASR need High Plus. Blocks still happen, but the SOC does not see them." `
+                        "$($activeRules.Count) ASR-Regel(n) sind im Block- oder Warn-Modus zugewiesen, die Cloud-Blockierstufe ist aber nicht mindestens Hoch ($($byId['cloud-block-level'].status)). Unterhalb von Hoch erzeugt Defender für ASR-Ereignisse gar keine Alerts; EDR-Alerts zu ASR brauchen High Plus. Blockiert wird trotzdem – das SOC sieht es nur nicht.") `
+                    -Recommendation (& $T 'Set CloudBlockLevel to High (High Plus for devices with ASR-based EDR alerting) in the same ring as the ASR rules.' 'CloudBlockLevel auf Hoch setzen (High Plus für Geräte mit ASR-basiertem EDR-Alerting), im selben Ring wie die ASR-Regeln.') -Subject 'dep|asr-blocklevel' -StableKey))
+    }
+
+    # 2) Cloud protection: tenant level (policy) and per device
+    if ($reputationRules.Count -gt 0 -and (& $bad 'cloud-protection')) {
+        $names = (@($reputationRules | ForEach-Object { $_.name }) -join '; ')
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Dependency' -Title (& $T 'Reputation-based ASR rules without cloud protection' 'Reputationsbasierte ASR-Regeln ohne Cloud-Schutz') `
+                    -Detail (& $T "The rules '$names' need cloud-delivered protection to evaluate prevalence, age and trust. Cloud protection is not enforced by policy ($($byId['cloud-protection'].status)) – on devices where it is off these rules do nothing." `
+                        "Die Regeln '$names' brauchen Cloud-delivered Protection, um Verbreitung, Alter und Vertrauen zu bewerten. Cloud-Schutz ist per Richtlinie nicht erzwungen ($($byId['cloud-protection'].status)) – auf Geräten ohne Cloud-Schutz bewirken diese Regeln nichts.") `
+                    -Recommendation (& $T 'Enforce AllowCloudProtection = 1 in the baseline policy for every device that receives ASR rules.' 'AllowCloudProtection = 1 in der Basisrichtlinie für alle Geräte mit ASR-Regeln erzwingen.') -Subject 'dep|asr-cloud' -StableKey))
+    }
+    foreach ($d in $winDevices) {
+        if ($d.checks['CloudProtection'] -ne 'BAD') { continue }
+        $inert = [System.Collections.Generic.List[string]]::new(); $inertDe = [System.Collections.Generic.List[string]]::new()
+        $devRep = @($reputationRules | Where-Object { $d.asr -and $d.asr[$_.id] -and $d.asr[$_.id] -notin 'Off', 'n/a' })
+        if ($devRep.Count) { $inert.Add("$($devRep.Count) reputation-based ASR rule(s)"); $inertDe.Add("$($devRep.Count) reputationsbasierte ASR-Regel(n)") }
+        if ($d.checks['EdrBlockMode'] -eq 'GOOD' -or $d.avMode -eq '4') { $inert.Add('EDR in block mode'); $inertDe.Add('EDR im Block-Modus') }
+        if ($d.checks['TamperProtection'] -eq 'GOOD') { $inert.Add('Tamper Protection changes from the portal (delivered via the cloud protection channel)'); $inertDe.Add('Tamper-Protection-Änderungen aus dem Portal (werden über den Cloud-Schutz-Kanal ausgeliefert)') }
+        if ($hasIndicators) { $inert.Add('file and certificate indicators'); $inertDe.Add('Datei- und Zertifikatsindikatoren') }
+        $inert.Add('block at first sight, cloud block level and sample submission'); $inertDe.Add('Block at First Sight, Cloud-Blockierstufe und Probenübermittlung')
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Dependency' -Title (& $T 'Cloud protection off: dependent protections are inert' 'Cloud-Schutz aus: abhängige Schutzfunktionen wirkungslos') `
+                    -Detail (& $T "On $($d.deviceName) cloud-delivered protection is off. Without it the following do not work: $($inert -join '; ')." "Auf $($d.deviceName) ist Cloud-delivered Protection aus. Ohne sie funktionieren nicht: $($inertDe -join '; ').") `
+                    -Recommendation (& $T 'Enable cloud-delivered protection; check MAPS connectivity (MpCmdRun -ValidateMapsConnection) and the proxy.' 'Cloud-delivered Protection aktivieren; MAPS-Konnektivität (MpCmdRun -ValidateMapsConnection) und Proxy prüfen.') `
+                    -Subject 'dep|cloud' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+
+    # 3) Behavior monitoring off -> indicators, network protection, web content filtering stop working
+    $npConfigured = [bool]($byId['network-protection'] -and $byId['network-protection'].status -ne 'NotConfigured')
+    foreach ($d in $winDevices) {
+        if ($d.checks['BehaviorMonitoring'] -ne 'BAD') { continue }
+        $dep = @(); $depDe = @()
+        if ($hasIndicators) { $dep += 'custom indicators (file, IP, URL)'; $depDe += 'benutzerdefinierte Indikatoren (Datei, IP, URL)' }
+        if ($npConfigured -or $d.checks['NetworkProtection'] -eq 'GOOD') { $dep += 'network protection and web content filtering'; $depDe += 'Network Protection und Web Content Filtering' }
+        if (-not $dep.Count) { continue }
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Dependency' -Title (& $T 'Behavior monitoring off: indicators and network protection are inert' 'Verhaltensüberwachung aus: Indikatoren und Network Protection wirkungslos') `
+                    -Detail (& $T "Behavior monitoring is off on $($d.deviceName). It is the engine behind $($dep -join ' and ') – they silently stop working on this device." "Auf $($d.deviceName) ist die Verhaltensüberwachung aus. Sie ist die Grundlage für $($depDe -join ' und ') – diese fallen auf dem Gerät still aus.") `
+                    -Recommendation (& $T 'Enforce AllowBehaviorMonitoring = 1 and check for local or GPO overrides (effective settings).' 'AllowBehaviorMonitoring = 1 erzwingen und lokale bzw. GPO-Überschreibungen prüfen (effektive Einstellungen).') `
+                    -Subject 'dep|bm' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+
+    # 4) Passive mode -> configured ASR / network protection / indicators are not enforced
+    foreach ($d in $winDevices) {
+        if ($d.avMode -notin '1', '2') { continue }
+        $asrOn = @(if ($d.asr) { $d.asr.Keys | Where-Object { $d.asr[$_] -in 'Block', 'Warn', 'Audit' } })
+        $parts = @(); $partsDe = @()
+        if ($asrOn.Count) { $parts += "$($asrOn.Count) ASR rule(s)"; $partsDe += "$($asrOn.Count) ASR-Regel(n)" }
+        if ($d.checks['NetworkProtection'] -eq 'GOOD' -or $npConfigured) { $parts += 'network protection'; $partsDe += 'Network Protection' }
+        if ($d.checks['CloudProtection'] -eq 'GOOD') { $parts += 'cloud protection / block at first sight'; $partsDe += 'Cloud-Schutz / Block at First Sight' }
+        if ($hasIndicators) { $parts += 'custom indicators'; $partsDe += 'benutzerdefinierte Indikatoren' }
+        if (-not $parts.Count) { continue }
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Dependency' -Title (& $T 'Passive mode: configured protections are not enforced' 'Passiv-Modus: konfigurierte Schutzfunktionen greifen nicht') `
+                    -Detail (& $T "$($d.deviceName) runs Defender Antivirus in passive mode. The following are configured or reported as on, but are not enforced in passive mode: $($parts -join ', '). Only EDR, SmartScreen in Edge and post-breach remediation remain." `
+                        "$($d.deviceName) betreibt Defender Antivirus im Passiv-Modus. Folgendes ist konfiguriert bzw. wird als aktiv gemeldet, greift im Passiv-Modus aber nicht: $($partsDe -join ', '). Es bleiben EDR, SmartScreen in Edge und die Post-Breach-Bereinigung.") `
+                    -Recommendation (& $T 'Switch to active mode once the third-party AV is removed (ForceDefenderPassiveMode = 0 on servers); until then enable EDR in block mode.' 'Nach Entfernen des Drittanbieter-AV auf Aktiv umstellen (ForceDefenderPassiveMode = 0 auf Servern); bis dahin EDR im Block-Modus aktivieren.') `
+                    -Subject 'dep|passive' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+
+    # 5) Tamper Protection for exclusions needs DisableLocalAdminMerge (and Intune/SSM as source)
+    $tpOn = @($winDevices | Where-Object { $_.checks['TamperProtection'] -eq 'GOOD' }).Count
+    if ($tpOn -gt 0 -and (& $bad 'disable-local-admin-merge')) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Dependency' -Title (& $T 'Exclusions are not tamper-protected (DisableLocalAdminMerge missing)' 'Exclusions sind nicht durch Tamper Protection geschützt (DisableLocalAdminMerge fehlt)') `
+                    -Detail (& $T "Tamper Protection is on for $tpOn device(s), but it only protects exclusions when DisableLocalAdminMerge is enabled and the exclusions come from Intune or security settings management. DisableLocalAdminMerge is $($byId['disable-local-admin-merge'].status) – local admins and malware can still add exclusions." `
+                        "Tamper Protection ist auf $tpOn Gerät(en) aktiv, schützt Exclusions aber nur, wenn DisableLocalAdminMerge aktiv ist und die Exclusions aus Intune bzw. Security Settings Management stammen. DisableLocalAdminMerge ist $($byId['disable-local-admin-merge'].status) – lokale Admins und Malware können weiterhin Exclusions hinzufügen.") `
+                    -Recommendation (& $T 'Enforce DisableLocalAdminMerge = 1 via Intune/security settings management (not GPO); verify TPExclusions on a device afterwards.' 'DisableLocalAdminMerge = 1 per Intune/Security Settings Management erzwingen (nicht GPO); danach TPExclusions auf einem Gerät prüfen.') -Subject 'dep|tp-exclusions' -StableKey))
+    }
+
+    # 6) Network protection on Windows Server needs AllowNetworkProtectionOnWinServer
+    $servers = @($winDevices | Where-Object { ([string]$_.os) -match 'Server' })
+    if ($servers.Count -gt 0 -and $npConfigured -and -not (& $svOn 'allownetworkprotectiononwinserver')) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Dependency' -Title (& $T 'Network protection not enabled for Windows Server' 'Network Protection für Windows Server nicht aktiviert') `
+                    -Detail (& $T "Network protection is configured, and $($servers.Count) Windows Server(s) are onboarded, but no assigned policy sets AllowNetworkProtectionOnWinServer. On servers network protection stays off without it (and AllowDatagramProcessingOnWinServer for UDP)." `
+                        "Network Protection ist konfiguriert und $($servers.Count) Windows Server sind onboardet, aber keine zugewiesene Richtlinie setzt AllowNetworkProtectionOnWinServer. Ohne diesen Schalter bleibt Network Protection auf Servern aus (für UDP zusätzlich AllowDatagramProcessingOnWinServer).") `
+                    -Recommendation (& $T 'Add AllowNetworkProtectionOnWinServer = 1 (and, after testing, AllowDatagramProcessingOnWinServer) to the server policy.' 'AllowNetworkProtectionOnWinServer = 1 (und nach Test AllowDatagramProcessingOnWinServer) in die Server-Richtlinie aufnehmen.') -Subject 'dep|np-server' -StableKey))
+    }
+
+    # 7) Indicators
+    $facts = $script:WlIndicatorFacts
+    foreach ($i in @($Indicators)) {
+        if ($i.type -match '^Ip' -and $i.value -match '^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)') {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Dependency' -Title (& $T "Indicator for a private IP has no effect: $($i.value)" "Indikator für private IP wirkt nicht: $($i.value)") `
+                        -Detail (& $T 'Defender does not evaluate custom indicators for private (RFC 1918) or loopback addresses. This indicator is dead configuration.' 'Defender wertet benutzerdefinierte Indikatoren für private (RFC 1918) oder Loopback-Adressen nicht aus. Dieser Indikator ist tote Konfiguration.') `
+                        -Recommendation (& $T 'Remove it; use network protection exclusions or firewall rules for internal addresses.' 'Entfernen; für interne Adressen Network-Protection-Ausnahmen oder Firewall-Regeln verwenden.') -Subject "dep|ind|$($i.key)"))
+        }
+        if ($i.type -match '^Url' -and $i.value -match '^[^/]+/.+') {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Dependency' -Title (& $T "URL indicator with a path only matches in Edge: $($i.value)" "URL-Indikator mit Pfad wirkt nur in Edge: $($i.value)") `
+                        -Detail (& $T 'Outside Microsoft Edge, network protection only sees the host name (TLS SNI). The path part of this indicator is ignored in other browsers and processes – the allow applies to the whole host there.' 'Außerhalb von Microsoft Edge sieht Network Protection nur den Hostnamen (TLS-SNI). Der Pfadanteil dieses Indikators wird in anderen Browsern und Prozessen ignoriert – dort gilt die Freigabe für den ganzen Host.') `
+                        -Recommendation (& $T 'Check whether a host-level allow is acceptable; otherwise restrict the use case to Edge.' 'Prüfen, ob eine Freigabe auf Host-Ebene vertretbar ist; sonst den Anwendungsfall auf Edge beschränken.') -Subject "dep|ind|$($i.key)"))
+        }
+    }
+    foreach ($c in @(if ($facts) { $facts.conflicts })) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Dependency' -Title (& $T "Allow and block indicator for the same value: $($c.value)" "Allow- und Block-Indikator für denselben Wert: $($c.value)") `
+                    -Detail (& $T 'Both an allow and a block/warn indicator exist for this value. Defender resolves this by whichever was created first, not by the stricter action – the result is unpredictable for administrators.' 'Für diesen Wert existieren ein Allow- und ein Block-/Warn-Indikator. Defender entscheidet nach dem zuerst angelegten Indikator, nicht nach der strengeren Aktion – das Ergebnis ist für Administratoren nicht vorhersehbar.') `
+                    -Recommendation (& $T 'Keep exactly one indicator per value.' 'Pro Wert genau einen Indikator behalten.') -Subject "dep|ind-conflict|$($c.type)|$($c.value)"))
+    }
+    if ($facts -and @($facts.types | Where-Object { $_ -match '^File' }).Count -gt 0 -and $winDevices.Count -gt 0 -and -not (& $svOn 'enablefilehashcomputation')) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Dependency' -Title (& $T 'File indicators without EnableFileHashComputation' 'Dateiindikatoren ohne EnableFileHashComputation') `
+                    -Detail (& $T 'File hash indicators exist, but no assigned policy enables file hash computation. Defender then only matches files for which it already has a hash – new or rarely seen files are not blocked or allowed immediately.' 'Es existieren Datei-Hash-Indikatoren, aber keine zugewiesene Richtlinie aktiviert die Hash-Berechnung. Defender vergleicht dann nur Dateien, für die bereits ein Hash vorliegt – neue oder selten gesehene Dateien werden nicht sofort blockiert bzw. freigegeben.') `
+                    -Recommendation (& $T 'Set EnableFileHashComputation = 1 (Defender CSP) for devices that rely on file indicators; expect a small performance cost.' 'EnableFileHashComputation = 1 (Defender CSP) für Geräte setzen, die auf Dateiindikatoren angewiesen sind; geringe Performancekosten einplanen.') -Subject 'dep|filehash' -StableKey))
+    }
+    @($f)
+}
+
 function Get-WlEndpointFindings {
     <#
     .SYNOPSIS
@@ -1543,6 +1693,8 @@ function Get-WlEndpointFindings {
                         "Auf $($e.deviceName) wurde $($e.setting) $($g.Count)-mal außerhalb von Defender geändert, zuletzt durch $($e.process) ($($e.account)). Das kann eine Konfigurationsverwaltung wie Ansible sein – oder jemand, der Einstellungen umgeht.") `
                     -Recommendation (& $T 'Check whether the process belongs to your regular configuration management.' 'Prüfen, ob der Prozess zur regulären Konfigurationsverwaltung gehört.') -Subject 'managed-file-mod' -DeviceId $e.deviceId -DeviceName $e.deviceName))
     }
+
+    foreach ($x in @(Get-WlDependencyFindings -Devices $Devices -Baseline $Baseline -SettingValues $SettingValues -Asr $Asr -Indicators $Indicators)) { $f.Add($x) }
 
     @($f | Sort-Object { $script:WlSeverityOrder[$_.severity] }, category, { Get-WlProp $_.title 'en' })
 }

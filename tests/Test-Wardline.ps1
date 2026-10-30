@@ -220,7 +220,10 @@ $fixtures = @{
     indicators = @(
         [pscustomobject]@{ indicatorValue = 'ab12cd'; indicatorType = 'CertificateThumbprint'; action = 'Allowed'; title = 'Vendor-Zertifikat'; createdBy = 'admin@contoso.com'; creationTimeDateTimeUtc = '2025-01-01T00:00:00Z'; expirationTime = $null; rbacGroupNames = @() },
         [pscustomobject]@{ indicatorValue = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; indicatorType = 'FileSha256'; action = 'Allowed'; title = 'Tool'; createdBy = 'admin@contoso.com'; creationTimeDateTimeUtc = '2025-01-01T00:00:00Z'; expirationTime = '2027-01-01T00:00:00Z'; rbacGroupNames = @('IT') },
-        [pscustomobject]@{ indicatorValue = 'bad.example'; indicatorType = 'DomainName'; action = 'Block'; title = 'Block'; createdBy = 'x' }
+        [pscustomobject]@{ indicatorValue = 'bad.example'; indicatorType = 'DomainName'; action = 'Block'; title = 'Block'; createdBy = 'x' },
+        [pscustomobject]@{ indicatorValue = '10.1.2.3'; indicatorType = 'IpAddress'; action = 'Allowed'; title = 'Internal'; createdBy = 'x'; creationTimeDateTimeUtc = '2025-01-01T00:00:00Z' },
+        [pscustomobject]@{ indicatorValue = 'cdn.example/tools/agent.exe'; indicatorType = 'Url'; action = 'Allowed'; title = 'Path'; createdBy = 'x'; creationTimeDateTimeUtc = '2025-01-01T00:00:00Z' },
+        [pscustomobject]@{ indicatorValue = 'AB12CD'; indicatorType = 'CertificateThumbprint'; action = 'Block'; title = 'Conflict'; createdBy = 'x' }
     )
 }
 
@@ -607,10 +610,19 @@ Assert ($le.Count -eq 7) "7 local exclusions expected, $($le.Count)"
 Assert (@($le | Where-Object { $_.value -eq 'D:\Temp\' -and -not $_.present }).Count -eq 1) 'Deleted local exclusion marked as removed'
 Assert (@($le | Where-Object { $_.origin -eq 'GPO' -and $_.value -eq '.bak' }).Count -eq 1) 'GPO exclusion detected'
 Assert (@($le | Where-Object { $_.platform -eq 'macOS' -and $_.type -eq 'AllowedThreat' }).Count -eq 1) 'mdatp threat allowed detected'
-Assert (@($ep.indicators).Count -eq 2) 'Allow indicators only'
+Assert (@($ep.indicators).Count -eq 4) 'Allow indicators only'
 $f = @($ep.findings)
 Assert (@($f | Where-Object { $_.title.en -eq 'Tamper Protection off and local exclusions present' -and $_.deviceName -eq 'WIN-01' }).Count -eq 1) 'Combined finding TP + local for WIN-01'
-Assert (@($f | Where-Object { $_.title.en -match 'passive mode' -and $_.deviceName -eq 'WIN-02' }).Count -eq 1) 'Passive mode WIN-02'
+Assert (@($f | Where-Object { $_.title.en -eq 'Microsoft Defender Antivirus in passive mode' -and $_.deviceName -eq 'WIN-02' }).Count -eq 1) 'Passive mode WIN-02'
+# Dependency findings (book-derived: configured but inert)
+$dep = @($f | Where-Object { $_.category -eq 'Dependency' })
+Assert (@($dep | Where-Object { $_.title.en -match '^Passive mode' -and $_.deviceName -eq 'WIN-02' }).Count -eq 1) 'Dependency: passive mode leaves protections inert (WIN-02)'
+Assert (@($dep | Where-Object { $_.title.en -match 'private IP' -and $_.title.en -match '10\.1\.2\.3' }).Count -eq 1) 'Dependency: RFC1918 indicator'
+Assert (@($dep | Where-Object { $_.title.en -match 'URL indicator with a path' }).Count -eq 1) 'Dependency: URL path indicator'
+Assert (@($dep | Where-Object { $_.title.en -match 'Allow and block indicator' -and $_.title.en -match 'ab12cd' }).Count -eq 1) 'Dependency: allow/block conflict (case-insensitive)'
+Assert (@($dep | Where-Object { $_.title.en -eq 'File indicators without EnableFileHashComputation' }).Count -eq 1) 'Dependency: file hash computation'
+Assert (@($dep | Where-Object { $_.title.en -match 'cloud block level below High' }).Count -eq 0) 'Dependency: no block-level finding when cloudblocklevel_2 is set'
+Assert (@($dep | Where-Object { $_.deviceName -eq 'MAC-01' -or $_.deviceName -eq 'LNX-01' }).Count -eq 0) 'Dependency: Windows-only device findings'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
 # ASR
 $asr = @{}; foreach ($x in $ep.asrRules) { $asr[$x.id] = $x }
