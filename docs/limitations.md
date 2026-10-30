@@ -15,6 +15,11 @@
 - **macOS with third-party MDM** (e.g. Jamf): profiles deployed there are not visible via Graph; local `mdatp` changes are.
 - **Origin of local exclusions** (Windows): entries under `…\Policies\…` count as GPO, all others under
   `…\Windows Defender\Exclusions` as local. Exclusions set from script files only show the script call.
+- **Exclusions without activity** are checked tenant-wide (any device) over the 30 days Advanced Hunting keeps. Values
+  with wildcards or environment variables are not checked, and very large tenants can hit Advanced Hunting limits – the
+  exclusions then stay "not checked" and the run shows a notice.
+- **Device page**: Wardline does not resolve which groups a device is a member of, so it shows policy assignments
+  instead of the exact set of policies that apply to the device.
 - **Assignments**: policies without assignments count as "not effective" and do not count for the baseline. The
   baseline is evaluated tenant-wide, not per device group.
 - **Device state** from `DeviceTvm…` (tamper protection, running mode) is refreshed by Defender only every few hours.
