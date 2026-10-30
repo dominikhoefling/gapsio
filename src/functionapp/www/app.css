@@ -257,3 +257,18 @@ tr.chg-row-Changed td:first-child { box-shadow: inset 3px 0 0 var(--sev-mittel);
 .diff mark.del, .diff.del-all { background: color-mix(in srgb, var(--sev-krit) 18%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--sev-krit) 60%, transparent); }
 .diff mark.ins, .diff.ins-all { background: color-mix(in srgb, var(--sev-ok) 20%, transparent); }
 .diff.del-all, .diff.ins-all { border-radius: 3px; padding: 0 3px; }
+
+/* Licence */
+.notice-bar { padding: 9px 36px; font-size: 14px; border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--sev-mittel) 12%, var(--surface)); color: var(--ink); }
+.notice-bar[hidden] { display: none; }
+.notice-bar.lic-Expired, .notice-bar.lic-Invalid, .notice-bar.lic-WrongTenant { background: color-mix(in srgb, var(--sev-krit) 10%, var(--surface)); }
+.notice-bar a { font-weight: 600; }
+.side-foot .license-link { display: block; margin-top: 4px; color: #A9B6C2; text-decoration: none; font-size: 12px; }
+.side-foot .license-link:hover { text-decoration: underline; }
+.side-foot .license-link.lic-None, .side-foot .license-link.lic-ExpiringSoon { color: #F2C14E; }
+.side-foot .license-link.lic-Expired, .side-foot .license-link.lic-Invalid, .side-foot .license-link.lic-WrongTenant { color: #F49A9A; }
+.license-form { display: grid; gap: 10px; max-width: 760px; }
+.license-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.license-form textarea { font: 13px var(--mono); }
+a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+@media (max-width: 860px) { .notice-bar { padding-left: 16px; padding-right: 16px; } }

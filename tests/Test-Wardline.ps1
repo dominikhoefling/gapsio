@@ -855,6 +855,68 @@ $r = Call 'changes' -Principal $adminP -Query @{ module = 'agents' }; Assert ([i
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' }; Assert ([int]$r.StatusCode -eq 400) 'POST without X-Wardline is rejected'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Wardline' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1) 'POST run creates a queue message'
 
+Write-Host '== Licence keys' -ForegroundColor Cyan
+$licEc = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve]::CreateFromFriendlyName('nistP256'))
+$licPem = Join-Path ([IO.Path]::GetTempPath()) "wl-lic-$([guid]::NewGuid().ToString('n')).pem"
+Set-Content -Path $licPem -Value $licEc.ExportPkcs8PrivateKeyPem() -NoNewline
+$licPub = [Convert]::ToBase64String($licEc.ExportSubjectPublicKeyInfo())
+$tenant = '00000000-0000-0000-0000-000000000001'
+$licTool = Join-Path $root 'build/New-WardlineLicense.ps1'
+$k1 = & $licTool -PrivateKeyPath $licPem -TenantId $tenant -Customer 'Contoso GmbH' -Plan Annual -Months 12 -NoLedger 6>$null
+$k2 = & $licTool -PrivateKeyPath $licPem -TenantId '11111111-2222-3333-4444-555555555555' -Customer 'Other' -NoLedger 6>$null
+$k3 = & $licTool -PrivateKeyPath $licPem -TenantId $tenant -Customer 'Soon' -Plan Pilot -Expires ([DateTime]::UtcNow.AddDays(10).ToString('yyyy-MM-dd')) -NoLedger 6>$null
+Assert ((& $licTool -Inspect $k1).cust -eq 'Contoso GmbH') 'Licence tool: inspect shows the payload'
+Remove-Item $licPem -Force
+& $mod {
+    param($A, $Pub, $K1, $K2, $K3, $Tenant)
+    $savedPub = $script:WlLicensePublicKey
+    $script:WlLicensePublicKey = $Pub
+    & $A ((Test-WlLicenseKey -Key $K1 -TenantId $Tenant).status -eq 'Valid') 'Licence: valid key for this tenant'
+    & $A ((Test-WlLicenseKey -Key $K1 -TenantId $Tenant.ToUpper()).status -eq 'Valid') 'Licence: tenant id compared case-insensitively'
+    & $A ((Test-WlLicenseKey -Key $K2 -TenantId $Tenant).status -eq 'WrongTenant') 'Licence: key of another tenant'
+    $s3 = Test-WlLicenseKey -Key $K3 -TenantId $Tenant
+    & $A ($s3.status -eq 'ExpiringSoon' -and $s3.daysLeft -ge 10 -and $s3.daysLeft -le 11 -and $s3.plan -eq 'Pilot') "Licence: expiring soon ($($s3.daysLeft) days)"
+    & $A ((Test-WlLicenseKey -Key $K1 -TenantId $Tenant -Now ([DateTime]::UtcNow.AddMonths(13))).status -eq 'Expired') 'Licence: expired after the expiry date'
+    $p = $K1 -split '\.'
+    $forged = [Text.Encoding]::UTF8.GetString((ConvertFrom-WlBase64Url $p[1])) -replace 'Contoso GmbH', 'Evil Corp'
+    $forgedKey = "WL1.$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($forged)).TrimEnd('=').Replace('+','-').Replace('/','_')).$($p[2])"
+    & $A ((Test-WlLicenseKey -Key $forgedKey -TenantId $Tenant).status -eq 'Invalid') 'Licence: tampered payload is rejected'
+    & $A ((Test-WlLicenseKey -Key $K1 -TenantId $Tenant -PublicKey $savedPub).status -eq 'Invalid') 'Licence: key signed by another key is rejected'
+    & $A ((Test-WlLicenseKey -Key 'garbage' -TenantId $Tenant).status -eq 'Invalid' -and (Test-WlLicenseKey -Key '' -TenantId $Tenant).status -eq 'None') 'Licence: garbage invalid, empty none'
+} ${function:Assert} $licPub $k1 $k2 $k3 $tenant
+$r = Call 'me' -Principal $adminP; Assert (($r.Body | ConvertFrom-Json).license.status -eq 'None') 'api/me: no licence yet'
+$r = Call 'license' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = $k2 } | ConvertTo-Json); Assert ([int]$r.StatusCode -eq 400) 'api/license: key of another tenant rejected'
+$r = Call 'license' -Method 'POST' -Principal $userP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = $k1 } | ConvertTo-Json); Assert ([int]$r.StatusCode -eq 403) 'api/license: non-admin gets 403'
+$r = Call 'license' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = $k1 } | ConvertTo-Json); Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).status -eq 'Valid') 'api/license: valid key stored'
+$r = Call 'me' -Principal $adminP; $lm = ($r.Body | ConvertFrom-Json).license; Assert ($lm.status -eq 'Valid' -and $lm.customer -eq 'Contoso GmbH' -and $lm.plan -eq 'Annual') 'api/me: licence summary for admins'
+$r = Call 'me' -Principal $userP; Assert ($null -eq ($r.Body | ConvertFrom-Json).license) 'api/me: no licence details for users'
+$r = Call 'license' -Principal $adminP; Assert (($r.Body | ConvertFrom-Json).source -eq 'Portal' -and ($r.Body | ConvertFrom-Json).setBy -eq 'u-alice@contoso.com') 'api/license: source and who set it'
+& $mod { param($Pub) $script:WlLicensePublicKey = $Pub } $licPub
+
+Write-Host '== Public demo: pseudonymisation' -ForegroundColor Cyan
+. (Join-Path $root 'build/Protect-WardlineDemoData.ps1')
+$asrGuid = '9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2'
+$real = @{
+    me = @{ upn = 'max.mustermann@fabrikam.de'; tenantId = '11111111-2222-3333-4444-555555555555' }
+    endpoint = @{
+        devices = @(@{ deviceId = 'aabbccddeeff00112233445566778899aabbccdd'; deviceName = 'DE-MUC-LT-0042.corp.fabrikam.de'; aadDeviceId = '0f0f0f0f-1111-2222-3333-444444444444'; lastUser = 'FABRIKAM\max.mustermann'; deviceGroup = 'Munich Laptops'; avSignatureVersion = '1.421.123.0'; ip = '10.20.30.40' })
+        findings = @(@{ title = @{ en = 'Local exclusion on DE-MUC-LT-0042.corp.fabrikam.de'; de = 'Lokale Exclusion auf DE-MUC-LT-0042.corp.fabrikam.de' }; key = 'abcdef0123456789' })
+        localExclusions = @(@{ value = 'C:\Users\max.mustermann\AppData\Local\Tool'; addedBy = @{ account = 'max.mustermann@fabrikam.de'; commandLine = 'powershell.exe Add-MpPreference -ExclusionPath C:\Users\max.mustermann\AppData -Server 10.20.30.40' } })
+        policyExclusions = @(@{ policyName = 'Fabrikam - Defender AV Windows'; assignments = @('Group: GRP-Fabrikam-Clients', 'All devices'); asrRule = $asrGuid })
+        agents = @(@{ name = 'HR Assistant'; publisher = 'fabrikam.onmicrosoft.com'; owner = 'erika.musterfrau@fabrikam.de' })
+    }
+}
+$mp = Protect-WardlineDemoData -Data $real -DenyTerms @('Fabrikam') -KeepGuids @($asrGuid)
+$js = $real | ConvertTo-Json -Depth 20 -Compress
+$leaks = @(Test-WardlineDemoLeaks -Json $js -Mapper $mp -DenyTerms @('Fabrikam'))
+Assert ($leaks.Count -eq 0) "Demo: no leaks after pseudonymisation ($($leaks -join ' | '))"
+Assert ($js -notmatch '(?i)fabrikam|mustermann|musterfrau|DE-MUC|10\.20\.30\.40|0f0f0f0f|aabbccddeeff|Munich') "Demo: names, people, IPs and IDs replaced ($js)"
+$d0 = $real.endpoint.devices[0]
+Assert ($real.endpoint.findings[0].title.en -match [regex]::Escape($d0.deviceName.Split('.')[0])) 'Demo: device name replaced consistently in free text'
+Assert ($d0.avSignatureVersion -eq '1.421.123.0' -and $real.endpoint.policyExclusions[0].asrRule -eq $asrGuid -and $real.endpoint.findings[0].key -eq 'abcdef0123456789') 'Demo: versions, Microsoft IDs and keys kept'
+Assert ($real.endpoint.localExclusions[0].value -match '^C:\\Users\\user\d+\\AppData' -and $d0.ip -match '^(192\.0\.2|198\.51\.100|203\.0\.113)\.') 'Demo: profile paths and IPs pseudonymised'
+Assert (@(Test-WardlineDemoLeaks -Json '{"a":"max@fabrikam.de","b":"10.1.2.3"}' -DenyTerms @('Fabrikam')).Count -ge 3) 'Demo: leak check catches e-mail, IP and deny term'
+
 Write-Host '== Graph v1.0 first with beta fallback' -ForegroundColor Cyan
 & $mod {
     param($A)

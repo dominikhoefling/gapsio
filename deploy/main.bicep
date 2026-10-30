@@ -84,6 +84,10 @@ param notifyWebhook string = ''
 @allowed(['Critical', 'High', 'Medium', 'Low'])
 param notifyMinSeverity string = 'High'
 
+@description('Optional Wardline licence key (bound to this tenant). It can also be entered later in the portal.')
+@secure()
+param licenseKey string = ''
+
 @description('Schedule of the agents module (NCRONTAB, UTC).')
 param scheduleAgents string = '0 32 2 * * *'
 
@@ -353,6 +357,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_UPDATE_CHECK', value: string(updateCheck) }
         { name: 'WL_NOTIFY_WEBHOOK', value: notifyWebhook }
         { name: 'WL_NOTIFY_MIN_SEVERITY', value: notifyMinSeverity }
+        { name: 'WL_LICENSE_KEY', value: licenseKey }
         { name: 'WL_SCHEDULE_AGENTS', value: scheduleAgents }
       ]
     }

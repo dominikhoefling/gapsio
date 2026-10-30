@@ -49,3 +49,4 @@ pwsh ./build/New-WardlineRelease.ps1    # release assets: dist/release
 
 Releases are published by tagging (`git tag v0.4.0 && git push origin v0.4.0`) – see [development](docs/development.md).
 Security issues: please report privately, see [SECURITY.md](SECURITY.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+Security review (threat model, data flows, SBOM): [docs/trust.md](docs/trust.md). Licence: [docs/licensing.md](docs/licensing.md). Support: [SUPPORT.md](SUPPORT.md).

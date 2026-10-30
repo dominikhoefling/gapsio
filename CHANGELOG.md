@@ -28,6 +28,9 @@ First version published on GitHub.
 - **Colour-coded change history**: added green, removed red, changed amber with the changed parts marked in *Before*/*After*.
 - **Network protection** also from block/audit events when TVM has no assessment for a device.
 - **Separate retention**: `-SnapshotRetentionDays` and `-ChangeRetentionDays` (`-RetentionDays` still sets both); re-runs keep the current values.
+- **Licence key** per tenant: signed, checked offline, entered in the portal (Settings › Licence) or with `-LicenseKey`; soft enforcement – nothing stops when it expires.
+- **Security review page** (threat model, data flows, release verification) and an **SBOM** (CycloneDX) in every release; support policy (`SUPPORT.md`).
+- **Public demo** is pseudonymised and leak-checked on every build (names, users, groups, policies, domains, IDs, IPs, profile paths).
 
 ### Changed
 - Agent 365 registry: HTTP 404 (registry not available in the tenant) is shown as a note instead of a warning.

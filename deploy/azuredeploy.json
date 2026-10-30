@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "13442538837835705750"
+      "templateHash": "17010254564741114264"
     }
   },
   "parameters": {
@@ -182,6 +182,13 @@
       ],
       "metadata": {
         "description": "Minimum severity of new findings that trigger a notification."
+      }
+    },
+    "licenseKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Wardline licence key (bound to this tenant). It can also be entered later in the portal."
       }
     },
     "scheduleAgents": {
@@ -590,6 +597,10 @@
             {
               "name": "WL_NOTIFY_MIN_SEVERITY",
               "value": "[parameters('notifyMinSeverity')]"
+            },
+            {
+              "name": "WL_LICENSE_KEY",
+              "value": "[parameters('licenseKey')]"
             },
             {
               "name": "WL_SCHEDULE_AGENTS",
