@@ -45,6 +45,16 @@ accepted) to a webhook:
 
 Re-runs keep the webhook unless you pass a new one. Wardline only sends findings – no exclusion values or command lines.
 
+## Notices after a run
+
+Missing data does not abort a run; it shows up as a notice in the portal.
+
+| Notice | Meaning | What to do |
+|---|---|---|
+| `HTTP 403 … Not in the token: X` | Permission `X` is not granted, or was granted after the managed identity's current token was issued | Re-run the install or `Grant-WardlinePermissions.ps1` (lists what is granted). Azure caches managed identity tokens for up to 24 hours – the notice disappears with the next token. |
+| `HTTP 403 … The token contains X` | The permission is there, but the API refuses anyway | Usually a missing licence (Agent ID, Agent 365) or a preview API that is not enabled in the tenant |
+| `HTTP 400/404` on agent APIs | The API is not available in the tenant (yet) | Nothing – the agents module shows what it can |
+
 ## Storage layout
 
 | Container | Content |

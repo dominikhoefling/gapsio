@@ -23,4 +23,5 @@
 - **Assignments**: policies without assignments count as "not effective" and do not count for the baseline. The
   baseline is evaluated tenant-wide, not per device group.
 - **Device state** from `DeviceTvm…` (tamper protection, running mode) is refreshed by Defender only every few hours.
-- **New Graph permissions** of a managed identity can take up to an hour to take effect.
+- **New Graph permissions** of a managed identity take effect only with its next token. Azure caches managed identity
+  tokens for up to 24 hours, so a feature added later can show HTTP 403 notices until then.

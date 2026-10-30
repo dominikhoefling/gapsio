@@ -32,8 +32,8 @@ At the end the script prints the portal URL. Sign in with an account that has th
 (the installing account gets it automatically; add more with `-AdminGroupId`).
 
 !!! note "First run"
-    New Graph permissions can take up to an hour to take effect. Missing data in the first run shows up as notices in
-    the portal – click **Collect now** later. Device state from Defender (tamper protection, running mode) is refreshed
+    New Graph permissions take effect with the managed identity's next token – usually within an hour, at most 24 hours.
+    Missing data in the first run shows up as notices (HTTP 403) in the portal – click **Collect now** later. Device state from Defender (tamper protection, running mode) is refreshed
     by Defender every few hours, so the full picture is available by the next day.
 
 ## Next steps

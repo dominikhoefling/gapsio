@@ -38,4 +38,4 @@ $r = Grant-WardlinePermissions -PrincipalId $PrincipalId -Features $featureList 
 Write-Host ''
 Write-Ok "$($r.granted) granted, $($r.present) already present$(if ($Prune) { ", $($r.removed) removed" })"
 if ($r.missing.Count) { Write-Note "Not available in this tenant: $($r.missing -join ', ')" }
-Write-Note 'New permissions can take up to an hour to take effect.'
+Write-Note 'New permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours).'

@@ -23,6 +23,7 @@ First version published on GitHub.
 - **Unused exclusions**: exclusions without process or file activity in 30 days (Advanced Hunting).
 - **Accepted risks**: accept findings and exclusions with justification, owner, ticket and expiry date; audit log.
 - **Notifications** about new findings to Teams workflows or Power Automate (`-NotifyWebhookUrl`).
+- **Clearer HTTP 403 notices**: when the token was issued and whether the required permission is in it.
 
 ### Changed
 - Agent 365 registry: HTTP 404 (registry not available in the tenant) is shown as a note instead of a warning.

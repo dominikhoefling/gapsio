@@ -122,7 +122,7 @@ function Get-WlToken {
             client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
             client_assertion      = $assertion
         }
-        $script:WlTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = [DateTime]::UtcNow.AddSeconds([int]$r.expires_in) }
+        $script:WlTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = [DateTime]::UtcNow.AddSeconds([Math]::Min([int]$r.expires_in, 3600)) }
         return $r.access_token
     }
 
@@ -133,7 +133,10 @@ function Get-WlToken {
     if ($clientId) { $uri += "&client_id=$clientId" }
 
     $r = Invoke-RestMethod -Uri $uri -Headers @{ 'X-IDENTITY-HEADER' = $env:IDENTITY_HEADER } -Method Get
+    # Cache for at most an hour, so newly granted permissions are picked up as soon as the platform issues a new token.
     $expires = [DateTimeOffset]::FromUnixTimeSeconds([long]$r.expires_on).UtcDateTime
+    $cap = [DateTime]::UtcNow.AddHours(1)
+    if ($expires -gt $cap) { $expires = $cap }
     $script:WlTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = $expires }
     $r.access_token
 }
@@ -237,6 +240,49 @@ function Invoke-WlGraph {
     $items.ToArray()
 }
 
+function Get-WlTokenClaims {
+    <#
+    .SYNOPSIS
+    Decodes the payload of a cached access token (no validation – only used to explain errors).
+    #>
+    param([string]$Resource = 'https://graph.microsoft.com')
+    $cached = $script:WlTokens[$Resource]
+    if (-not $cached) { $cached = $script:WlTokens[$Resource.TrimEnd('/')] }
+    if (-not $cached -or -not $cached.Token) { return $null }
+    try {
+        $part = ($cached.Token -split '\.')[1].Replace('-', '+').Replace('_', '/')
+        switch ($part.Length % 4) { 2 { $part += '==' } 3 { $part += '=' } }
+        [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($part)) | ConvertFrom-Json
+    }
+    catch { $null }
+}
+
+function Get-WlErrorText {
+    <#
+    .SYNOPSIS
+    Error text for a run notice. For HTTP 403 it adds why this usually happens and what to check: the permission is
+    missing, or it was granted after the managed identity's current token was issued (tokens are cached up to 24 hours).
+    #>
+    param([Parameter(Mandatory)]$Exception, [string]$Context, [string]$Resource = 'https://graph.microsoft.com')
+    $msg = $Exception.Message
+    $status = $Exception.Data['Status']
+    if ($status -ne 403 -and $msg -notmatch '^HTTP 403\b') { return $msg }
+    $short = ($msg -split ' :: ')[0]
+    $code = if ($msg -match '"code"\s*:\s*"([^"]+)"') { $Matches[1] } else { '' }
+    $hint = "HTTP 403$(if ($code) { " ($code)" }) – permission missing or not yet in the managed identity's token."
+    $claims = Get-WlTokenClaims -Resource $Resource
+    if ($claims) {
+        $roles = @($claims.roles)
+        if ($claims.iat) { $hint += " Token issued $([DateTimeOffset]::FromUnixTimeSeconds([long]$claims.iat).UtcDateTime.ToString('yyyy-MM-dd HH:mm')) UTC with $($roles.Count) permission(s)." }
+        $needed = @([regex]::Matches([string]$Context, '\b([A-Z][A-Za-z]+(?:\.[A-Z][A-Za-z]+)+)\b') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -match '\.Read' })
+        $absent = @($needed | Where-Object { $_ -notin $roles })
+        if ($needed -and -not $absent) { $hint += " The token contains $($needed -join ', ') – the API may need an additional role or licence." }
+        elseif ($absent) { $hint += " Not in the token: $($absent -join ', ')." }
+    }
+    $hint += ' Permissions granted after that take effect with the next token (up to 24 hours). Re-running ./setup/Grant-WardlinePermissions.ps1 -PrincipalId <managed identity> -Features … shows what is granted.'
+    "$hint [$short]"
+}
+
 function Invoke-WlGraphSafe {
     <#
     .SYNOPSIS
@@ -251,7 +297,7 @@ function Invoke-WlGraphSafe {
         [hashtable]$Headers = @{}
     )
     try { Invoke-WlGraph -Path $Path -Beta:$Beta -All:$All -Headers $Headers }
-    catch { Add-WlWarning "${Context}: $($_.Exception.Message)"; $null }
+    catch { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context $Context)"; $null }
 }
 
 $script:WlV1Unavailable = @{}
@@ -276,7 +322,7 @@ function Invoke-WlGraphV1First {
         return $r
     }
     catch {
-        if (-not $Silent) { Add-WlWarning "${Context}: $($_.Exception.Message)" }
+        if (-not $Silent) { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context $Context)" }
         return $null
     }
 }
@@ -298,7 +344,7 @@ function Invoke-WlHuntingSafe {
     param([Parameter(Mandatory)][string]$Query, [Parameter(Mandatory)][string]$Context, [string]$Timespan = 'P30D')
     if (-not (Test-WlFeature -Name 'hunting')) { return $null }
     try { Invoke-WlHunting -Query $Query -Timespan $Timespan }
-    catch { Add-WlWarning "${Context}: $($_.Exception.Message)"; $null }
+    catch { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context "$Context ThreatHunting.Read.All")"; $null }
 }
 #endregion
 
