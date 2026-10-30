@@ -115,6 +115,21 @@ and policy reach:
 - **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
   Audit is an evaluation step, not a protection state.
 
+## macOS and Linux
+
+The *macOS / Linux* category covers what is different on non-Windows endpoints – the places where Defender is
+installed but not actually working:
+
+- **Full Disk Access missing** (High, per Mac) – without the TCC grant the sensor cannot read protected folders.
+  Deploy the PPPC profile through MDM; users cannot grant it reliably.
+- **System extensions not approved** (High, per Mac) – endpoint security or network extension not loaded: no
+  real-time protection, no EDR data, no network protection.
+- **Agent build 6+ months behind** (Medium, per platform) – Defender for macOS/Linux versions encode their month
+  (`101.YYMM.x`); devices six or more months behind the newest build in the fleet are listed. Linux builds before
+  101.2408 still rely on auditd, which is no longer supported as event provider.
+- **Platform without an Intune Defender policy** (Medium; Low when all Macs are managed by another MDM such as
+  Jamf) – Wardline can only observe the device state then, not the intended configuration.
+
 ## Response readiness
 
 Feature `Response` (default on; Defender for Endpoint API `Machine.Read.All`, `Alert.Read.All`). Protection

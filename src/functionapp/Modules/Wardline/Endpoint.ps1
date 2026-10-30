@@ -32,7 +32,7 @@ function New-WlDevice {
         sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null; managedBy = $null
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
-        avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null
+        avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null; agentVersion = $null
         checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
     }
 }
@@ -516,7 +516,7 @@ DeviceTvmSecureConfigurationAssessment
     # macOS/Linux: map secure configurations by name via the knowledge base (scids differ per platform)
     $qTvmX = @"
 let kb = DeviceTvmSecureConfigurationAssessmentKB
-| where ConfigurationName has_any ("tamper", "real-time", "real time", "cloud", "potentially unwanted", "PUA", "behavior", "passive", "antivirus", "Defender", "network protection")
+| where ConfigurationName has_any ("tamper", "real-time", "real time", "cloud", "potentially unwanted", "PUA", "behavior", "passive", "antivirus", "Defender", "network protection", "full disk", "system extension")
 | project ConfigurationId, ConfigurationName;
 DeviceTvmSecureConfigurationAssessment
 | where OSPlatform in~ ("macOS", "Linux")
@@ -530,6 +530,8 @@ DeviceTvmSecureConfigurationAssessment
         if (-not $devices.ContainsKey($id)) { $devices[$id] = New-WlDevice -Id $id -Name ([string]$r.DeviceName) -Os ([string]$r.OSPlatform) }
         $cn = ([string]$r.ConfigurationName).ToLowerInvariant()
         $name = switch -Regex ($cn) {
+            'full disk' { 'FullDiskAccess'; break }
+            'system extension' { 'SystemExtensions'; break }
             'tamper' { 'TamperProtection'; break }
             'network protection' { 'NetworkProtection'; break }
             'real.?time|enforcement' { 'RealtimeProtection'; break }
@@ -543,6 +545,19 @@ DeviceTvmSecureConfigurationAssessment
         $result = if (-not [bool]$r.IsApplicable) { 'N/A' } elseif ([bool]$r.IsCompliant) { 'GOOD' } else { 'BAD' }
         # Several checks per category: BAD wins
         if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
+    }
+
+    # macOS/Linux: installed Defender agent version (101.YYMM.x) from the software inventory
+    $qAgent = @"
+DeviceTvmSoftwareInventory
+| where OSPlatform in~ ("macOS", "Linux") and SoftwareVendor =~ "microsoft" and SoftwareName has "defender"
+| summarize arg_max(SoftwareVersion, DeviceName) by DeviceId
+| project DeviceId, DeviceName, SoftwareVersion
+"@
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qAgent -Context 'Advanced Hunting Defender agent version macOS/Linux')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if ($devices.ContainsKey($id)) { $devices[$id].agentVersion = [string]$r.SoftwareVersion }
     }
 
     # Windows: further protection features resolved by name via the knowledge base (no stable documented scids)
@@ -1811,13 +1826,69 @@ function Get-WlInventoryFindings {
     @($f)
 }
 
+function Get-WlPlatformFindings {
+    <#
+    .SYNOPSIS
+    macOS and Linux specifics (category 'Platform'): Full Disk Access and system extensions on macOS, outdated agent
+    builds (101.YYMM.x), Macs managed outside Intune, and platforms without any Intune Defender policy.
+    #>
+    param([hashtable]$Devices, [object[]]$Policies)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $macs = @($Devices.Values | Where-Object { $_.os -eq 'macOS' })
+    $linux = @($Devices.Values | Where-Object { $_.os -eq 'Linux' })
+    $names = { param($rows) (@($rows | ForEach-Object { $_.deviceName } | Sort-Object -Unique | Select-Object -First 10) -join ', ') + $(if (@($rows).Count -gt 10) { ' …' } else { '' }) }
+
+    # 1) macOS without Full Disk Access – the sensor cannot read protected locations (Mail, Messages, Safari, Downloads of other users)
+    foreach ($d in @($macs | Where-Object { $_.checks['FullDiskAccess'] -eq 'BAD' })) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Platform' -Title (& $T 'Defender on macOS without Full Disk Access' 'Defender auf macOS ohne Full Disk Access') `
+                    -Detail (& $T "$($d.deviceName): the Defender system extension has no Full Disk Access (TCC). Antivirus and EDR cannot inspect protected folders and the device reports only part of its activity." "$($d.deviceName): Die Defender-Systemerweiterung hat keinen Full Disk Access (TCC). Virenschutz und EDR können geschützte Ordner nicht prüfen, das Gerät meldet nur einen Teil seiner Aktivität.") `
+                    -Recommendation (& $T 'Deploy the Privacy Preferences Policy Control (PPPC) profile for com.microsoft.wdav and com.microsoft.wdav.epsext via Intune or Jamf; users cannot grant it reliably themselves.' 'Das PPPC-Profil (Privacy Preferences Policy Control) für com.microsoft.wdav und com.microsoft.wdav.epsext per Intune oder Jamf verteilen; Benutzer können es selbst nicht zuverlässig erteilen.') -Subject 'plat|fda' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+    # 2) macOS system/network extensions not approved
+    foreach ($d in @($macs | Where-Object { $_.checks['SystemExtensions'] -eq 'BAD' })) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Platform' -Title (& $T 'Defender system extensions not approved on macOS' 'Defender-Systemerweiterungen auf macOS nicht genehmigt') `
+                    -Detail (& $T "$($d.deviceName): the endpoint security or network extension is not loaded. Without them real-time protection, EDR sensor data and network protection do not work – the app is installed but inert." "$($d.deviceName): Die Endpoint-Security- oder Netzwerkerweiterung ist nicht geladen. Ohne sie funktionieren Echtzeitschutz, EDR-Sensordaten und Netzwerkschutz nicht – die App ist installiert, aber wirkungslos.") `
+                    -Recommendation (& $T 'Deploy the system extension approval profile (com.microsoft.wdav.epsext, com.microsoft.wdav.netext) and the network filter profile through MDM.' 'Das Profil zur Genehmigung der Systemerweiterungen (com.microsoft.wdav.epsext, com.microsoft.wdav.netext) und das Netzwerkfilter-Profil per MDM verteilen.') -Subject 'plat|sysext' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+
+    # 3) Agent build age: 101.YYMM.x – more than 6 months behind the newest build of the same platform in the fleet
+    foreach ($grp in @(@{ os = 'macOS'; rows = $macs }, @{ os = 'Linux'; rows = $linux })) {
+        $ver = @($grp.rows | Where-Object { $_.agentVersion -match '^\d+\.(\d{2})(\d{2})\.' } | ForEach-Object { [pscustomobject]@{ d = $_; m = ([int]$Matches[1]) * 12 + [int]$Matches[2]; v = $_.agentVersion } })
+        if ($ver.Count -lt 2) { continue }
+        $max = ($ver | Measure-Object m -Maximum).Maximum
+        $old = @($ver | Where-Object { $max - $_.m -ge 6 })
+        if (-not $old.Count) { continue }
+        $newest = @($ver | Where-Object { $_.m -eq $max })[0].v
+        $auditd = if ($grp.os -eq 'Linux' -and @($old | Where-Object { $_.m -lt (24 * 12 + 8) }).Count) { ' Builds before 101.2408 still rely on auditd, which is no longer supported as event provider.' } else { '' }
+        $auditdDe = if ($auditd) { ' Builds vor 101.2408 nutzen noch auditd, das als Ereignisquelle nicht mehr unterstützt wird.' } else { '' }
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Platform' -Title (& $T "$($old.Count) $($grp.os) device(s) with a Defender agent 6+ months behind" "$($old.Count) $($grp.os)-Gerät(e) mit 6+ Monate altem Defender-Agent") `
+                    -Detail (& $T "Newest build in the fleet is $newest; these devices run $((@($old | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Old agents miss sensor fixes and fall out of support after about nine months.$auditd" `
+                        "Neuester Build in der Flotte ist $newest; diese Geräte laufen mit $((@($old | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Alte Agents fehlen Sensor-Fixes, nach etwa neun Monaten fallen sie aus dem Support.$auditdDe") `
+                    -Recommendation (& $T "$(if ($grp.os -eq 'macOS') { 'Check Microsoft AutoUpdate (MAU) reaches these Macs and that the update channel is set; on Jamf-managed Macs verify the MAU profile.' } else { 'Check the package repository and update job (apt/yum/zypper) on these hosts; pin the production channel and automate upgrades.' })" "$(if ($grp.os -eq 'macOS') { 'Prüfen, ob Microsoft AutoUpdate (MAU) diese Macs erreicht und der Update-Kanal gesetzt ist; bei Jamf das MAU-Profil kontrollieren.' } else { 'Paket-Repository und Update-Job (apt/yum/zypper) auf diesen Hosts prüfen; Production-Kanal setzen und Upgrades automatisieren.' })") -Subject "plat|agent-old|$($grp.os)" -StableKey))
+    }
+
+    # 4) Platforms present but without any Intune Defender policy – Wardline cannot see the intended configuration
+    $polPlat = @($Policies | ForEach-Object { $_.platforms } | Where-Object { $_ } | Sort-Object -Unique)
+    foreach ($grp in @(@{ os = 'macOS'; rows = $macs }, @{ os = 'Linux'; rows = $linux })) {
+        if ($grp.rows.Count -lt 1 -or $polPlat -contains $grp.os) { continue }
+        $foreign = @($grp.rows | Where-Object { $_.managedBy -and $_.managedBy -notmatch 'Intune' })
+        $sev = if ($grp.os -eq 'macOS' -and $foreign.Count -eq $grp.rows.Count) { 'Low' } else { 'Medium' }
+        $f.Add((New-WlFinding -Severity $sev -Category 'Platform' -Title (& $T "$($grp.rows.Count) $($grp.os) device(s) without an Intune Defender policy" "$($grp.rows.Count) $($grp.os)-Gerät(e) ohne Intune-Defender-Richtlinie") `
+                    -Detail (& $T "Defender runs on $($grp.rows.Count) $($grp.os) device(s) ($(& $names $grp.rows)) but no Intune policy targets $($grp.os). $(if ($grp.os -eq 'Linux') { 'Settings then come from a local mdatp_managed.json or from nothing at all – Wardline can only observe the device state, not the intended configuration.' } elseif ($foreign.Count) { "$($foreign.Count) of them are managed outside Intune ($(@($foreign | ForEach-Object { $_.managedBy } | Sort-Object -Unique) -join ', ')), probably Jamf – those profiles are invisible to Wardline." } else { 'Settings then come from the defaults or a third-party MDM – Wardline can only observe the device state, not the intended configuration.' })" `
+                        "Defender läuft auf $($grp.rows.Count) $($grp.os)-Gerät(en) ($(& $names $grp.rows)), aber keine Intune-Richtlinie zielt auf $($grp.os). $(if ($grp.os -eq 'Linux') { 'Die Einstellungen kommen dann aus einer lokalen mdatp_managed.json oder gar nicht – Wardline sieht nur den Gerätezustand, nicht die beabsichtigte Konfiguration.' } elseif ($foreign.Count) { "$($foreign.Count) davon werden außerhalb von Intune verwaltet ($(@($foreign | ForEach-Object { $_.managedBy } | Sort-Object -Unique) -join ', ')), vermutlich Jamf – diese Profile sind für Wardline unsichtbar." } else { 'Die Einstellungen kommen dann aus den Standardwerten oder einem Fremd-MDM – Wardline sieht nur den Gerätezustand, nicht die beabsichtigte Konfiguration.' })") `
+                    -Recommendation (& $T "$(if ($grp.os -eq 'Linux') { 'Manage Linux Defender settings through Intune security settings management (Linux) or document the mdatp_managed.json baseline and keep it in version control.' } else { 'Either manage macOS Defender through Intune (security settings management works alongside Jamf) or compare the Jamf profiles against the baseline manually.' })" "$(if ($grp.os -eq 'Linux') { 'Linux-Defender-Einstellungen über Intune Security Settings Management (Linux) verwalten oder die mdatp_managed.json-Baseline dokumentieren und versionieren.' } else { 'macOS-Defender entweder über Intune verwalten (Security Settings Management läuft neben Jamf) oder die Jamf-Profile manuell gegen die Baseline prüfen.' })") -Subject "plat|nopolicy|$($grp.os)" -StableKey))
+    }
+    @($f)
+}
+
 function Get-WlEndpointFindings {
     <#
     .SYNOPSIS
     Derives findings – especially combined findings (e.g. Tamper Protection off AND local exclusions).
     #>
     param([hashtable]$Devices, [object[]]$PolicyExclusions, [object[]]$LocalExclusions, [object[]]$Indicators, [object[]]$Baseline, [object[]]$SettingValues,
-        $Asr, [object[]]$LinuxEvents)
+        $Asr, [object[]]$LinuxEvents, [object[]]$Policies)
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-WlText -En $en -De $de }
     $byId = @{}; foreach ($b in @($Baseline)) { if ($b) { $byId[$b.id] = $b } }
@@ -1989,6 +2060,7 @@ function Get-WlEndpointFindings {
     foreach ($x in @(Get-WlDependencyFindings -Devices $Devices -Baseline $Baseline -SettingValues $SettingValues -Asr $Asr -Indicators $Indicators)) { $f.Add($x) }
     foreach ($x in @(Get-WlUpdateFindings -Devices $Devices -SettingValues $SettingValues)) { $f.Add($x) }
     foreach ($x in @(Get-WlInventoryFindings -Devices $Devices -SettingValues $SettingValues -Asr $Asr)) { $f.Add($x) }
+    foreach ($x in @(Get-WlPlatformFindings -Devices $Devices -Policies $Policies)) { $f.Add($x) }
 
     @($f | Sort-Object { $script:WlSeverityOrder[$_.severity] }, category, { Get-WlProp $_.title 'en' })
 }
@@ -2023,7 +2095,7 @@ function Invoke-WlEndpointCollection {
     Add-WlExclusionUsage -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))
 
     $baselineResults = Test-WlBaseline -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
-    $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents) +
+    $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents -Policies $pol.Policies) +
         @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
         @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count)
 
