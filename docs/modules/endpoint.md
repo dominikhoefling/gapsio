@@ -38,6 +38,12 @@ health), ASR rules on the device against the target, local exclusions with who/w
 agents, policies with exclusions and their assignments, the change history and direct links to the device in the
 Defender portal and in Intune.
 
+### Network protection
+
+Wardline reads network protection per device from Defender's secure configuration assessment (TVM). Devices without an
+assessment fall back to network protection events of the last 30 days: block events mean it is on, audit events only
+mean audit mode (shown as off). Devices with neither stay "unknown" – the device page says which source was used.
+
 ## Defender coverage gaps
 
 The **Coverage gaps** tab lists devices Defender does not (fully) protect:

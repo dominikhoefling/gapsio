@@ -270,6 +270,10 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-96'; ConfigurationName = 'Turn on Microsoft Defender Antivirus network protection'; IsApplicable = $true; IsCompliant = $true },
         [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-2021'; ConfigurationName = 'Turn on EDR in block mode'; IsApplicable = $true; IsCompliant = $true }
     )
+    NpEvents = @(
+        [pscustomobject]@{ DeviceId = 'd-win3'; Blocked = 2; Audited = 0; Last = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-win1'; Blocked = 0; Audited = 5; Last = (T 1) }
+    )
     Coverage = @(
         [pscustomobject]@{ DeviceId = 'd-old1'; DeviceName = 'OLD-01'; OSPlatform = 'Windows10'; OnboardingStatus = 'Onboarded'; AadDeviceId = 'AAD-OLD1'; DeviceType = 'Workstation'; LastSeen = (T 20) },
         [pscustomobject]@{ DeviceId = 'd-disc1'; DeviceName = 'PRINTER-7'; OSPlatform = 'Windows10'; OnboardingStatus = 'Can be onboarded'; AadDeviceId = ''; DeviceType = 'Workstation'; LastSeen = (T 1) },
@@ -515,6 +519,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
             elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
             elseif ($q -match '// WardlineUsage') { $script:Hunt.Usage }
+            elseif ($q -match '// WardlineNetworkProtection') { $script:Hunt.NpEvents }
             elseif ($q -match 'startswith "Windows"') { $script:Hunt.TvmWin }
             elseif ($q -match 'AsrConfigurationStates') { $script:Hunt.AsrInfo }
             elseif ($q -match 'Attack Surface Reduction') { $script:Hunt.AsrTvm }
@@ -652,8 +657,10 @@ Assert (@($pe | Where-Object { $_.platform -eq 'Windows' -and $_.assigned -eq $t
 Write-Host '== End-to-end: protection features, coverage, exclusion usage' -ForegroundColor Cyan
 $dWin2 = @($ep.devices | Where-Object { $_.deviceId -eq 'd-win2' })[0]
 Assert ($dWin1.checks.NetworkProtection -eq 'BAD' -and $dWin2.checks.NetworkProtection -eq 'GOOD' -and $dWin1.checks.EdrBlockMode -eq 'GOOD') 'Network protection and EDR block mode per device (TVM by name)'
+$dWin3 = @($ep.devices | Where-Object { $_.deviceId -eq 'd-win3' })[0]
+Assert ($dWin3.checks.NetworkProtection -eq 'GOOD' -and $dWin3.networkProtectionSource -eq 'EventsBlock' -and -not $dWin1.networkProtectionSource) 'Network protection from block events when TVM has no assessment; TVM wins'
 $npb = @($ep.baseline | Where-Object { $_.id -eq 'network-protection' })[0]
-Assert ($npb.effective.check -eq 'NetworkProtection' -and $npb.effective.bad -eq 1 -and $npb.effective.good -eq 1) "Baseline network protection effective 1 bad / 1 good ($($npb.effective.bad)/$($npb.effective.good))"
+Assert ($npb.effective.check -eq 'NetworkProtection' -and $npb.effective.bad -eq 1 -and $npb.effective.good -eq 2) "Baseline network protection effective 1 bad / 2 good (TVM + events) ($($npb.effective.bad)/$($npb.effective.good))"
 $cov = @($ep.coverage)
 Assert (@($cov | Where-Object { $_.deviceName -eq 'LAPTOP-NEW' -and $_.status -eq 'NotOnboarded' -and $_.source -eq 'Intune' }).Count -eq 1) 'Coverage: Intune device not in Defender'
 Assert (@($cov | Where-Object { $_.deviceName -in 'LAPTOP-RETIRED', 'iPhone', 'WIN-01' }).Count -eq 0) 'Coverage: stale, mobile and onboarded devices are not gaps'
@@ -717,6 +724,11 @@ $changes = $blobs['state/endpoint-changes.json'] | ConvertFrom-Json -Depth 64
 Assert (@($changes | Where-Object { $_.change -eq 'Removed' -and $_.label.en -match "\.ps1" }).Count -ge 1) 'Removed .ps1 exclusion detected as a change'
 Assert ($r2.changes -ge 1) 'Second run reports changes'
 Assert (@($blobs.Keys | Where-Object { $_ -like 'snapshots/endpoint/*' }).Count -eq 2) 'Two dated snapshots'
+$runIdx = @($blobs['state/runs.json'] | ConvertFrom-Json -Depth 64)
+$lastRun = $runIdx[0]
+Assert ($lastRun.drift.Removed -ge 1 -and ($lastRun.drift.Added + $lastRun.drift.Changed + $lastRun.drift.Removed) -eq $lastRun.changes) 'Run index: drift per kind'
+Assert ($null -ne $lastRun.findings.Critical -and ($lastRun.findings.High + $lastRun.findings.Critical + $lastRun.findings.Medium + $lastRun.findings.Low) -ge 1) 'Run index: open findings per severity'
+Assert ($lastRun.protection.devices -ge 4 -and $lastRun.protection.NetworkProtection.on -ge 1 -and $lastRun.protection.NetworkProtection.off -ge 1) 'Run index: devices per protection feature'
 
 Write-Host '== End-to-end: device inventory (optional)' -ForegroundColor Cyan
 Assert ($ep.localDetection -eq 'AdvancedHunting') 'Default: Advanced Hunting only'

@@ -20,7 +20,9 @@ What the script does:
 | `-Features Hunting,Indicators,Coverage,Agents` | Features to enable (default shown; `Core` is always included). See [features and permissions](permissions.md). |
 | `-AdminGroupId <objectId>` | Group that additionally receives the *Wardline Administrator* role |
 | `-RestrictToAssignedUsers` | Only assigned users may sign in (otherwise all users of the tenant can open "My access" when the Access feature is on) |
-| `-RetentionDays 730` | Retention of snapshots and change history (default 365) |
+| `-SnapshotRetentionDays 730` | Retention of the dated snapshots (storage lifecycle and, with `-EnableImmutability`, the WORM period; default 365) |
+| `-ChangeRetentionDays 180` | Retention of the change history shown in the portal (default 365) |
+| `-RetentionDays 730` | Sets both at once; the two parameters above win. Re-runs keep the current values. |
 | `-EnableImmutability` | Store snapshots immutably (WORM). The policy is not locked initially; locking is a deliberate decision in the Azure portal. |
 | `-StorageSku Standard_ZRS` | Zone-redundant storage |
 | `-NamePrefix wardline` | Prefix for resource names (3–10 lower-case letters/digits) |

@@ -34,10 +34,23 @@ param customAppInsightsName string = ''
 @description('Client ID of the portal app registration (set by setup/Install-Wardline.ps1). Empty = the portal stays locked.')
 param ssoClientId string = ''
 
-@description('Retention of snapshots and change history in days.')
+@description('Retention of snapshots and change history in days (used when the specific values below are 0).')
 @minValue(30)
 @maxValue(3650)
 param retentionDays int = 365
+
+@description('Retention of dated snapshots in days (storage lifecycle and immutability period). 0 = retentionDays.')
+@minValue(0)
+@maxValue(3650)
+param snapshotRetentionDays int = 0
+
+@description('Retention of the change history (drift between runs) in days. 0 = retentionDays.')
+@minValue(0)
+@maxValue(3650)
+param changeRetentionDays int = 0
+
+var snapshotDays = snapshotRetentionDays > 0 ? snapshotRetentionDays : retentionDays
+var changeDays = changeRetentionDays > 0 ? changeRetentionDays : retentionDays
 
 @description('Store snapshots immutably (WORM, time-based retention). The policy is not locked initially.')
 param enableImmutability bool = false
@@ -161,7 +174,7 @@ resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2
 resource snapshotImmutability 'Microsoft.Storage/storageAccounts/blobServices/containers/immutabilityPolicies@2023-05-01' = if (enableImmutability) {
   name: '${storage.name}/default/snapshots/default'
   properties: {
-    immutabilityPeriodSinceCreationInDays: retentionDays
+    immutabilityPeriodSinceCreationInDays: snapshotDays
     allowProtectedAppendWrites: false
   }
   dependsOn: [
@@ -200,7 +213,7 @@ resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05
                   daysAfterModificationGreaterThan: 30
                 }
                 delete: {
-                  daysAfterModificationGreaterThan: retentionDays
+                  daysAfterModificationGreaterThan: snapshotDays
                 }
               }
             }
@@ -331,7 +344,8 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_STORAGE_SUFFIX', value: environment().suffixes.storage }
         { name: 'WL_SCHEDULE_ENDPOINT', value: scheduleEndpoint }
         { name: 'WL_SCHEDULE_ACCESS', value: scheduleAccess }
-        { name: 'WL_CHANGE_RETENTION_DAYS', value: string(retentionDays) }
+        { name: 'WL_CHANGE_RETENTION_DAYS', value: string(changeDays) }
+        { name: 'WL_SNAPSHOT_RETENTION_DAYS', value: string(snapshotDays) }
         { name: 'WL_DEVICE_INVENTORY', value: deviceInventory ? 'true' : 'false' }
         { name: 'WL_MODULES', value: modules }
         { name: 'WL_FEATURES', value: features }

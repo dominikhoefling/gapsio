@@ -24,6 +24,10 @@ First version published on GitHub.
 - **Accepted risks**: accept findings and exclusions with justification, owner, ticket and expiry date; audit log.
 - **Notifications** about new findings to Teams workflows or Power Automate (`-NotifyWebhookUrl`).
 - **Clearer HTTP 403 notices**: when the token was issued and whether the required permission is in it.
+- **Charts**: open findings and changes per day (overview), protection per Defender feature as donuts with the devices on hover and click-to-filter (devices), changes per day (change history).
+- **Colour-coded change history**: added green, removed red, changed amber with the changed parts marked in *Before*/*After*.
+- **Network protection** also from block/audit events when TVM has no assessment for a device.
+- **Separate retention**: `-SnapshotRetentionDays` and `-ChangeRetentionDays` (`-RetentionDays` still sets both); re-runs keep the current values.
 
 ### Changed
 - Agent 365 registry: HTTP 404 (registry not available in the tenant) is shown as a note instead of a warning.

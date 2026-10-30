@@ -621,6 +621,48 @@ function Compare-WlCollection {
     $changes.ToArray()
 }
 
+function Get-WlDriftCounts {
+    # Added / changed / removed per run.
+    param([object[]]$Changes)
+    $c = [ordered]@{ Added = 0; Changed = 0; Removed = 0 }
+    foreach ($x in @($Changes)) { if ($x -and $c.Contains([string]$x.change)) { $c[[string]$x.change]++ } }
+    $c
+}
+
+function Get-WlOpenFindingCounts {
+    # Findings per severity that are not accepted at the time of the run.
+    param([object[]]$Findings)
+    $c = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
+    if (-not @($Findings | Where-Object { $_ }).Count) { return $c }
+    $accepted = @{}
+    foreach ($a in @(Get-WlAcceptances)) { if (Test-WlAcceptanceActive -Acceptance $a) { $accepted[[string]$a.key] = $true } }
+    foreach ($f in @($Findings)) {
+        if (-not $f) { continue }
+        $sev = [string](Get-WlProp $f 'severity')
+        if ($c.Contains($sev) -and -not $accepted[[string](Get-WlProp $f 'key')]) { $c[$sev]++ }
+    }
+    $c
+}
+
+function Get-WlProtectionCounts {
+    # Devices per protection feature: on (GOOD) / off (BAD). Unknown is the rest of the device count.
+    param([object[]]$Devices)
+    $list = @($Devices | Where-Object { $_ })
+    if (-not $list.Count) { return $null }
+    $c = [ordered]@{ devices = $list.Count }
+    foreach ($d in $list) {
+        $checks = Get-WlProp $d 'checks'
+        if (-not $checks) { continue }
+        $pairs = if ($checks -is [System.Collections.IDictionary]) { $checks.GetEnumerator() } else { $checks.PSObject.Properties }
+        foreach ($p in $pairs) {
+            $k = [string]$p.Name; if (-not $k) { $k = [string]$p.Key }
+            if (-not $c.Contains($k)) { $c[$k] = [ordered]@{ on = 0; off = 0 } }
+            if ($p.Value -eq 'GOOD') { $c[$k].on++ } elseif ($p.Value -eq 'BAD') { $c[$k].off++ }
+        }
+    }
+    $c
+}
+
 function Save-WlSnapshot {
     <#
     .SYNOPSIS
@@ -670,13 +712,16 @@ function Save-WlSnapshot {
     $out = if ($merged.Count -gt $maxEntries) { $merged.GetRange(0, $maxEntries).ToArray() } else { $merged.ToArray() }
     Set-WlBlob -Container 'state' -Name "$Module-changes.json" -Object @($out)
 
-    # Run index
+    # Run index – with the numbers the portal charts over time (open findings, drift, protection per feature)
     $runs = [System.Collections.Generic.List[object]]::new()
     $runs.Add([pscustomobject]@{
             module      = $Module
             at          = $at
             durationSec = if ($Started) { [int]($now - $Started).TotalSeconds } else { $null }
             changes     = $changes.Count
+            drift       = Get-WlDriftCounts -Changes $changes.ToArray()
+            findings    = Get-WlOpenFindingCounts -Findings @($Snapshot['findings'])
+            protection  = Get-WlProtectionCounts -Devices @($Snapshot['devices'])
             warnings    = @($Snapshot['warnings']).Count
             snapshot    = $snapName
         })

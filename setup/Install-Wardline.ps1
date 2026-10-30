@@ -43,7 +43,7 @@
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location westeurope
 
 .EXAMPLE
-    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Agents,Access -EnableImmutability -RetentionDays 730
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Agents,Access -EnableImmutability -SnapshotRetentionDays 730 -ChangeRetentionDays 365
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <appId> -DataAppId <appId>
@@ -69,6 +69,8 @@ param(
     [string]$LogWorkspaceName,
     [string]$AppInsightsName,
     [ValidateRange(30, 3650)][int]$RetentionDays = 365,
+    [ValidateRange(30, 3650)][int]$SnapshotRetentionDays,
+    [ValidateRange(30, 3650)][int]$ChangeRetentionDays,
     [switch]$EnableImmutability,
     [ValidateSet('Standard_LRS', 'Standard_ZRS', 'Standard_GRS')][string]$StorageSku = 'Standard_LRS',
     [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Agents'),
@@ -165,22 +167,29 @@ foreach ($c in $adopt.Keys) {
 }
 if ($adopted.Count) { $NamingMode = 'Customized'; Write-Ok "Existing names: $($adopted -join ', ')" }
 
-# Re-runs: keep the notification settings unless they are passed explicitly (app settings are rewritten by the template)
-if ($existing.ContainsKey('functionapp') -and (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -or -not $PSBoundParameters.ContainsKey('NotifyMinSeverity'))) {
+# Re-runs: keep the notification and retention settings unless they are passed explicitly (app settings are rewritten by the template)
+if ($existing.ContainsKey('functionapp')) {
     $cur = Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'list', '-g', $ResourceGroup, '-n', $existing['functionapp'], '-o', 'json') -AllowFailure
     if ($cur) {
         $curMap = @{}; foreach ($x in @($cur | ConvertFrom-Json)) { $curMap[$x.name] = $x.value }
         if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['WL_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['WL_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
         if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['WL_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['WL_NOTIFY_MIN_SEVERITY'] }
+        if (-not $PSBoundParameters.ContainsKey('RetentionDays')) {
+            if (-not $SnapshotRetentionDays -and $curMap['WL_SNAPSHOT_RETENTION_DAYS']) { $SnapshotRetentionDays = [int]$curMap['WL_SNAPSHOT_RETENTION_DAYS'] }
+            if (-not $ChangeRetentionDays -and $curMap['WL_CHANGE_RETENTION_DAYS']) { $ChangeRetentionDays = [int]$curMap['WL_CHANGE_RETENTION_DAYS'] }
+        }
     }
 }
+# -RetentionDays sets both; the specific parameters win.
+if (-not $SnapshotRetentionDays) { $SnapshotRetentionDays = $RetentionDays }
+if (-not $ChangeRetentionDays) { $ChangeRetentionDays = $RetentionDays }
 if ($NotifyWebhookUrl -and $NotifyWebhookUrl -notmatch '^https://') { throw '-NotifyWebhookUrl must be an https URL.' }
 
 function Deploy-Infrastructure {
     param([string]$SsoClientId = '')
     $name = "wardline-$(Get-Date -Format 'yyyyMMddHHmmss')"
     $params = @(
-        "namePrefix=$NamePrefix", "retentionDays=$RetentionDays", "enableImmutability=$($EnableImmutability.IsPresent.ToString().ToLower())",
+        "namePrefix=$NamePrefix", "retentionDays=$RetentionDays", "snapshotRetentionDays=$SnapshotRetentionDays", "changeRetentionDays=$ChangeRetentionDays", "enableImmutability=$($EnableImmutability.IsPresent.ToString().ToLower())",
         "storageSku=$StorageSku", "ssoClientId=$SsoClientId", "location=$Location", "deviceInventory=$(($featureList -contains 'Inventory').ToString().ToLower())",
         "enableAgents=$(($modules -contains 'agents').ToString().ToLower())", "enableAccess=$(($modules -contains 'access').ToString().ToLower())",
         "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId", "notifyMinSeverity=$NotifyMinSeverity"
@@ -426,5 +435,5 @@ Write-Host " Administrators:   enterprise app '$appName' > Users and groups > ro
 Write-Host " Features:         $($featureList -join ', ')"
 Write-Host " Data access:      $(if ($DataAppId) { "app registration $DataAppId (federated, no secret)" } else { 'managed identity (no secret)' })"
 if ($modules -contains 'access') { Write-Host " Everyone else:    sees 'My permissions' only$(if ($RestrictToAssignedUsers) { ' (only assigned users can sign in)' })" }
-Write-Host " Data:             storage account $($infra.StorageAccount) in $ResourceGroup$(if ($EnableImmutability) { " – snapshots immutable ($RetentionDays days)" })"
+Write-Host " Data:             storage account $($infra.StorageAccount) in $ResourceGroup – snapshots $SnapshotRetentionDays days$(if ($EnableImmutability) { ' (immutable)' }), change history $ChangeRetentionDays days"
 Write-Host ''
