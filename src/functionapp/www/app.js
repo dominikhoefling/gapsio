@@ -254,17 +254,29 @@
     'chk.AntivirusSignatureVersion': ['Signatures current', 'Signaturen aktuell'], 'chk.AntivirusReporting': ['Antivirus reporting', 'Virenschutz-Reporting'], 'chk.SensorEnabled': ['EDR sensor enabled', 'EDR-Sensor aktiv'],
     'chk.SensorDataCollection': ['Sensor data collection', 'Sensor-Datenerfassung'], 'chk.ImpairedCommunications': ['Sensor communication', 'Sensor-Kommunikation'], 'chk.PassiveModeOff': ['Not in passive mode', 'Nicht im Passivmodus'],
     // accepted risks
-    'acc.accept': ['Accept risk …', 'Risiko akzeptieren …'], 'acc.save': ['Accept', 'Akzeptieren'], 'acc.cancel': ['Cancel', 'Abbrechen'], 'acc.revoke': ['Revoke', 'Widerrufen'],
+    'acc.accept': ['Create exception …', 'Ausnahme erstellen …'], 'acc.save': ['Save exception', 'Ausnahme speichern'], 'acc.cancel': ['Cancel', 'Abbrechen'], 'acc.revoke': ['Revoke', 'Widerrufen'],
     'acc.justification': ['Justification', 'Begründung'], 'acc.owner': ['Owner', 'Verantwortlich'], 'acc.ticket': ['Ticket / change (optional)', 'Ticket / Change (optional)'], 'acc.expires': ['Valid until', 'Gültig bis'],
     'acc.until': ['Accepted until {0}', 'Akzeptiert bis {0}'], 'acc.by': ['by {0}', 'von {0}'], 'acc.saved': ['Risk accepted.', 'Risiko akzeptiert.'], 'acc.revoked': ['Acceptance revoked.', 'Akzeptanz widerrufen.'],
     'acc.hide': ['Hide accepted', 'Akzeptierte ausblenden'], 'acc.tag': ['Accepted', 'Akzeptiert'], 'acc.expired': ['Expired', 'Abgelaufen'], 'acc.revokedTag': ['Revoked', 'Widerrufen'],
     'acc.help': ['Accepted findings and exclusions stay visible but no longer count as open and do not trigger notifications. After the expiry date they are open again.', 'Akzeptierte Befunde und Exclusions bleiben sichtbar, zählen aber nicht mehr als offen und lösen keine Benachrichtigung aus. Nach dem Ablaufdatum sind sie wieder offen.'],
-    'acc.title': ['Accepted risks', 'Akzeptierte Risiken'], 'acc.lede': ['Consciously accepted findings and exclusions with justification, owner and expiry date – the record auditors ask for.', 'Bewusst akzeptierte Befunde und Exclusions mit Begründung, Verantwortlichem und Ablaufdatum – der Nachweis, nach dem Prüfer fragen.'],
-    'acc.tab.list': ['Acceptances', 'Akzeptanzen'], 'acc.tab.log': ['Audit log', 'Protokoll'], 'acc.what': ['What', 'Was'], 'acc.status': ['Status', 'Status'], 'acc.active': ['Active', 'Aktiv'],
+    'acc.title': ['Exceptions & assignments', 'Ausnahmen & Zuweisungen'], 'acc.lede': ['Consciously accepted findings and exclusions – with justification, owner and expiry or unlimited – and who is working on what. The record auditors ask for.', 'Bewusst akzeptierte Befunde und Exclusions – mit Begründung, Verantwortlichem und Ablaufdatum oder unbegrenzt – und wer woran arbeitet. Der Nachweis, nach dem Prüfer fragen.'],
+    'acc.tab.list': ['Exceptions', 'Ausnahmen'], 'acc.tab.log': ['Audit log', 'Protokoll'], 'acc.what': ['What', 'Was'], 'acc.status': ['Status', 'Status'], 'acc.active': ['Active', 'Aktiv'],
     'acc.at': ['Accepted', 'Akzeptiert am'], 'acc.action': ['Action', 'Aktion'], 'acc.act.accept': ['accepted', 'akzeptiert'], 'acc.act.revoke': ['revoked', 'widerrufen'], 'acc.none': ['No accepted risks yet.', 'Noch keine akzeptierten Risiken.'],
     'acc.err.just': ['Please give a justification (at least 10 characters).', 'Bitte eine Begründung angeben (mindestens 10 Zeichen).'], 'acc.err.owner': ['Please name an owner.', 'Bitte einen Verantwortlichen angeben.'],
     'acc.kind.finding': ['Finding', 'Befund'], 'acc.kind.exclusion': ['Exclusion', 'Exclusion'], 'demo.readonly': ['Demo: changes are not saved.', 'Demo: Änderungen werden nicht gespeichert.'],
-    'd.aad': ['Entra device ID', 'Entra-Geräte-ID'], 'v.device': ['Device', 'Gerät'], 'v.accepted': ['Accepted risks', 'Akzeptierte Risiken'],
+    'acc.noExpiry': ['No expiry (unlimited)', 'Kein Ablaufdatum (unbegrenzt)'], 'acc.unlimited': ['Accepted indefinitely', 'Unbegrenzt akzeptiert'], 'acc.never': ['unlimited', 'unbegrenzt'],
+    'acc.section.exception': ['Exception', 'Ausnahme'], 'acc.section.assign': ['Assignment', 'Zuweisung'], 'acc.exceptionHelp': ['An exception documents a consciously accepted risk. Choose a date or make it unlimited; it can be revoked at any time.', 'Eine Ausnahme dokumentiert ein bewusst akzeptiertes Risiko. Mit Datum oder unbegrenzt; sie kann jederzeit widerrufen werden.'],
+    // assignments
+    'asg.assign': ['Assign …', 'Zuweisen …'], 'asg.save': ['Assign', 'Zuweisen'], 'asg.clear': ['Unassign', 'Zuweisung aufheben'], 'asg.to': ['Assigned to {0}', 'Zugewiesen an {0}'], 'asg.by': ['by {0} on {1}', 'von {0} am {1}'],
+    'asg.search': ['Search people, groups or distribution lists – or type an e-mail address', 'Personen, Gruppen oder Verteilerlisten suchen – oder E-Mail-Adresse eingeben'], 'asg.note': ['Note (optional)', 'Notiz (optional)'],
+    'asg.useEmail': ['Use e-mail address {0}', 'E-Mail-Adresse {0} verwenden'], 'asg.noResults': ['No matches in the directory.', 'Keine Treffer im Verzeichnis.'], 'asg.searching': ['Searching …', 'Suche …'],
+    'asg.dirUnavailable': ['Directory search is not available (permission missing) – you can still enter an e-mail address.', 'Verzeichnissuche nicht verfügbar (Berechtigung fehlt) – eine E-Mail-Adresse kann trotzdem eingegeben werden.'],
+    'asg.saved': ['Assigned.', 'Zugewiesen.'], 'asg.cleared': ['Assignment removed.', 'Zuweisung aufgehoben.'], 'asg.err.none': ['Please pick a person, group or e-mail address.', 'Bitte eine Person, Gruppe oder E-Mail-Adresse wählen.'],
+    'asg.help': ['Assigned items stay open; the assignee is shown in the findings list and sent with notifications so a flow can e-mail them.', 'Zugewiesene Einträge bleiben offen; die zugewiesene Stelle erscheint in der Befundliste und wird mit Benachrichtigungen mitgesendet, damit ein Flow sie per E-Mail erreichen kann.'],
+    'asg.col': ['Assigned to', 'Zugewiesen an'], 'asg.any': ['Assigned (any)', 'Zugewiesen (alle)'], 'asg.none': ['Unassigned', 'Nicht zugewiesen'], 'asg.tab': ['Assignments', 'Zuweisungen'], 'asg.at': ['Assigned on', 'Zugewiesen am'], 'asg.empty': ['No assignments yet.', 'Noch keine Zuweisungen.'],
+    'asg.type.user': ['User', 'Benutzer'], 'asg.type.group': ['Group', 'Gruppe'], 'asg.type.distributionList': ['Distribution list', 'Verteilerliste'], 'asg.type.email': ['E-mail', 'E-Mail'],
+    'acc.act.assign': ['assigned', 'zugewiesen'], 'acc.act.unassign': ['unassigned', 'Zuweisung aufgehoben'],
+    'd.aad': ['Entra device ID', 'Entra-Geräte-ID'], 'v.device': ['Device', 'Gerät'], 'v.accepted': ['Exceptions & assignments', 'Ausnahmen & Zuweisungen'],
     'g.registry.na': ['Neither the Agent 365 package catalog (CopilotPackages.Read.All) nor the legacy registry is available in this tenant (no Agent 365 licence or permission not granted). Agents from Entra Agent ID and Defender are still shown.', 'Weder der Agent-365-Paketkatalog (CopilotPackages.Read.All) noch die alte Registry ist in diesem Tenant verfügbar (keine Agent-365-Lizenz oder Berechtigung nicht erteilt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.'],
     'g.registry.legacy': ['Agent 365 data comes from the legacy registry (retired from May 2026). Grant CopilotPackages.Read.All to switch to the Agent 365 package catalog.', 'Agent-365-Daten stammen aus der alten Registry (wird ab Mai 2026 abgeschaltet). CopilotPackages.Read.All erteilen, um auf den Agent-365-Paketkatalog umzustellen.'],
     'g.publisher2': ['Publisher', 'Herausgeber'], 'g.blocked': ['Blocked in the organisation', 'In der Organisation blockiert'], 'g.availability': ['Availability / deployment', 'Verfügbarkeit / Bereitstellung']
@@ -292,7 +304,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, mine: null, changes: {}, runs: null, view: null, acceptances: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -623,47 +635,122 @@
   async function loadAccess(force) { if (!state.access || force) state.access = await api('access'); return state.access; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadAcceptances(force) {
-    if (!state.acceptances || force) { try { state.acceptances = arr((await api('acceptances')).acceptances); } catch { state.acceptances = []; } }
+    if (!state.acceptances || force) {
+      await Promise.all([
+        api('acceptances').then(x => { state.acceptances = arr(x.acceptances); }).catch(() => { state.acceptances = []; }),
+        api('assignments').then(x => { state.assignments = arr(x.assignments); }).catch(() => { state.assignments = []; })]);
+    }
     return state.acceptances;
   }
   const acceptedMap = () => { const m = {}; for (const a of arr(state.acceptances)) if (a.active) m[a.key] = a; return m; };
+  const assignedMap = () => { const m = {}; for (const a of arr(state.assignments)) if (a.assignee) m[a.key] = a; return m; };
+  const assigneeText = (a) => !a ? '' : a.mail && a.mail !== a.displayName ? `${a.displayName} <${a.mail}>` : (a.displayName || a.mail || '');
+  const assigneeChip = (a, onRemove) => h('span', { class: `chip chip-${a.type}` }, h('span', { class: 'chip-type' }, t(`asg.type.${a.type}`) || a.type), ' ', a.displayName || a.mail, a.mail && a.mail !== a.displayName ? h('span', { class: 'muted small' }, ` ${a.mail}`) : null,
+    onRemove ? h('button', { type: 'button', class: 'chip-x', 'aria-label': t('asg.clear'), onclick: (e) => { e.stopPropagation(); onRemove(); } }, '×') : null);
   const yesNo = (v) => v === true || /^(true|1)$/i.test(String(v)) ? t('yes') : v === false || /^(false|0)$/i.test(String(v)) ? t('no') : (v || null);
   const deviceLink = (id, name) => id ? h('a', { href: `#/device?id=${encodeURIComponent(id)}`, onclick: (e) => e.stopPropagation() }, name || id) : (name || '–');
   const usageCell = (r) => !r.usage ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.usage === 'Unused' ? 'warn' : r.usage === 'Used' ? 'good' : ''}`, title: r.usageHits ? t('x.usageHits', num(r.usageHits), fmtDay(r.usageLast)) : t('x.usage.help') }, code('use', r.usage));
 
-  /** Accept-risk block for a detail row: shows an active acceptance (with revoke) or a small form. */
+  /** People picker: searches users, groups and distribution lists via the API; a typed e-mail address is always an option. */
+  function peoplePicker() {
+    let chosen = null, timer = null, seq = 0;
+    const isMail = (s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
+    const input = h('input', { type: 'search', autocomplete: 'off', placeholder: t('asg.search'), 'aria-label': t('asg.search') });
+    const list = h('ul', { class: 'picker-list', hidden: true, role: 'listbox' });
+    const chosenBox = h('div', { class: 'picker-chosen', hidden: true });
+    const el = h('div', { class: 'picker' }, chosenBox, input, list);
+    const pick = (a) => { chosen = a; chosenBox.replaceChildren(assigneeChip(a, () => pick(null))); chosenBox.hidden = !a; input.hidden = !!a; list.hidden = true; if (!a) { input.value = ''; input.focus(); } };
+    const render = (items, notice) => {
+      list.replaceChildren();
+      const q = input.value.trim();
+      for (const a of items) list.append(h('li', { role: 'option', tabindex: '0', onclick: () => pick(a), onkeydown: (e) => { if (e.key === 'Enter') pick(a); } },
+        h('span', { class: `chip-type chip-${a.type}` }, t(`asg.type.${a.type}`)), ' ', h('strong', null, a.displayName), a.mail ? h('span', { class: 'muted small' }, ` ${a.mail}`) : null));
+      if (isMail(q) && !items.some(a => (a.mail || '').toLowerCase() === q.toLowerCase())) list.append(h('li', { role: 'option', tabindex: '0', onclick: () => pick({ type: 'email', mail: q, displayName: q }) }, h('span', { class: 'chip-type chip-email' }, t('asg.type.email')), ' ', t('asg.useEmail', q)));
+      if (notice) list.append(h('li', { class: 'muted small picker-note' }, notice));
+      else if (!list.children.length && q.length >= 2) list.append(h('li', { class: 'muted small picker-note' }, t('asg.noResults')));
+      list.hidden = !list.children.length;
+    };
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 2) { list.hidden = true; return; }
+      timer = setTimeout(async () => {
+        const my = ++seq; render([], t('asg.searching'));
+        try {
+          const r = await api(`directory/search?q=${encodeURIComponent(q)}`);
+          if (my !== seq) return;
+          const unavailable = arr(r.notices).length && !arr(r.results).length;
+          render(arr(r.results), unavailable ? t('asg.dirUnavailable') : null);
+        } catch { if (my === seq) render([], t('asg.dirUnavailable')); }
+      }, 250);
+    });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const q = input.value.trim(); if (isMail(q)) pick({ type: 'email', mail: q, displayName: q }); else if (list.firstElementChild && list.firstElementChild.getAttribute('role') === 'option') list.firstElementChild.click(); } });
+    return { el, get: () => chosen || (isMail(input.value.trim()) ? { type: 'email', mail: input.value.trim(), displayName: input.value.trim() } : null) };
+  }
+
+  const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  /** Workflow block for a detail row: assignment (who works on it) and exception (accepted risk with or without expiry). */
   function acceptBox(item, kind, module, title) {
     const box = h('div', { class: 'accept' });
-    const a = acceptedMap()[item.key];
     const after = async (msg) => { await loadAcceptances(true); toast(msg); route(); };
-    if (a) {
-      box.append(h('p', null, h('span', { class: 'tag accepted' }, t('acc.until', fmtDay(a.expires))), ' ', t('acc.by', a.acceptedBy), ' · ', a.owner, a.ticket ? ` · ${a.ticket}` : ''),
-        h('p', { class: 'muted small' }, a.justification),
-        h('button', { type: 'button', onclick: async (e) => { e.stopPropagation(); try { await api('acceptances/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: item.key }) }); await after(t('acc.revoked')); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')));
-      return box;
+    const stop = (e) => e.stopPropagation();
+
+    // --- Assignment
+    const asg = assignedMap()[item.key];
+    const asgSec = h('div', { class: 'wf-section' }, h('h4', null, t('acc.section.assign')));
+    if (asg) {
+      asgSec.append(h('p', null, assigneeChip(asg.assignee, async () => { try { await post('assignments/clear', { key: item.key }); await after(t('asg.cleared')); } catch (err) { toast(t('error', err.message)); } }), ' ', h('span', { class: 'muted small' }, t('asg.by', asg.assignedBy, fmtDay(asg.assignedAt)))),
+        asg.note ? h('p', { class: 'muted small' }, asg.note) : null);
+    } else {
+      const openA = h('button', { type: 'button' }, t('asg.assign'));
+      const picker = peoplePicker();
+      const note = h('input', { type: 'text', maxlength: '1000', 'aria-label': t('asg.note'), placeholder: t('asg.note') });
+      const formA = h('form', { class: 'accept-form', hidden: true, onclick: stop }, picker.el, note,
+        h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('asg.save')), h('button', { type: 'button', onclick: () => { formA.hidden = true; openA.hidden = false; } }, t('acc.cancel'))));
+      openA.addEventListener('click', (e) => { stop(e); formA.hidden = false; openA.hidden = true; picker.el.querySelector('input').focus(); });
+      formA.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const who = picker.get(); if (!who) { toast(t('asg.err.none')); return; }
+        try { await post('assignments', { key: item.key, kind, module, title, assignee: who, note: note.value.trim() }); await after(t('asg.saved')); } catch (err) { toast(t('error', err.message)); }
+      });
+      asgSec.append(h('p', { class: 'muted small' }, t('asg.help')), openA, formA);
     }
-    const open = h('button', { type: 'button' }, t('acc.accept'));
-    const d = new Date(); d.setDate(d.getDate() + 90);
-    const max = new Date(); max.setDate(max.getDate() + 365);
-    const iso = (x) => x.toISOString().slice(0, 10);
-    const just = h('textarea', { rows: '3', maxlength: '1000', 'aria-label': t('acc.justification') });
-    const owner = h('input', { type: 'text', maxlength: '200', 'aria-label': t('acc.owner') });
-    const ticket = h('input', { type: 'text', maxlength: '100', 'aria-label': t('acc.ticket') });
-    const exp = h('input', { type: 'date', value: iso(d), min: iso(new Date(Date.now() + 864e5)), max: iso(max), 'aria-label': t('acc.expires') });
-    const form = h('form', { class: 'accept-form', hidden: true },
-      h('label', null, t('acc.justification'), just), h('label', null, t('acc.owner'), owner), h('label', null, t('acc.ticket'), ticket), h('label', null, t('acc.expires'), exp),
-      h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('acc.save')), h('button', { type: 'button', onclick: () => { form.hidden = true; open.hidden = false; } }, t('acc.cancel'))));
-    open.addEventListener('click', (e) => { e.stopPropagation(); form.hidden = false; open.hidden = true; just.focus(); });
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (just.value.trim().length < 10) { toast(t('acc.err.just')); return; }
-      if (!owner.value.trim()) { toast(t('acc.err.owner')); return; }
-      try {
-        await api('acceptances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: item.key, kind, module, title, justification: just.value.trim(), owner: owner.value.trim(), ticket: ticket.value.trim(), expires: exp.value }) });
-        await after(t('acc.saved'));
-      } catch (err) { toast(t('error', err.message)); }
-    });
-    box.append(h('p', { class: 'muted small' }, t('acc.help')), open, form);
+
+    // --- Exception
+    const a = acceptedMap()[item.key];
+    const excSec = h('div', { class: 'wf-section' }, h('h4', null, t('acc.section.exception')));
+    if (a) {
+      excSec.append(h('p', null, h('span', { class: 'tag accepted' }, a.expires ? t('acc.until', fmtDay(a.expires)) : t('acc.unlimited')), ' ', t('acc.by', a.acceptedBy), ' · ', a.owner, a.ticket ? ` · ${a.ticket}` : ''),
+        h('p', { class: 'muted small' }, a.justification),
+        h('button', { type: 'button', onclick: async (e) => { stop(e); try { await post('acceptances/revoke', { key: item.key }); await after(t('acc.revoked')); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')));
+    } else {
+      const open = h('button', { type: 'button' }, t('acc.accept'));
+      const d = new Date(); d.setDate(d.getDate() + 90);
+      const iso = (x) => x.toISOString().slice(0, 10);
+      const just = h('textarea', { rows: '3', maxlength: '1000', 'aria-label': t('acc.justification') });
+      const owner = h('input', { type: 'text', maxlength: '200', 'aria-label': t('acc.owner') });
+      const ticket = h('input', { type: 'text', maxlength: '100', 'aria-label': t('acc.ticket') });
+      const exp = h('input', { type: 'date', value: iso(d), min: iso(new Date(Date.now() + 864e5)), 'aria-label': t('acc.expires') });
+      const never = h('input', { type: 'checkbox' });
+      never.addEventListener('change', () => { exp.disabled = never.checked; });
+      const form = h('form', { class: 'accept-form', hidden: true, onclick: stop },
+        h('label', null, t('acc.justification'), just), h('label', null, t('acc.owner'), owner), h('label', null, t('acc.ticket'), ticket),
+        h('label', null, t('acc.expires'), exp), h('label', { class: 'check' }, never, ' ', t('acc.noExpiry')),
+        h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('acc.save')), h('button', { type: 'button', onclick: () => { form.hidden = true; open.hidden = false; } }, t('acc.cancel'))));
+      open.addEventListener('click', (e) => { stop(e); form.hidden = false; open.hidden = true; just.focus(); });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (just.value.trim().length < 10) { toast(t('acc.err.just')); return; }
+        if (!owner.value.trim()) { toast(t('acc.err.owner')); return; }
+        try {
+          await post('acceptances', { key: item.key, kind, module, title, justification: just.value.trim(), owner: owner.value.trim(), ticket: ticket.value.trim(), expires: never.checked ? null : exp.value });
+          await after(t('acc.saved'));
+        } catch (err) { toast(t('error', err.message)); }
+      });
+      excSec.append(h('p', { class: 'muted small' }, t('acc.exceptionHelp')), open, form);
+    }
+    box.append(h('div', { class: 'workflow' }, asgSec, excSec));
     return box;
   }
 
@@ -791,22 +878,25 @@
         hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null]);
       if (!ep && !ag && !ac) { main.append(noData(err, 'endpoint')); return; }
       await loadAcceptances();
-      const acc = acceptedMap();
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' }))].map(f => ({ ...f, accepted: acc[f.key] || null }));
+      const acc = acceptedMap(), asg = assignedMap();
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
+      const assignees = [...new Set(rows.filter(r => r.assigned).map(r => r.assigned.displayName))].sort();
       const table = dataTable({
         name: 'findings', rows, sort: (a, b) => sevRank(a.severity) - sevRank(b.severity),
-        search: r => `${tx(r.title)} ${tx(r.detail)} ${r.deviceName || ''} ${code('cat', r.category)}`,
+        search: r => `${tx(r.title)} ${tx(r.detail)} ${r.deviceName || ''} ${code('cat', r.category)} ${assigneeText(r.assigned)}`,
         filters: [
           { label: t('f.severity'), options: SEV, optionLabel: s => code('sev', s), test: (r, v) => r.severity === v },
           { label: t('f.category'), options: cats, optionLabel: c => code('cat', c), test: (r, v) => r.category === v },
           { label: t('col.module'), options: [...new Set(rows.map(r => r.module))], optionLabel: m => code('mod', m), test: (r, v) => r.module === v },
+          { label: t('asg.col'), options: ['__any', '__none', ...assignees], optionLabel: v => v === '__any' ? t('asg.any') : v === '__none' ? t('asg.none') : v, test: (r, v) => v === '__any' ? !!r.assigned : v === '__none' ? !r.assigned : (r.assigned && r.assigned.displayName === v) },
           { type: 'check', label: t('acc.hide'), checked: true, test: r => !r.accepted }],
         columns: [
           { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
           { title: t('f.finding'), cell: r => h('span', null, tx(r.title), r.accepted ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => tx(r.title) + (r.accepted ? ` (${t('acc.tag')})` : '') },
           { title: t('f.category'), text: r => `${code('mod', r.module)} · ${code('cat', r.category)}` },
-          { title: t('f.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName || '–' }],
+          { title: t('f.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName || '–' },
+          { title: t('asg.col'), cell: r => r.assigned ? assigneeChip(r.assigned) : h('span', { class: 'muted' }, '–'), text: r => assigneeText(r.assigned) || '–' }],
         detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceName]]), acceptBox(r, 'finding', r.module, tx(r.title))),
         empty: t('f.none')
       });
@@ -1094,30 +1184,48 @@
     async accepted(main, params) {
       main.append(h('h1', null, t('acc.title')), h('p', { class: 'lede' }, t('acc.lede')));
       const active = params.get('tab') || 'list';
-      main.append(tabs('accepted', [['list', t('acc.tab.list')], ['log', t('acc.tab.log')]], active));
+      main.append(tabs('accepted', [['list', t('acc.tab.list')], ['assignments', t('asg.tab')], ['log', t('acc.tab.log')]], active));
       if (active === 'log') {
         let log = []; try { log = arr(await api('acceptances/log')); } catch (e) { main.append(noData(e, 'endpoint')); return; }
         main.append(dataTable({
-          name: 'acceptance-log', rows: log, search: r => `${r.title} ${r.by} ${r.justification || ''} ${r.ticket || ''}`,
+          name: 'acceptance-log', rows: log, search: r => `${r.title} ${r.by} ${r.justification || ''} ${r.ticket || ''} ${assigneeText(r.assignee)}`,
           columns: [
             { title: t('col.time'), text: r => fmtDate(r.at) }, { title: t('acc.action'), text: r => t(`acc.act.${r.action}`) }, { title: t('acc.what'), text: r => r.title || r.key },
-            { title: t('acc.by', ''), text: r => r.by }, { title: t('acc.expires'), text: r => r.expires ? fmtDay(r.expires) : '–' }, { title: t('acc.justification'), text: r => r.justification || '–' }],
+            { title: t('acc.by', ''), text: r => r.by }, { title: t('acc.expires'), text: r => r.expires ? fmtDay(r.expires) : (r.action === 'accept' ? t('acc.never') : '–') },
+            { title: t('asg.col'), text: r => assigneeText(r.assignee) || '–' }, { title: t('acc.justification'), text: r => r.justification || '–' }],
           empty: t('acc.none')
         }));
         return;
       }
-      const rows = await loadAcceptances(true);
+      await loadAcceptances(true);
+      if (active === 'assignments') {
+        const rows = arr(state.assignments);
+        main.append(h('p', { class: 'muted small' }, t('asg.help')));
+        main.append(dataTable({
+          name: 'assignments', rows, sort: (a, b) => String(b.assignedAt).localeCompare(String(a.assignedAt)),
+          search: r => `${r.title} ${assigneeText(r.assignee)} ${r.note || ''}`,
+          filters: [{ label: t('asg.col'), options: ['user', 'group', 'distributionList', 'email'], optionLabel: v => t(`asg.type.${v}`), test: (r, v) => r.assignee && r.assignee.type === v }],
+          columns: [
+            { title: t('acc.what'), text: r => `${t(`acc.kind.${r.kind}`) || r.kind}: ${r.title}` },
+            { title: t('asg.col'), cell: r => assigneeChip(r.assignee), text: r => assigneeText(r.assignee) },
+            { title: t('asg.at'), text: r => `${fmtDate(r.assignedAt)} · ${r.assignedBy}` }, { title: t('asg.note'), text: r => r.note || '–' }],
+          detail: r => h('div', null, h('button', { type: 'button', onclick: async () => { try { await post('assignments/clear', { key: r.key }); await loadAcceptances(true); toast(t('asg.cleared')); route(); } catch (err) { toast(t('error', err.message)); } } }, t('asg.clear'))),
+          empty: t('asg.empty')
+        }));
+        return;
+      }
+      const rows = arr(state.acceptances);
       const status = (r) => r.revokedAt ? 'revoked' : r.active ? 'active' : 'expired';
       main.append(dataTable({
-        name: 'acceptances', rows, sort: (a, b) => String(a.expires).localeCompare(String(b.expires)),
+        name: 'acceptances', rows, sort: (a, b) => String(a.expires || '9999').localeCompare(String(b.expires || '9999')),
         search: r => `${r.title} ${r.owner} ${r.ticket || ''} ${r.justification}`,
         filters: [{ label: t('acc.status'), options: ['active', 'expired', 'revoked'], optionLabel: c => c === 'active' ? t('acc.active') : c === 'expired' ? t('acc.expired') : t('acc.revokedTag'), test: (r, v) => status(r) === v }],
         columns: [
           { title: t('acc.what'), text: r => `${t(`acc.kind.${r.kind}`) || r.kind}: ${r.title}` },
           { title: t('acc.status'), cell: r => h('span', { class: `state ${status(r) === 'active' ? 'good' : 'warn'}` }, status(r) === 'active' ? t('acc.active') : status(r) === 'expired' ? t('acc.expired') : t('acc.revokedTag')), text: status },
-          { title: t('acc.owner'), text: r => r.owner }, { title: t('acc.expires'), text: r => fmtDay(r.expires) }, { title: t('acc.ticket'), text: r => r.ticket || '–' }],
+          { title: t('acc.owner'), text: r => r.owner }, { title: t('acc.expires'), text: r => r.expires ? fmtDay(r.expires) : t('acc.never') }, { title: t('acc.ticket'), text: r => r.ticket || '–' }],
         detail: r => h('div', null, dl([[t('acc.justification'), r.justification], [t('acc.at'), `${fmtDate(r.acceptedAt)} · ${r.acceptedBy}`], [t('acc.revokedTag'), r.revokedAt ? `${fmtDate(r.revokedAt)} · ${r.revokedBy}` : null]]),
-          r.active ? h('button', { type: 'button', onclick: async () => { try { await api('acceptances/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: r.key }) }); await loadAcceptances(true); toast(t('acc.revoked')); route(); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')) : null),
+          r.active ? h('button', { type: 'button', onclick: async () => { try { await post('acceptances/revoke', { key: r.key }); await loadAcceptances(true); toast(t('acc.revoked')); route(); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')) : null),
         empty: t('acc.none')
       }));
     },

@@ -25,7 +25,12 @@
         {
           "resource": "graph",
           "value": "GroupMember.Read.All",
-          "why": "Display names of the groups policies are assigned to"
+          "why": "Display names of the groups policies are assigned to; group and distribution-list search for assignments in the portal"
+        },
+        {
+          "resource": "graph",
+          "value": "User.ReadBasic.All",
+          "why": "People picker in the portal: assign a finding to an Entra user (name and e-mail only)"
         }
       ]
     },

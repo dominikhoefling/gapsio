@@ -49,6 +49,11 @@ $data = [ordered]@{
     changes  = @(& $read 'endpoint-changes.json')
     acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }
     'acceptances/log' = @(& $read 'acceptances-log.json')
+    assignments = [ordered]@{ assignments = @() }
+    'directory/search' = [ordered]@{ results = @(
+            [pscustomobject]@{ type = 'user'; id = '00000000-0000-0000-0000-00000000d001'; displayName = 'Bob (Demo)'; mail = 'bob.demo@contoso.example' },
+            [pscustomobject]@{ type = 'group'; id = '00000000-0000-0000-0000-00000000d002'; displayName = 'SecOps (Demo)'; mail = $null },
+            [pscustomobject]@{ type = 'distributionList'; id = '00000000-0000-0000-0000-00000000d003'; displayName = 'Workplace team (Demo)'; mail = 'workplace.demo@contoso.example' }); notices = @() }
 }
 # Demo: 30 days of history so the trend and drift charts have something to show
 $rand = [Random]::new(42)
@@ -83,6 +88,11 @@ if ($tmpl.Count) {
 $hyg = @($data.endpoint.findings | Where-Object { $_.category -eq 'Hygiene' })[0]
 if ($hyg) {
     $data.acceptances.acceptances = @($data.acceptances.acceptances) + [pscustomobject]@{ key = $hyg.key; kind = 'finding'; module = 'endpoint'; title = $hyg.title.en; justification = 'Legacy line-of-business app, decommissioning planned for Q2.'; owner = 'Workplace team'; ticket = 'CHG-1042'; expires = [DateTime]::UtcNow.AddDays(60).ToString('yyyy-MM-dd'); acceptedBy = 'alice@contoso.com'; acceptedAt = [DateTime]::UtcNow.AddDays(-3).ToString('o'); active = $true }
+}
+# Demo: one assignment (highest open finding) to show the assignment workflow
+$top = @($data.endpoint.findings | Where-Object { $_.severity -in 'Critical', 'High' -and $_.key -ne $hyg.key })[0]
+if ($top) {
+    $data.assignments.assignments = @([pscustomobject]@{ key = $top.key; kind = 'finding'; module = 'endpoint'; title = $top.title.en; assignee = [pscustomobject]@{ type = 'distributionList'; id = '00000000-0000-0000-0000-00000000d003'; displayName = 'Workplace team (Demo)'; mail = 'workplace.demo@contoso.example' }; note = 'Please fix with the next maintenance window.'; assignedBy = 'alice@contoso.com'; assignedAt = [DateTime]::UtcNow.AddDays(-1).ToString('o') })
 }
 # Pseudonymise and scan – the demo is meant to be public
 $keep = @(Get-ChildItem -Recurse -File -Path (Join-Path $root 'src/functionapp/Modules'), (Join-Path $root 'src/functionapp/config') -Include *.ps1, *.json |

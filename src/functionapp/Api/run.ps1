@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'license')
+$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
@@ -133,6 +133,21 @@ try {
         'acceptances/log' {
             $t = Get-WlBlobText -Container 'state' -Name 'acceptances-log.json'
             Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson
+        }
+        'assignments' {
+            if ($method -eq 'GET') { Send-Response -Status 200 -Body ([ordered]@{ assignments = @(Get-WlAssignments) }); return }
+            if (-not (Test-WlCsrf)) { return }
+            try { $e = Set-WlAssignment -Data (Get-WlRequestJson) -By $principal.upn; Send-Response -Status 200 -Body ([ordered]@{ assignment = $e }) }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+        }
+        'assignments/clear' {
+            if (-not (Test-WlCsrf)) { return }
+            try { $e = Set-WlAssignment -Data (Get-WlRequestJson) -By $principal.upn -Clear; Send-Response -Status 200 -Body ([ordered]@{ assignment = $e }) }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+        }
+        'directory/search' {
+            # People picker: users, groups and distribution lists for assignments (read-only, admins only).
+            Send-Response -Status 200 -Body (Search-WlDirectory -Query ([string]$Request.Query.q))
         }
         'run' {
             if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return }
