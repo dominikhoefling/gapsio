@@ -17,6 +17,13 @@ $data = [ordered]@{
     agents   = & $read 'agents-latest.json'
     runs     = @(& $read 'runs.json')
     changes  = @(& $read 'endpoint-changes.json')
+    acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }
+    'acceptances/log' = @(& $read 'acceptances-log.json')
+}
+# Demo: one active acceptance (hygiene finding) to show the accepted-risk workflow
+$hyg = @($data.endpoint.findings | Where-Object { $_.category -eq 'Hygiene' })[0]
+if ($hyg) {
+    $data.acceptances.acceptances = @($data.acceptances.acceptances) + [pscustomobject]@{ key = $hyg.key; kind = 'finding'; module = 'endpoint'; title = $hyg.title.en; justification = 'Legacy line-of-business app, decommissioning planned for Q2.'; owner = 'Workplace team'; ticket = 'CHG-1042'; expires = [DateTime]::UtcNow.AddDays(60).ToString('yyyy-MM-dd'); acceptedBy = 'alice@contoso.com'; acceptedAt = [DateTime]::UtcNow.AddDays(-3).ToString('o'); active = $true }
 }
 "window.WARDLINE_DEMO = $($data | ConvertTo-Json -Depth 64 -Compress);" | Set-Content -Path (Join-Path $demo 'demo-data.js') -Encoding utf8
 $html = Get-Content -Raw (Join-Path $demo 'index.html')

@@ -19,6 +19,7 @@
       Core        always     Intune policies: exclusions, ASR configuration, MDAV baseline
       Hunting     default    Advanced Hunting: device state, local exclusions, effective ASR mode, local AI agents
       Indicators  default    Allow indicators from Defender for Endpoint
+      Coverage    default    Defender coverage gaps: Intune-managed devices not onboarded to Defender
       Agents      default    AI agents: Entra Agent ID, Agent 365 registry, Conditional Access coverage
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
       Inventory   optional   Device inventory via Intune Remediations (use -DeviceInventory, deploys a detection script)
@@ -42,7 +43,7 @@
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location westeurope
 
 .EXAMPLE
-    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Agents,Access -EnableImmutability -RetentionDays 730
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Agents,Access -EnableImmutability -RetentionDays 730
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <appId> -DataAppId <appId>
@@ -70,7 +71,7 @@ param(
     [ValidateRange(30, 3650)][int]$RetentionDays = 365,
     [switch]$EnableImmutability,
     [ValidateSet('Standard_LRS', 'Standard_ZRS', 'Standard_GRS')][string]$StorageSku = 'Standard_LRS',
-    [string[]]$Features = @('Hunting', 'Indicators', 'Agents'),
+    [string[]]$Features = @('Hunting', 'Indicators', 'Coverage', 'Agents'),
     [string]$AdminGroupId,
     [switch]$RestrictToAssignedUsers,
     [string]$PortalAppId,
@@ -80,6 +81,8 @@ param(
     [string]$PackagePath,
     [switch]$SkipCode,
     [switch]$SkipFirstRun,
+    [string]$NotifyWebhookUrl,
+    [ValidateSet('Critical', 'High', 'Medium', 'Low')][string]$NotifyMinSeverity = 'High',
     [switch]$DeviceInventory,
     [string]$DeviceInventoryGroupId,
     [switch]$RemoveDeviceInventory
@@ -93,7 +96,7 @@ $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-WardlineFeatures -Features $featureList
 $modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' })
-$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Inventory' } | ForEach-Object { $_.ToLowerInvariant() })
+$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
     Write-Host "`nWardline features: $($featureList -join ', ')" -ForegroundColor Cyan
@@ -162,6 +165,17 @@ foreach ($c in $adopt.Keys) {
 }
 if ($adopted.Count) { $NamingMode = 'Customized'; Write-Ok "Existing names: $($adopted -join ', ')" }
 
+# Re-runs: keep the notification settings unless they are passed explicitly (app settings are rewritten by the template)
+if ($existing.ContainsKey('functionapp') -and (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -or -not $PSBoundParameters.ContainsKey('NotifyMinSeverity'))) {
+    $cur = Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'list', '-g', $ResourceGroup, '-n', $existing['functionapp'], '-o', 'json') -AllowFailure
+    if ($cur) {
+        $curMap = @{}; foreach ($x in @($cur | ConvertFrom-Json)) { $curMap[$x.name] = $x.value }
+        if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['WL_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['WL_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
+        if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['WL_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['WL_NOTIFY_MIN_SEVERITY'] }
+    }
+}
+if ($NotifyWebhookUrl -and $NotifyWebhookUrl -notmatch '^https://') { throw '-NotifyWebhookUrl must be an https URL.' }
+
 function Deploy-Infrastructure {
     param([string]$SsoClientId = '')
     $name = "wardline-$(Get-Date -Format 'yyyyMMddHHmmss')"
@@ -169,8 +183,9 @@ function Deploy-Infrastructure {
         "namePrefix=$NamePrefix", "retentionDays=$RetentionDays", "enableImmutability=$($EnableImmutability.IsPresent.ToString().ToLower())",
         "storageSku=$StorageSku", "ssoClientId=$SsoClientId", "location=$Location", "deviceInventory=$(($featureList -contains 'Inventory').ToString().ToLower())",
         "enableAgents=$(($modules -contains 'agents').ToString().ToLower())", "enableAccess=$(($modules -contains 'access').ToString().ToLower())",
-        "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId"
+        "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId", "notifyMinSeverity=$NotifyMinSeverity"
     )
+    if ($NotifyWebhookUrl) { $params += "notifyWebhook=$NotifyWebhookUrl" }
     if ($NamingMode -eq 'Customized') {
         if ($FunctionAppName) { $params += "customFunctionAppName=$FunctionAppName" }
         if ($StorageAccountName) { $params += "customStorageAccountName=$StorageAccountName" }

@@ -21,12 +21,26 @@ function Send-Response {
         })
 }
 
+function Test-WlCsrf {
+    # State-changing calls: POST only, and a custom header that cross-site forms cannot set.
+    if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return $false }
+    $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-wardline') { $csrf = $Request.Headers[$k] } }
+    if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Wardline is missing.'; return $false }
+    $true
+}
+function Get-WlRequestJson {
+    $b = $Request.Body
+    if ($b -is [string]) { if ($b.Length -gt 20000) { throw [System.ArgumentException]::new('Request too large.') }; try { return ($b | ConvertFrom-Json) } catch { throw [System.ArgumentException]::new('Invalid JSON.') } }
+    if ($null -eq $b) { throw [System.ArgumentException]::new('Request body missing.') }
+    $b
+}
+
 $principal = Get-WlPrincipal -Request $Request
 if (-not $principal.ok) { Send-Response -Status $principal.status -Body $principal.message; return }
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run')
+$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
@@ -93,6 +107,25 @@ try {
         }
         'baseline' {
             Send-Response -Status 200 -Body (Get-WlBaseline)
+        }
+        'acceptances' {
+            if ($method -eq 'GET') {
+                $list = @(Get-WlAcceptances | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (Test-WlAcceptanceActive $_) -Force -PassThru })
+                Send-Response -Status 200 -Body ([ordered]@{ acceptances = $list })
+                return
+            }
+            if (-not (Test-WlCsrf)) { return }
+            try { $e = Set-WlAcceptance -Data (Get-WlRequestJson) -By $principal.upn; Send-Response -Status 200 -Body ([ordered]@{ acceptance = $e }) }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+        }
+        'acceptances/revoke' {
+            if (-not (Test-WlCsrf)) { return }
+            try { $e = Set-WlAcceptance -Data (Get-WlRequestJson) -By $principal.upn -Revoke; Send-Response -Status 200 -Body ([ordered]@{ acceptance = $e }) }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+        }
+        'acceptances/log' {
+            $t = Get-WlBlobText -Container 'state' -Name 'acceptances-log.json'
+            Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson
         }
         'run' {
             if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return }

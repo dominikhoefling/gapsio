@@ -3,7 +3,7 @@
 Off by default. Enable with the feature `Access`:
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Agents,Access
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Agents,Access
 ```
 
 - Who holds which admin role – **active**, **eligible via PIM** or **requestable via access packages**

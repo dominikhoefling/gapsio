@@ -18,6 +18,13 @@ First version published on GitHub.
 - **English/German portal** with a language switch; all scripts and installation output in English.
 - **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `WL_UPDATE_CHECK=false` to disable) and `Update-Wardline.ps1` with checksum verification, permission and template change detection.
 
+- **Device page**: protection state incl. network protection, controlled folder access and EDR in block mode, ASR per rule, local exclusions, findings, local AI agents, changes and links to Defender and Intune.
+- **Defender coverage gaps**: Intune devices not onboarded (feature `Coverage`), inactive or impaired sensors, discovered devices.
+- **Unused exclusions**: exclusions without process or file activity in 30 days (Advanced Hunting).
+- **Accepted risks**: accept findings and exclusions with justification, owner, ticket and expiry date; audit log.
+- **Notifications** about new findings to Teams workflows or Power Automate (`-NotifyWebhookUrl`).
+
 ### Changed
+- Agent 365 registry: HTTP 404 (registry not available in the tenant) is shown as a note instead of a warning.
 - The access module (PIM, roles, access packages) is optional and off by default (`-Features …,Access`).
 - **Graph API stability**: Agent ID, Conditional Access and role management use Microsoft Graph **v1.0 first** with a remembered fallback to **beta**; beta-only Intune endpoints (Settings Catalog, templates, Remediations) stay on beta. The Agent 365 registry remains beta-only.

@@ -14,6 +14,13 @@ Always on (feature `Core`); `Hunting`, `Indicators` and `Inventory` add data sou
 - **Risk rating** for every exclusion: whole folders or drives, wildcards, file type exclusions, interpreters as process
   exclusions, user-writable paths. Contextual exclusions and SHA256 indicators count as good practice.
 
+## Unused exclusions
+
+Wardline checks in Advanced Hunting whether excluded processes, paths and file types showed **any process or file
+activity on any device in the last 30 days**. Exclusions without activity are flagged as "No activity (30 days)" – likely
+leftovers that nobody dares to delete. Values with wildcards or environment variables are not checked. (Exclusions only
+affect antivirus scanning; Defender's EDR sensor still records the activity, which is what makes this check possible.)
+
 ## ASR rules
 
 Three levels – target · configured · effective – overall, **per Defender device group** and **per device**:
@@ -22,6 +29,22 @@ Three levels – target · configured · effective – overall, **per Defender d
 - Global ASR exclusions and per-rule exclusions
 - Effective mode from `DeviceTvmInfoGathering` (AsrConfigurationStates), with TVM as fallback
 - Rules permanently in audit, rules below the minimum, rules not configured at all
+
+## Devices
+
+Every device has its own page (click the device name): protection state (running mode, real-time, behaviour, cloud and
+PUA protection, tamper protection, **network protection**, controlled folder access, EDR in block mode, signatures, sensor
+health), ASR rules on the device against the target, local exclusions with who/when/command line, findings, local AI
+agents, policies with exclusions and their assignments, the change history and direct links to the device in the
+Defender portal and in Intune.
+
+## Defender coverage gaps
+
+The **Coverage gaps** tab lists devices Defender does not (fully) protect:
+
+- Intune-managed Windows, macOS and Linux devices (synced in the last 30 days) that never showed up in Defender – feature `Coverage`
+- onboarded devices whose sensor is inactive, misconfigured or has impaired communications
+- devices found by Defender device discovery that can be onboarded
 
 ## MDAV baseline
 

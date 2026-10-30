@@ -40,9 +40,24 @@ function Get-WlAgentDirectory {
     }
 }
 
+$script:WlAgentRegistryStatus = 'Unknown'
 function Get-WlAgentRegistry {
-    # Agent 365 registry (Graph beta). Optional – without licence or permission the run only adds a warning.
-    @(Invoke-WlGraphSafe -Beta -All -Context 'Agent 365 registry (AgentInstance.Read.All)' -Path 'agentRegistry/agentInstances' | Where-Object { $_ })
+    <#
+    .SYNOPSIS
+    Agent 365 registry (Graph beta, being replaced by the Agent 365 APIs). Optional source: HTTP 404 means the registry
+    does not exist in this tenant (no Agent 365 / retired) and is reported as a status, not as a warning.
+    A missing permission (403) or any other error stays a warning.
+    #>
+    try {
+        $r = @(Invoke-WlGraph -Beta -All -Path 'agentRegistry/agentInstances' | Where-Object { $_ })
+        $script:WlAgentRegistryStatus = 'Available'
+        return $r
+    }
+    catch {
+        if ([string]$_.Exception.Data['Status'] -eq '404' -or $_.Exception.Message -match '\b404\b') { $script:WlAgentRegistryStatus = 'NotAvailable' }
+        else { $script:WlAgentRegistryStatus = 'Error'; Add-WlWarning "Agent 365 registry (AgentInstance.Read.All): $($_.Exception.Message)" }
+        return @()
+    }
 }
 
 function Get-WlAgentsInfo {
@@ -483,6 +498,7 @@ function Invoke-WlAgentsCollection {
         generatedAt      = [DateTime]::UtcNow.ToString('o')
         tenantId         = Get-WlSetting -Name 'WL_TENANT_ID'
         securityDefaults = $ca.SecurityDefaults
+        registryStatus   = $script:WlAgentRegistryStatus
         summary          = [ordered]@{
             agents            = @($agents).Count
             cloudAgents       = $cloud.Count

@@ -192,6 +192,12 @@ $fixtures = @{
         )
     }
     assignmentsByPolicy = @{ 'pol-lnx' = @() }
+    managedDevices = @(
+        [pscustomobject]@{ id = 'int-win1'; deviceName = 'WIN-01'; operatingSystem = 'Windows'; azureADDeviceId = 'AAD-WIN1'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-1).ToString("o")); userPrincipalName = 'alice@contoso.com' },
+        [pscustomobject]@{ id = 'int-gap1'; deviceName = 'LAPTOP-NEW'; operatingSystem = 'Windows'; azureADDeviceId = 'AAD-GAP1'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-2).ToString("o")); userPrincipalName = 'bob@contoso.com' },
+        [pscustomobject]@{ id = 'int-old'; deviceName = 'LAPTOP-RETIRED'; operatingSystem = 'Windows'; azureADDeviceId = 'AAD-RET'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-90).ToString("o")); userPrincipalName = 'carol@contoso.com' },
+        [pscustomobject]@{ id = 'int-ios'; deviceName = 'iPhone'; operatingSystem = 'iOS'; azureADDeviceId = 'AAD-IOS'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-1).ToString("o")); userPrincipalName = 'dave@contoso.com' }
+    )
     healthScripts = @([pscustomobject]@{ id = 'hs1'; displayName = 'Wardline – local Defender exclusions (read-only)' }, [pscustomobject]@{ id = 'hs2'; displayName = 'Other script' })
     runStates = @(
         [pscustomobject]@{ lastStateUpdateDateTime = [DateTime]::UtcNow.AddMinutes(-30).ToString('o'); managedDevice = [pscustomobject]@{ deviceName = 'WIN-01'; azureADDeviceId = 'aad-win1' }
@@ -259,6 +265,20 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-mac1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true' }
     )
     Alerts = @([pscustomobject]@{ DeviceId = 'd-win1'; Alerts = 1; LastAlert = (T 2) })
+    TvmWin = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-96'; ConfigurationName = 'Turn on Microsoft Defender Antivirus network protection'; IsApplicable = $true; IsCompliant = $false },
+        [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-96'; ConfigurationName = 'Turn on Microsoft Defender Antivirus network protection'; IsApplicable = $true; IsCompliant = $true },
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-2021'; ConfigurationName = 'Turn on EDR in block mode'; IsApplicable = $true; IsCompliant = $true }
+    )
+    Coverage = @(
+        [pscustomobject]@{ DeviceId = 'd-old1'; DeviceName = 'OLD-01'; OSPlatform = 'Windows10'; OnboardingStatus = 'Onboarded'; AadDeviceId = 'AAD-OLD1'; DeviceType = 'Workstation'; LastSeen = (T 20) },
+        [pscustomobject]@{ DeviceId = 'd-disc1'; DeviceName = 'PRINTER-7'; OSPlatform = 'Windows10'; OnboardingStatus = 'Can be onboarded'; AadDeviceId = ''; DeviceType = 'Workstation'; LastSeen = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OnboardingStatus = 'Onboarded'; AadDeviceId = 'AAD-WIN1'; DeviceType = 'Workstation'; LastSeen = (T 0) }
+    )
+    Usage = @(
+        [pscustomobject]@{ Key = 'n|powershell.exe'; Hits = 1234; Last = (T 0) },
+        [pscustomobject]@{ Key = 'e|.ps1'; Hits = 77; Last = (T 1) }
+    )
     Ps = @(
         [pscustomobject]@{ Timestamp = (T 3).Replace('Z',''); DeviceId = 'd-win2'; FileName = 'powershell.exe'; ProcessCommandLine = 'powershell.exe -c Add-MpPreference -ExclusionPath "C:\Users\Public\WardlineTest"'; AccountName = 'system' }
     )
@@ -447,7 +467,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
 & $mod {
     param($Fx, $Hunt, $Acc, $Users, $Blobs, $Queue)
     $script:Fx = $Fx; $script:Hunt = $Hunt; $script:Acc = $Acc; $script:Users = $Users; $script:Blobs = $Blobs; $script:Queue = $Queue
-    $env:WL_STORAGE_ACCOUNT = 'teststorage'; $env:WL_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+    $script:HuntQueries = [System.Collections.Generic.List[string]]::new()
+    $env:WL_STORAGE_ACCOUNT = 'teststorage'; $env:WL_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:WL_FEATURES = 'hunting,indicators,coverage'
 
     function script:V { param($Items) [pscustomobject]@{ value = @($Items) } }
 
@@ -462,7 +483,11 @@ $queue = [System.Collections.Generic.List[string]]::new()
         if ($Uri -match '\.queue\.core\.windows\.net/') { $script:Queue.Add([string]$Body); return '' }
         if ($Uri -match 'runHuntingQuery') {
             $q = [string]$Body.Query
+            $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
+            elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
+            elseif ($q -match '// WardlineUsage') { $script:Hunt.Usage }
+            elseif ($q -match 'startswith "Windows"') { $script:Hunt.TvmWin }
             elseif ($q -match 'AsrConfigurationStates') { $script:Hunt.AsrInfo }
             elseif ($q -match 'Attack Surface Reduction') { $script:Hunt.AsrTvm }
             elseif ($q -match 'DeviceFileEvents') { $script:Hunt.FileEvents }
@@ -487,7 +512,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal' { return (V $script:Fx.agents.principals) }
             '^servicePrincipals/microsoft.graph.agentIdentity\?' { return (V $script:Fx.agents.identities) }
             '^users/microsoft.graph.agentUser' { return (V $script:Fx.agents.users) }
-            '^agentRegistry/agentInstances' { return (V $script:Fx.agents.registry) }
+            '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-WlHttpException -Status 404 -Message 'HTTP 404 Not Found') }; return (V $script:Fx.agents.registry) }
+            '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
             '^identity/conditionalAccess/policies' { return (V $script:Fx.agents.policies) }
             '^policies/identitySecurityDefaultsEnforcementPolicy' { return [pscustomobject]@{ isEnabled = $false } }
             "^deviceManagement/configurationSettings\('([^']+)'\)" { if ($script:Fx.definitions.ContainsKey($Matches[1])) { return $script:Fx.definitions[$Matches[1]] }; throw (New-WlHttpException -Status 404 -Message 'nf') }
@@ -595,6 +621,67 @@ Assert ($viaPs.Count -eq 1 -and $viaPs[0].addedBy.process -eq 'powershell.exe' -
 Assert (@($pe | Where-Object { $_.platform -eq 'Linux' -and $_.assigned -eq $false }).Count -eq 1) 'Unassigned Linux policy detected'
 Assert (@($pe | Where-Object { $_.platform -eq 'Windows' -and $_.assigned -eq $true }).Count -ge 1) 'Windows policy detected as assigned'
 
+Write-Host '== End-to-end: protection features, coverage, exclusion usage' -ForegroundColor Cyan
+$dWin2 = @($ep.devices | Where-Object { $_.deviceId -eq 'd-win2' })[0]
+Assert ($dWin1.checks.NetworkProtection -eq 'BAD' -and $dWin2.checks.NetworkProtection -eq 'GOOD' -and $dWin1.checks.EdrBlockMode -eq 'GOOD') 'Network protection and EDR block mode per device (TVM by name)'
+$npb = @($ep.baseline | Where-Object { $_.id -eq 'network-protection' })[0]
+Assert ($npb.effective.check -eq 'NetworkProtection' -and $npb.effective.bad -eq 1 -and $npb.effective.good -eq 1) "Baseline network protection effective 1 bad / 1 good ($($npb.effective.bad)/$($npb.effective.good))"
+$cov = @($ep.coverage)
+Assert (@($cov | Where-Object { $_.deviceName -eq 'LAPTOP-NEW' -and $_.status -eq 'NotOnboarded' -and $_.source -eq 'Intune' }).Count -eq 1) 'Coverage: Intune device not in Defender'
+Assert (@($cov | Where-Object { $_.deviceName -in 'LAPTOP-RETIRED', 'iPhone', 'WIN-01' }).Count -eq 0) 'Coverage: stale, mobile and onboarded devices are not gaps'
+Assert (@($cov | Where-Object { $_.deviceName -eq 'OLD-01' -and $_.status -eq 'SensorInactive' }).Count -eq 1) 'Coverage: onboarded device without recent data = sensor inactive'
+Assert (@($cov | Where-Object { $_.deviceName -eq 'PRINTER-7' -and $_.status -eq 'CanBeOnboarded' }).Count -eq 1) 'Coverage: device discovery'
+Assert ($dWin1.intuneDeviceId -eq 'int-win1') 'Intune device ID on the Defender device (deep link)'
+Assert (@($f | Where-Object { $_.category -eq 'Coverage' }).Count -eq 3 -and $ep.summary.coverageGaps -eq 2 -and $ep.summary.discoveredDevices -eq 1) "Coverage findings and summary ($($ep.summary.coverageGaps)/$($ep.summary.discoveredDevices))"
+$ps = @($pe | Where-Object { $_.value -eq 'powershell.exe' })[0]
+$svc = @($pe | Where-Object { $_.value -eq 'C:\Program Files\Vendor\svc.exe' })[0]
+$wild = @($pe | Where-Object { $_.value -like '*`**' })[0]
+Assert ($ps.usage -eq 'Used' -and $ps.usageHits -eq 1234) 'Usage: process exclusion seen in Advanced Hunting'
+Assert ($svc.usage -eq 'Unused' -and $svc.usageHits -eq 0) 'Usage: process path without activity = unused'
+Assert ($wild.usage -eq 'NotChecked') 'Usage: wildcard values are not checked'
+Assert ($ep.summary.unusedExclusions -ge 1 -and @($f | Where-Object { $_.category -eq 'Hygiene' }).Count -eq 1) "Usage: summary and one hygiene finding ($($ep.summary.unusedExclusions))"
+$uq = & $mod { @($script:HuntQueries | Where-Object { $_ -match '// WardlineUsage' })[0] }
+Assert ($uq -match 'let paths = dynamic\(\[' -and $uq -match 'p startswith "c:\\\\program files\\\\app\\\\app.exe"' -and $uq -notmatch '\*') 'Usage query: normalised paths, prefilter, no wildcards'
+
+Write-Host '== Accepted risks and notifications' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $a1 = Set-WlAcceptance -Data ([pscustomobject]@{ key = 'cccc3333'; kind = 'finding'; module = 'endpoint'; title = 'Test'; justification = 'Known vendor requirement, ticket open'; owner = 'App team'; ticket = 'CHG-1'; expires = [DateTime]::UtcNow.AddDays(30).ToString('yyyy-MM-dd') }) -By 'alice@contoso.com'
+    & $A ($a1.acceptedBy -eq 'alice@contoso.com' -and (Test-WlAcceptanceActive $a1)) 'Acceptance stored and active'
+    $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'short'; owner = 'x'; expires = '2099-01-01' }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'justification') "Acceptance validation ($bad)"
+    $bad = $null; try { Set-WlAcceptance -Data ([pscustomobject]@{ key = 'dddd4444'; justification = 'long enough text'; owner = 'x'; expires = [DateTime]::UtcNow.AddDays(400).ToString('yyyy-MM-dd') }) -By 'a' | Out-Null } catch { $bad = $_.Exception.Message }
+    & $A ($bad -match 'one year') 'Acceptance at most one year'
+    & $A (-not (Test-WlAcceptanceActive ([pscustomobject]@{ key = 'x'; expires = [DateTime]::UtcNow.AddDays(-1).ToString('yyyy-MM-dd') }))) 'Expired acceptance is not active'
+
+    $env:WL_NOTIFY_WEBHOOK = 'https://example.invalid/hook'; $env:WL_NOTIFY_MIN_SEVERITY = 'High'
+    $script:posted = $null
+    function Invoke-RestMethod { param($Method, $Uri, $ContentType, $Body, $TimeoutSec) $script:posted = $Body | ConvertFrom-Json -Depth 20 }
+    $snap = [ordered]@{ findings = @(
+            [pscustomobject]@{ key = 'aaaa1111'; severity = 'High'; category = 'Coverage'; title = (New-WlText 'New high' 'Neu hoch'); deviceName = 'PC1' },
+            [pscustomobject]@{ key = 'bbbb2222'; severity = 'Low'; category = 'Hygiene'; title = (New-WlText 'New low' 'Neu niedrig') },
+            [pscustomobject]@{ key = 'cccc3333'; severity = 'Critical'; category = 'Combined'; title = (New-WlText 'Accepted' 'Akzeptiert') },
+            [pscustomobject]@{ key = 'eeee5555'; severity = 'Critical'; category = 'Combined'; title = (New-WlText 'Old' 'Alt') }) }
+    $ch = @(
+        [pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'aaaa1111' }, [pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'bbbb2222' },
+        [pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'cccc3333' }, [pscustomobject]@{ collection = 'findings'; change = 'Changed'; key = 'eeee5555' })
+    $n = Send-WlNotification -Module 'endpoint' -Changes $ch -Snapshot $snap
+    & $A ($n -eq 1 -and @($script:posted.wardline.findings).Count -eq 1 -and $script:posted.wardline.findings[0].key -eq 'aaaa1111') 'Notification: only new findings >= High that are not accepted'
+    & $A ($script:posted.attachments[0].contentType -eq 'application/vnd.microsoft.card.adaptive' -and $script:posted.type -eq 'message') 'Notification: Teams adaptive card payload'
+    $script:posted = $null
+    $n = Send-WlNotification -Module 'endpoint' -Changes @([pscustomobject]@{ collection = 'findings'; change = 'Added'; key = 'bbbb2222' }) -Snapshot $snap
+    & $A ($null -eq $n -and $null -eq $script:posted) 'Notification: nothing to send, no call'
+    $env:WL_NOTIFY_WEBHOOK = 'http://insecure.example/hook'
+    Reset-WlWarnings
+    & $A ($null -eq (Send-WlNotification -Module 'endpoint' -Changes $ch -Snapshot $snap) -and @(Get-WlWarnings).Count -eq 1) 'Notification: http webhook refused'
+    $env:WL_NOTIFY_WEBHOOK = $null; $env:WL_NOTIFY_MIN_SEVERITY = $null
+    Remove-Item function:Invoke-RestMethod
+    Set-WlAcceptance -Data ([pscustomobject]@{ key = 'cccc3333' }) -By 'alice@contoso.com' -Revoke | Out-Null
+    & $A (-not (Test-WlAcceptanceActive (@(Get-WlAcceptances | Where-Object { $_.key -eq 'cccc3333' })[0]))) 'Revoked acceptance is not active'
+} ${function:Assert}
+$log = $blobs['state/acceptances-log.json'] | ConvertFrom-Json
+Assert (@($log).Count -eq 2 -and $log[0].action -eq 'revoke' -and $log[1].action -eq 'accept') 'Acceptance audit log (accept, revoke)'
+
 Write-Host '== End-to-end: drift' -ForegroundColor Cyan
 $fixtures.settings['pol-win'][9] = (FxL "${p}excludedextensions" @('.log'))   # .ps1 removed
 $r2 = Invoke-WlEndpointCollection 6>$null
@@ -672,6 +759,12 @@ $bp2 = [pscustomobject]@{ id = 'ca-b'; displayName = 'Blueprint'; state = 'enabl
 $cov = & $mod { param($p) Get-WlAgentCaCoverage -Policies @($p) -Kind Identity -Ids @('ai-9', 'bp-obj-1') -DirectId 'ai-9' -SecurityDefaults $false } $bp2
 Assert ($cov.status -eq 'Protected' -and $cov.policies[0].via -eq 'Blueprint') 'Blueprint target covers the agent (case-insensitive)'
 
+$fixtures.agents.registry404 = $true
+$null = Invoke-WlAgentsCollection 6>$null 3>$null
+$ag404 = $blobs['state/agents-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($ag404.registryStatus -eq 'NotAvailable' -and @($ag404.warnings | Where-Object { $_ -match 'registry' }).Count -eq 0) 'Agent 365 registry 404: status, no warning'
+$fixtures.agents.registry404 = $false
+
 Write-Host '== End-to-end: access' -ForegroundColor Cyan
 $env:WL_MODULES = 'endpoint,agents,access'
 $ra = Invoke-WlAccessCollection 6>$null
@@ -705,9 +798,9 @@ function New-Principal { param([string[]]$Roles, [string]$Oid)
 }
 $api = Join-Path $root 'src/functionapp/Api/run.ps1'
 $env:PSModulePath = (Join-Path $root 'src/functionapp/Modules') + [IO.Path]::PathSeparator + $env:PSModulePath
-function Call { param($Seg, $Method = 'GET', $Principal, $Query = @{}, $Headers = @{})
+function Call { param($Seg, $Method = 'GET', $Principal, $Query = @{}, $Headers = @{}, $Body)
     $h = @{ 'x-ms-client-principal' = $Principal }; foreach ($k in $Headers.Keys) { $h[$k] = $Headers[$k] }
-    & $api -Request ([pscustomobject]@{ Params = @{ segments = $Seg }; Method = $Method; Query = $Query; Headers = $h }) -TriggerMetadata $null
+    & $api -Request ([pscustomobject]@{ Params = @{ segments = $Seg }; Method = $Method; Query = $Query; Headers = $h; Body = $Body }) -TriggerMetadata $null
     $global:WlTestResp
 }
 $adminP = New-Principal -Roles 'Wardline.Admin' -Oid 'u-alice'
@@ -774,6 +867,20 @@ $tmpZip = Join-Path ([IO.Path]::GetTempPath()) "wl-pkg-$([guid]::NewGuid().ToStr
 & (Join-Path $root 'build/New-WardlinePackage.ps1') -OutFile $tmpZip 6>$null | Out-Null
 Assert ((Get-WardlinePackageVersion -Path $tmpZip) -eq (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1')).ModuleVersion) 'Get-WardlinePackageVersion reads the version from the function package'
 Remove-Item $tmpZip -Force
+$exp = [DateTime]::UtcNow.AddDays(14).ToString('yyyy-MM-dd')
+$r = Call 'acceptances' -Method 'POST' -Principal $adminP -Body (@{ key = 'abcd1234'; kind = 'exclusion'; module = 'endpoint'; title = 'powershell.exe'; justification = 'Required by the build agent until Q3'; owner = 'Build team'; expires = $exp } | ConvertTo-Json)
+Assert ([int]$r.StatusCode -eq 400) 'POST acceptances without X-Wardline is rejected'
+$r = Call 'acceptances' -Method 'POST' -Principal $userP -Headers @{ 'X-Wardline' = '1' } -Body '{}'
+Assert ([int]$r.StatusCode -eq 403) 'Non-admin cannot accept risks'
+$r = Call 'acceptances' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = 'abcd1234'; kind = 'exclusion'; module = 'endpoint'; title = 'powershell.exe'; justification = 'Required by the build agent until Q3'; owner = 'Build team'; expires = $exp } | ConvertTo-Json)
+Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).acceptance.acceptedBy -eq 'u-alice@contoso.com') "POST acceptances stores the acceptance ($($r.StatusCode))"
+$r = Call 'acceptances' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body '{"key":"abcd1234","justification":"x","owner":"y","expires":"2099-01-01"}'
+Assert ([int]$r.StatusCode -eq 400) 'Invalid acceptance -> 400'
+$r = Call 'acceptances' -Principal $adminP; $acc = ($r.Body | ConvertFrom-Json).acceptances
+Assert (@($acc | Where-Object { $_.key -eq 'abcd1234' -and $_.active }).Count -eq 1) 'GET acceptances with active flag'
+$r = Call 'acceptances/revoke' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body '{"key":"abcd1234"}'
+$r = Call 'acceptances' -Principal $adminP; $acc = ($r.Body | ConvertFrom-Json).acceptances
+Assert (@($acc | Where-Object { $_.key -eq 'abcd1234' -and -not $_.active -and $_.revokedBy }).Count -eq 1) 'Revoke via API'
 $env:WL_MODULES = $null
 $r = Call 'access' -Principal $adminP; Assert ([int]$r.StatusCode -eq 404) 'Default: access module off -> 404'
 $r = Call 'access/me' -Principal $userP; Assert ([int]$r.StatusCode -eq 404) 'Default: my access off -> 404'
@@ -786,7 +893,7 @@ $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without 
 
 if ($OutDir) {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-    foreach ($k in 'state/endpoint-latest.json', 'state/agents-latest.json', 'state/access-latest.json', 'state/endpoint-changes.json', 'state/runs.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
+    foreach ($k in 'state/endpoint-latest.json', 'state/agents-latest.json', 'state/access-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
     (Call 'access/me' -Principal $userP) | Out-Null
 }
 

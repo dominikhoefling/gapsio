@@ -599,6 +599,11 @@ function Save-WlSnapshot {
     }
     $Snapshot['changesSincePrevious'] = $changes.Count
     $Snapshot['isFirstRun'] = ($null -eq $prev)
+    if ($prev) {
+        $sent = Send-WlNotification -Module $Module -Changes $changes.ToArray() -Snapshot $Snapshot
+        if ($sent) { $Snapshot['notified'] = $sent }
+        $Snapshot['warnings'] = @(Get-WlWarnings)
+    }
 
     $snapName = "$Module/$($now.ToString('yyyy/MM/dd/HHmmssfff')).json"
     Set-WlBlob -Container 'snapshots' -Name $snapName -Object $Snapshot
@@ -633,6 +638,114 @@ function Save-WlSnapshot {
     Set-WlBlob -Container 'state' -Name 'runs.json' -Object @($runs.ToArray())
 
     [pscustomobject]@{ module = $Module; at = $at; changes = $changes.Count; snapshot = $snapName; warnings = @($Snapshot['warnings']).Count }
+}
+#endregion
+
+#region Accepted risks
+function Get-WlAcceptances {
+    <#
+    .SYNOPSIS
+    Accepted risks (state/acceptances.json): findings or exclusions an administrator consciously accepted with a
+    justification, owner and expiry date. Expired acceptances count as not accepted again.
+    #>
+    $a = @()
+    try { $a = @(Get-WlBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) } catch { }
+    $a
+}
+
+function Test-WlAcceptanceActive {
+    param($Acceptance, [datetime]$Now = [DateTime]::UtcNow)
+    if (-not $Acceptance -or (Get-WlProp $Acceptance 'revokedAt')) { return $false }
+    $exp = [datetime]::MinValue
+    if (-not [datetime]::TryParse([string](Get-WlProp $Acceptance 'expires'), [ref]$exp)) { return $false }
+    $exp.ToUniversalTime().Date.AddDays(1) -gt $Now
+}
+
+function Set-WlAcceptance {
+    <#
+    .SYNOPSIS
+    Accepts (or with -Revoke revokes) the risk of a finding or exclusion. Validates the input, keeps one entry per key
+    and appends every action to the audit log (state/acceptances-log.json).
+    #>
+    param([Parameter(Mandatory)]$Data, [Parameter(Mandatory)][string]$By, [switch]$Revoke)
+    $key = [string](Get-WlProp $Data 'key')
+    if ($key -notmatch '^[a-f0-9]{8,64}$') { throw [System.ArgumentException]::new('Invalid key.') }
+    $now = [DateTime]::UtcNow
+    $list = [System.Collections.Generic.List[object]]::new()
+    foreach ($x in Get-WlAcceptances) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    if ($Revoke) {
+        if (-not $existing) { throw [System.ArgumentException]::new('No acceptance for this key.') }
+        $existing | Add-Member -NotePropertyName revokedAt -NotePropertyValue $now.ToString('o') -Force
+        $existing | Add-Member -NotePropertyName revokedBy -NotePropertyValue $By -Force
+        $list.Add($existing); $entry = $existing; $action = 'revoke'
+    }
+    else {
+        $just = ([string](Get-WlProp $Data 'justification')).Trim()
+        $owner = ([string](Get-WlProp $Data 'owner')).Trim()
+        if ($just.Length -lt 10 -or $just.Length -gt 1000) { throw [System.ArgumentException]::new('A justification of 10–1000 characters is required.') }
+        if (-not $owner -or $owner.Length -gt 200) { throw [System.ArgumentException]::new('An owner is required.') }
+        $exp = [datetime]::MinValue
+        if (-not [datetime]::TryParse([string](Get-WlProp $Data 'expires'), [ref]$exp)) { throw [System.ArgumentException]::new('A valid expiry date is required.') }
+        $exp = $exp.Date
+        if ($exp -le $now.Date -or $exp -gt $now.Date.AddDays(366)) { throw [System.ArgumentException]::new('The expiry date must be in the future and at most one year ahead.') }
+        $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
+        $entry = [pscustomobject][ordered]@{
+            key = $key; kind = (& $clip (Get-WlProp $Data 'kind') 30); module = (& $clip (Get-WlProp $Data 'module') 20)
+            title = (& $clip (Get-WlProp $Data 'title') 300); justification = $just; owner = $owner; ticket = (& $clip (Get-WlProp $Data 'ticket') 100)
+            expires = $exp.ToString('yyyy-MM-dd'); acceptedBy = $By; acceptedAt = $now.ToString('o')
+        }
+        $list.Add($entry); $action = 'accept'
+    }
+    Set-WlBlob -Container 'state' -Name 'acceptances.json' -Object @($list.ToArray())
+    $log = [System.Collections.Generic.List[object]]::new()
+    $log.Add([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.justification; owner = $entry.owner; ticket = $entry.ticket; expires = $entry.expires })
+    try { foreach ($l in @(Get-WlBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } } } catch { }
+    Set-WlBlob -Container 'state' -Name 'acceptances-log.json' -Object @($log.ToArray())
+    $entry
+}
+#endregion
+
+#region Notifications
+function Send-WlNotification {
+    <#
+    .SYNOPSIS
+    Sends new findings of a run to a webhook (app setting WL_NOTIFY_WEBHOOK): a Teams workflow ("When a Teams webhook
+    request is received"), a Power Automate flow (e.g. to send e-mail) or any endpoint that accepts JSON.
+    Only findings that are new since the previous run, at least WL_NOTIFY_MIN_SEVERITY (default High) and not accepted.
+    #>
+    param([string]$Module, [object[]]$Changes, [System.Collections.IDictionary]$Snapshot)
+    $url = Get-WlSetting -Name 'WL_NOTIFY_WEBHOOK'
+    if (-not $url) { return $null }
+    if ($url -notmatch '^https://') { Add-WlWarning 'WL_NOTIFY_WEBHOOK must be an https URL.'; return $null }
+    $order = @{ 'Critical' = 0; 'High' = 1; 'Medium' = 2; 'Low' = 3 }
+    $min = Get-WlSetting -Name 'WL_NOTIFY_MIN_SEVERITY' -Default 'High'
+    $minRank = if ($order.ContainsKey($min)) { $order[$min] } else { 1 }
+    $accepted = @{}; foreach ($a in Get-WlAcceptances) { if (Test-WlAcceptanceActive $a) { $accepted[[string]$a.key] = $true } }
+    $byKey = @{}; foreach ($f in @($Snapshot['findings'])) { if ($f) { $byKey[[string]$f.key] = $f } }
+    $new = @(foreach ($c in @($Changes)) {
+            if ($c.collection -ne 'findings' -or $c.change -ne 'Added' -or $accepted.ContainsKey([string]$c.key)) { continue }
+            $f = $byKey[[string]$c.key]
+            if (-not $f -or -not $order.ContainsKey([string]$f.severity) -or $order[[string]$f.severity] -gt $minRank) { continue }
+            $f
+        }) | Sort-Object { $order[[string]$_.severity] }
+    if (-not $new.Count) { return $null }
+    $portal = if ($env:WEBSITE_HOSTNAME) { "https://$($env:WEBSITE_HOSTNAME)/#/findings" } else { $null }
+    $lines = @($new | Select-Object -First 15 | ForEach-Object { "**$($_.severity)** · $(Get-WlProp $_.title 'en')$(if ($_.deviceName) { " · $($_.deviceName)" })" })
+    if ($new.Count -gt 15) { $lines += "… and $($new.Count - 15) more" }
+    $title = "Wardline: $($new.Count) new finding(s) ($Module)"
+    $body = @(@{ type = 'TextBlock'; text = $title; weight = 'Bolder'; size = 'Medium'; wrap = $true }) + @($lines | ForEach-Object { @{ type = 'TextBlock'; text = $_; wrap = $true; spacing = 'Small' } })
+    $card = @{ '$schema' = 'http://adaptivecards.io/schemas/adaptive-card.json'; type = 'AdaptiveCard'; version = '1.4'; body = $body }
+    if ($portal) { $card.actions = @(@{ type = 'Action.OpenUrl'; title = 'Open Wardline'; url = $portal }) }
+    $payload = [ordered]@{
+        type = 'message'; attachments = @(@{ contentType = 'application/vnd.microsoft.card.adaptive'; content = $card })
+        # Plain fields for Power Automate or other receivers
+        wardline = [ordered]@{ module = $Module; title = $title; portal = $portal; findings = @($new | ForEach-Object { [ordered]@{ severity = $_.severity; category = $_.category; title = (Get-WlProp $_.title 'en'); device = $_.deviceName; key = $_.key } }) }
+    }
+    try {
+        Invoke-RestMethod -Method Post -Uri $url -ContentType 'application/json; charset=utf-8' -Body (ConvertTo-Json -InputObject $payload -Depth 12 -Compress) -TimeoutSec 20 | Out-Null
+        $new.Count
+    }
+    catch { Add-WlWarning "Notification webhook failed: $($_.Exception.Message)"; $null }
 }
 #endregion
 

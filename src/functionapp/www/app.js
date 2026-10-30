@@ -185,7 +185,50 @@
     'coll.policyExclusions': ['Exclusion (policy)', 'Exclusion (Richtlinie)'], 'coll.localExclusions': ['Exclusion (local)', 'Exclusion (lokal)'], 'coll.indicators': ['Indicator', 'Indikator'],
     'coll.devices': ['Device', 'Gerät'], 'coll.baseline': ['Baseline', 'Baseline'], 'coll.asrRules': ['ASR rule', 'ASR-Regel'], 'coll.asrGroups': ['ASR device group', 'ASR-Gerätegruppe'],
     'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.agents': ['Agent', 'Agent'],
-    'coll.blueprints': ['Blueprint', 'Blueprint'], 'coll.policies': ['CA policy', 'CA-Richtlinie']
+    'coll.blueprints': ['Blueprint', 'Blueprint'], 'coll.policies': ['CA policy', 'CA-Richtlinie'], 'coll.coverage': ['Coverage', 'Abdeckung'],
+    // categories, coverage, usage
+    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'],
+    'cov.NotOnboarded': ['Not onboarded (Intune device)', 'Nicht onboarded (Intune-Gerät)'], 'cov.CanBeOnboarded': ['Discovered, can be onboarded', 'Erkannt, kann onboarded werden'],
+    'cov.SensorInactive': ['Sensor inactive', 'Sensor inaktiv'], 'cov.Misconfigured': ['Sensor misconfigured', 'Sensor falsch konfiguriert'],
+    'cov.ImpairedCommunications': ['Impaired communications', 'Eingeschränkte Kommunikation'], 'cov.NoSensorData': ['No sensor data', 'Keine Sensordaten'], 'cov.SensorIssue': ['Sensor problem', 'Sensorproblem'],
+    'covsrc.Intune': ['Intune', 'Intune'], 'covsrc.Defender': ['Defender', 'Defender'], 'covsrc.DeviceDiscovery': ['Device discovery', 'Geräteerkennung'],
+    'use.Used': ['Activity seen', 'Aktivität gesehen'], 'use.Unused': ['No activity (30 days)', 'Keine Aktivität (30 Tage)'], 'use.NotChecked': ['Not checked', 'Nicht geprüft'],
+    'x.usage': ['Activity', 'Aktivität'], 'x.onlyUnused': ['No activity only', 'Nur ohne Aktivität'], 'x.usageHits': ['{0} events, last {1}', '{0} Ereignisse, zuletzt {1}'],
+    'x.usage.help': ['Process and file events on any device in the last 30 days (Advanced Hunting). Wildcards and variables are not checked.', 'Prozess- und Dateiereignisse auf allen Geräten in den letzten 30 Tagen (Advanced Hunting). Platzhalter und Variablen werden nicht geprüft.'],
+    'ov.coverage': ['devices without full Defender coverage', 'Geräte ohne vollständige Defender-Abdeckung'], 'ov.unused': ['exclusions without activity (30 days)', 'Exclusions ohne Aktivität (30 Tage)'],
+    // devices
+    'd.tab.devices': ['Devices ({0})', 'Geräte ({0})'], 'd.tab.coverage': ['Coverage gaps ({0})', 'Abdeckungslücken ({0})'],
+    'd.np': ['Network prot.', 'Netzwerkschutz'], 'd.open': ['Open device page', 'Geräteseite öffnen'],
+    'd.cov.lede': ['Devices Defender for Endpoint does not (fully) protect: Intune-managed devices that never showed up in Defender, onboarded devices with sensor problems and devices found by device discovery.', 'Geräte, die Defender for Endpoint nicht (vollständig) schützt: Intune-verwaltete Geräte, die nie in Defender aufgetaucht sind, onboardete Geräte mit Sensorproblemen und Geräte aus der Geräteerkennung.'],
+    'd.cov.status': ['Status', 'Status'], 'd.cov.source': ['Source', 'Quelle'], 'd.cov.user': ['User', 'Benutzer'], 'd.cov.none': ['No coverage gaps found.', 'Keine Abdeckungslücken gefunden.'],
+    'd.cov.feature': ['The Intune comparison needs the feature Coverage (Install-Wardline.ps1 -Features …,Coverage).', 'Der Intune-Abgleich braucht die Funktion Coverage (Install-Wardline.ps1 -Features …,Coverage).'],
+    // device page
+    'dv.back': ['← All devices', '← Alle Geräte'], 'dv.notfound': ['Device not found in the latest run.', 'Gerät im letzten Lauf nicht gefunden.'],
+    'dv.protection': ['Protection state', 'Schutzzustand'], 'dv.asr': ['ASR rules on this device', 'ASR-Regeln auf diesem Gerät'], 'dv.local': ['Local exclusions', 'Lokale Exclusions'],
+    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['Wardline does not resolve group memberships of devices; check the assignment to see whether a policy targets this device.', 'Wardline löst Gruppenmitgliedschaften von Geräten nicht auf; an der Zuweisung erkennst du, ob eine Richtlinie dieses Gerät trifft.'],
+    'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
+    'dv.links': ['Open in', 'Öffnen in'], 'dv.defender': ['Defender portal', 'Defender-Portal'], 'dv.intune': ['Intune', 'Intune'],
+    'dv.user': ['Last user', 'Letzter Benutzer'], 'dv.join': ['Join type', 'Join-Typ'], 'dv.sensor': ['Sensor health', 'Sensorzustand'], 'dv.exposure': ['Exposure level', 'Gefährdungsstufe'],
+    'dv.sigver': ['Signature version', 'Signaturversion'], 'dv.engver': ['Engine / platform', 'Engine / Plattform'], 'dv.sigtime': ['Signatures published', 'Signaturen veröffentlicht'],
+    'dv.target': ['Target', 'Soll'], 'dv.effective': ['On the device', 'Auf dem Gerät'], 'dv.none': ['None.', 'Keine.'],
+    'chk.AntivirusEnabled': ['Antivirus enabled', 'Virenschutz aktiv'], 'chk.RealtimeProtection': ['Real-time protection', 'Echtzeitschutz'], 'chk.BehaviorMonitoring': ['Behavior monitoring', 'Verhaltensüberwachung'],
+    'chk.CloudProtection': ['Cloud protection', 'Cloudschutz'], 'chk.PUAProtection': ['PUA protection', 'PUA-Schutz'], 'chk.TamperProtection': ['Tamper protection', 'Manipulationsschutz'],
+    'chk.NetworkProtection': ['Network protection', 'Netzwerkschutz'], 'chk.ControlledFolderAccess': ['Controlled folder access', 'Überwachter Ordnerzugriff'], 'chk.EdrBlockMode': ['EDR in block mode', 'EDR im Blockmodus'],
+    'chk.AntivirusSignatureVersion': ['Signatures current', 'Signaturen aktuell'], 'chk.AntivirusReporting': ['Antivirus reporting', 'Virenschutz-Reporting'], 'chk.SensorEnabled': ['EDR sensor enabled', 'EDR-Sensor aktiv'],
+    'chk.SensorDataCollection': ['Sensor data collection', 'Sensor-Datenerfassung'], 'chk.ImpairedCommunications': ['Sensor communication', 'Sensor-Kommunikation'], 'chk.PassiveModeOff': ['Not in passive mode', 'Nicht im Passivmodus'],
+    // accepted risks
+    'acc.accept': ['Accept risk …', 'Risiko akzeptieren …'], 'acc.save': ['Accept', 'Akzeptieren'], 'acc.cancel': ['Cancel', 'Abbrechen'], 'acc.revoke': ['Revoke', 'Widerrufen'],
+    'acc.justification': ['Justification', 'Begründung'], 'acc.owner': ['Owner', 'Verantwortlich'], 'acc.ticket': ['Ticket / change (optional)', 'Ticket / Change (optional)'], 'acc.expires': ['Valid until', 'Gültig bis'],
+    'acc.until': ['Accepted until {0}', 'Akzeptiert bis {0}'], 'acc.by': ['by {0}', 'von {0}'], 'acc.saved': ['Risk accepted.', 'Risiko akzeptiert.'], 'acc.revoked': ['Acceptance revoked.', 'Akzeptanz widerrufen.'],
+    'acc.hide': ['Hide accepted', 'Akzeptierte ausblenden'], 'acc.tag': ['Accepted', 'Akzeptiert'], 'acc.expired': ['Expired', 'Abgelaufen'], 'acc.revokedTag': ['Revoked', 'Widerrufen'],
+    'acc.help': ['Accepted findings and exclusions stay visible but no longer count as open and do not trigger notifications. After the expiry date they are open again.', 'Akzeptierte Befunde und Exclusions bleiben sichtbar, zählen aber nicht mehr als offen und lösen keine Benachrichtigung aus. Nach dem Ablaufdatum sind sie wieder offen.'],
+    'acc.title': ['Accepted risks', 'Akzeptierte Risiken'], 'acc.lede': ['Consciously accepted findings and exclusions with justification, owner and expiry date – the record auditors ask for.', 'Bewusst akzeptierte Befunde und Exclusions mit Begründung, Verantwortlichem und Ablaufdatum – der Nachweis, nach dem Prüfer fragen.'],
+    'acc.tab.list': ['Acceptances', 'Akzeptanzen'], 'acc.tab.log': ['Audit log', 'Protokoll'], 'acc.what': ['What', 'Was'], 'acc.status': ['Status', 'Status'], 'acc.active': ['Active', 'Aktiv'],
+    'acc.at': ['Accepted', 'Akzeptiert am'], 'acc.action': ['Action', 'Aktion'], 'acc.act.accept': ['accepted', 'akzeptiert'], 'acc.act.revoke': ['revoked', 'widerrufen'], 'acc.none': ['No accepted risks yet.', 'Noch keine akzeptierten Risiken.'],
+    'acc.err.just': ['Please give a justification (at least 10 characters).', 'Bitte eine Begründung angeben (mindestens 10 Zeichen).'], 'acc.err.owner': ['Please name an owner.', 'Bitte einen Verantwortlichen angeben.'],
+    'acc.kind.finding': ['Finding', 'Befund'], 'acc.kind.exclusion': ['Exclusion', 'Exclusion'], 'demo.readonly': ['Demo: changes are not saved.', 'Demo: Änderungen werden nicht gespeichert.'],
+    'd.aad': ['Entra device ID', 'Entra-Geräte-ID'], 'v.device': ['Device', 'Gerät'], 'v.accepted': ['Accepted risks', 'Akzeptierte Risiken'],
+    'g.registry.na': ['The Agent 365 registry is not available in this tenant (no Agent 365 or already replaced by the Agent 365 APIs). Agents from Entra Agent ID and Defender are still shown.', 'Die Agent-365-Registry ist in diesem Tenant nicht verfügbar (kein Agent 365 oder bereits durch die Agent-365-APIs ersetzt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.']
   };
   function t(key, ...args) {
     const v = L[key];
@@ -210,7 +253,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, mine: null, changes: {}, runs: null, view: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, mine: null, changes: {}, runs: null, view: null, acceptances: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -253,6 +296,7 @@
       const d = window.WARDLINE_DEMO;
       const key = path.split('?')[0];
       if (key === 'run') return { message: t('demo.run') };
+      if (opts.method === 'POST') return { message: t('demo.readonly') };
       if (key === 'changes') return d.changes || [];
       if (key in d) return d[key];
       const e = new Error('No data'); e.status = 404; throw e;
@@ -354,6 +398,50 @@
   async function loadEndpoint(force) { if (!state.endpoint || force) state.endpoint = await api('endpoint'); return state.endpoint; }
   async function loadAccess(force) { if (!state.access || force) state.access = await api('access'); return state.access; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
+  async function loadAcceptances(force) {
+    if (!state.acceptances || force) { try { state.acceptances = arr((await api('acceptances')).acceptances); } catch { state.acceptances = []; } }
+    return state.acceptances;
+  }
+  const acceptedMap = () => { const m = {}; for (const a of arr(state.acceptances)) if (a.active) m[a.key] = a; return m; };
+  const yesNo = (v) => v === true || /^(true|1)$/i.test(String(v)) ? t('yes') : v === false || /^(false|0)$/i.test(String(v)) ? t('no') : (v || null);
+  const deviceLink = (id, name) => id ? h('a', { href: `#/device?id=${encodeURIComponent(id)}`, onclick: (e) => e.stopPropagation() }, name || id) : (name || '–');
+  const usageCell = (r) => !r.usage ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.usage === 'Unused' ? 'warn' : r.usage === 'Used' ? 'good' : ''}`, title: r.usageHits ? t('x.usageHits', num(r.usageHits), fmtDay(r.usageLast)) : t('x.usage.help') }, code('use', r.usage));
+
+  /** Accept-risk block for a detail row: shows an active acceptance (with revoke) or a small form. */
+  function acceptBox(item, kind, module, title) {
+    const box = h('div', { class: 'accept' });
+    const a = acceptedMap()[item.key];
+    const after = async (msg) => { await loadAcceptances(true); toast(msg); route(); };
+    if (a) {
+      box.append(h('p', null, h('span', { class: 'tag accepted' }, t('acc.until', fmtDay(a.expires))), ' ', t('acc.by', a.acceptedBy), ' · ', a.owner, a.ticket ? ` · ${a.ticket}` : ''),
+        h('p', { class: 'muted small' }, a.justification),
+        h('button', { type: 'button', onclick: async (e) => { e.stopPropagation(); try { await api('acceptances/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: item.key }) }); await after(t('acc.revoked')); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')));
+      return box;
+    }
+    const open = h('button', { type: 'button' }, t('acc.accept'));
+    const d = new Date(); d.setDate(d.getDate() + 90);
+    const max = new Date(); max.setDate(max.getDate() + 365);
+    const iso = (x) => x.toISOString().slice(0, 10);
+    const just = h('textarea', { rows: '3', maxlength: '1000', 'aria-label': t('acc.justification') });
+    const owner = h('input', { type: 'text', maxlength: '200', 'aria-label': t('acc.owner') });
+    const ticket = h('input', { type: 'text', maxlength: '100', 'aria-label': t('acc.ticket') });
+    const exp = h('input', { type: 'date', value: iso(d), min: iso(new Date(Date.now() + 864e5)), max: iso(max), 'aria-label': t('acc.expires') });
+    const form = h('form', { class: 'accept-form', hidden: true },
+      h('label', null, t('acc.justification'), just), h('label', null, t('acc.owner'), owner), h('label', null, t('acc.ticket'), ticket), h('label', null, t('acc.expires'), exp),
+      h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('acc.save')), h('button', { type: 'button', onclick: () => { form.hidden = true; open.hidden = false; } }, t('acc.cancel'))));
+    open.addEventListener('click', (e) => { e.stopPropagation(); form.hidden = false; open.hidden = true; just.focus(); });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (just.value.trim().length < 10) { toast(t('acc.err.just')); return; }
+      if (!owner.value.trim()) { toast(t('acc.err.owner')); return; }
+      try {
+        await api('acceptances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: item.key, kind, module, title, justification: just.value.trim(), owner: owner.value.trim(), ticket: ticket.value.trim(), expires: exp.value }) });
+        await after(t('acc.saved'));
+      } catch (err) { toast(t('error', err.message)); }
+    });
+    box.append(h('p', { class: 'muted small' }, t('acc.help')), open, form);
+    return box;
+  }
 
   const ASR_MODES = ['Block', 'Warn', 'Audit', 'Off'];
   function modeCell(m) {
@@ -415,8 +503,10 @@
       if (!ep && !ac && !ag) { main.append(noData(epErr || agErr || acErr, 'all')); return; }
 
       if (ep || ag) {
+        await loadAcceptances();
+        const acc = acceptedMap();
         const counts = {};
-        for (const src of [ep, ag]) for (const s of SEV) counts[s] = (counts[s] || 0) + ((src && src.summary && src.summary.findings && src.summary.findings[s]) || 0);
+        for (const f of [...arr(ep && ep.findings), ...arr(ag && ag.findings)]) if (!acc[f.key]) counts[f.severity] = (counts[f.severity] || 0) + 1;
         const total = SEV.reduce((a, s) => a + (counts[s] || 0), 0);
         const line = h('div', { class: 'ward-line', role: 'img', 'aria-label': t('ov.aria', SEV.map(s => `${code('sev', s)} ${counts[s] || 0}`).join(', ')) },
           total ? SEV.filter(s => counts[s]).map(s => h('span', { style: `width:${(counts[s] / total) * 100}%;background:var(${SEV_VAR[s]})`, title: `${code('sev', s)}: ${counts[s]}` })) : h('span', { style: 'width:100%;background:var(--sev-ok)' }));
@@ -431,7 +521,8 @@
         const s = ep.summary;
         main.append(h('h2', null, t('nav.endpoint')), h('div', { class: 'facts' },
           fact(num(s.devices), t('ov.devices')), fact(num(s.policyExclusions), t('ov.policyExcl')), fact(num(s.localExclusionsPresent), t('ov.localExcl')),
-          fact(num(s.edrExclusions), t('ov.edr')), fact(t('ov.of', s.asrRulesOk || 0, s.asrRulesTotal || 0), t('ov.asr')), fact(t('ov.of', s.baselineOk || 0, s.baselineTotal || 0), t('ov.baseline'))));
+          fact(num(s.edrExclusions), t('ov.edr')), fact(t('ov.of', s.asrRulesOk || 0, s.asrRulesTotal || 0), t('ov.asr')), fact(t('ov.of', s.baselineOk || 0, s.baselineTotal || 0), t('ov.baseline')),
+          s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null));
       } else {
         main.append(noData(epErr, 'endpoint'));
       }
@@ -470,7 +561,9 @@
       let ep = null, ag = null, err = null;
       await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null]);
       if (!ep && !ag) { main.append(noData(err, 'endpoint')); return; }
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' }))];
+      await loadAcceptances();
+      const acc = acceptedMap();
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' }))].map(f => ({ ...f, accepted: acc[f.key] || null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
       const table = dataTable({
         name: 'findings', rows, sort: (a, b) => sevRank(a.severity) - sevRank(b.severity),
@@ -478,13 +571,14 @@
         filters: [
           { label: t('f.severity'), options: SEV, optionLabel: s => code('sev', s), test: (r, v) => r.severity === v },
           { label: t('f.category'), options: cats, optionLabel: c => code('cat', c), test: (r, v) => r.category === v },
-          { label: t('col.module'), options: [...new Set(rows.map(r => r.module))], optionLabel: m => code('mod', m), test: (r, v) => r.module === v }],
+          { label: t('col.module'), options: [...new Set(rows.map(r => r.module))], optionLabel: m => code('mod', m), test: (r, v) => r.module === v },
+          { type: 'check', label: t('acc.hide'), checked: true, test: r => !r.accepted }],
         columns: [
           { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
-          { title: t('f.finding'), text: r => tx(r.title) },
+          { title: t('f.finding'), cell: r => h('span', null, tx(r.title), r.accepted ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => tx(r.title) + (r.accepted ? ` (${t('acc.tag')})` : '') },
           { title: t('f.category'), text: r => `${code('mod', r.module)} · ${code('cat', r.category)}` },
-          { title: t('f.device'), text: r => r.deviceName || '–' }],
-        detail: r => dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceName]]),
+          { title: t('f.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName || '–' }],
+        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceName]]), acceptBox(r, 'finding', r.module, tx(r.title))),
         empty: t('f.none')
       });
       main.append(table);
@@ -494,6 +588,11 @@
     async exclusions(main, params) {
       main.append(h('h1', null, t('x.title')), h('p', { class: 'lede' }, t('x.lede')));
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      await loadAcceptances();
+      const acc = acceptedMap();
+      const accTag = (r) => acc[r.key] ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null;
+      const usageFilter = { type: 'check', label: t('x.onlyUnused'), test: r => r.usage === 'Unused' };
+      const usageCol = { title: t('x.usage'), cell: usageCell, text: r => r.usage ? code('use', r.usage) : '' };
       const active = params.get('tab') || 'policy';
       main.append(tabs('exclusions', [['policy', t('x.tab.policy')], ['local', t('x.tab.local')], ['indicators', t('x.tab.indicators')], ['edr', t('x.tab.edr')]], active));
       const asrNames = {}; arr(ep.asrCatalog).forEach(x => { asrNames[x.id] = x.name; });
@@ -510,14 +609,15 @@
           filters: [riskFilter,
             { label: t('x.type'), options: [...new Set(rows.map(r => r.type))].sort(), optionLabel: c => code('type', c), test: (r, v) => r.type === v },
             { label: t('x.platform'), options: [...new Set(rows.map(r => r.platform))].sort(), test: (r, v) => r.platform === v },
-            { type: 'check', label: t('x.onlyGlobal'), test: r => r.scope === 'Global' }],
+            { type: 'check', label: t('x.onlyGlobal'), test: r => r.scope === 'Global' }, usageFilter],
           columns: [riskCol,
             { title: t('x.type'), text: typeText },
-            { title: t('x.value'), cell: r => h('span', { class: 'mono' }, r.value), text: r => r.value },
+            { title: t('x.value'), cell: r => h('span', null, h('span', { class: 'mono' }, r.value), accTag(r)), text: r => r.value },
+            usageCol,
             { title: t('x.effect'), text: r => scopeText(r, asrNames) },
             { title: t('x.policy'), text: r => r.policyName },
             { title: t('x.assignment'), cell: r => r.assigned === false ? h('span', null, h('span', { class: 'tag' }, t('x.notEffective')), ' ', assigns(r) || t('x.unassigned')) : assigns(r), text: r => (r.assigned === false ? `${t('x.notEffective')}: ` : '') + (assigns(r) || t('x.unassigned')) }],
-          detail: r => dl([[t('x.rating'), reasons(r.risk)], [t('x.source'), code('src', r.source)], [t('x.platform'), r.platform], [t('x.setting'), h('span', { class: 'mono' }, r.definitionId || '')], [t('x.modified'), fmtDate(r.lastModified)]]),
+          detail: r => h('div', null, dl([[t('x.rating'), reasons(r.risk)], [t('x.usage'), r.usageHits ? t('x.usageHits', num(r.usageHits), fmtDay(r.usageLast)) : (r.usage ? code('use', r.usage) : null)], [t('x.source'), code('src', r.source)], [t('x.platform'), r.platform], [t('x.setting'), h('span', { class: 'mono' }, r.definitionId || '')], [t('x.modified'), fmtDate(r.lastModified)]]), acceptBox(r, 'exclusion', 'endpoint', `${r.value} (${r.policyName})`)),
           empty: t('x.none.policy')
         }));
       } else if (active === 'local') {
@@ -529,16 +629,18 @@
           filters: [riskFilter,
             { label: t('x.origin'), options: [...new Set(rows.map(r => r.origin))].sort(), optionLabel: c => code('origin', c), test: (r, v) => r.origin === v },
             { label: t('x.platform'), options: [...new Set(rows.map(r => r.platform).filter(Boolean))].sort(), test: (r, v) => r.platform === v },
-            { type: 'check', label: t('x.onlyPresent'), checked: true, test: r => r.present }],
+            { type: 'check', label: t('x.onlyPresent'), checked: true, test: r => r.present }, usageFilter],
           columns: [riskCol,
             { title: t('x.type'), text: typeText },
-            { title: t('x.value'), cell: r => h('span', { class: 'mono' }, r.value), text: r => r.value },
-            { title: t('d.device'), text: r => r.deviceName },
+            { title: t('x.value'), cell: r => h('span', null, h('span', { class: 'mono' }, r.value), accTag(r)), text: r => r.value },
+            { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
+            usageCol,
             { title: t('x.origin'), text: r => code('origin', r.origin) },
             { title: t('x.setBy'), cell: r => h('span', { class: 'mono' }, (r.addedBy && r.addedBy.process) || '–'), text: r => r.addedBy && r.addedBy.process },
             { title: t('x.status'), cell: r => r.present ? h('span', { class: 'state warn' }, t('x.present')) : h('span', { class: 'muted' }, t('x.removed', fmtDay(r.removedAt))), text: r => r.present ? t('x.present') : t('x.removed', fmtDay(r.removedAt)) }],
-          detail: r => dl([[t('x.rating'), reasons(r.risk)], [t('x.detectedBy'), code('src', r.source || 'AdvancedHunting')], [t('x.confirmed'), r.confirmedAt ? fmtDate(r.confirmedAt) : null], [t('x.firstSeen'), fmtDate(r.firstSeen)], [t('x.lastChange'), fmtDate(r.lastChange)],
+          detail: r => h('div', null, dl([[t('x.rating'), reasons(r.risk)], [t('x.usage'), r.usageHits ? t('x.usageHits', num(r.usageHits), fmtDay(r.usageLast)) : (r.usage ? code('use', r.usage) : null)], [t('x.detectedBy'), code('src', r.source || 'AdvancedHunting')], [t('x.confirmed'), r.confirmedAt ? fmtDate(r.confirmedAt) : null], [t('x.firstSeen'), fmtDate(r.firstSeen)], [t('x.lastChange'), fmtDate(r.lastChange)],
             [t('x.cmd'), h('span', { class: 'mono' }, (r.addedBy && r.addedBy.commandLine) || '–')], [t('x.account'), (r.addedBy && r.addedBy.account) || '–'], [t('x.effect'), scopeText(r, asrNames)]]),
+            r.present ? acceptBox(r, 'exclusion', 'endpoint', `${r.value} @ ${r.deviceName}`) : null),
           empty: t('x.none.local')
         }));
       } else if (active === 'edr') {
@@ -577,10 +679,34 @@
       }
     },
 
-    async devices(main) {
+    async devices(main, params) {
       main.append(h('h1', null, t('v.devices')), h('p', { class: 'lede' }, t('d.lede')));
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
       const rows = arr(ep.devices);
+      const cov = arr(ep.coverage);
+      const active = params.get('tab') || 'devices';
+      main.append(tabs('devices', [['devices', t('d.tab.devices', rows.length)], ['coverage', t('d.tab.coverage', cov.length)]], active));
+      if (active === 'coverage') {
+        main.append(h('p', { class: 'muted small' }, t('d.cov.lede')));
+        main.append(dataTable({
+          name: 'coverage', rows: cov, sort: (a, b) => String(a.status).localeCompare(String(b.status)) || String(a.deviceName).localeCompare(String(b.deviceName)),
+          search: r => `${r.deviceName} ${r.os || ''} ${r.user || ''}`,
+          filters: [
+            { label: t('d.cov.status'), options: [...new Set(cov.map(r => r.status))].sort(), optionLabel: c => code('cov', c), test: (r, v) => r.status === v },
+            { label: t('d.cov.source'), options: [...new Set(cov.map(r => r.source))].sort(), optionLabel: c => code('covsrc', c), test: (r, v) => r.source === v }],
+          columns: [
+            { title: t('d.device'), cell: r => r.deviceId && rows.some(d => d.deviceId === r.deviceId) ? deviceLink(r.deviceId, r.deviceName) : r.deviceName, text: r => r.deviceName },
+            { title: t('d.cov.status'), cell: r => h('span', { class: `state ${r.status === 'CanBeOnboarded' ? 'warn' : 'bad'}` }, code('cov', r.status)), text: r => code('cov', r.status) },
+            { title: t('d.platform'), text: r => r.os || '–' },
+            { title: t('d.cov.source'), text: r => code('covsrc', r.source) },
+            { title: t('d.cov.user'), text: r => r.user || '–' },
+            { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }],
+          detail: r => dl([[t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono' }, r.aadDeviceId) : null], [t('dv.links'), r.intuneDeviceId ? h('a', { href: `https://intune.microsoft.com/#view/Microsoft_Intune_Devices/DeviceSettingsMenuBlade/~/overview/mdmDeviceId/${encodeURIComponent(r.intuneDeviceId)}`, target: '_blank', rel: 'noopener noreferrer' }, t('dv.intune')) : null]]),
+          empty: t('d.cov.none')
+        }));
+        main.append(h('p', { class: 'muted small' }, t('d.cov.feature')));
+        return;
+      }
       const c = (r, k) => r.checks ? r.checks[k] : undefined;
       const problem = r => Object.values(r.checks || {}).includes('BAD') || (r.avMode && r.avMode !== '0') || r.localExclusions > 0 || r.exclusionAlerts > 0 || r.asrBelowMinimum > 0;
       const asrName = {}; arr(ep.asrCatalog).forEach(x => { asrName[x.id] = x.name; });
@@ -593,7 +719,7 @@
           { label: t('d.group'), options: [...new Set(rows.map(r => r.deviceGroup).filter(Boolean))].sort(), test: (r, v) => r.deviceGroup === v },
           { type: 'check', label: t('d.onlyIssues'), test: problem }],
         columns: [
-          { title: t('d.device'), text: r => r.deviceName },
+          { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
           { title: t('d.platform'), text: r => r.os },
           { title: t('d.mode'), cell: r => h('span', { class: `state ${r.avMode === '0' ? 'good' : r.avMode ? 'bad' : ''}` }, modeText(r)), text: modeText },
           { title: t('d.tamper'), cell: r => checkCell(c(r, 'TamperProtection')), text: r => c(r, 'TamperProtection') },
@@ -601,13 +727,124 @@
           { title: t('d.cloud'), cell: r => checkCell(c(r, 'CloudProtection')), text: r => c(r, 'CloudProtection') },
           { title: t('d.bm'), cell: r => checkCell(c(r, 'BehaviorMonitoring')), text: r => c(r, 'BehaviorMonitoring') },
           { title: t('d.pua'), cell: r => checkCell(c(r, 'PUAProtection')), text: r => c(r, 'PUAProtection') },
+          { title: t('d.np'), cell: r => checkCell(c(r, 'NetworkProtection')), text: r => c(r, 'NetworkProtection') },
           { title: t('d.asrBelow'), cell: r => r.asrBelowMinimum === null || r.asrBelowMinimum === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.asrBelowMinimum ? 'bad' : 'good'}` }, String(r.asrBelowMinimum)), text: r => r.asrBelowMinimum },
           { title: t('d.local'), cell: r => r.localExclusions ? h('span', { class: `state ${r.localExclusionsHighRisk ? 'bad' : 'warn'}` }, String(r.localExclusions)) : h('span', { class: 'muted' }, '0'), text: r => r.localExclusions }],
-        detail: r => dl([[t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
-          [t('d.sig'), r.signatureUpToDate], [t('d.plat'), r.platformUpToDate], [t('d.alerts'), r.exclusionAlerts],
-          [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${k}: ${v}`))],
+        detail: r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
+          [t('d.sig'), yesNo(r.signatureUpToDate)], [t('d.plat'), yesNo(r.platformUpToDate)], [t('d.alerts'), r.exclusionAlerts],
+          [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${code('chk', k)}: ${v === 'GOOD' ? t('ok') : v === 'BAD' ? t('problem') : t('na')}`))],
           [t('d.asr'), r.asr ? list(Object.entries(r.asr).map(([k, v]) => `${asrName[k] || k}: ${v === 'n/a' ? t('na') : code('asr', v)}`)) : null]]),
         empty: t('d.none')
+      }));
+    },
+
+    async device(main, params) {
+      const id = params.get('id') || '';
+      main.append(h('p', null, h('a', { href: '#/devices' }, t('dv.back'))));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const d = arr(ep.devices).find(x => x.deviceId === id);
+      if (!d) { main.append(h('h1', null, t('v.device')), h('div', { class: 'empty' }, t('dv.notfound'))); return; }
+      await loadAcceptances();
+      const acc = acceptedMap();
+      let ag = null; if (hasMod('agents')) { try { ag = await loadAgents(); } catch { ag = null; } }
+      const modeText = L[`mode.${d.avModeText}`] ? t(`mode.${d.avModeText}`) : (d.avModeText || '–');
+      const links = [h('a', { href: `https://security.microsoft.com/machines/v2/${encodeURIComponent(d.deviceId)}/overview`, target: '_blank', rel: 'noopener noreferrer' }, t('dv.defender'))];
+      if (d.intuneDeviceId) links.push(' · ', h('a', { href: `https://intune.microsoft.com/#view/Microsoft_Intune_Devices/DeviceSettingsMenuBlade/~/overview/mdmDeviceId/${encodeURIComponent(d.intuneDeviceId)}`, target: '_blank', rel: 'noopener noreferrer' }, t('dv.intune')));
+      main.append(h('h1', null, d.deviceName), h('p', { class: 'lede' }, [d.os, d.osVersion].filter(Boolean).join(' '), d.deviceGroup ? ` · ${d.deviceGroup}` : '', d.deviceType ? ` · ${d.deviceType}` : ''));
+      main.append(h('div', { class: 'detail card' }, dl([
+        [t('d.mode'), h('span', { class: `state ${d.avMode === '0' ? 'good' : d.avMode ? 'bad' : ''}` }, modeText)],
+        [t('dv.sensor'), d.sensorHealth || '–'], [t('dv.exposure'), d.exposure || null], [t('dv.user'), d.lastUser || null], [t('dv.join'), d.joinType || null],
+        [t('d.lastSeen'), fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
+        [t('dv.sigtime'), d.avSignatureTime ? fmtDate(d.avSignatureTime) : null], [t('d.sig'), yesNo(d.signatureUpToDate)], [t('d.plat'), yesNo(d.platformUpToDate)],
+        [t('d.aad'), d.aadDeviceId ? h('span', { class: 'mono small' }, d.aadDeviceId) : null], [t('dv.links'), h('span', null, links)]])));
+
+      const order = ['AntivirusEnabled', 'RealtimeProtection', 'BehaviorMonitoring', 'CloudProtection', 'PUAProtection', 'TamperProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode', 'AntivirusSignatureVersion', 'SensorEnabled', 'ImpairedCommunications', 'PassiveModeOff'];
+      const checks = Object.keys(d.checks || {}).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+      main.append(h('h2', null, t('dv.protection')), checks.length ? h('div', { class: 'checks' }, checks.map(k => h('div', { class: 'check-item' }, checkCell(d.checks[k]), ' ', code('chk', k)))) : h('p', { class: 'muted' }, t('dv.none')));
+
+      const cat = {}; arr(ep.asrCatalog).forEach(x => { cat[x.id] = x; });
+      const rules = arr(ep.asrRules);
+      if (d.asr) {
+        const asrRows = Object.entries(d.asr).map(([k, v]) => ({ id: k, mode: v, rule: rules.find(r => r.id === k) || {} }));
+        main.append(h('h2', null, t('dv.asr')), dataTable({
+          name: `asr-${d.deviceName}`, rows: asrRows, search: r => (cat[r.id] && cat[r.id].name) || r.id,
+          columns: [
+            { title: t('a.rule'), text: r => (cat[r.id] && cat[r.id].name) || r.id },
+            { title: t('dv.target'), text: r => r.rule.minimum ? `${code('asr', r.rule.minimum)} → ${code('asr', r.rule.recommended || r.rule.minimum)}` : '–' },
+            { title: t('dv.effective'), cell: r => modeCell(r.mode), text: r => r.mode === 'n/a' ? t('na') : code('asr', r.mode) }]
+        }));
+      }
+
+      const locals = arr(ep.localExclusions).filter(x => x.deviceId === d.deviceId);
+      main.append(h('h2', null, t('dv.local')), locals.length ? dataTable({
+        name: `local-${d.deviceName}`, rows: locals, search: r => `${r.value} ${r.addedBy ? r.addedBy.commandLine : ''}`,
+        filters: [{ type: 'check', label: t('x.onlyPresent'), checked: true, test: r => r.present }],
+        columns: [
+          { title: t('x.risk'), cell: r => sevCell(r.risk && r.risk.level), text: r => r.risk && code('sev', r.risk.level) },
+          { title: t('x.type'), text: typeText },
+          { title: t('x.value'), cell: r => h('span', null, h('span', { class: 'mono' }, r.value), acc[r.key] ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => r.value },
+          { title: t('x.setBy'), cell: r => h('span', { class: 'mono' }, (r.addedBy && r.addedBy.process) || '–'), text: r => r.addedBy && r.addedBy.process },
+          { title: t('x.firstSeen'), text: r => fmtDate(r.firstSeen) },
+          { title: t('x.status'), text: r => r.present ? t('x.present') : t('x.removed', fmtDay(r.removedAt)) }],
+        detail: r => h('div', null, dl([[t('x.cmd'), h('span', { class: 'mono' }, (r.addedBy && r.addedBy.commandLine) || '–')], [t('x.account'), (r.addedBy && r.addedBy.account) || '–'], [t('x.rating'), reasons(r.risk)]]), r.present ? acceptBox(r, 'exclusion', 'endpoint', `${r.value} @ ${r.deviceName}`) : null)
+      }) : h('p', { class: 'muted' }, t('dv.none')));
+
+      const findings = [...arr(ep.findings), ...arr(ag && ag.findings)].filter(f => f.deviceId === d.deviceId || (f.deviceName && f.deviceName === d.deviceName));
+      main.append(h('h2', null, t('dv.findings')), findings.length ? dataTable({
+        name: `findings-${d.deviceName}`, rows: findings, sort: (a, b) => sevRank(a.severity) - sevRank(b.severity), search: r => tx(r.title),
+        columns: [
+          { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
+          { title: t('f.finding'), cell: r => h('span', null, tx(r.title), acc[r.key] ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => tx(r.title) }],
+        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)]]), acceptBox(r, 'finding', ag && arr(ag.findings).includes(r) ? 'agents' : 'endpoint', tx(r.title)))
+      }) : h('p', { class: 'muted' }, t('dv.none')));
+
+      if (ag) {
+        const agents = arr(ag.agents).filter(a => a.agentType === 'Local' && a.device && (a.device.id === d.deviceId || a.device.name === d.deviceName));
+        main.append(h('h2', null, t('dv.agents')), agents.length ? list(agents.map(a => `${a.name}${a.vendor ? ` (${a.vendor})` : ''}${a.user ? ` · ${a.user}` : ''}${a.autoApprove ? ` · ${t('g.autoApprove')}` : ''}${arr(a.mcpServers).length ? ` · MCP: ${arr(a.mcpServers).map(m => m.name).join(', ')}` : ''}`)) : h('p', { class: 'muted' }, t('dv.none')));
+      }
+
+      const pols = arr(ep.policyExclusions);
+      const byPolicy = {}; pols.forEach(p => { (byPolicy[p.policyId] = byPolicy[p.policyId] || { name: p.policyName, platform: p.platform, assignments: p.assignments, assigned: p.assigned, n: 0 }).n++; });
+      const plat = String(d.os || '').toLowerCase().slice(0, 3);
+      const relevant = Object.values(byPolicy).filter(p => String(p.platform || '').toLowerCase().startsWith(plat));
+      main.append(h('h2', null, t('dv.policies')), h('p', { class: 'muted small' }, t('dv.policies.note')), relevant.length ? list(relevant.map(p => `${p.name}: ${p.n} · ${arr(p.assignments).map(assignText).join(', ') || t('x.unassigned')}`)) : h('p', { class: 'muted' }, t('dv.none')));
+
+      let changes = []; try { changes = arr(state.changes.endpoint || (state.changes.endpoint = await api('changes?module=endpoint'))); } catch { changes = []; }
+      const mine = changes.filter(c => JSON.stringify(c.label || '').includes(d.deviceName)).slice(0, 50);
+      main.append(h('h2', null, t('dv.changes')), mine.length ? dataTable({
+        name: `changes-${d.deviceName}`, rows: mine, search: r => tx(r.label),
+        columns: [{ title: t('col.time'), text: r => fmtDate(r.at) }, { title: t('ch.kind'), text: r => code('ch', r.change) }, { title: t('ch.what'), text: r => tx(r.label) }, { title: t('ch.after'), text: r => r.after || '–' }]
+      }) : h('p', { class: 'muted' }, t('dv.none')));
+    },
+
+    async accepted(main, params) {
+      main.append(h('h1', null, t('acc.title')), h('p', { class: 'lede' }, t('acc.lede')));
+      const active = params.get('tab') || 'list';
+      main.append(tabs('accepted', [['list', t('acc.tab.list')], ['log', t('acc.tab.log')]], active));
+      if (active === 'log') {
+        let log = []; try { log = arr(await api('acceptances/log')); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+        main.append(dataTable({
+          name: 'acceptance-log', rows: log, search: r => `${r.title} ${r.by} ${r.justification || ''} ${r.ticket || ''}`,
+          columns: [
+            { title: t('col.time'), text: r => fmtDate(r.at) }, { title: t('acc.action'), text: r => t(`acc.act.${r.action}`) }, { title: t('acc.what'), text: r => r.title || r.key },
+            { title: t('acc.by', ''), text: r => r.by }, { title: t('acc.expires'), text: r => r.expires ? fmtDay(r.expires) : '–' }, { title: t('acc.justification'), text: r => r.justification || '–' }],
+          empty: t('acc.none')
+        }));
+        return;
+      }
+      const rows = await loadAcceptances(true);
+      const status = (r) => r.revokedAt ? 'revoked' : r.active ? 'active' : 'expired';
+      main.append(dataTable({
+        name: 'acceptances', rows, sort: (a, b) => String(a.expires).localeCompare(String(b.expires)),
+        search: r => `${r.title} ${r.owner} ${r.ticket || ''} ${r.justification}`,
+        filters: [{ label: t('acc.status'), options: ['active', 'expired', 'revoked'], optionLabel: c => c === 'active' ? t('acc.active') : c === 'expired' ? t('acc.expired') : t('acc.revokedTag'), test: (r, v) => status(r) === v }],
+        columns: [
+          { title: t('acc.what'), text: r => `${t(`acc.kind.${r.kind}`) || r.kind}: ${r.title}` },
+          { title: t('acc.status'), cell: r => h('span', { class: `state ${status(r) === 'active' ? 'good' : 'warn'}` }, status(r) === 'active' ? t('acc.active') : status(r) === 'expired' ? t('acc.expired') : t('acc.revokedTag')), text: status },
+          { title: t('acc.owner'), text: r => r.owner }, { title: t('acc.expires'), text: r => fmtDay(r.expires) }, { title: t('acc.ticket'), text: r => r.ticket || '–' }],
+        detail: r => h('div', null, dl([[t('acc.justification'), r.justification], [t('acc.at'), `${fmtDate(r.acceptedAt)} · ${r.acceptedBy}`], [t('acc.revokedTag'), r.revokedAt ? `${fmtDate(r.revokedAt)} · ${r.revokedBy}` : null]]),
+          r.active ? h('button', { type: 'button', onclick: async () => { try { await api('acceptances/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: r.key }) }); await loadAcceptances(true); toast(t('acc.revoked')); route(); } catch (err) { toast(t('error', err.message)); } } }, t('acc.revoke')) : null),
+        empty: t('acc.none')
       }));
     },
 
@@ -697,6 +934,7 @@
       main.append(h('h1', null, t('g.title')), h('p', { class: 'lede' }, t('g.lede')));
       let ag; try { ag = await loadAgents(); } catch (e) { main.append(noData(e, 'agents')); return; }
       if (ag.securityDefaults) main.append(h('div', { class: 'warnings' }, t('g.secdef')));
+      if (ag.registryStatus === 'NotAvailable') main.append(h('p', { class: 'muted small' }, t('g.registry.na')));
       const all = arr(ag.agents);
       const cloud = all.filter(a => a.agentType !== 'Local');
       const local = all.filter(a => a.agentType === 'Local');
@@ -953,7 +1191,7 @@
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
-    { group: 'nav.history', admin: true, items: ['changes'] }
+    { group: 'nav.history', admin: true, items: ['changes', 'accepted'] }
   ];
   const VIEW_MODULE = { agents: 'agents', agentca: 'agents', access: 'access', whocan: 'access', mine: 'access' };
 
@@ -1009,7 +1247,8 @@
     let view = name || fallback;
     if (!views[view] || (!isAdmin && view !== 'mine') || (VIEW_MODULE[view] && !hasMod(VIEW_MODULE[view]))) view = fallback;
     state.view = view;
-    document.querySelectorAll('.nav-link').forEach(a => { if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const navView = view === 'device' ? 'devices' : view;
+    document.querySelectorAll('.nav-link').forEach(a => { if (a.dataset.view === navView) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     const main = $('#main');
     main.replaceChildren(h('p', { class: 'muted' }, t('loading')));
     const frag = h('div');

@@ -17,7 +17,7 @@ What the script does:
 |---|---|
 | `-ResourceGroup` | Resource group (created if it does not exist) |
 | `-Location westeurope` | Azure region |
-| `-Features Hunting,Indicators,Agents` | Features to enable (default shown; `Core` is always included). See [features and permissions](permissions.md). |
+| `-Features Hunting,Indicators,Coverage,Agents` | Features to enable (default shown; `Core` is always included). See [features and permissions](permissions.md). |
 | `-AdminGroupId <objectId>` | Group that additionally receives the *Wardline Administrator* role |
 | `-RestrictToAssignedUsers` | Only assigned users may sign in (otherwise all users of the tenant can open "My access" when the Access feature is on) |
 | `-RetentionDays 730` | Retention of snapshots and change history (default 365) |
@@ -29,6 +29,7 @@ What the script does:
 
 Re-runs and updates find an existing installation by the tag `wardline-component` on its resources and keep its names automatically – you do not have to repeat the naming parameters. Renaming an existing installation is not supported.
 | `-PortalAppId`, `-DataAppId` | Attach app registrations created by the identity team ([separation of duties](separation-of-duties.md)) |
+| `-NotifyWebhookUrl`, `-NotifyMinSeverity High` | Notifications about new findings to Teams or Power Automate ([operations](operations.md#notifications)) |
 | `-SkipPermissionGrant` | Deploy everything but print the grant command for the identity team |
 | `-ShowPermissions` | Only show the permissions of the selected features, change nothing |
 | `-DeviceInventory`, `-DeviceInventoryGroupId`, `-RemoveDeviceInventory` | Optional device inventory, see below |

@@ -9,11 +9,12 @@ storage keys, read-only permissions only – granted per feature.
 ## What it shows
 
 - **Endpoint** – exclusions from every source for Windows, macOS and Linux (Intune, local on devices, allow indicators),
-  exclusions that also blind EDR, ASR rules per device and device group, MDAV baseline with drift, combined findings
+  exclusions that also blind EDR, ASR rules per device and device group, MDAV baseline with drift, combined findings,
+  a page per device, Defender coverage gaps and exclusions without any activity in 30 days
 - **AI agents** – cloud agents (Entra Agent ID, Agent 365, Defender AgentsInfo) with blueprint, agent and agent user IDs
   and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
 - **Access** (optional) – admin roles: active, eligible via PIM, requestable via access packages
-- **History** – dated snapshots and drift between runs, CSV export; portal in English and German
+- **History** – dated snapshots and drift between runs, accepted risks with audit log, notifications to Teams, CSV export; portal in English and German
 
 ## Quick start (Azure Cloud Shell, PowerShell)
 
