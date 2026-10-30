@@ -720,8 +720,9 @@ function Save-WlSnapshot {
     foreach ($c in $changes) { $merged.Add($c) }
     foreach ($h in $hist) {
         if ($null -eq $h) { continue }
-        $hAt = [datetime]::MinValue
-        if ([datetime]::TryParse([string](Get-WlProp $h 'at'), [ref]$hAt) -and $hAt.ToUniversalTime() -ge $cutoff) { $merged.Add($h) }
+        $hAt = $null
+        try { $hAt = ConvertTo-WlUtc (Get-WlProp $h 'at') } catch { }
+        if ($hAt -and $hAt -ge $cutoff) { $merged.Add($h) }
     }
     $maxEntries = 25000
     $out = if ($merged.Count -gt $maxEntries) { $merged.GetRange(0, $maxEntries).ToArray() } else { $merged.ToArray() }
@@ -762,11 +763,10 @@ function Get-WlAcceptances {
 function Test-WlAcceptanceActive {
     param($Acceptance, [datetime]$Now = [DateTime]::UtcNow)
     if (-not $Acceptance -or (Get-WlProp $Acceptance 'revokedAt')) { return $false }
-    $raw = [string](Get-WlProp $Acceptance 'expires')
-    if (-not $raw) { return $true }   # no expiry date = unlimited exception
-    $exp = [datetime]::MinValue
-    if (-not [datetime]::TryParse($raw, [ref]$exp)) { return $false }
-    $exp.ToUniversalTime().Date.AddDays(1) -gt $Now
+    $raw = Get-WlProp $Acceptance 'expires'
+    if ($null -eq $raw -or [string]$raw -eq '') { return $true }   # no expiry date = unlimited exception
+    try { $exp = ConvertTo-WlUtc $raw } catch { return $false }
+    $exp.Date.AddDays(1) -gt $Now
 }
 
 function ConvertTo-WlAssignee {
@@ -819,12 +819,10 @@ function Set-WlAcceptance {
         $owner = ([string](Get-WlProp $Data 'owner')).Trim()
         if ($just.Length -lt 10 -or $just.Length -gt 1000) { throw [System.ArgumentException]::new('A justification of 10–1000 characters is required.') }
         if (-not $owner -or $owner.Length -gt 200) { throw [System.ArgumentException]::new('An owner is required.') }
-        $rawExp = ([string](Get-WlProp $Data 'expires')).Trim()
+        $rawExp = Get-WlProp $Data 'expires'
         $expires = $null
-        if ($rawExp -and $rawExp -notin @('never', 'unlimited')) {
-            $exp = [datetime]::MinValue
-            if (-not [datetime]::TryParse($rawExp, [ref]$exp)) { throw [System.ArgumentException]::new('A valid expiry date is required (or none for an unlimited exception).') }
-            $exp = $exp.Date
+        if ($null -ne $rawExp -and ([string]$rawExp).Trim() -ne '' -and ([string]$rawExp).Trim() -notin @('never', 'unlimited')) {
+            try { $exp = (ConvertTo-WlUtc $rawExp).Date } catch { throw [System.ArgumentException]::new('A valid expiry date is required (or none for an unlimited exception).') }
             if ($exp -le $now.Date -or $exp -gt $now.Date.AddYears(10)) { throw [System.ArgumentException]::new('The expiry date must be in the future and at most ten years ahead.') }
             $expires = $exp.ToString('yyyy-MM-dd')
         }
