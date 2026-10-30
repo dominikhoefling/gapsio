@@ -29,7 +29,7 @@ function New-WlDevice {
     param([string]$Id, [string]$Name, [string]$Os)
     [ordered]@{
         deviceId = $Id; deviceName = $Name; os = $Os; osVersion = $null; deviceGroup = $null; deviceType = $null; lastSeen = $null; aadDeviceId = $null
-        sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null
+        sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null; managedBy = $null
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null
@@ -207,7 +207,7 @@ function Get-WlEndpointPolicies {
         foreach ($v in $values) {
             $settingValues.Add([pscustomobject]@{
                     policyId = $cp.id; policyName = $cp.name; platform = $platform; definitionId = $v.definitionId
-                    value = $v.value; display = $v.display; kind = $v.kind; group = $v.group; assignments = $assignText
+                    value = $v.value; display = $v.display; kind = $v.kind; group = $v.group; assignments = $assignText; lastModified = [string]$cp.lastModifiedDateTime
                 })
         }
 
@@ -359,10 +359,10 @@ function Get-WlDeviceStates {
     $qInfo = @"
 DeviceInfo
 | where Timestamp > ago(${days}d)
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers) by DeviceId
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers, ManagedBy) by DeviceId
 | where isempty(OnboardingStatus) or OnboardingStatus == "Onboarded"
 | extend LastUser = tostring(parse_json(LoggedOnUsers)[0].UserName)
-| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, LastSeen = Timestamp
+| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')) {
         if ($null -eq $r) { continue }
@@ -370,7 +370,7 @@ DeviceInfo
         $d.osVersion = [string]$r.OSVersion; $d.deviceGroup = [string]$r.MachineGroup; $d.deviceType = [string]$r.DeviceType
         $d.lastSeen = [string]$r.LastSeen; $d.aadDeviceId = [string]$r.AadDeviceId
         $d.sensorHealth = [string](Get-WlProp $r 'SensorHealthState'); $d.exposure = [string](Get-WlProp $r 'ExposureLevel')
-        $d.joinType = [string](Get-WlProp $r 'JoinType'); $d.lastUser = [string](Get-WlProp $r 'LastUser')
+        $d.joinType = [string](Get-WlProp $r 'JoinType'); $d.lastUser = [string](Get-WlProp $r 'LastUser'); $d.managedBy = [string](Get-WlProp $r 'ManagedBy')
         $devices[[string]$r.DeviceId] = $d
     }
 
@@ -1615,6 +1615,78 @@ function Get-WlUpdateFindings {
     @($f)
 }
 
+function Get-WlInventoryFindings {
+    <#
+    .SYNOPSIS
+    Inventory and grouping hygiene:
+      - onboarded devices without a device group (they land in "Ungrouped devices": default RBAC scope and
+        automation level, usually not what the design intended)
+      - duplicate device records (same name or Entra device ID under several Defender device IDs – golden image
+        or reimaging without offboarding; breaks grouping, indicators and counts)
+      - onboarded Windows devices with no management channel (ManagedBy unknown): no Intune, ConfigMgr or
+        security settings management – no Defender policy reaches them
+      - ASR rules left in audit mode although the policy has not been touched for 90+ days ("eternal audit")
+    #>
+    param([hashtable]$Devices, [object[]]$SettingValues, $Asr)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $all = @($Devices.Values)
+
+    # 1) Ungrouped devices (only when the tenant uses device groups at all)
+    $grouped = @($all | Where-Object { $_.deviceGroup -and $_.deviceGroup -notmatch '^(UnassignedGroup|Ungrouped devices.*)$' })
+    $ungrouped = @($all | Where-Object { -not $_.deviceGroup -or $_.deviceGroup -match '^(UnassignedGroup|Ungrouped devices.*)$' })
+    if ($grouped.Count -gt 0 -and $ungrouped.Count -gt 0) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T "$($ungrouped.Count) onboarded device(s) not in any device group" "$($ungrouped.Count) onboardete(s) Gerät(e) in keiner Gerätegruppe") `
+                    -Detail (& $T "The tenant uses device groups, but these devices fall into 'Ungrouped devices (default)': $(& $names $ungrouped). They inherit the default group's automation level and are visible to every role that is scoped to the default group – usually not what the RBAC design intended." "Der Tenant nutzt Gerätegruppen, diese Geräte fallen aber in 'Nicht gruppierte Geräte (Standard)': $(& $names $ungrouped). Sie erben die Automatisierungsstufe der Standardgruppe und sind für jede auf die Standardgruppe berechtigte Rolle sichtbar – meist nicht, was das RBAC-Design vorsah.") `
+                    -Recommendation (& $T 'Extend the device-group rules (name, domain, tag, OS) so that every device matches a group, and set the default group to Full automation.' 'Gerätegruppen-Regeln (Name, Domäne, Tag, OS) so erweitern, dass jedes Gerät eine Gruppe trifft, und die Standardgruppe auf volle Automatisierung stellen.') -Subject 'inv|ungrouped' -StableKey))
+    }
+
+    # 2) Duplicate device records
+    $byKey = @{}
+    foreach ($d in $all) {
+        $k = if ($d.aadDeviceId) { "aad:$(([string]$d.aadDeviceId).ToLowerInvariant())" } elseif ($d.deviceName) { "name:$((([string]$d.deviceName) -split '\.')[0].ToLowerInvariant())" } else { $null }
+        if (-not $k) { continue }
+        if (-not $byKey.ContainsKey($k)) { $byKey[$k] = [System.Collections.Generic.List[object]]::new() }
+        $byKey[$k].Add($d)
+    }
+    foreach ($k in $byKey.Keys) {
+        $group = @($byKey[$k]); if ($group.Count -lt 2) { continue }
+        $name = $group[0].deviceName
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Inventory' -Title (& $T "Duplicate device records: $name" "Doppelte Gerätedatensätze: $name") `
+                    -Detail (& $T "$($group.Count) Defender device IDs share the same $(if ($k -like 'aad:*') { 'Entra device ID' } else { 'name' }). Typical causes: a golden image onboarded before sysprep, reimaging without offboarding, or a device re-registered after a hardware swap. Duplicates distort counts, device-group membership and per-device indicators, and the stale record keeps showing an outdated protection state." "$($group.Count) Defender-Geräte-IDs teilen sich $(if ($k -like 'aad:*') { 'dieselbe Entra-Geräte-ID' } else { 'denselben Namen' }). Typische Ursachen: ein vor Sysprep onboardetes Golden Image, Neuinstallation ohne Offboarding oder Neuregistrierung nach Hardwaretausch. Duplikate verfälschen Zählungen, Gruppenzugehörigkeit und gerätebezogene Indikatoren, und der alte Datensatz zeigt weiter einen veralteten Schutzstatus.") `
+                    -Recommendation (& $T 'Offboard or exclude the stale record; onboard images only after sysprep (never bake the sensor ID into the image). Consider "Hide potential duplicate device records" in Defender settings.' 'Veralteten Datensatz offboarden oder ausschließen; Images erst nach Sysprep onboarden (Sensor-ID nie ins Image backen). Option „Mögliche doppelte Gerätedatensätze ausblenden“ in den Defender-Einstellungen erwägen.') -Subject "inv|dup|$k"))
+    }
+
+    # 3) No management channel
+    $unmanaged = @($all | Where-Object { ([string]$_.os) -match '^Windows' -and $_.managedBy -and $_.managedBy -match '^(Unknown|None)$' })
+    if ($unmanaged.Count -gt 0 -and @($SettingValues).Count -gt 0) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Inventory' -Title (& $T "$($unmanaged.Count) onboarded Windows device(s) without a management channel" "$($unmanaged.Count) onboardete(s) Windows-Gerät(e) ohne Verwaltungskanal") `
+                    -Detail (& $T "Defender reports no manager (Intune, ConfigMgr or security settings management) for: $(& $names $unmanaged). None of the Defender policies in this tenant reach these devices – they run with local defaults or whatever a GPO sets, and nothing Wardline evaluates from Intune applies to them." "Defender meldet für diese Geräte keinen Verwalter (Intune, ConfigMgr oder Security Settings Management): $(& $names $unmanaged). Keine der Defender-Richtlinien dieses Tenants erreicht sie – sie laufen mit lokalen Standardwerten oder dem, was eine GPO setzt, und nichts von dem, was Wardline aus Intune bewertet, gilt für sie.") `
+                    -Recommendation (& $T 'Enable security settings management (Defender settings › Endpoints › Enforcement scope) for these devices, or enrol them in Intune. Verify with the "Managed by" field on the device page.' 'Security Settings Management (Defender-Einstellungen › Endpunkte › Erzwingungsbereich) für diese Geräte aktivieren oder sie in Intune aufnehmen. Mit dem Feld „Verwaltet von“ auf der Geräteseite prüfen.') -Subject 'inv|unmanaged' -StableKey))
+    }
+
+    # 4) Eternal audit: ASR rule in audit mode, policy untouched for 90+ days
+    $now = [DateTime]::UtcNow
+    foreach ($r in @(Get-WlProp $Asr 'rules')) {
+        if (-not $r) { continue }
+        $auditPolicies = @($r.configured | Where-Object { $_.assigned -and $_.mode -eq 'Audit' } | ForEach-Object { $_.policyId } | Sort-Object -Unique)
+        if (-not $auditPolicies.Count) { continue }
+        $stale = foreach ($pid in $auditPolicies) {
+            $sv = @($SettingValues | Where-Object { $_.policyId -eq $pid -and $_.lastModified })[0]
+            if (-not $sv) { continue }
+            $lm = $null; try { $lm = ConvertTo-WlUtc $sv.lastModified } catch { continue }
+            $ageDays = [math]::Floor(($now - $lm).TotalDays)
+            if ($ageDays -ge 90) { [pscustomobject]@{ policy = $sv.policyName; days = $ageDays } }
+        }
+        $stale = @($stale); if (-not $stale.Count) { continue }
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T "ASR rule in audit mode for $($stale[0].days)+ days: $($r.name)" "ASR-Regel seit $($stale[0].days)+ Tagen im Audit-Modus: $($r.name)") `
+                    -Detail (& $T "Policy '$($stale[0].policy)' keeps this rule in audit mode and has not been modified for $($stale[0].days) days. Audit mode is an evaluation step (typically 30 days), not a protection state: it logs what would have been blocked and blocks nothing." "Richtlinie '$($stale[0].policy)' hält diese Regel im Audit-Modus und wurde seit $($stale[0].days) Tagen nicht geändert. Audit ist ein Bewertungsschritt (typisch 30 Tage), kein Schutzzustand: Er protokolliert, was blockiert worden wäre, und blockiert nichts.") `
+                    -Recommendation (& $T 'Review the audit events in Advanced Hunting (DeviceEvents, AsrAudited), add the necessary exclusions and move the rule to Block or Warn.' 'Audit-Ereignisse in Advanced Hunting prüfen (DeviceEvents, AsrAudited), nötige Ausnahmen ergänzen und die Regel auf Block oder Warn stellen.') -Subject "inv|audit|$($r.id)" -StableKey))
+    }
+    @($f)
+}
+
 function Get-WlEndpointFindings {
     <#
     .SYNOPSIS
@@ -1792,6 +1864,7 @@ function Get-WlEndpointFindings {
 
     foreach ($x in @(Get-WlDependencyFindings -Devices $Devices -Baseline $Baseline -SettingValues $SettingValues -Asr $Asr -Indicators $Indicators)) { $f.Add($x) }
     foreach ($x in @(Get-WlUpdateFindings -Devices $Devices -SettingValues $SettingValues)) { $f.Add($x) }
+    foreach ($x in @(Get-WlInventoryFindings -Devices $Devices -SettingValues $SettingValues -Asr $Asr)) { $f.Add($x) }
 
     @($f | Sort-Object { $script:WlSeverityOrder[$_.severity] }, category, { Get-WlProp $_.title 'en' })
 }

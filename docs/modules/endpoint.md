@@ -99,3 +99,18 @@ The *Updates* category looks at how Defender itself is kept current:
 - **Update rings** – `DisableGradualRelease`, the Critical (time-delay) platform/engine channel and security
   intelligence on the Broad channel are flagged. In fleets of 10+ Windows devices Wardline also reports when no
   platform/engine channel is configured at all or when no policy puts a pilot group on Beta/Preview.
+
+## Inventory findings
+
+The *Inventory* category covers grouping and record hygiene – things that quietly undermine RBAC, automation
+and policy reach:
+
+- **Ungrouped devices** – the tenant uses device groups, but some onboarded devices fall into *Ungrouped devices
+  (default)*. They inherit the default group's automation level and visibility.
+- **Duplicate device records** – the same Entra device ID or host name appears under several Defender device IDs
+  (golden image onboarded before sysprep, reimaging without offboarding). Counts, grouping and per-device
+  indicators are distorted and the stale record keeps showing an old protection state.
+- **No management channel** – onboarded Windows devices whose `ManagedBy` is unknown: neither Intune, ConfigMgr
+  nor security settings management reach them, so none of the Defender policies Wardline evaluates apply.
+- **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
+  Audit is an evaluation step, not a protection state.
