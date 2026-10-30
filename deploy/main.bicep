@@ -63,6 +63,14 @@ param enableAccess bool = false
 @description('Daily check for a newer Wardline release (anonymous GET to the GitHub releases API, no tenant data). Wardline never updates itself.')
 param updateCheck bool = true
 
+@description('Optional webhook for notifications about new findings (Teams workflow, Power Automate or any HTTPS endpoint accepting JSON).')
+@secure()
+param notifyWebhook string = ''
+
+@description('Minimum severity of new findings that trigger a notification.')
+@allowed(['Critical', 'High', 'Medium', 'Low'])
+param notifyMinSeverity string = 'High'
+
 @description('Schedule of the agents module (NCRONTAB, UTC).')
 param scheduleAgents string = '0 32 2 * * *'
 
@@ -329,6 +337,8 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_FEATURES', value: features }
         { name: 'WL_DATA_APP_ID', value: dataAppId }
         { name: 'WL_UPDATE_CHECK', value: string(updateCheck) }
+        { name: 'WL_NOTIFY_WEBHOOK', value: notifyWebhook }
+        { name: 'WL_NOTIFY_MIN_SEVERITY', value: notifyMinSeverity }
         { name: 'WL_SCHEDULE_AGENTS', value: scheduleAgents }
       ]
     }

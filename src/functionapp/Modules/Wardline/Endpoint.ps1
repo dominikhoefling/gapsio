@@ -29,8 +29,10 @@ function New-WlDevice {
     param([string]$Id, [string]$Name, [string]$Os)
     [ordered]@{
         deviceId = $Id; deviceName = $Name; os = $Os; osVersion = $null; deviceGroup = $null; deviceType = $null; lastSeen = $null; aadDeviceId = $null
+        sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
+        avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null
         checks = [ordered]@{}; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
     }
 }
@@ -342,15 +344,18 @@ function Get-WlDeviceStates {
     $qInfo = @"
 DeviceInfo
 | where Timestamp > ago(${days}d)
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId) by DeviceId
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers) by DeviceId
 | where isempty(OnboardingStatus) or OnboardingStatus == "Onboarded"
-| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, LastSeen = Timestamp
+| extend LastUser = tostring(parse_json(LoggedOnUsers)[0].UserName)
+| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, LastSeen = Timestamp
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')) {
         if ($null -eq $r) { continue }
         $d = New-WlDevice -Id ([string]$r.DeviceId) -Name ([string]$r.DeviceName) -Os ([string]$r.OSPlatform)
         $d.osVersion = [string]$r.OSVersion; $d.deviceGroup = [string]$r.MachineGroup; $d.deviceType = [string]$r.DeviceType
         $d.lastSeen = [string]$r.LastSeen; $d.aadDeviceId = [string]$r.AadDeviceId
+        $d.sensorHealth = [string](Get-WlProp $r 'SensorHealthState'); $d.exposure = [string](Get-WlProp $r 'ExposureLevel')
+        $d.joinType = [string](Get-WlProp $r 'JoinType'); $d.lastUser = [string](Get-WlProp $r 'LastUser')
         $devices[[string]$r.DeviceId] = $d
     }
 
@@ -372,7 +377,7 @@ DeviceTvmSecureConfigurationAssessment
     # macOS/Linux: map secure configurations by name via the knowledge base (scids differ per platform)
     $qTvmX = @"
 let kb = DeviceTvmSecureConfigurationAssessmentKB
-| where ConfigurationName has_any ("tamper", "real-time", "real time", "cloud", "potentially unwanted", "PUA", "behavior", "passive", "antivirus", "Defender")
+| where ConfigurationName has_any ("tamper", "real-time", "real time", "cloud", "potentially unwanted", "PUA", "behavior", "passive", "antivirus", "Defender", "network protection")
 | project ConfigurationId, ConfigurationName;
 DeviceTvmSecureConfigurationAssessment
 | where OSPlatform in~ ("macOS", "Linux")
@@ -387,6 +392,7 @@ DeviceTvmSecureConfigurationAssessment
         $cn = ([string]$r.ConfigurationName).ToLowerInvariant()
         $name = switch -Regex ($cn) {
             'tamper' { 'TamperProtection'; break }
+            'network protection' { 'NetworkProtection'; break }
             'real.?time|enforcement' { 'RealtimeProtection'; break }
             'potentially unwanted|pua' { 'PUAProtection'; break }
             'behavio' { 'BehaviorMonitoring'; break }
@@ -400,11 +406,39 @@ DeviceTvmSecureConfigurationAssessment
         if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
     }
 
+    # Windows: further protection features resolved by name via the knowledge base (no stable documented scids)
+    $qTvmW = @"
+let kb = DeviceTvmSecureConfigurationAssessmentKB
+| where ConfigurationName has_any ("network protection", "controlled folder access", "block mode")
+| project ConfigurationId, ConfigurationName;
+DeviceTvmSecureConfigurationAssessment
+| where OSPlatform startswith "Windows"
+| join kind=inner kb on ConfigurationId
+| summarize arg_max(Timestamp, IsApplicable, IsCompliant, DeviceName, OSPlatform, ConfigurationName) by DeviceId, ConfigurationId
+| project DeviceId, DeviceName, OSPlatform, ConfigurationId, ConfigurationName, IsApplicable = tobool(IsApplicable), IsCompliant = tobool(IsCompliant)
+"@
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qTvmW -Context 'Advanced Hunting secure configuration Windows (network protection, CFA, EDR block mode)')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if (-not $devices.ContainsKey($id)) { continue }
+        $cn = ([string]$r.ConfigurationName).ToLowerInvariant()
+        $name = switch -Regex ($cn) {
+            'network protection' { 'NetworkProtection'; break }
+            'controlled folder' { 'ControlledFolderAccess'; break }
+            'block mode' { 'EdrBlockMode'; break }
+            default { $null }
+        }
+        if (-not $name) { continue }
+        $result = if (-not [bool]$r.IsApplicable) { 'N/A' } elseif ([bool]$r.IsCompliant) { 'GOOD' } else { 'BAD' }
+        if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
+    }
+
     $qInfoG = @"
 DeviceTvmInfoGathering
 | summarize arg_max(Timestamp, AdditionalFields) by DeviceId
 | extend f = parse_json(AdditionalFields)
-| project DeviceId, AvMode = tostring(f.AvMode), AvSig = tostring(f.AvIsSignatureUptoDate), AvPlat = tostring(f.AvIsPlatformUptodate), AvEng = tostring(f.AvIsEngineUptoDate)
+| project DeviceId, AvMode = tostring(f.AvMode), AvSig = tostring(f.AvIsSignatureUptoDate), AvPlat = tostring(f.AvIsPlatformUptodate), AvEng = tostring(f.AvIsEngineUptoDate),
+    AvSigVer = tostring(f.AvSignatureVersion), AvEngVer = tostring(f.AvEngineVersion), AvPlatVer = tostring(f.AvPlatformVersion), AvSigTime = tostring(f.AvSignaturePublishTime)
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfoG -Context 'Advanced Hunting DeviceTvmInfoGathering')) {
         if ($null -eq $r) { continue }
@@ -416,6 +450,8 @@ DeviceTvmInfoGathering
         $devices[$id].signatureUpToDate = [string]$r.AvSig
         $devices[$id].platformUpToDate = [string]$r.AvPlat
         $devices[$id].engineUpToDate = [string]$r.AvEng
+        $devices[$id].avSignatureVersion = [string](Get-WlProp $r 'AvSigVer'); $devices[$id].avEngineVersion = [string](Get-WlProp $r 'AvEngVer')
+        $devices[$id].avPlatformVersion = [string](Get-WlProp $r 'AvPlatVer'); $devices[$id].avSignatureTime = [string](Get-WlProp $r 'AvSigTime')
     }
 
     $qAlerts = @"
@@ -1016,6 +1052,194 @@ DeviceFileEvents
 }
 #endregion
 
+#region Defender coverage gaps and exclusion usage
+function Get-WlCoverage {
+    <#
+    .SYNOPSIS
+    Devices that Defender for Endpoint does not (fully) protect:
+      - onboarded devices whose sensor is inactive, misconfigured or has impaired communications (Advanced Hunting)
+      - devices found by Defender device discovery that are not onboarded (Advanced Hunting)
+      - feature "coverage": Intune-managed Windows/macOS/Linux devices that never showed up in Defender (Graph)
+    Also records the Intune device ID on matching Defender devices (deep links in the portal).
+    #>
+    param([hashtable]$Devices)
+    $out = [System.Collections.Generic.List[object]]::new()
+    $add = {
+        param($Id, $Name, $Os, $Source, $Status, $LastSeen, $User, $Aad, $IntuneId)
+        $out.Add([pscustomobject]@{
+                key = Get-WlHash "cov|$Source|$(if ($Id) { $Id } else { $Name })"; fp = Get-WlHash $Status
+                label = New-WlText "Coverage: $Name" "Abdeckung: $Name"; state = $Status
+                deviceId = $Id; deviceName = $Name; os = $Os; source = $Source; status = $Status; lastSeen = $LastSeen; user = $User; aadDeviceId = $Aad; intuneDeviceId = $IntuneId
+            })
+    }
+    $sensorStatus = @{ 'Inactive' = 'SensorInactive'; 'Misconfigured' = 'Misconfigured'; 'ImpairedCommunication' = 'ImpairedCommunications'; 'NoSensorData' = 'NoSensorData' }
+    foreach ($d in $Devices.Values) {
+        if ($d.sensorHealth -and $d.sensorHealth -ne 'Active') {
+            $st = if ($sensorStatus.ContainsKey([string]$d.sensorHealth)) { $sensorStatus[[string]$d.sensorHealth] } else { 'SensorIssue' }
+            & $add $d.deviceId $d.deviceName $d.os 'Defender' $st $d.lastSeen $d.lastUser $d.aadDeviceId $null
+        }
+    }
+
+    # All devices Defender knows (30 days), incl. device discovery – also the reference list for the Intune comparison
+    $known = @{}; $knownNames = @{}
+    $days = [int](Get-WlSetting -Name 'WL_DEVICE_LOOKBACK_DAYS' -Default '7')
+    $q = @"
+// WardlineCoverage
+DeviceInfo
+| where Timestamp > ago(30d)
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, OnboardingStatus, AadDeviceId, DeviceType) by DeviceId
+| project DeviceId, DeviceName, OSPlatform, OnboardingStatus, AadDeviceId, DeviceType, LastSeen = Timestamp
+"@
+    $all = Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting device coverage'
+    foreach ($r in @($all)) {
+        if ($null -eq $r) { continue }
+        $name = [string]$r.DeviceName
+        if ($r.AadDeviceId) { $known[([string]$r.AadDeviceId).ToLowerInvariant()] = $r }
+        if ($name) { $knownNames[($name -split '\.')[0].ToLowerInvariant()] = $r }
+        $ob = [string]$r.OnboardingStatus
+        $id = [string]$r.DeviceId
+        if ($ob -eq 'Onboarded' -or -not $ob) {
+            $last = [datetime]::MinValue
+            if (-not $Devices.ContainsKey($id) -and [datetime]::TryParse([string]$r.LastSeen, [ref]$last) -and $last.ToUniversalTime() -lt [DateTime]::UtcNow.AddDays(-$days)) {
+                & $add $id $name ([string]$r.OSPlatform) 'Defender' 'SensorInactive' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null
+            }
+        }
+        elseif ($ob -eq 'Can be onboarded') { & $add $id $name ([string]$r.OSPlatform) 'DeviceDiscovery' 'CanBeOnboarded' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null }
+    }
+    foreach ($d in $Devices.Values) {
+        if ($d.aadDeviceId) { $known[([string]$d.aadDeviceId).ToLowerInvariant()] = $d }
+        if ($d.deviceName) { $knownNames[(([string]$d.deviceName) -split '\.')[0].ToLowerInvariant()] = $d }
+    }
+
+    if (Test-WlFeature -Name 'coverage') {
+        $md = Invoke-WlGraphSafe -All -Context 'Intune managed devices (DeviceManagementManagedDevices.Read.All)' `
+            -Path 'deviceManagement/managedDevices?$select=id,deviceName,operatingSystem,azureADDeviceId,lastSyncDateTime,userPrincipalName'
+        $byAad = @{}; $byName = @{}
+        foreach ($d in $Devices.Values) {
+            if ($d.aadDeviceId) { $byAad[([string]$d.aadDeviceId).ToLowerInvariant()] = $d }
+            if ($d.deviceName) { $byName[(([string]$d.deviceName) -split '\.')[0].ToLowerInvariant()] = $d }
+        }
+        foreach ($m in @($md)) {
+            if ($null -eq $m) { continue }
+            $os = [string]$m.operatingSystem
+            if ($os -notmatch '^(Windows|macOS|Linux)') { continue }
+            $sync = [datetime]::MinValue
+            if ([datetime]::TryParse([string]$m.lastSyncDateTime, [ref]$sync) -and $sync.ToUniversalTime() -lt [DateTime]::UtcNow.AddDays(-30)) { continue }
+            $aad = ([string]$m.azureADDeviceId).ToLowerInvariant()
+            $short = (([string]$m.deviceName) -split '\.')[0].ToLowerInvariant()
+            $dev = if ($aad -and $byAad.ContainsKey($aad)) { $byAad[$aad] } elseif ($short -and $byName.ContainsKey($short)) { $byName[$short] } else { $null }
+            if ($dev) { $dev.intuneDeviceId = [string]$m.id; continue }
+            if (($aad -and $known.ContainsKey($aad)) -or ($short -and $knownNames.ContainsKey($short))) { continue }
+            & $add $null ([string]$m.deviceName) $os 'Intune' 'NotOnboarded' ([string]$m.lastSyncDateTime) ([string]$m.userPrincipalName) ([string]$m.azureADDeviceId) ([string]$m.id)
+        }
+    }
+    @($out.ToArray())
+}
+
+function Get-WlCoverageFindings {
+    param([object[]]$Coverage)
+    $T = { param($en, $de) New-WlText $en $de }
+    $f = [System.Collections.Generic.List[object]]::new()
+    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $notOnb = @($Coverage | Where-Object { $_.status -eq 'NotOnboarded' })
+    if ($notOnb.Count) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Coverage' -Title (& $T "$($notOnb.Count) Intune-managed device(s) not onboarded to Defender for Endpoint" "$($notOnb.Count) Intune-verwaltete(s) Gerät(e) nicht in Defender for Endpoint onboarded") `
+                    -Detail (& $T "These devices synced with Intune in the last 30 days but never reported to Defender: $(& $names $notOnb). No EDR, no Advanced Hunting, no exclusion audit." "Diese Geräte haben sich in den letzten 30 Tagen bei Intune gemeldet, aber nie bei Defender: $(& $names $notOnb). Kein EDR, kein Advanced Hunting, keine Exclusion-Prüfung.") `
+                    -Recommendation (& $T 'Onboard them via the Intune EDR policy (endpoint security › Endpoint detection and response) and check the sensor service (Sense).' 'Über die Intune-EDR-Richtlinie onboarden (Endpunktsicherheit › Endpunkterkennung und -reaktion) und den Sensordienst (Sense) prüfen.') -Subject 'cov-intune' -StableKey))
+    }
+    $sensor = @($Coverage | Where-Object { $_.status -in 'SensorInactive', 'Misconfigured', 'ImpairedCommunications', 'NoSensorData', 'SensorIssue' })
+    if ($sensor.Count) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Coverage' -Title (& $T "$($sensor.Count) onboarded device(s) with sensor problems" "$($sensor.Count) onboardete(s) Gerät(e) mit Sensorproblemen") `
+                    -Detail (& $T "Inactive, misconfigured or impaired sensors: $(& $names $sensor). Their protection state and local exclusions are not current." "Inaktive, falsch konfigurierte oder eingeschränkte Sensoren: $(& $names $sensor). Schutzstatus und lokale Exclusions sind nicht aktuell.") `
+                    -Recommendation (& $T 'Check the devices (powered off for long? offboarded? proxy/firewall to the Defender cloud?) and remove retired devices.' 'Geräte prüfen (lange ausgeschaltet? offboarded? Proxy/Firewall zur Defender-Cloud?) und ausgemusterte Geräte entfernen.') -Subject 'cov-sensor' -StableKey))
+    }
+    $disc = @($Coverage | Where-Object { $_.status -eq 'CanBeOnboarded' })
+    if ($disc.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Coverage' -Title (& $T "$($disc.Count) discovered device(s) can be onboarded" "$($disc.Count) erkannte(s) Gerät(e) können onboarded werden") `
+                    -Detail (& $T "Defender device discovery found devices that are not onboarded: $(& $names $disc)." "Die Defender-Geräteerkennung hat nicht onboardete Geräte gefunden: $(& $names $disc).") `
+                    -Recommendation (& $T 'Onboard them or document why they are out of scope.' 'Onboarden oder dokumentieren, warum sie außerhalb des Scopes sind.') -Subject 'cov-discovery' -StableKey))
+    }
+    @($f.ToArray())
+}
+
+function Get-WlUsageFindings {
+    param([object[]]$Exclusions)
+    $unused = @($Exclusions | Where-Object { $_ -and $_.usage -eq 'Unused' })
+    if (-not $unused.Count) { return @() }
+    $list = ((@($unused) | Select-Object -First 8 | ForEach-Object { $_.value }) -join ', ') + $(if ($unused.Count -gt 8) { ', …' } else { '' })
+    @(New-WlFinding -Severity 'Low' -Category 'Hygiene' -Title (New-WlText "$($unused.Count) exclusion(s) without any activity in 30 days" "$($unused.Count) Exclusion(s) ohne jede Aktivität in 30 Tagen") `
+            -Detail (New-WlText "No process or file activity was seen for these excluded values on any device in the last 30 days: $list. They are probably no longer needed." "Für diese ausgeschlossenen Werte gab es in den letzten 30 Tagen auf keinem Gerät Prozess- oder Dateiaktivität: $list. Sie werden wahrscheinlich nicht mehr gebraucht.") `
+            -Recommendation (New-WlText 'Review them with the application owners and remove unused exclusions (Exclusions › filter "No activity").' 'Mit den Anwendungsverantwortlichen prüfen und ungenutzte Exclusions entfernen (Exclusions › Filter „Keine Aktivität“).') -Subject 'unused' -StableKey)
+}
+
+function Get-WlUsageKey {
+    <#
+    .SYNOPSIS
+    Normalises an exclusion for the usage check. Returns $null for values that cannot be checked reliably
+    (wildcards, environment variables, IPs, ...).
+    #>
+    param([string]$Type, [string]$Value)
+    if (-not $Value) { return $null }
+    $v = ($Value -replace '\\:\{.*$', '').Trim().ToLowerInvariant()
+    if ($v -match '[\*\?%]|\$\{|\$env:|^\{|^<') { return $null }
+    switch ($Type) {
+        'Process' {
+            if ($v -match '[\\/]') { return "f|$v" }
+            return "n|$v"
+        }
+        { $_ -in 'Path', 'ASR', 'CFA', 'TempPath' } {
+            $p = $v.TrimEnd('\', '/')
+            if ($p.Length -lt 4) { return $null }
+            return "p|$p"
+        }
+        'Extension' { $e = $v.TrimStart('*'); if (-not $e.StartsWith('.')) { $e = ".$e" }; return "e|$e" }
+        default { return $null }
+    }
+}
+
+function Add-WlExclusionUsage {
+    <#
+    .SYNOPSIS
+    Checks in Advanced Hunting whether excluded processes, paths and file types showed any activity in the last 30 days
+    (process or file events on any device). Exclusions without activity are candidates for removal.
+    Adds usage = Used | Unused | NotChecked, usageHits and usageLast to each exclusion.
+    #>
+    param([object[]]$Exclusions, [int]$Max = 150)
+    $keys = [ordered]@{}
+    foreach ($x in @($Exclusions)) {
+        if (-not $x) { continue }
+        $k = Get-WlUsageKey -Type ([string]$x.type) -Value ([string]$x.value)
+        $x | Add-Member -NotePropertyName usageKey -NotePropertyValue $k -Force
+        $x | Add-Member -NotePropertyName usage -NotePropertyValue 'NotChecked' -Force
+        $x | Add-Member -NotePropertyName usageHits -NotePropertyValue $null -Force
+        $x | Add-Member -NotePropertyName usageLast -NotePropertyValue $null -Force
+        if ($k -and $keys.Count -lt $Max) { $keys[$k] = $true }
+    }
+    if (-not $keys.Count -or -not (Test-WlFeature -Name 'hunting')) { return }
+    $sel = { param($prefix) @($keys.Keys | Where-Object { $_.StartsWith("$prefix|") } | ForEach-Object { $_.Substring(2) }) }
+    $names = & $sel 'n'; $files = & $sel 'f'; $paths = & $sel 'p'; $exts = & $sel 'e'
+    $dyn = { param($a) if (@($a).Count) { 'dynamic(' + (ConvertTo-Json -InputObject @($a) -Compress) + ')' } else { 'dynamic([])' } }
+    $parts = @()
+    if ($names.Count) { $parts += "(DeviceProcessEvents | where Timestamp > ago(30d) | where FileName in~ (names) | summarize Hits = count(), Last = max(Timestamp) by Key = strcat('n|', tolower(FileName)))" }
+    if ($files.Count) { $parts += "(DeviceProcessEvents | where Timestamp > ago(30d) | extend fp = tolower(FolderPath) | where fp in (files) | summarize Hits = count(), Last = max(Timestamp) by Key = strcat('f|', fp))" }
+    if ($paths.Count) {
+        $or = (@($paths | ForEach-Object { 'p startswith ' + (ConvertTo-Json -InputObject $_ -Compress) }) -join ' or ')
+        $parts += "(union DeviceProcessEvents, DeviceFileEvents | where Timestamp > ago(30d) | extend p = tolower(FolderPath) | where $or | mv-apply pref = paths to typeof(string) on (where p startswith pref) | summarize Hits = count(), Last = max(Timestamp) by Key = strcat('p|', pref))"
+    }
+    if ($exts.Count) { $parts += "(DeviceFileEvents | where Timestamp > ago(30d) | extend e = tolower(extract(@'(\.[^.\\/]+)$', 1, FileName)) | where e in (exts) | summarize Hits = count(), Last = max(Timestamp) by Key = strcat('e|', e))" }
+    $q = "// WardlineUsage`nlet names = $(& $dyn $names);`nlet files = $(& $dyn $files);`nlet paths = $(& $dyn $paths);`nlet exts = $(& $dyn $exts);`nunion $($parts -join ",`n")"
+    $rows = Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting exclusion usage (30 days)'
+    if ($null -eq $rows) { return }
+    $hits = @{}
+    foreach ($r in @($rows)) { if ($r -and $r.Key) { $hits[[string]$r.Key] = $r } }
+    foreach ($x in @($Exclusions)) {
+        if (-not $x -or -not $x.usageKey -or -not $keys.Contains($x.usageKey)) { continue }
+        if ($hits.ContainsKey($x.usageKey)) { $x.usage = 'Used'; $x.usageHits = [long]$hits[$x.usageKey].Hits; $x.usageLast = [string]$hits[$x.usageKey].Last }
+        else { $x.usage = 'Unused'; $x.usageHits = 0 }
+    }
+}
+#endregion
+
 #region Baseline & findings
 function Test-WlBaseline {
     <#
@@ -1110,10 +1334,12 @@ function New-WlFinding {
     Creates a finding. -Title/-Detail/-Recommendation are bilingual objects from New-WlText.
     Severity: Critical, High, Medium, Low. Category codes are translated in the portal.
     #>
-    param([string]$Severity, [string]$Category, $Title, $Detail, $Recommendation, [string]$Subject, [string]$DeviceId, [string]$DeviceName)
+    param([string]$Severity, [string]$Category, $Title, $Detail, $Recommendation, [string]$Subject, [string]$DeviceId, [string]$DeviceName, [switch]$StableKey)
     $titleEn = [string](Get-WlProp $Title 'en'); if (-not $titleEn) { $titleEn = [string]$Title }
+    # -StableKey: for aggregated findings whose title contains a count – the key must not change with the count
+    # (accepted risks and drift refer to the key); a changed count shows up as "Changed".
     [pscustomobject]@{
-        key            = Get-WlHash "find|$Category|$titleEn|$Subject|$DeviceId"
+        key            = $(if ($StableKey) { Get-WlHash "find|$Category|$Subject|$DeviceId" } else { Get-WlHash "find|$Category|$titleEn|$Subject|$DeviceId" })
         fp             = Get-WlHash "$Severity|$(Get-WlProp $Detail 'en')"
         label          = $Title
         state          = $Severity
@@ -1330,8 +1556,12 @@ function Invoke-WlEndpointCollection {
     $asr = Get-WlAsrOverview -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $linuxEvents = Get-WlLinuxConfigEvents
 
+    $coverage = Get-WlCoverage -Devices $devices
+    Add-WlExclusionUsage -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))
+
     $baselineResults = Test-WlBaseline -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
-    $findings = Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents
+    $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents) +
+        @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present })))
 
     $deviceList = foreach ($d in $devices.Values) {
         $d.key = Get-WlHash "dev|$($d.deviceId)"
@@ -1365,6 +1595,9 @@ function Invoke-WlEndpointCollection {
             asrRulesTotal          = @($asr.rules).Count
             asrDevicesBelow        = @($deviceList | Where-Object { $_.asrBelowMinimum -gt 0 }).Count
             findings               = $sevCount
+            coverageGaps           = @($coverage | Where-Object { $_.status -ne 'CanBeOnboarded' }).Count
+            discoveredDevices      = @($coverage | Where-Object { $_.status -eq 'CanBeOnboarded' }).Count
+            unusedExclusions       = @(@($pol.Exclusions) + @($local | Where-Object { $_.present }) | Where-Object { $_.usage -eq 'Unused' }).Count
             baselineOk             = @($baselineResults | Where-Object { $_.status -eq 'OK' }).Count
             baselineTotal          = @($baselineResults).Count
         }
@@ -1373,6 +1606,7 @@ function Invoke-WlEndpointCollection {
         localExclusions      = @($local)
         indicators           = @($indicators)
         devices              = @($deviceList)
+        coverage             = @($coverage)
         baseline             = @($baselineResults)
         asrRules             = @($asr.rules)
         asrGroups            = @($asr.groups)
@@ -1384,7 +1618,7 @@ function Invoke-WlEndpointCollection {
     }
 
     Set-WlBlob -Container 'state' -Name 'endpoint-localstate.json' -Object @($local)
-    $r = Save-WlSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'baseline', 'asrRules', 'asrGroups', 'findings') -Started $started
+    $r = Save-WlSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'coverage', 'baseline', 'asrRules', 'asrGroups', 'findings') -Started $started
     Write-Information "Wardline endpoint: done, $($r.changes) change(s), $($r.warnings) warning(s)." -InformationAction Continue
     $r
 }

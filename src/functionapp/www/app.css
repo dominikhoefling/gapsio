@@ -192,3 +192,20 @@ table.mini td { padding: 2px 12px 2px 0; border: 0; }
 /* Language switch */
 .lang-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .lang-switch select { padding: 5px 8px; }
+
+/* Accepted risks */
+.tag.accepted { margin-left: 8px; border-color: var(--accent); color: var(--accent); }
+.accept { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--rule); }
+.accept p { margin: 0 0 8px; }
+.accept-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px; margin-top: 10px; max-width: 900px; }
+.accept-form[hidden] { display: none; }
+.accept-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.accept-form label:first-child { grid-column: 1 / -1; }
+.accept-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+input[type="text"], input[type="date"], textarea { font: 14px var(--sans); padding: 8px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); color: var(--ink); }
+textarea { resize: vertical; min-height: 64px; }
+
+/* Device page */
+.card { border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; background: var(--surface); margin: 18px 0; }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 18px; margin: 10px 0 18px; }
+.check-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }

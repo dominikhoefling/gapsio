@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "10619129579775345285"
+      "templateHash": "4888708790166354774"
     }
   },
   "parameters": {
@@ -144,6 +144,26 @@
       "defaultValue": true,
       "metadata": {
         "description": "Daily check for a newer Wardline release (anonymous GET to the GitHub releases API, no tenant data). Wardline never updates itself."
+      }
+    },
+    "notifyWebhook": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional webhook for notifications about new findings (Teams workflow, Power Automate or any HTTPS endpoint accepting JSON)."
+      }
+    },
+    "notifyMinSeverity": {
+      "type": "string",
+      "defaultValue": "High",
+      "allowedValues": [
+        "Critical",
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "metadata": {
+        "description": "Minimum severity of new findings that trigger a notification."
       }
     },
     "scheduleAgents": {
@@ -538,6 +558,14 @@
             {
               "name": "WL_UPDATE_CHECK",
               "value": "[string(parameters('updateCheck'))]"
+            },
+            {
+              "name": "WL_NOTIFY_WEBHOOK",
+              "value": "[parameters('notifyWebhook')]"
+            },
+            {
+              "name": "WL_NOTIFY_MIN_SEVERITY",
+              "value": "[parameters('notifyMinSeverity')]"
             },
             {
               "name": "WL_SCHEDULE_AGENTS",

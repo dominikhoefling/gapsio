@@ -23,14 +23,32 @@ Set by the install script; change them in the Function App configuration or via 
 | `WL_DEVICE_LOOKBACK_DAYS` | `7` | How far back device state is read from Advanced Hunting |
 | `WL_DATA_APP_ID` | – | Pre-created data-access app (workload identity federation) |
 | `WL_UPDATE_CHECK` | `true` | Daily check for new releases (no tenant data sent) |
+| `WL_NOTIFY_WEBHOOK` | – | Webhook for notifications about new findings (`-NotifyWebhookUrl`) |
+| `WL_NOTIFY_MIN_SEVERITY` | `High` | Minimum severity of new findings that are sent (`-NotifyMinSeverity`) |
 | `WL_UPDATE_REPOSITORY` | – | Different GitHub repository for the update check (e.g. an internal mirror) |
 | `WL_MAX_GROUP_MEMBERS` | `10000` | Cap when resolving group members (Access module) |
 | `WL_TENANT_ID`, `WL_CLIENT_ID`, `WL_STORAGE_ACCOUNT`, `WL_STORAGE_SUFFIX` | set by the template | Do not change |
+
+## Notifications
+
+After each run Wardline can post **new findings** (not in the previous run, at least `WL_NOTIFY_MIN_SEVERITY`, not
+accepted) to a webhook:
+
+- **Teams**: create a workflow in the channel with the template *"Post to a channel when a webhook request is received"* and pass its URL.
+  Wardline sends an Adaptive Card with the findings and a link to the portal.
+- **E-mail or anything else**: a Power Automate flow with the trigger *"When an HTTP request is received"* – the payload
+  also contains the plain field `wardline.findings` (severity, category, title, device).
+
+```powershell
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -NotifyWebhookUrl "https://…" -NotifyMinSeverity High
+```
+
+Re-runs keep the webhook unless you pass a new one. Wardline only sends findings – no exclusion values or command lines.
 
 ## Storage layout
 
 | Container | Content |
 |---|---|
-| `state` | Current state per module, change history, run log, update info |
+| `state` | Current state per module, change history, run log, update info, accepted risks and their audit log |
 | `snapshots` | Dated snapshots of every run (optionally immutable) |
 | `config` | Your custom baseline (`mdav-baseline.json`) |

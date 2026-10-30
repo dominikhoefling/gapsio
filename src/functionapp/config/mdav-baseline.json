@@ -460,7 +460,8 @@
       "remediation": {
         "en": "Settings Catalog > Defender > Enable Network Protection = Enabled (block mode).",
         "de": "Settings Catalog > Defender > Enable Network Protection = Enabled (block mode)."
-      }
+      },
+      "effective": "NetworkProtection"
     },
     {
       "id": "signature-update-interval",
@@ -940,7 +941,8 @@
       "remediation": {
         "en": "Network protection › Enforcement level = block.",
         "de": "Network protection › Enforcement level = block."
-      }
+      },
+      "effective": "NetworkProtection"
     },
     {
       "id": "linux-enforcement-level",
@@ -1252,7 +1254,8 @@
       "remediation": {
         "en": "Linux policy › Network protection › Enforcement level = block.",
         "de": "Linux-Richtlinie › Network protection › Enforcement level = block."
-      }
+      },
+      "effective": "NetworkProtection"
     }
   ],
   "asrRules": [
