@@ -133,37 +133,37 @@
       "id": "Access",
       "default": false,
       "module": "access",
-      "name": "Access: admin roles – active, eligible via PIM, requestable via access packages (Entra ID and Intune)",
+      "name": "Access: Defender XDR unified RBAC – who holds which role (direct, group, PIM eligible, access package), for which data sources, and whether it was ever used",
       "permissions": [
         {
           "resource": "graph",
+          "value": "RoleManagement.Read.Defender",
+          "why": "Defender XDR unified RBAC role definitions and assignments"
+        },
+        {
+          "resource": "graph",
           "value": "RoleManagement.Read.Directory",
-          "why": "Entra role definitions and assignments"
-        },
-        {
-          "resource": "graph",
-          "value": "RoleAssignmentSchedule.Read.Directory",
-          "why": "PIM: active and activated assignments"
-        },
-        {
-          "resource": "graph",
-          "value": "RoleEligibilitySchedule.Read.Directory",
-          "why": "PIM: eligible assignments"
+          "why": "Entra roles that bypass unified RBAC (Global/Security Administrator, Security Operator/Reader, Global Reader)"
         },
         {
           "resource": "graph",
           "value": "PrivilegedEligibilitySchedule.Read.AzureADGroup",
-          "why": "PIM for groups"
+          "why": "PIM for groups: who is eligible for a role-holding group"
+        },
+        {
+          "resource": "graph",
+          "value": "PrivilegedAssignmentSchedule.Read.AzureADGroup",
+          "why": "PIM for groups: when an eligible membership was last activated"
         },
         {
           "resource": "graph",
           "value": "EntitlementManagement.Read.All",
-          "why": "Access packages and their policies"
+          "why": "Access packages that grant a role-holding group"
         },
         {
           "resource": "graph",
-          "value": "DeviceManagementRBAC.Read.All",
-          "why": "Intune roles"
+          "value": "AuditLog.Read.All",
+          "why": "Sign-ins to the Defender portal – when a permission was last actually used"
         },
         {
           "resource": "graph",

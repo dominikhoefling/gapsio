@@ -57,7 +57,8 @@
     'ov.cloud': ['cloud agents, {0} with Entra Agent ID', 'Cloud-Agents, davon {0} mit Entra Agent ID'], 'ov.local': ['local agents on {0} device(s)', 'lokale Agents auf {0} Gerät(en)'],
     'ov.caId': ['agent identities protected by Conditional Access', 'Agent-Identitäten mit Conditional Access'], 'ov.caUser': ['agent users protected by Conditional Access', 'Agent-User mit Conditional Access'],
     'ov.autoApprove': ['local agents with auto-approve', 'lokale Agents mit Auto-Approve'],
-    'ov.priv': ['active privileged roles', 'aktive privilegierte Rollen'], 'ov.elig': ['roles activatable via PIM', 'Rollen per PIM aktivierbar'], 'ov.req': ['roles requestable via access packages', 'Rollen über Access Packages beantragbar'],
+    'ov.priv': ['people with permanent response/config permissions', 'Personen mit dauerhaften Response-/Konfigurationsrechten'], 'ov.elig': ['eligible permissions (PIM for groups)', 'eligible Berechtigungen (PIM für Gruppen)'],
+    'ov.unusedAcc': ['people whose permissions were never used', 'Personen, deren Berechtigungen nie genutzt wurden'], 'ov.bypass': ['people bypassing unified RBAC via Entra roles', 'Personen umgehen Unified RBAC über Entra-Rollen'],
     'ov.openPkg': ['packages requestable by all users', 'Pakete für alle Benutzer beantragbar'], 'ov.runs': ['Recent runs', 'Letzte Läufe'],
     'col.time': ['Time', 'Zeitpunkt'], 'col.module': ['Module', 'Modul'], 'col.changes': ['Changes', 'Änderungen'], 'col.notices': ['Notices', 'Hinweise'], 'col.duration': ['Duration', 'Dauer'],
     // findings
@@ -160,17 +161,24 @@
     'c.weak': ['Not effectively protected', 'Nicht wirksam geschützt'], 'c.weak.lede': ['Agent identities and agent users that are not covered by an enabled policy – report-only counts as unprotected here.', 'Agent-Identitäten und Agent-User, die von keiner aktiven Richtlinie erfasst werden – auch Report-only zählt hier als ungeschützt.'],
     'c.allOk': ['All cloud agents with Entra Agent ID are covered by Conditional Access.', 'Alle Cloud-Agents mit Entra Agent ID sind durch Conditional Access erfasst.'],
     // access (optional module)
-    'r.lede': ['Who has which admin role, can activate it via PIM or can request it via an access package – across Entra ID, PIM for groups, access packages and Intune.', 'Wer welche Admin-Rolle hat, sie per PIM aktivieren kann oder über ein Access Package beantragen darf – über Entra ID, PIM für Gruppen, Access Packages und Intune hinweg.'],
-    'r.person': ['Person', 'Person'], 'r.role': ['Role', 'Rolle'], 'r.platform': ['Platform', 'Plattform'], 'r.state': ['State', 'Zustand'], 'r.path': ['Path', 'Weg'], 'r.scope': ['Scope', 'Bereich'], 'r.ends': ['Ends', 'Endet'],
-    'r.onlyPriv': ['Privileged roles only', 'Nur privilegierte Rollen'], 'r.privileged': ['privileged', 'privilegiert'],
+    'r.lede': ['Defender XDR unified RBAC: who holds which Defender role – directly, via group, eligible through PIM for groups or requestable via an access package – for which data sources, and when the person last actually used the Defender portal. Device-group scoping for Defender for Endpoint is configured on the device groups page and is not exposed by the API.', 'Defender XDR Unified RBAC: Wer welche Defender-Rolle hat – direkt, über Gruppe, eligible per PIM für Gruppen oder über ein Access Package beantragbar –, für welche Datenquellen, und wann die Person das Defender-Portal zuletzt tatsächlich genutzt hat. Das Gerätegruppen-Scoping für Defender for Endpoint wird auf der Gerätegruppen-Seite konfiguriert und ist per API nicht sichtbar.'],
+    'r.person': ['Person', 'Person'], 'r.role': ['Role', 'Rolle'], 'r.platform': ['Platform', 'Plattform'], 'r.state': ['State', 'Zustand'], 'r.path': ['Path', 'Weg'], 'r.scope': ['Data sources', 'Datenquellen'], 'r.ends': ['Ends', 'Endet'],
+    'r.onlyPriv': ['Response/config permissions only', 'Nur Response-/Konfigurationsrechte'], 'r.privileged': ['response/config', 'Response/Konfig'], 'r.onlyUnused': ['Never used only', 'Nur nie genutzte'],
+    'r.perms': ['Permission groups', 'Berechtigungsgruppen'], 'r.assignment': ['Assignment', 'Zuweisung'], 'r.lastUsed': ['Last used', 'Zuletzt genutzt'], 'r.activated': ['activated {0}', 'aktiviert {0}'],
+    'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
+    'r.bypass': ['Full access outside unified RBAC', 'Vollzugriff außerhalb von Unified RBAC'],
+    'r.bypass.lede': ['These Entra roles keep access to the whole Defender portal regardless of unified RBAC – they do not appear in the role table above.', 'Diese Entra-Rollen behalten Zugriff auf das gesamte Defender-Portal unabhängig von Unified RBAC – in der Rollentabelle oben erscheinen sie nicht.'],
+    'r.level': ['Impact', 'Auswirkung'], 'lvl.High': ['Full access', 'Vollzugriff'], 'lvl.Low': ['Read all', 'Alles lesen'],
+    'r.none': ['No unified RBAC assignments found. Is unified RBAC activated in the Defender portal (Permissions → Roles)?', 'Keine Unified-RBAC-Zuweisungen gefunden. Ist Unified RBAC im Defender-Portal aktiviert (Berechtigungen → Rollen)?'],
+    'au.Used': ['used', 'genutzt'], 'au.Unused': ['never used', 'nie genutzt'], 'au.Unknown': ['no data yet', 'noch keine Daten'],
     'r.open': ['Requestable by large groups', 'Für große Gruppen beantragbar'], 'r.open.lede': ['A whole group of users can request these access packages themselves. Check that approvals and roles match.', 'Diese Access Packages kann ein ganzer Benutzerkreis selbst beantragen. Prüfen Sie, ob Genehmigungen und Rollen dazu passen.'],
     'r.package': ['Access package', 'Access Package'], 'r.policy': ['Policy', 'Richtlinie'], 'r.who': ['Who can request', 'Wer darf beantragen'], 'r.grants': ['Grants', 'Vermittelt'],
     'aud.allMemberUsers': ['all members', 'alle Mitglieder'], 'aud.allDirectoryUsers': ['all users incl. guests', 'alle Benutzer inkl. Gäste'], 'aud.allExternalUsers': ['all external users', 'alle externen Benutzer'], 'aud.allConfiguredConnectedOrganizationUsers': ['connected organisations', 'verbundene Organisationen'],
     'rs.Active': ['Active', 'Aktiv'], 'rs.Activated': ['Active (activated via PIM)', 'Aktiv (per PIM aktiviert)'], 'rs.Eligible': ['Eligible', 'Eligible'], 'rs.Requestable': ['Requestable', 'Beantragbar'],
-    'w.lede': ['Search for a role or a permission, e.g. “Password”, “microsoft.directory/users/password/update” or “Conditional Access”. Shows everyone who can do it – actively, via PIM or by request.', 'Suchen Sie nach einer Rolle oder einer Berechtigung, zum Beispiel „Password“, „microsoft.directory/users/password/update“ oder „Conditional Access“. Gezeigt werden alle Personen, die das aktiv, per PIM oder per Antrag können.'],
+    'w.lede': ['Search for a Defender role or permission, e.g. “response”, “liveresponse” or “microsoft.xdr/configuration/security/manage”. Shows everyone who can do it – actively, via PIM or by request.', 'Suchen Sie nach einer Defender-Rolle oder Berechtigung, zum Beispiel „response“, „liveresponse“ oder „microsoft.xdr/configuration/security/manage“. Gezeigt werden alle Personen, die das aktiv, per PIM oder per Antrag können.'],
     'w.input': ['Role or permission …', 'Rolle oder Berechtigung …'], 'w.min': ['Enter at least three characters.', 'Mindestens drei Zeichen eingeben.'], 'w.noRole': ['No role matches this search.', 'Keine Rolle passt zu dieser Suche.'],
     'w.roles': ['Matching roles: {0}', 'Passende Rollen: {0}'], 'w.nobody': ['Nobody has any of these roles.', 'Niemand hat eine dieser Rollen.'],
-    'm.lede': ['Which admin roles you have now, which you can activate yourself and which you can request.', 'Welche Admin-Rollen Sie jetzt haben, welche Sie selbst aktivieren und welche Sie beantragen können.'],
+    'm.lede': ['Which Defender roles you have now, which you can activate yourself and which you can request.', 'Welche Defender-Rollen Sie jetzt haben, welche Sie selbst aktivieren und welche Sie beantragen können.'],
     'm.active': ['Active', 'Aktiv'], 'm.active.i': ['You have these permissions right now.', 'Diese Rechte haben Sie in diesem Moment.'], 'm.pim': ['Activatable via PIM', 'Per PIM aktivierbar'],
     'm.pim.i': ['You are eligible; the role only takes effect after activation.', 'Sie sind berechtigt; die Rolle wird erst nach Aktivierung wirksam.'], 'm.req': ['Requestable', 'Beantragbar'],
     'm.req.i': ['You can request the role through these access packages.', 'Über diese Access Packages können Sie die Rolle beantragen.'], 'm.none': ['None.', 'Keine.'],
@@ -212,10 +220,10 @@
     'ch.none': ['No changes yet. Deviations are recorded here from the second run on.', 'Noch keine Änderungen. Ab dem zweiten Lauf werden Abweichungen hier festgehalten.'],
     'coll.policyExclusions': ['Exclusion (policy)', 'Exclusion (Richtlinie)'], 'coll.localExclusions': ['Exclusion (local)', 'Exclusion (lokal)'], 'coll.indicators': ['Indicator', 'Indikator'],
     'coll.devices': ['Device', 'Gerät'], 'coll.baseline': ['Baseline', 'Baseline'], 'coll.asrRules': ['ASR rule', 'ASR-Regel'], 'coll.asrGroups': ['ASR device group', 'ASR-Gerätegruppe'],
-    'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.agents': ['Agent', 'Agent'],
+    'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.bypass': ['Entra bypass role', 'Entra-Bypass-Rolle'], 'coll.agents': ['Agent', 'Agent'],
     'coll.blueprints': ['Blueprint', 'Blueprint'], 'coll.policies': ['CA policy', 'CA-Richtlinie'], 'coll.coverage': ['Coverage', 'Abdeckung'],
     // categories, coverage, usage
-    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'],
+    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'], 'cat.LeastPrivilege': ['Least privilege', 'Least Privilege'],
     'cov.NotOnboarded': ['Not onboarded (Intune device)', 'Nicht onboarded (Intune-Gerät)'], 'cov.CanBeOnboarded': ['Discovered, can be onboarded', 'Erkannt, kann onboarded werden'],
     'cov.SensorInactive': ['Sensor inactive', 'Sensor inaktiv'], 'cov.Misconfigured': ['Sensor misconfigured', 'Sensor falsch konfiguriert'],
     'cov.ImpairedCommunications': ['Impaired communications', 'Eingeschränkte Kommunikation'], 'cov.NoSensorData': ['No sensor data', 'Keine Sensordaten'], 'cov.SensorIssue': ['Sensor problem', 'Sensorproblem'],
@@ -572,7 +580,7 @@
   function trendCharts(runs, avail) {
     const chartW = avail && avail > 760 ? (avail - 14) / 2 - 30 : Math.max(340, (avail || 700) - 30);
     const days = lastDays(30);
-    const withFindings = runs.filter(r => r.findings && (r.module === 'endpoint' || r.module === 'agents'));
+    const withFindings = runs.filter(r => r.findings && (r.module === 'endpoint' || r.module === 'agents' || r.module === 'access'));
     if (!runs.length) return null;
     // Open findings: the last run of each module per day, carried forward over days without a run
     const perModule = {};
@@ -753,7 +761,9 @@
       if (ac) {
         const s = ac.summary;
         main.append(h('h2', null, t('nav.access')), h('div', { class: 'facts' },
-          fact(num(s.privilegedActive), t('ov.priv')), fact(num(s.eligible), t('ov.elig')), fact(num(s.requestable), t('ov.req')), fact(num(s.openAudiences), t('ov.openPkg'))));
+          fact(num(s.standingPrivileged !== undefined ? s.standingPrivileged : s.privilegedActive), t('ov.priv')), fact(num(s.eligible), t('ov.elig')),
+          s.unusedActive !== undefined ? fact(num(s.unusedActive), t('ov.unusedAcc')) : null, s.bypassUsers !== undefined ? fact(num(s.bypassUsers), t('ov.bypass')) : null,
+          s.openAudiences ? fact(num(s.openAudiences), t('ov.openPkg')) : null));
       }
 
       const runs = await api('runs').catch(() => []);
@@ -775,12 +785,13 @@
 
     async findings(main, params) {
       main.append(h('h1', null, t('v.findings')), h('p', { class: 'lede' }, t('f.lede')));
-      let ep = null, ag = null, err = null;
-      await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null]);
-      if (!ep && !ag) { main.append(noData(err, 'endpoint')); return; }
+      let ep = null, ag = null, ac = null, err = null;
+      await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null,
+        hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null]);
+      if (!ep && !ag && !ac) { main.append(noData(err, 'endpoint')); return; }
       await loadAcceptances();
       const acc = acceptedMap();
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' }))].map(f => ({ ...f, accepted: acc[f.key] || null }));
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' }))].map(f => ({ ...f, accepted: acc[f.key] || null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
       const table = dataTable({
         name: 'findings', rows, sort: (a, b) => sevRank(a.severity) - sevRank(b.severity),
@@ -1338,22 +1349,44 @@
       main.append(h('h1', null, t('nav.access')), h('p', { class: 'lede' }, t('r.lede')));
       let ac; try { ac = await loadAccess(); } catch (e) { main.append(noData(e, 'access')); return; }
       const rows = arr(ac.entitlements);
+      if (ac.usageObservedSince) main.append(h('p', { class: 'muted small' }, t('r.usageNote', fmtDay(ac.usageObservedSince), ac.unusedDays || 30)));
+      const usageCell = r => {
+        const cls = r.usage === 'Unused' ? 'tag warn' : r.usage === 'Used' ? 'tag' : 'tag muted';
+        return h('span', null, h('span', { class: cls }, code('au', r.usage || 'Unknown')), r.lastUsed ? [' ', h('span', { class: 'muted small' }, fmtDay(r.lastUsed))] : null,
+          r.lastActivated ? [h('br'), h('span', { class: 'muted small' }, t('r.activated', fmtDay(r.lastActivated)))] : null);
+      };
       main.append(dataTable({
         name: 'access', rows, sort: (a, b) => String(a.displayName).localeCompare(String(b.displayName)) || String(a.role).localeCompare(String(b.role)),
-        search: r => `${r.displayName} ${r.upn} ${r.role} ${r.via}`,
+        search: r => `${r.displayName} ${r.upn} ${r.role} ${r.via} ${r.assignment || ''} ${r.scope || ''}`,
         filters: [
           { label: t('r.state'), options: [...new Set(rows.map(r => r.state))].sort(), optionLabel: s => code('rs', s), test: (r, v) => r.state === v },
-          { label: t('r.platform'), options: [...new Set(rows.map(r => r.platform))].sort(), test: (r, v) => r.platform === v },
-          { type: 'check', label: t('r.onlyPriv'), test: r => r.privileged === true }],
+          { label: t('r.role'), options: [...new Set(rows.map(r => r.role))].sort(), test: (r, v) => r.role === v },
+          { type: 'check', label: t('r.onlyPriv'), test: r => r.privileged === true },
+          { type: 'check', label: t('r.onlyUnused'), test: r => r.usage === 'Unused' }],
         columns: [
           { title: t('r.person'), cell: r => h('span', null, r.displayName || r.principalId, h('br'), h('span', { class: 'muted small' }, r.upn || r.principalType)), text: r => r.upn || r.displayName },
-          { title: t('r.role'), cell: r => h('span', null, r.role, r.privileged === true ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null), text: r => r.role },
-          { title: t('r.platform'), text: r => r.platform },
+          { title: t('r.role'), cell: r => h('span', null, r.role, r.privileged === true ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null, h('br'), h('span', { class: 'muted small' }, arr(r.permissionGroups).join(', '))), text: r => r.role },
           { title: t('r.state'), text: r => code('rs', r.state) },
-          { title: t('r.path'), text: r => assignText(r.via) },
+          { title: t('r.path'), cell: r => h('span', null, assignText(r.via), r.assignment ? [h('br'), h('span', { class: 'muted small' }, r.assignment)] : null), text: r => assignText(r.via) },
           { title: t('r.scope'), text: r => r.scope },
-          { title: t('r.ends'), text: r => r.end ? fmtDay(r.end) : t('unlimited') }]
+          { title: t('r.lastUsed'), cell: usageCell, text: r => code('au', r.usage || 'Unknown') },
+          { title: t('r.ends'), text: r => r.end ? fmtDay(r.end) : t('unlimited') }],
+        empty: t('r.none')
       }));
+      const byp = arr(ac.bypass);
+      if (byp.length) {
+        main.append(h('h2', null, t('r.bypass')), h('p', { class: 'lede' }, t('r.bypass.lede')));
+        main.append(dataTable({
+          name: 'access-bypass', rows: byp, sort: (a, b) => String(a.level).localeCompare(String(b.level)) || String(a.displayName).localeCompare(String(b.displayName)),
+          search: r => `${r.displayName} ${r.upn} ${r.role}`,
+          columns: [
+            { title: t('r.person'), text: r => r.upn || r.displayName },
+            { title: t('r.role'), text: r => r.role },
+            { title: t('r.level'), cell: r => h('span', { class: r.level === 'High' ? 'tag warn' : 'tag' }, code('lvl', r.level)), text: r => code('lvl', r.level) },
+            { title: t('r.path'), text: r => assignText(r.via) },
+            { title: t('r.lastUsed'), text: r => r.lastUsed ? fmtDay(r.lastUsed) : code('au', 'Unknown') }]
+        }));
+      }
       const aud = arr(ac.audiences);
       if (aud.length) {
         main.append(h('h2', null, t('r.open')), h('p', { class: 'lede' }, t('r.open.lede')));
@@ -1414,7 +1447,7 @@
       const pimUrl = 'https://portal.azure.com/#view/Microsoft_Azure_PIMCommon/ActivationMenuBlade/~/aadmigratedroles';
       const myAccess = id => `https://myaccess.microsoft.com/@${encodeURIComponent(tenant)}#/access-packages/${encodeURIComponent(id || '')}`;
       const group = (title, intro, items, action) => h('section', null, h('h2', null, title), h('p', { class: 'muted' }, intro),
-        items.length ? h('div', null, items.map(e => h('div', { class: 'right' }, h('span', { class: 'role' }, e.role, e.privileged === true ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null), h('span', { class: 'via' }, `${e.platform} · ${assignText(e.via)}${e.end ? t('m.until', fmtDay(e.end)) : ''}`), action ? action(e) : null)))
+        items.length ? h('div', null, items.map(e => h('div', { class: 'right' }, h('span', { class: 'role' }, e.role, e.privileged === true ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null), h('span', { class: 'via' }, `${assignText(e.via)}${e.scope ? ` · ${e.scope}` : ''}${e.end ? t('m.until', fmtDay(e.end)) : ''}`), action ? action(e) : null)))
           : h('p', { class: 'empty' }, t('m.none')));
       main.append(h('div', { class: 'rights' },
         group(t('m.active'), t('m.active.i'), ents.filter(e => e.state === 'Active' || e.state === 'Activated')),

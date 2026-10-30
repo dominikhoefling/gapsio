@@ -195,6 +195,8 @@ table.mini td { padding: 2px 12px 2px 0; border: 0; }
 
 /* Accepted risks */
 .tag.accepted { margin-left: 8px; border-color: var(--accent); color: var(--accent); }
+.tag.warn { border-color: #b4542a; color: #b4542a; }
+.tag.muted { color: var(--ink-3, #888); border-style: dashed; }
 .accept { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--rule); }
 .accept p { margin: 0 0 8px; }
 .accept-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px; margin-top: 10px; max-width: 900px; }
