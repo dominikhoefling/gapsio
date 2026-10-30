@@ -9,7 +9,7 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 First version published on GitHub.
 
 ### Added
-- **AI agents module**: cloud agents (Entra Agent ID, Agent 365 registry, Defender AgentsInfo) with blueprint ID, agent ID and agent user ID, and Conditional Access coverage rated separately for agent identity and agent user.
+- **AI agents module**: cloud agents (Entra Agent ID, Agent 365 package catalog with the legacy registry as fallback, Defender AgentsInfo) with blueprint ID, agent ID and agent user ID, and Conditional Access coverage rated separately for agent identity and agent user.
 - **Local AI agents** on endpoints (Defender AgentsInfo): auto-approve, trusted processes, unpinned MCP servers, combined with the device's protection state.
 - **ASR rules** on three levels (target · configured · effective), per Defender device group and per device, including policy conflicts and per-rule exclusions.
 - **EDR exclusions** view (Linux global exclusions, allow indicators) and **Linux** exclusions, baseline checks and local `mdatp config` weakening.
@@ -28,6 +28,9 @@ First version published on GitHub.
 - **Colour-coded change history**: added green, removed red, changed amber with the changed parts marked in *Before*/*After*.
 - **Network protection** also from block/audit events when TVM has no assessment for a device.
 - **Separate retention**: `-SnapshotRetentionDays` and `-ChangeRetentionDays` (`-RetentionDays` still sets both); re-runs keep the current values.
+- **Agent 365 Package Management API** (`/v1.0/copilot/admin/catalog/packages`, `CopilotPackages.Read.All`) as the primary Agent 365 source with publisher, blocked state and availability per agent; the beta registry (`AgentInstance.Read.All`) is only a fallback until its retirement in May 2026 and the portal says which source is in use.
+- **Linux baseline**: exact Settings Catalog IDs (`linux_mdatp_managed_*`, verified against a tenant) with the previous patterns as fallback; the Linux tamper protection check rates the device state only, because the Settings Catalog has no such setting.
+- **Tenant test data**: ASR per-rule exclusions and single-setting policies are created correctly; Linux test exclusions use the real child settings (no `scopes`, file-name type `_1`); group items with unresolved children are skipped instead of producing an invalid policy.
 - **Licence key** per tenant: signed, checked offline, entered in the portal (Settings › Licence) or with `-LicenseKey`; soft enforcement – nothing stops when it expires.
 - **Security review page** (threat model, data flows, release verification) and an **SBOM** (CycloneDX) in every release; support policy (`SUPPORT.md`).
 - **Public demo** is pseudonymised and leak-checked on every build (names, users, groups, policies, domains, IDs, IPs, profile paths).

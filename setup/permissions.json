@@ -90,7 +90,7 @@
       "id": "Agents",
       "default": true,
       "module": "agents",
-      "name": "Agents: Entra Agent ID, Agent 365 registry and Conditional Access coverage",
+      "name": "Agents: Entra Agent ID, Agent 365 package catalog and Conditional Access coverage",
       "permissions": [
         {
           "resource": "graph",
@@ -114,8 +114,13 @@
         },
         {
           "resource": "graph",
+          "value": "CopilotPackages.Read.All",
+          "why": "Agent 365 package catalog (optional, needs the Agent 365 licence)"
+        },
+        {
+          "resource": "graph",
           "value": "AgentInstance.Read.All",
-          "why": "Agent 365 registry (optional, needs the licence)"
+          "why": "Legacy Agent 365 registry (optional, retired from May 2026)"
         },
         {
           "resource": "graph",

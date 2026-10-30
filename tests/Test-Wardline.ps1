@@ -71,17 +71,18 @@ $defs = @{
     'x_timeout'         = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSimpleSettingDefinition'; valueDefinition = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationIntegerSettingValueDefinition' } }
     'x_paths'           = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionDefinition'; valueDefinition = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationStringSettingValueDefinition' } }
     'x_asr'             = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSettingGroupCollectionDefinition'; childIds = @('x_asr_rulea', 'x_asr_ruleb') }
-    'x_asr_rulea'       = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationChoiceSettingDefinition'; options = @([pscustomobject]@{ itemId = 'x_asr_rulea_block' }, [pscustomobject]@{ itemId = 'x_asr_rulea_audit' }) }
+    'x_asr_rulea'       = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationChoiceSettingDefinition'; options = @([pscustomobject]@{ itemId = 'x_asr_rulea_block' }, [pscustomobject]@{ itemId = 'x_asr_rulea_audit'; dependedOnBy = @([pscustomobject]@{ dependedOnBy = 'x_asr_rulea_perruleexclusions'; required = $false }) }) }
+    'x_asr_rulea_perruleexclusions' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionDefinition'; valueDefinition = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationStringSettingValueDefinition' }; dependentOn = @([pscustomobject]@{ dependentOn = 'x_asr_rulea_audit'; parentSettingId = 'x_asr_rulea' }) }
     'mac_excl'          = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSettingGroupCollectionDefinition'; childIds = @('mac_excl_item_$type', 'mac_excl_item_path') }
     'mac_excl_item_$type' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationChoiceSettingDefinition'; options = @([pscustomobject]@{ itemId = 'mac_excl_item_$type_excluded_path'; displayName = 'Path'; dependedOnBy = @([pscustomobject]@{ dependedOnBy = 'mac_excl_item_path'; required = $true }) }) }
-    'mac_excl_item_path' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSimpleSettingDefinition'; valueDefinition = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationStringSettingValueDefinition' } }
+    'mac_excl_item_path' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSimpleSettingDefinition'; valueDefinition = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationStringSettingValueDefinition' }; dependentOn = @([pscustomobject]@{ dependentOn = 'mac_excl_item_$type_excluded_path'; parentSettingId = 'mac_excl_item_$type' }) }
 }
 $fetchFake = { param($id) if ($defs.ContainsKey($id)) { $defs[$id] } else { throw 'nf' } }.GetNewClosure()
 $log = [System.Collections.Generic.List[string]]::new()
 $set = New-WlSettingsList -Fetch $fetchFake -Log $log -Spec ([ordered]@{
         'x_cloudblocklevel' = '2'; 'x_timeout' = 50; 'x_paths' = @('C:\a', 'D:\b'); 'x_missing|x_cloudblocklevel' = '0'
-        'x_asr' = @([ordered]@{ rulea = 'audit'; rulez = 'block' })
-        'mac_excl' = @([ordered]@{ '$type' = '0|path'; path = '/tmp/x' })
+        'x_asr' = @([ordered]@{ rulea = 'audit'; rulea_perruleexclusions = @('C:\x.exe'); rulez = 'block' })
+        'mac_excl' = @([ordered]@{ '$type' = '0|path'; path = '/tmp/x' }, [ordered]@{ '$type' = 'nope'; path = '/tmp/orphan' })
         'gibtsnicht' = '1'
     })
 Assert ($set.Count -eq 6) "6 settings expected, $($set.Count): $($log -join ' / ')"
@@ -90,6 +91,8 @@ Assert ($set[1].settingInstance.simpleSettingValue.'@odata.type' -match 'Integer
 Assert ($set[2].settingInstance.simpleSettingCollectionValue.Count -eq 2) 'String list'
 Assert ($set[3].settingInstance.choiceSettingValue.value -eq 'x_cloudblocklevel_0') 'Candidate ID fallback'
 Assert ($set[4].settingInstance.groupSettingCollectionValue[0].children.Count -eq 1 -and $set[4].settingInstance.groupSettingCollectionValue[0].children[0].choiceSettingValue.value -eq 'x_asr_rulea_audit') 'Group with unknown child'
+Assert ($set[4].settingInstance.groupSettingCollectionValue[0].children[0].choiceSettingValue.children[0].settingDefinitionId -eq 'x_asr_rulea_perruleexclusions') 'Per-rule exclusions (not in childIds) nested under the rule option'
+Assert ($set[5].settingInstance.groupSettingCollectionValue.Count -eq 1 -and @($log | Where-Object { $_ -like 'ITEM SKIPPED*mac_excl_item_path*' }).Count -eq 1) 'Item whose parent option did not resolve is skipped'
 Assert ($set[5].settingInstance.groupSettingCollectionValue[0].children[0].choiceSettingValue.value -eq 'mac_excl_item_$type_excluded_path') 'Choice by display name (Path)'
 Assert ($set[5].settingInstance.groupSettingCollectionValue[0].children.Count -eq 1 -and $set[5].settingInstance.groupSettingCollectionValue[0].children[0].choiceSettingValue.children[0].settingDefinitionId -eq 'mac_excl_item_path') 'Dependent setting (path) nested under the option'
 Assert (@($log | Where-Object { $_ -like 'CHILD MISSING*rulez*' }).Count -eq 1 -and @($log | Where-Object { $_ -like 'MISSING*gibtsnicht*' }).Count -eq 1) 'Missing IDs are logged'
@@ -545,6 +548,10 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal' { return (V $script:Fx.agents.principals) }
             '^servicePrincipals/microsoft.graph.agentIdentity\?' { return (V $script:Fx.agents.identities) }
             '^users/microsoft.graph.agentUser' { return (V $script:Fx.agents.users) }
+            '^copilot/admin/catalog/packages' {
+                if ($script:Fx.agents.packages) { return (V $script:Fx.agents.packages) }
+                throw (New-WlHttpException -Status 403 -Message 'HTTP 403 Forbidden')
+            }
             '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-WlHttpException -Status 404 -Message 'HTTP 404 Not Found') }; return (V $script:Fx.agents.registry) }
             '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
             '^identity/conditionalAccess/policies' { return (V $script:Fx.agents.policies) }
@@ -644,7 +651,8 @@ Assert ($b['mac-network-protection'].status -eq 'Deviation') "macOS network prot
 Assert ($b['mac-cloud'].status -eq 'OK') "macOS cloud enabled -> OK, is $($b['mac-cloud'].status)"
 Assert ($b['linux-enforcement-level'].status -eq 'Deviation' -and $b['linux-enforcement-level'].configured[0].value -match 'passive') "Linux enforcementLevel passive -> Deviation (display name), is $($b['linux-enforcement-level'].status) / $($b['linux-enforcement-level'].configured[0].value)"
 Assert ($b['linux-exclusions-merge-policy'].status -eq 'OK') "Linux mergePolicy admin_only -> OK, is $($b['linux-exclusions-merge-policy'].status)"
-Assert ($b['linux-tamper-protection'].status -eq 'NotConfigured') "Linux tamper not configured, is $($b['linux-tamper-protection'].status)"
+Assert ($b['linux-tamper-protection'].status -in 'NoData', 'OK', 'DeviceDeviation' -and -not $b['linux-tamper-protection'].configured.Count) "Linux tamper is effective-only (no Settings Catalog setting), is $($b['linux-tamper-protection'].status)"
+Assert ($b['linux-enforcement-level'].definitionId -eq 'linux_mdatp_managed_antivirusengine_enforcementlevel') 'Linux checks carry the exact Settings Catalog ID'
 Assert ($b['mac-cloud-block-level'].status -eq 'NotConfigured') "macOS cloud block level not configured, is $($b['mac-cloud-block-level'].status)"
 Assert (@($ep.seenDefenderSettings | Where-Object { $_ -match 'smartscreen' }).Count -eq 0) 'Edge SmartScreen (mac) ignored'
 Assert (@($ep.seenDefenderSettings | Where-Object { $_ -match 'edge' }).Count -eq 0) 'Edge settings ignored'
@@ -803,7 +811,22 @@ $fixtures.agents.registry404 = $true
 $null = Invoke-WlAgentsCollection 6>$null 3>$null
 $ag404 = $blobs['state/agents-latest.json'] | ConvertFrom-Json -Depth 64
 Assert ($ag404.registryStatus -eq 'NotAvailable' -and @($ag404.warnings | Where-Object { $_ -match 'registry' }).Count -eq 0) 'Agent 365 registry 404: status, no warning'
+Assert ($ag404.registryNote -match 'CopilotPackages.Read.All') 'Package API 403 is recorded as a note'
 $fixtures.agents.registry404 = $false
+Assert ($agSnap.registrySource -eq 'AgentRegistry') 'Legacy registry used when the package API is denied'
+
+# Agent 365 Package Management API (successor of the registry)
+$fixtures.agents.packages = @(
+    [pscustomobject]@{ id = 'P_1'; displayName = 'Helpdesk Agent'; type = 'custom'; platform = 'Copilot Studio'; publisher = 'Contoso'; agentIdentityId = 'ai-1'; appId = 'app-ai-1'; manifestId = 'm-1'; isBlocked = $false; availableTo = 'all'; deployedTo = 'some'; supportedHosts = @('Copilot'); elementTypes = @('DeclarativeAgent'); lastModifiedDateTime = '2026-01-01T00:00:00Z' },
+    [pscustomobject]@{ id = 'P_2'; displayName = 'Finance Agent'; type = 'custom'; platform = 'Microsoft 365 Copilot Agent Builder'; publisher = 'Contoso'; isBlocked = $true; availableTo = 'none'; deployedTo = 'none'; supportedHosts = @('Copilot'); elementTypes = @('DeclarativeAgent'); lastModifiedDateTime = '2026-02-01T00:00:00Z' }
+)
+$null = Invoke-WlAgentsCollection 6>$null 3>$null
+$agP = $blobs['state/agents-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($agP.registryStatus -eq 'Available' -and $agP.registrySource -eq 'Agent365Packages' -and -not $agP.registryNote) 'Package API used when available'
+$agsP = @{}; foreach ($x in $agP.agents) { $agsP[$x.name] = $x }
+Assert (@($agsP['Helpdesk Agent'].sources) -contains 'Agent365Packages' -and $agsP['Helpdesk Agent'].registryId -eq 'P_1' -and $agsP['Helpdesk Agent'].publisher -eq 'Contoso' -and $agsP['Helpdesk Agent'].deployedTo -eq 'some') 'Package matched to agent identity via agentIdentityId'
+Assert ($agsP['Finance Agent'].blocked -eq $true -and $agsP['Finance Agent'].platform -eq 'Microsoft 365 Copilot Agent Builder' -and $agsP['Finance Agent'].caIdentity.status -eq 'NoAgentId') 'Package without agent identity listed as cloud agent'
+$fixtures.agents.packages = $null
 
 Write-Host '== End-to-end: access' -ForegroundColor Cyan
 $env:WL_MODULES = 'endpoint,agents,access'

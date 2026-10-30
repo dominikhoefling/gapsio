@@ -75,4 +75,4 @@ Release assets (same names in every release, so `releases/latest/download/<name>
   management) are called **v1.0 first**, with an automatic fallback to **beta**.
 - Intune endpoints that only exist in **beta** (Settings Catalog, endpoint security templates, Remediations, legacy
   device configuration properties) are called in beta directly – a v1.0 attempt would only add failing calls or miss properties.
-- The Agent 365 registry (`/agentRegistry/agentInstances`) remains beta-only for now.
+- Agent 365: the Package Management API (`/v1.0/copilot/admin/catalog/packages`) is used first; the legacy registry (`/beta/agentRegistry/agentInstances`) is only a fallback until its retirement.

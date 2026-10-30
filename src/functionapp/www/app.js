@@ -153,7 +153,7 @@
     'tg.AllAgentIdentities': ['All agent identities', 'Alle Agent-Identitäten'], 'tg.SomeAgentIdentities': ['{0} agent identit(ies)/blueprint(s)', '{0} Agent-Identität(en)/Blueprint(s)'],
     'tg.AttributeFilter': ['Attribute filter: {0}', 'Attributfilter: {0}'], 'tg.AllAgentUsers': ['All agent users', 'Alle Agent-User'], 'tg.SomeAgentUsers': ['{0} agent user(s)', '{0} Agent-User'],
     'res.All': ['All resources', 'Alle Ressourcen'], 'res.AllAgentResources': ['All agent resources', 'Alle Agent-Ressourcen'], 'res.n': ['{0} resource(s)', '{0} Ressource(n)'],
-    'src.EntraAgentId': ['Entra Agent ID', 'Entra Agent ID'], 'src.Agent365Registry': ['Agent 365 registry', 'Agent 365 Registry'], 'src.DefenderAgentsInfo': ['Defender (AgentsInfo)', 'Defender (AgentsInfo)'],
+    'src.EntraAgentId': ['Entra Agent ID', 'Entra Agent ID'], 'src.Agent365Registry': ['Agent 365 registry', 'Agent 365 Registry'], 'src.Agent365Packages': ['Agent 365 (package catalog)', 'Agent 365 (Paketkatalog)'], 'src.DefenderAgentsInfo': ['Defender (AgentsInfo)', 'Defender (AgentsInfo)'],
     'c.title': ['Conditional Access for agents', 'Conditional Access für Agents'], 'c.lede': ['Policies that target agent identities or agent users – and how many agents they actually cover.', 'Richtlinien, die Agent-Identitäten oder Agent-User adressieren – und wie viele Agents sie tatsächlich erfassen.'],
     'c.policy': ['Policy', 'Richtlinie'], 'c.state': ['State', 'Zustand'], 'c.target': ['Target', 'Ziel'], 'c.excludes': [' (− {0} exclusion(s))', ' (− {0} Ausnahme(n))'], 'c.resources': ['Resources', 'Ressourcen'],
     'c.effect': ['Effect', 'Wirkung'], 'c.covers': ['Covers', 'Erfasst'], 'c.coversN': ['{0} agent(s), {1} agent user(s)', '{0} Agent(s), {1} Agent-User'], 'c.none': ['No Conditional Access policy targets agents.', 'Keine Conditional-Access-Richtlinie adressiert Agents.'],
@@ -256,7 +256,9 @@
     'acc.err.just': ['Please give a justification (at least 10 characters).', 'Bitte eine Begründung angeben (mindestens 10 Zeichen).'], 'acc.err.owner': ['Please name an owner.', 'Bitte einen Verantwortlichen angeben.'],
     'acc.kind.finding': ['Finding', 'Befund'], 'acc.kind.exclusion': ['Exclusion', 'Exclusion'], 'demo.readonly': ['Demo: changes are not saved.', 'Demo: Änderungen werden nicht gespeichert.'],
     'd.aad': ['Entra device ID', 'Entra-Geräte-ID'], 'v.device': ['Device', 'Gerät'], 'v.accepted': ['Accepted risks', 'Akzeptierte Risiken'],
-    'g.registry.na': ['The Agent 365 registry is not available in this tenant (no Agent 365 or already replaced by the Agent 365 APIs). Agents from Entra Agent ID and Defender are still shown.', 'Die Agent-365-Registry ist in diesem Tenant nicht verfügbar (kein Agent 365 oder bereits durch die Agent-365-APIs ersetzt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.']
+    'g.registry.na': ['Neither the Agent 365 package catalog (CopilotPackages.Read.All) nor the legacy registry is available in this tenant (no Agent 365 licence or permission not granted). Agents from Entra Agent ID and Defender are still shown.', 'Weder der Agent-365-Paketkatalog (CopilotPackages.Read.All) noch die alte Registry ist in diesem Tenant verfügbar (keine Agent-365-Lizenz oder Berechtigung nicht erteilt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.'],
+    'g.registry.legacy': ['Agent 365 data comes from the legacy registry (retired from May 2026). Grant CopilotPackages.Read.All to switch to the Agent 365 package catalog.', 'Agent-365-Daten stammen aus der alten Registry (wird ab Mai 2026 abgeschaltet). CopilotPackages.Read.All erteilen, um auf den Agent-365-Paketkatalog umzustellen.'],
+    'g.publisher2': ['Publisher', 'Herausgeber'], 'g.blocked': ['Blocked in the organisation', 'In der Organisation blockiert'], 'g.availability': ['Availability / deployment', 'Verfügbarkeit / Bereitstellung']
   };
   function t(key, ...args) {
     const v = L[key];
@@ -1195,6 +1197,7 @@
       let ag; try { ag = await loadAgents(); } catch (e) { main.append(noData(e, 'agents')); return; }
       if (ag.securityDefaults) main.append(h('div', { class: 'warnings' }, t('g.secdef')));
       if (ag.registryStatus === 'NotAvailable') main.append(h('p', { class: 'muted small' }, t('g.registry.na')));
+      else if (ag.registrySource === 'AgentRegistry') main.append(h('p', { class: 'muted small' }, t('g.registry.legacy')));
       const all = arr(ag.agents);
       const cloud = all.filter(a => a.agentType !== 'Local');
       const local = all.filter(a => a.agentType === 'Local');
@@ -1251,6 +1254,7 @@
             [t('g.blueprint'), r.blueprintName ? `${r.blueprintName}${r.blueprintPublisher ? ` (${r.blueprintPublisher})` : ''}` : (r.blueprintAppId ? t('g.bpInvisible') : null)],
             [t('g.bpObj'), [r.blueprintId, r.blueprintPrincipalId].filter(Boolean).join(' / ') || null],
             [t('g.agentApp'), r.agentAppId], [t('g.agentUser'), r.agentUserUpn], [t('g.sponsors'), arr(r.sponsors).length ? list(r.sponsors) : t('none')],
+            [t('g.publisher2'), r.publisher || null], [t('g.blocked'), r.blocked === true ? t('yes') : null], [t('g.availability'), r.availableTo ? `${r.availableTo} / ${r.deployedTo || '–'}` : null],
             [t('g.sources'), arr(r.sources).map(s => code('src', s)).join(', ')], [t('g.defStatus'), [r.publishedStatus, r.lifecycle].filter(Boolean).join(' · ') || null], [t('g.created'), fmtDate(r.created)],
             [t('g.caPolAgent'), arr(r.caIdentity && r.caIdentity.policies).length ? list(arr(r.caIdentity.policies).map(caPolicyLine)) : t('none')],
             [t('g.caPolUser'), r.caUser ? (arr(r.caUser.policies).length ? list(arr(r.caUser.policies).map(caPolicyLine)) : t('none')) : null]]),

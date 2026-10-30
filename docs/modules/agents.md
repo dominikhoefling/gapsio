@@ -4,11 +4,17 @@ Feature `Agents` (on by default). Local agents additionally need the `Hunting` f
 
 ## Cloud agents
 
-Inventory from **Microsoft Entra Agent ID**, the **Agent 365 registry** and Defender (**AgentsInfo**), per agent:
+Inventory from **Microsoft Entra Agent ID**, the **Agent 365 package catalog** and Defender (**AgentsInfo**), per agent:
 
 - **Blueprint ID** (app ID of the agent identity blueprint), **agent ID** (agent identity), **agent user ID**
 - Sponsors, platform (Copilot Studio, Microsoft Foundry, custom …), sources
+- From the Agent 365 package catalog: publisher, blocked state, availability/deployment
 - Blueprints with their principals and agent count
+
+Agent 365 data is read from the **Package Management API** (`GET /v1.0/copilot/admin/catalog/packages`, application
+permission `CopilotPackages.Read.All`, requires an Agent 365 licence). If that is denied or unavailable, Wardline falls
+back to the legacy registry (`/beta/agentRegistry/agentInstances`, `AgentInstance.Read.All`, retired from May 2026) and
+says so on the page. The snapshot exposes `registryStatus`, `registrySource` and `registryNote`.
 
 ## Conditional Access coverage
 

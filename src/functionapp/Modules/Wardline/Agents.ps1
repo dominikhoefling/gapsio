@@ -1,7 +1,8 @@
 # Wardline Agents: inventory of AI agents and their protection.
 #
-# Cloud agents (Copilot Studio, Azure AI Foundry, custom) – sources: Microsoft Entra Agent ID, the Agent 365 registry and
-# Defender AgentsInfo. Rated by Conditional Access coverage, separately for the agent identity and the agent user.
+# Cloud agents (Copilot Studio, Azure AI Foundry, custom) – sources: Microsoft Entra Agent ID, the Agent 365 package catalog
+# (Package Management API, v1.0 copilot/admin/catalog/packages; legacy beta agentRegistry as fallback) and Defender AgentsInfo.
+# Rated by Conditional Access coverage, separately for the agent identity and the agent user.
 # Local agents (e.g. coding assistants and IDE extensions on endpoints) – source: Defender AgentsInfo
 # (RawAgentInfo.localAgentMetadata). They run in the signed-in user's context; rated by device and configuration
 # (auto-approve, MCP servers, trusted process) and combined with the endpoint module's device state.
@@ -41,20 +42,114 @@ function Get-WlAgentDirectory {
 }
 
 $script:WlAgentRegistryStatus = 'Unknown'
+$script:WlAgentRegistrySource = $null
+$script:WlAgentRegistryNote = $null
+
+function Test-WlHttpStatus {
+    param($ErrorRecord, [string[]]$Status)
+    $s = [string]$ErrorRecord.Exception.Data['Status']
+    if ($s -and $Status -contains $s) { return $true }
+    foreach ($x in $Status) { if ($ErrorRecord.Exception.Message -match "\b$x\b") { return $true } }
+    $false
+}
+
+function ConvertFrom-WlAgentPackage {
+    <#
+    .SYNOPSIS
+    Normalises a copilotPackage (Agent 365 Package Management API) into the shape the inventory expects from the
+    legacy registry: id, displayName, agentIdentityId, originatingStore, ownerIds, createdDateTime, plus package details.
+    #>
+    param($Package)
+    $owner = [string](Get-WlProp $Package 'ownerId')
+    [pscustomobject]@{
+        wlSource         = 'Agent365Packages'
+        id               = [string](Get-WlProp $Package 'id')
+        displayName      = [string](Get-WlProp $Package 'displayName')
+        agentIdentityId  = [string](Get-WlProp $Package 'agentIdentityId')
+        agentIdentityBlueprintId = $null
+        agentUserId      = $null
+        sourceAgentId    = [string](Get-WlProp $Package 'manifestId')
+        appId            = [string](Get-WlProp $Package 'appId')
+        originatingStore = $(if ([string](Get-WlProp $Package 'platform')) { [string](Get-WlProp $Package 'platform') } else { [string](Get-WlProp $Package 'type') })
+        publisher        = [string](Get-WlProp $Package 'publisher')
+        ownerIds         = @(@($owner) | Where-Object { $_ })
+        createdDateTime  = [string](Get-WlProp $Package 'lastModifiedDateTime')
+        packageType      = [string](Get-WlProp $Package 'type')
+        elementTypes     = @(@(Get-WlProp $Package 'elementTypes') | Where-Object { $_ } | ForEach-Object { [string]$_ })
+        supportedHosts   = @(@(Get-WlProp $Package 'supportedHosts') | Where-Object { $_ } | ForEach-Object { [string]$_ })
+        isBlocked        = [bool](Get-WlProp $Package 'isBlocked')
+        availableTo      = [string](Get-WlProp $Package 'availableTo')
+        deployedTo       = [string](Get-WlProp $Package 'deployedTo')
+    }
+}
+
+function Test-WlAgentPackageIsAgent {
+    # Package catalog also lists Office add-ins and Teams apps; keep agents only.
+    param($Package)
+    $hosts = @(@(Get-WlProp $Package 'supportedHosts') | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    $els = @(@(Get-WlProp $Package 'elementTypes') | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if ($hosts -contains 'copilot') { return $true }
+    foreach ($e in $els) { if ($e -match 'agent|bot') { return $true } }
+    [bool][string](Get-WlProp $Package 'agentIdentityId')
+}
+
+function Get-WlAgentPackages {
+    <#
+    .SYNOPSIS
+    Agent 365 Package Management API (Graph v1.0, CopilotPackages.Read.All, needs an Agent 365 licence).
+    Server-side filter for agents (supportedHosts contains Copilot); falls back to the unfiltered list with a
+    client-side filter if the filter is rejected.
+    #>
+    $base = 'copilot/admin/catalog/packages'
+    $list = $null
+    try { $list = @(Invoke-WlGraph -All -Path "$base`?`$filter=supportedHosts/any(h:h eq 'Copilot')" | Where-Object { $_ }) }
+    catch {
+        if (Test-WlHttpStatus $_ @('400')) { $list = @(Invoke-WlGraph -All -Path $base | Where-Object { $_ -and (Test-WlAgentPackageIsAgent $_) }) }
+        else { throw }
+    }
+    @($list | ForEach-Object { ConvertFrom-WlAgentPackage $_ })
+}
+
+function Add-WlPackageDetails {
+    # Copies package-level details (Agent 365 Package Management API) onto an inventory entry; no-op for legacy registry rows.
+    param($Agent, $Row)
+    if ([string](Get-WlProp $Row 'wlSource') -ne 'Agent365Packages') { return }
+    $Agent.publisher = [string](Get-WlProp $Row 'publisher')
+    $Agent.blocked = [bool](Get-WlProp $Row 'isBlocked')
+    $Agent.availableTo = [string](Get-WlProp $Row 'availableTo')
+    $Agent.deployedTo = [string](Get-WlProp $Row 'deployedTo')
+    if (-not $Agent.agentAppId -and [string](Get-WlProp $Row 'appId')) { $Agent.agentAppId = [string](Get-WlProp $Row 'appId') }
+}
+
 function Get-WlAgentRegistry {
     <#
     .SYNOPSIS
-    Agent 365 registry (Graph beta, being replaced by the Agent 365 APIs). Optional source: HTTP 404 means the registry
-    does not exist in this tenant (no Agent 365 / retired) and is reported as a status, not as a warning.
-    A missing permission (403) or any other error stays a warning.
+    Agent inventory from Microsoft Agent 365. Order:
+      1. Agent 365 Package Management API (v1.0 copilot/admin/catalog/packages, CopilotPackages.Read.All) – the
+         successor API. 403 = permission not granted or no Agent 365 licence, 404 = not available: both fall through.
+      2. Legacy registry (beta agentRegistry/agentInstances, AgentInstance.Read.All), retired from May 2026.
+    Both are optional sources: if neither exists the status is NotAvailable (a note, not a warning). Any other
+    error on the last attempted source is a warning.
     #>
+    $script:WlAgentRegistrySource = $null; $script:WlAgentRegistryNote = $null
+    try {
+        $r = Get-WlAgentPackages
+        $script:WlAgentRegistryStatus = 'Available'; $script:WlAgentRegistrySource = 'Agent365Packages'
+        return @($r)
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if (Test-WlHttpStatus $_ @('403')) { $script:WlAgentRegistryNote = 'Agent 365 Package Management API: CopilotPackages.Read.All not granted or no Agent 365 licence' }
+        elseif (Test-WlHttpStatus $_ @('404')) { $script:WlAgentRegistryNote = 'Agent 365 Package Management API not available in this tenant' }
+        else { $script:WlAgentRegistryNote = "Agent 365 Package Management API: $msg" }
+    }
     try {
         $r = @(Invoke-WlGraph -Beta -All -Path 'agentRegistry/agentInstances' | Where-Object { $_ })
-        $script:WlAgentRegistryStatus = 'Available'
+        $script:WlAgentRegistryStatus = 'Available'; $script:WlAgentRegistrySource = 'AgentRegistry'
         return $r
     }
     catch {
-        if ([string]$_.Exception.Data['Status'] -eq '404' -or $_.Exception.Message -match '\b404\b') { $script:WlAgentRegistryStatus = 'NotAvailable' }
+        if (Test-WlHttpStatus $_ @('404')) { $script:WlAgentRegistryStatus = 'NotAvailable' }
         else { $script:WlAgentRegistryStatus = 'Error'; Add-WlWarning "Agent 365 registry (AgentInstance.Read.All): $($_.Exception.Message)" }
         return @()
     }
@@ -203,6 +298,7 @@ function Get-WlAgentInventory {
     $bppByApp = @{}; foreach ($b in $Directory.BlueprintPrincipals) { $bppByApp[([string]$b.appId).ToLowerInvariant()] = $b }
     $userByParent = @{}; foreach ($u in $Directory.Users) { $k = ([string](Get-WlProp $u 'identityParentId')).ToLowerInvariant(); if ($k) { $userByParent[$k] = $u } }
     $regByIdentity = @{}; foreach ($r in @($Registry)) { $k = ([string](Get-WlProp $r 'agentIdentityId')).ToLowerInvariant(); if ($k) { $regByIdentity[$k] = $r } }
+    $regSource = { param($r) $s = [string](Get-WlProp $r 'wlSource'); if ($s) { $s } else { 'Agent365Registry' } }
     $aiByEntra = @{}
     foreach ($a in @($AgentsInfo)) { $k = ([string](Get-WlProp $a 'EntraAgentID')).ToLowerInvariant(); if ($k) { $aiByEntra[$k] = $a } }
 
@@ -217,6 +313,7 @@ function Get-WlAgentInventory {
             agentId = $null; agentAppId = $null; agentEnabled = $null; disabledByMicrosoft = $null
             agentUserId = $null; agentUserUpn = $null; agentUserEnabled = $null
             sponsors = @(); owners = @(); created = $null; publishedStatus = $null; lifecycle = $null; registryId = $null; defenderAgentId = $null
+            publisher = $null; blocked = $null; availableTo = $null; deployedTo = $null
             vendor = $null; version = $null; device = $null; user = $null; autoApprove = $null; trustedProcess = $null; process = $null; mcpServers = @()
             caIdentity = $null; caUser = $null
         }
@@ -236,7 +333,7 @@ function Get-WlAgentInventory {
         $u = $userByParent[([string]$i.id).ToLowerInvariant()]
         if ($u) { $usedUsers[[string]$u.id] = $true; $a.agentUserId = [string]$u.id; $a.agentUserUpn = [string]$u.userPrincipalName; $a.agentUserEnabled = [bool](Get-WlProp $u 'accountEnabled') }
         $r = $regByIdentity[([string]$i.id).ToLowerInvariant()]
-        if ($r) { $usedReg[[string]$r.id] = $true; $a.sources.Add('Agent365Registry'); $a.registryId = [string]$r.id; $a.platform = [string](Get-WlProp $r 'originatingStore'); $a.owners = @(Get-WlProp $r 'ownerIds') }
+        if ($r) { $usedReg[[string]$r.id] = $true; $a.sources.Add((& $regSource $r)); $a.registryId = [string]$r.id; $a.platform = [string](Get-WlProp $r 'originatingStore'); $a.owners = @(Get-WlProp $r 'ownerIds'); Add-WlPackageDetails $a $r }
         $ai = $aiByEntra[([string]$i.id).ToLowerInvariant()]
         if (-not $ai) { $ai = $aiByEntra[([string]$i.appId).ToLowerInvariant()] }
         if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); $a.defenderAgentId = [string]$ai.AgentId; if (-not $a.platform) { $a.platform = [string]$ai.Platform }; $a.publishedStatus = [string]$ai.PublishedStatus; $a.lifecycle = [string]$ai.LifecycleStatus }
@@ -248,13 +345,15 @@ function Get-WlAgentInventory {
     foreach ($r in @($Registry)) {
         if (-not $r -or $usedReg.ContainsKey([string]$r.id)) { continue }
         $a = & $newAgent ([string]$r.displayName) 'Cloud'
-        $a.sources.Add('Agent365Registry'); $a.registryId = [string]$r.id; $a.platform = [string](Get-WlProp $r 'originatingStore')
+        $a.sources.Add((& $regSource $r)); $a.registryId = [string]$r.id; $a.platform = [string](Get-WlProp $r 'originatingStore')
         $a.owners = @(Get-WlProp $r 'ownerIds'); $a.created = [string](Get-WlProp $r 'createdDateTime')
+        Add-WlPackageDetails $a $r
         $bpObj = ([string](Get-WlProp $r 'agentIdentityBlueprintId')).ToLowerInvariant()
         if ($bpObj -and $bpById.ContainsKey($bpObj)) { $b = $bpById[$bpObj]; $a.blueprintId = [string]$b.id; $a.blueprintAppId = [string]$b.appId; $a.blueprintName = [string]$b.displayName }
         $uid = [string](Get-WlProp $r 'agentUserId')
         if ($uid) { $a.agentUserId = $uid; $u = @($Directory.Users | Where-Object { $_.id -eq $uid })[0]; if ($u) { $usedUsers[$uid] = $true; $a.agentUserUpn = [string]$u.userPrincipalName; $a.agentUserEnabled = [bool](Get-WlProp $u 'accountEnabled') } }
-        $ai = @($AgentsInfo | Where-Object { $_ -and ([string]$_.AgentId -eq [string]$r.id -or ([string]$_.SourceAgentId -and [string]$_.SourceAgentId -eq [string](Get-WlProp $r 'sourceAgentId'))) })[0]
+        $rApp = [string](Get-WlProp $r 'appId')
+        $ai = @($AgentsInfo | Where-Object { $_ -and ([string]$_.AgentId -eq [string]$r.id -or ([string]$_.SourceAgentId -and [string]$_.SourceAgentId -eq [string](Get-WlProp $r 'sourceAgentId')) -or ($rApp -and [string]$_.EntraAgentID -eq $rApp)) })[0]
         if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); $a.defenderAgentId = [string]$ai.AgentId; $a.publishedStatus = [string]$ai.PublishedStatus; $a.lifecycle = [string]$ai.LifecycleStatus }
         $agents.Add($a)
     }
@@ -499,6 +598,8 @@ function Invoke-WlAgentsCollection {
         tenantId         = Get-WlSetting -Name 'WL_TENANT_ID'
         securityDefaults = $ca.SecurityDefaults
         registryStatus   = $script:WlAgentRegistryStatus
+        registrySource   = $script:WlAgentRegistrySource
+        registryNote     = $script:WlAgentRegistryNote
         summary          = [ordered]@{
             agents            = @($agents).Count
             cloudAgents       = $cloud.Count
