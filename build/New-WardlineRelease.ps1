@@ -10,6 +10,7 @@
       azuredeploy.json             ARM template (Deploy-to-Azure button, infrastructure change detection)
       permissions.json             Permission model of this release (Update-Wardline.ps1 checks for new permissions)
       release.json                 Version metadata
+      sbom.cdx.json                Software bill of materials (CycloneDX 1.5)
       SHA256SUMS                   Checksums of all assets (verified by Update-Wardline.ps1)
 
     The asset names carry no version, so "releases/latest/download/wardline.zip" always points to the newest release.
@@ -34,11 +35,12 @@ $bundle = Join-Path $stage 'wardline'
 New-Item -ItemType Directory -Force -Path (Join-Path $bundle 'dist') | Out-Null
 Copy-Item -Recurse -Path (Join-Path $root 'setup'), (Join-Path $root 'deploy') -Destination $bundle
 Copy-Item -Path $pkg -Destination (Join-Path $bundle 'dist/wardline-functionapp.zip')
-foreach ($f in 'README.md', 'CHANGELOG.md', 'LICENSE') { if (Test-Path (Join-Path $root $f)) { Copy-Item (Join-Path $root $f) $bundle } }
+foreach ($f in 'README.md', 'CHANGELOG.md', 'LICENSE', 'SECURITY.md', 'SUPPORT.md') { if (Test-Path (Join-Path $root $f)) { Copy-Item (Join-Path $root $f) $bundle } }
 Compress-Archive -Path $bundle -DestinationPath (Join-Path $OutDir 'wardline.zip') -CompressionLevel Optimal
 Remove-Item $stage -Recurse -Force
 
 Copy-Item (Join-Path $root 'deploy/azuredeploy.json') $OutDir
+& (Join-Path $PSScriptRoot 'New-WardlineSbom.ps1') -PackagePath (Join-Path $OutDir 'wardline-functionapp.zip') -OutFile (Join-Path $OutDir 'sbom.cdx.json') | Out-Null
 Copy-Item (Join-Path $root 'setup/permissions.json') $OutDir
 $templateHash = (Get-FileHash -Algorithm SHA256 (Join-Path $root 'deploy/azuredeploy.json')).Hash.ToLowerInvariant()
 [ordered]@{ version = $version; templateSha256 = $templateHash; builtAt = [DateTime]::UtcNow.ToString('o') } | ConvertTo-Json | Set-Content -Path (Join-Path $OutDir 'release.json') -Encoding utf8

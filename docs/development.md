@@ -53,3 +53,35 @@ Every push and pull request runs the tests, parses every PowerShell file, checks
 The release workflow checks that the tag matches the module version, runs the tests, builds the assets, attests them
 (public repositories) and publishes the GitHub release with the changelog section as release notes. Tags with a suffix
 (`v0.5.0-rc.1`) become pre-releases, which "latest" and the update check ignore.
+
+## Issuing licence keys (vendor)
+
+Licence keys are signed with the vendor's private key (ECDSA P-256). The **private key is never part of this
+repository** – keep it offline with a backup (password manager). The matching public key is built into
+`src/functionapp/Modules/Wardline/License.ps1`.
+
+```powershell
+# Issue a key (appends it to licenses.csv next to the private key – your ledger)
+./build/New-WardlineLicense.ps1 -PrivateKeyPath ~/wardline-licensing/wardline-license-private.pem `
+    -TenantId <customer tenant id> -Customer 'Contoso GmbH' -Plan Annual -Months 12
+
+# Show what a key contains
+./build/New-WardlineLicense.ps1 -Inspect 'WL1.…'
+```
+
+Losing the private key means no new keys can be issued for existing installations until a release with a new public
+key is installed. A leaked private key means anyone can issue keys – rotate it the same way.
+
+## Public demo
+
+`./build/New-WardlineDemo.ps1` builds `dist/demo` – the portal with demo data, ready to publish as a static site. Every
+value that could identify a tenant is pseudonymised (device names, users, groups, policies, agents, domains, GUIDs,
+Defender device IDs, IP addresses, profile paths, SIDs) and the result is scanned; the build fails if anything is left.
+CI builds the demo on every commit.
+
+- Default source: the fictitious test tenant of `tests/Test-Wardline.ps1`.
+- Richer demo from real data: `-StateDir <folder with the files of the "state" container>`.
+- Company names, people or tenant IDs that must never appear: one per line in `build/demo-denylist.txt` (git-ignored)
+  or `-DenyTerms`.
+
+Always look through the demo before publishing it – the scanner catches patterns, not meaning.

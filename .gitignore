@@ -12,3 +12,6 @@ Thumbs.db
 __pycache__/
 .venv/
 .idea/
+
+# Local deny terms for the public demo (company names, people, tenant ID)
+build/demo-denylist.txt

@@ -63,7 +63,10 @@ nav:
       - Portal: portal.md
       - Customising the baseline: baseline.md
       - Operations and settings: operations.md
+      - Licence: licensing.md
+      - Support: support.md
   - Reference:
+      - Security review: trust.md
       - Architecture and data protection: security.md
       - Known limitations: limitations.md
       - Testing in a test tenant: testing.md

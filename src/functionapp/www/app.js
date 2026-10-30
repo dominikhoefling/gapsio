@@ -36,7 +36,7 @@
     'noaccess': ['Wardline is only available to administrators (app role “Wardline Administrator”). Please contact your security team.', 'Wardline steht nur Administratoren zur Verfügung (App-Rolle „Wardline Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents', 'KI-Agents'], 'nav.access': ['Access', 'Zugriffe'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents', 'KI-Agents'], 'nav.access': ['Access', 'Zugriffe'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
@@ -183,6 +183,21 @@
     'ch.Added': ['Added', 'Neu'], 'ch.Changed': ['Changed', 'Geändert'], 'ch.Removed': ['Removed', 'Entfernt'], 'ch.Other': ['Not broken down', 'Ohne Aufschlüsselung'],
     'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
     'ch.areas': ['By area', 'Nach Bereich'],
+    'v.license': ['Licence', 'Lizenz'],
+    'lic.lede': ['Wardline checks the licence offline – it never calls home. Without a valid licence everything keeps working; administrators only see a notice.', 'Wardline prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz funktioniert alles weiter; Administratoren sehen nur einen Hinweis.'],
+    'lic.status': ['Status', 'Status'], 'lic.customer': ['Licensed to', 'Lizenziert für'], 'lic.plan': ['Plan', 'Tarif'], 'lic.expires': ['Valid until', 'Gültig bis'], 'lic.id': ['Licence ID', 'Lizenz-ID'],
+    'lic.tenant': ['Tenant', 'Tenant'], 'lic.source': ['Entered', 'Hinterlegt'], 'lic.src.Portal': ['in the portal by {0} on {1}', 'im Portal von {0} am {1}'], 'lic.src.AppSetting': ['at installation (-LicenseKey)', 'bei der Installation (-LicenseKey)'],
+    'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with WL1.)', 'Lizenzschlüssel (beginnt mit WL1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
+    'lic.saved': ['Licence saved.', 'Lizenz gespeichert.'], 'lic.buy': ['Get a licence', 'Lizenz erwerben'], 'lic.days': ['{0} days left', 'noch {0} Tage'],
+    'lic.st.None': ['No licence (evaluation)', 'Keine Lizenz (Testphase)'], 'lic.st.Valid': ['Valid', 'Gültig'], 'lic.st.ExpiringSoon': ['Expires soon', 'Läuft bald ab'],
+    'lic.st.Expired': ['Expired', 'Abgelaufen'], 'lic.st.Invalid': ['Invalid key', 'Ungültiger Schlüssel'], 'lic.st.WrongTenant': ['Key belongs to another tenant', 'Schlüssel gehört zu einem anderen Tenant'],
+    'lic.plan.Monthly': ['Monthly', 'Monatlich'], 'lic.plan.Annual': ['Annual', 'Jährlich'], 'lic.plan.Assessment': ['Assessment', 'Assessment'], 'lic.plan.Pilot': ['Pilot', 'Pilot'], 'lic.plan.Partner': ['Partner', 'Partner'],
+    'lic.side': ['Licence: {0}', 'Lizenz: {0}'],
+    'lic.n.None': ['Wardline runs without a licence key (evaluation).', 'Wardline läuft ohne Lizenzschlüssel (Testphase).'],
+    'lic.n.ExpiringSoon': ['The Wardline licence expires in {0} days.', 'Die Wardline-Lizenz läuft in {0} Tagen ab.'],
+    'lic.n.Expired': ['The Wardline licence expired on {0}. Everything keeps working – please renew.', 'Die Wardline-Lizenz ist am {0} abgelaufen. Alles funktioniert weiter – bitte verlängern.'],
+    'lic.n.Invalid': ['The Wardline licence key is not valid.', 'Der Wardline-Lizenzschlüssel ist ungültig.'], 'lic.n.WrongTenant': ['The Wardline licence key belongs to another tenant.', 'Der Wardline-Lizenzschlüssel gehört zu einem anderen Tenant.'],
+    'lic.n.action': ['Licence …', 'Lizenz …'],
     'chart.more': ['+ {0} more', '+ {0} weitere'], 'chart.total': ['Total: {0}', 'Gesamt: {0}'], 'chart.on': ['On', 'An'], 'chart.off': ['Off', 'Aus'],
     'chart.na': ['Not applicable', 'Nicht anwendbar'], 'chart.unknown': ['Unknown', 'Unbekannt'], 'chart.share': ['{0} of {1} devices', '{0} von {1} Geräten'],
     'chart.onShort': ['on', 'an'], 'chart.noRun': ['no run', 'kein Lauf'],
@@ -1406,6 +1421,29 @@
       main.append(h('p', { class: 'muted small' }, t('m.asof', fmtDate(m.generatedAt))));
     },
 
+    async license(main) {
+      main.append(h('h1', null, t('v.license')), h('p', { class: 'lede' }, t('lic.lede')));
+      let l; try { l = await api('license'); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const st = h('span', { class: `state ${l.status === 'Valid' ? 'good' : l.status === 'ExpiringSoon' || l.status === 'None' ? 'warn' : 'bad'}` }, code('lic.st', l.status));
+      main.append(h('div', { class: 'detail card' }, dl([
+        [t('lic.status'), h('span', null, st, l.daysLeft !== null && l.daysLeft !== undefined && l.daysLeft >= 0 && l.status !== 'Expired' ? h('span', { class: 'muted' }, ` · ${t('lic.days', l.daysLeft)}`) : null)],
+        [t('lic.customer'), l.customer], [t('lic.plan'), l.plan ? code('lic.plan', l.plan) : null], [t('lic.expires'), l.expires ? fmtDay(l.expires) : null],
+        [t('lic.id'), l.licenseId ? h('span', { class: 'mono' }, l.licenseId) : null], [t('lic.tenant'), l.tenantId ? h('span', { class: 'mono' }, l.tenantId) : (state.me.tenantId || null)],
+        [t('lic.source'), l.source === 'Portal' ? t('lic.src.Portal', l.setBy || '–', fmtDate(l.setAt)) : l.source ? t('lic.src.AppSetting') : null]])));
+      const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'WL1.…', 'aria-label': t('lic.key') });
+      const form = h('form', { class: 'license-form' }, h('label', null, t('lic.key'), ta),
+        h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('lic.save')), h('a', { class: 'btn', href: 'https://wardline.cloud/pricing', target: '_blank', rel: 'noopener noreferrer' }, t('lic.buy'))));
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const r = await api('license', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: ta.value.trim() }) });
+          if (r && r.status) { state.me.license = { status: r.status, plan: r.plan, customer: r.customer, expires: r.expires, daysLeft: r.daysLeft }; renderChrome(); }
+          toast(r && r.message ? r.message : t('lic.saved')); route();
+        } catch (err) { toast(t('error', err.message)); }
+      });
+      main.append(h('h2', null, t('lic.enter')), form);
+    },
+
     async changes(main, params) {
       main.append(h('h1', null, t('v.changes')), h('p', { class: 'lede' }, t('ch.lede')));
       const mod = modules().includes(params.get('module')) ? params.get('module') : 'endpoint';
@@ -1462,7 +1500,8 @@
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
-    { group: 'nav.history', admin: true, items: ['changes', 'accepted'] }
+    { group: 'nav.history', admin: true, items: ['changes', 'accepted'] },
+    { group: 'nav.settings', admin: true, items: ['license'] }
   ];
   const VIEW_MODULE = { agents: 'agents', agentca: 'agents', access: 'access', whocan: 'access', mine: 'access' };
 
@@ -1493,7 +1532,9 @@
     $('#who').replaceChildren(h('strong', null, state.me.displayName || state.me.upn || t('signed.in')), h('span', null, isAdmin ? t('role.admin') : t('role.user')), h('br'), h('a', { href: '/.auth/logout', style: 'color:#A9D9DE' }, t('signout')));
     const up = state.me.update;
     $('#who').append(h('div', { class: 'version' }, state.me.version ? t('version', state.me.version) : null,
-      isAdmin && up && up.available && /^https:\/\/github\.com\//.test(up.url || '') ? h('a', { class: 'update-link', href: up.url, target: '_blank', rel: 'noopener noreferrer' }, t('update.available', up.latest)) : null));
+      isAdmin && up && up.available && /^https:\/\/github\.com\//.test(up.url || '') ? h('a', { class: 'update-link', href: up.url, target: '_blank', rel: 'noopener noreferrer' }, t('update.available', up.latest)) : null,
+      isAdmin && state.me.license ? h('a', { class: `license-link lic-${state.me.license.status}`, href: '#/license' }, t('lic.side', licenseShort(state.me.license))) : null));
+    renderNotice();
     const langSel = h('select', { 'aria-label': t('language'), onchange: (e) => setLang(e.target.value) }, Object.entries(LANGS).map(([k, v]) => { const o = h('option', { value: k }, v); if (k === lang) o.selected = true; return o; }));
     const actions = $('#actions');
     actions.replaceChildren(h('label', { class: 'lang-switch' }, t('language'), langSel));
@@ -1502,6 +1543,17 @@
         h('button', { type: 'button', onclick: async () => { state.endpoint = state.agents = state.access = state.mine = null; state.changes = {}; await route(); toast(t('reloaded')); } }, t('reload')),
         h('button', { type: 'button', class: 'primary', onclick: (e) => runNow('all', e.currentTarget) }, t('run.now')));
     }
+  }
+
+  const licenseShort = (l) => l.status === 'Valid' ? `${code('lic.plan', l.plan)} · ${fmtDay(l.expires)}` : code('lic.st', l.status);
+  function renderNotice() {
+    const bar = $('#notice'); if (!bar) return;
+    const l = state.me && state.me.isAdmin && state.me.license;
+    if (!l || l.status === 'Valid') { bar.hidden = true; bar.replaceChildren(); return; }
+    const text = l.status === 'ExpiringSoon' ? t('lic.n.ExpiringSoon', l.daysLeft) : l.status === 'Expired' ? t('lic.n.Expired', fmtDay(l.expires)) : t(`lic.n.${l.status}`);
+    bar.className = `notice-bar lic-${l.status}`;
+    bar.replaceChildren(h('span', null, text), ' ', h('a', { href: '#/license' }, t('lic.n.action')));
+    bar.hidden = false;
   }
 
   function updateMeta() {

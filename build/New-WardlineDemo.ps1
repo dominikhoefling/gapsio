@@ -1,18 +1,48 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Creates dist/demo: the portal offline with fictitious data from the tests (open index.html in a browser).
+    Creates dist/demo: the portal offline with demo data (open index.html in a browser or publish the folder).
+
+.DESCRIPTION
+    By default the data comes from the fictitious test tenant of tests/Test-Wardline.ps1. With -StateDir the demo is
+    built from real state files (endpoint-latest.json, agents-latest.json, runs.json, endpoint-changes.json, … from the
+    "state" container) – for a richer demo.
+
+    Either way every value that could identify a tenant is pseudonymised (build/Protect-WardlineDemoData.ps1) and the
+    result is scanned for leaks. The build fails if anything is left: original names, deny terms, e-mail addresses
+    outside contoso.example, IP addresses outside the documentation ranges, tenant domains.
+
+    Deny terms (company names, people, tenant ID, …) come from -DenyTerms and from build/demo-denylist.txt (one term
+    per line, git-ignored – keep it local).
+
+.EXAMPLE
+    ./build/New-WardlineDemo.ps1
+.EXAMPLE
+    ./build/New-WardlineDemo.ps1 -StateDir ~/Downloads/wardline-state -DenyTerms 'Fabrikam', 'fabrikam.de'
 #>
+param(
+    [string]$StateDir,
+    [string[]]$DenyTerms = @(),
+    [string]$DenyTermsFile = (Join-Path $PSScriptRoot 'demo-denylist.txt')
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'Protect-WardlineDemoData.ps1')
+if (Test-Path $DenyTermsFile) { $DenyTerms += @(Get-Content $DenyTermsFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') }) }
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "wardline-demo-$([guid]::NewGuid().ToString('n'))"
-& (Join-Path $root 'tests/Test-Wardline.ps1') -OutDir $tmp | Out-Null
+if ($StateDir) {
+    New-Item -ItemType Directory -Path $tmp | Out-Null
+    Copy-Item -Path (Join-Path $StateDir '*.json') -Destination $tmp
+}
+else {
+    & (Join-Path $root 'tests/Test-Wardline.ps1') -OutDir $tmp | Out-Null
+}
 $demo = Join-Path $root 'dist/demo'
 New-Item -ItemType Directory -Force -Path $demo | Out-Null
 Copy-Item -Path (Join-Path $root 'src/functionapp/www/*') -Destination $demo -Recurse -Force
 $read = { param($n) $p = Join-Path $tmp $n; if (Test-Path $p) { Get-Content -Raw $p | ConvertFrom-Json -Depth 64 } else { $null } }
 $data = [ordered]@{
-    me       = [ordered]@{ oid = 'u-alice'; upn = 'alice@contoso.com'; displayName = 'Alice (Demo)'; isAdmin = $true; tenantId = 'contoso.onmicrosoft.com'; modules = @('endpoint', 'agents'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1')).ModuleVersion }
+    me       = [ordered]@{ oid = 'u-alice'; upn = 'alice.demo@contoso.example'; displayName = 'Alice (Demo)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1')).ModuleVersion }
     endpoint = & $read 'endpoint-latest.json'
     agents   = & $read 'agents-latest.json'
     runs     = @(& $read 'runs.json')
@@ -54,7 +84,18 @@ $hyg = @($data.endpoint.findings | Where-Object { $_.category -eq 'Hygiene' })[0
 if ($hyg) {
     $data.acceptances.acceptances = @($data.acceptances.acceptances) + [pscustomobject]@{ key = $hyg.key; kind = 'finding'; module = 'endpoint'; title = $hyg.title.en; justification = 'Legacy line-of-business app, decommissioning planned for Q2.'; owner = 'Workplace team'; ticket = 'CHG-1042'; expires = [DateTime]::UtcNow.AddDays(60).ToString('yyyy-MM-dd'); acceptedBy = 'alice@contoso.com'; acceptedAt = [DateTime]::UtcNow.AddDays(-3).ToString('o'); active = $true }
 }
-"window.WARDLINE_DEMO = $($data | ConvertTo-Json -Depth 64 -Compress);" | Set-Content -Path (Join-Path $demo 'demo-data.js') -Encoding utf8
+# Pseudonymise and scan – the demo is meant to be public
+$keep = @(Get-ChildItem -Recurse -File -Path (Join-Path $root 'src/functionapp/Modules'), (Join-Path $root 'src/functionapp/config') -Include *.ps1, *.json |
+    ForEach-Object { [regex]::Matches((Get-Content -Raw $_.FullName), $script:GuidRx) | ForEach-Object Value } | Sort-Object -Unique)
+$tree = $data | ConvertTo-Json -Depth 64 -Compress | ConvertFrom-Json -AsHashtable -Depth 64
+$mapper = Protect-WardlineDemoData -Data $tree -DenyTerms $DenyTerms -KeepGuids $keep
+$tree.me.upn = 'alice.demo@contoso.example'; $tree.me.displayName = 'Alice (Demo)'
+$tree.license = [ordered]@{ status = 'Valid'; licenseId = 'WL-DEMO'; customer = 'Contoso (Demo)'; plan = 'Annual'; tenantId = $tree.me.tenantId; issued = [DateTime]::UtcNow.AddMonths(-2).ToString('yyyy-MM-dd'); expires = $tree.me.license.expires; daysLeft = 300; source = 'Portal'; setBy = 'alice.demo@contoso.example'; setAt = [DateTime]::UtcNow.AddMonths(-2).ToString('o') }
+$json = $tree | ConvertTo-Json -Depth 64 -Compress
+$leaks = @(Test-WardlineDemoLeaks -Json $json -Mapper $mapper -DenyTerms $DenyTerms)
+if ($leaks.Count) { Remove-Item $tmp -Recurse -Force; throw "Demo data not clean – nothing written:`n  $($leaks -join "`n  ")" }
+Write-Host "Demo data pseudonymised: $(@($mapper.Map.Values).Count) values replaced, leak check passed."
+"window.WARDLINE_DEMO = $json;" | Set-Content -Path (Join-Path $demo 'demo-data.js') -Encoding utf8
 $html = Get-Content -Raw (Join-Path $demo 'index.html')
 if ($html -notmatch 'demo-data\.js') { $html = $html -replace '<script src="app.js"', '<script src="demo-data.js"></script><script src="app.js"'; Set-Content -Path (Join-Path $demo 'index.html') -Value $html -Encoding utf8 }
 Remove-Item $tmp -Recurse -Force

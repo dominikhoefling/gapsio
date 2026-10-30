@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log')
+$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
@@ -58,9 +58,10 @@ try {
             Send-Response -Status 200 -Body ([ordered]@{
                     oid = $principal.oid; upn = $principal.upn; displayName = $principal.displayName
                     isAdmin = $principal.isAdmin; roles = $principal.roles; modules = @($modules)
-                    features = @(@('hunting', 'indicators', 'inventory') | Where-Object { Test-WlFeature -Name $_ })
+                    features = @(@('hunting', 'indicators', 'coverage', 'inventory') | Where-Object { Test-WlFeature -Name $_ })
                     tenantId = Get-WlSetting -Name 'WL_TENANT_ID'; version = (Get-WlVersion)
                     update = $(if ($principal.isAdmin) { try { Get-WlBlob -Container 'state' -Name 'release.json' } catch { $null } })
+                    license = $(if ($principal.isAdmin) { try { $l = Get-WlLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })
                 })
         }
         'endpoint' {
@@ -121,6 +122,12 @@ try {
         'acceptances/revoke' {
             if (-not (Test-WlCsrf)) { return }
             try { $e = Set-WlAcceptance -Data (Get-WlRequestJson) -By $principal.upn -Revoke; Send-Response -Status 200 -Body ([ordered]@{ acceptance = $e }) }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+        }
+        'license' {
+            if ($method -eq 'GET') { Send-Response -Status 200 -Body (Get-WlLicense); return }
+            if (-not (Test-WlCsrf)) { return }
+            try { Send-Response -Status 200 -Body (Set-WlLicense -Data (Get-WlRequestJson) -By $principal.upn) }
             catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
         }
         'acceptances/log' {

@@ -85,6 +85,7 @@ param(
     [switch]$SkipFirstRun,
     [string]$NotifyWebhookUrl,
     [ValidateSet('Critical', 'High', 'Medium', 'Low')][string]$NotifyMinSeverity = 'High',
+    [ValidatePattern('^(WL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$')][string]$LicenseKey,
     [switch]$DeviceInventory,
     [string]$DeviceInventoryGroupId,
     [switch]$RemoveDeviceInventory
@@ -174,6 +175,7 @@ if ($existing.ContainsKey('functionapp')) {
         $curMap = @{}; foreach ($x in @($cur | ConvertFrom-Json)) { $curMap[$x.name] = $x.value }
         if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['WL_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['WL_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
         if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['WL_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['WL_NOTIFY_MIN_SEVERITY'] }
+        if (-not $PSBoundParameters.ContainsKey('LicenseKey') -and $curMap['WL_LICENSE_KEY']) { $LicenseKey = $curMap['WL_LICENSE_KEY'] }
         if (-not $PSBoundParameters.ContainsKey('RetentionDays')) {
             if (-not $SnapshotRetentionDays -and $curMap['WL_SNAPSHOT_RETENTION_DAYS']) { $SnapshotRetentionDays = [int]$curMap['WL_SNAPSHOT_RETENTION_DAYS'] }
             if (-not $ChangeRetentionDays -and $curMap['WL_CHANGE_RETENTION_DAYS']) { $ChangeRetentionDays = [int]$curMap['WL_CHANGE_RETENTION_DAYS'] }
@@ -195,6 +197,7 @@ function Deploy-Infrastructure {
         "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId", "notifyMinSeverity=$NotifyMinSeverity"
     )
     if ($NotifyWebhookUrl) { $params += "notifyWebhook=$NotifyWebhookUrl" }
+    if ($LicenseKey) { $params += "licenseKey=$LicenseKey" }
     if ($NamingMode -eq 'Customized') {
         if ($FunctionAppName) { $params += "customFunctionAppName=$FunctionAppName" }
         if ($StorageAccountName) { $params += "customStorageAccountName=$StorageAccountName" }
