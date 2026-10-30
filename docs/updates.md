@@ -52,6 +52,12 @@ Get-FileHash -Algorithm SHA256 wardline-functionapp.zip   # compare with SHA256S
 
 Wardline uses [semantic versioning](https://semver.org/):
 
+## API stability and Graph versions
+
+- Wardline now calls Microsoft Graph endpoints with a **v1.0-first** strategy and only falls back to **beta** when an endpoint is not yet available in v1.0.
+- This reduces break risk from beta changes while keeping feature coverage.
+- One notable beta dependency remains: Agent Registry (`/agentRegistry/agentInstances`) until the Microsoft Agent 365 API transition is complete.
+
 | Change | Example | What to expect |
 |---|---|---|
 | Patch | 0.4.0 → 0.4.1 | Bug fixes only. No new permissions, no template changes. |

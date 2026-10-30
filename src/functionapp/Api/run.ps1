@@ -14,6 +14,9 @@ function Send-Response {
             Headers     = @{
                 'Cache-Control'          = 'no-store'
                 'X-Content-Type-Options' = 'nosniff'
+                'Strict-Transport-Security' = 'max-age=31536000'
+                'Permissions-Policy'     = 'geolocation=(), camera=(), microphone=()'
+                'Cross-Origin-Resource-Policy' = 'same-origin'
             }
         })
 }
