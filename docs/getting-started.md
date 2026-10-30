@@ -1,6 +1,6 @@
 # Quick start
 
-This installs Wardline with the default features (Endpoint with Advanced Hunting and allow indicators, AI agents) into a
+This installs Wardline with the default features (Endpoint with Advanced Hunting, allow indicators and coverage gaps, AI agents) into a
 new resource group. It takes about 10 minutes.
 
 ## What you need

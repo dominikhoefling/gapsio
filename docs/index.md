@@ -7,12 +7,14 @@ it uses read-only permissions only, granted per feature.
 <div class="grid cards" markdown>
 
 - **Endpoint** – exclusions from every source (Windows, macOS, Linux), local exclusions on devices, EDR exclusions,
-  ASR rules per device and device group, MDAV baseline with drift. [More](modules/endpoint.md)
+  exclusions without any activity, ASR rules per device and device group, MDAV baseline with drift, a page per device
+  and Defender coverage gaps. [More](modules/endpoint.md)
 - **AI agents** – cloud agents from Entra Agent ID and Agent 365 with blueprint, agent and agent user IDs, Conditional
   Access coverage, and local AI agents on endpoints. [More](modules/agents.md)
 - **Access** (optional) – who holds which admin role: active, eligible via PIM or requestable via access packages.
   [More](modules/access.md)
-- **History** – dated snapshots in your storage account, drift between runs, CSV export of every table.
+- **History** – dated snapshots in your storage account, drift between runs, accepted risks with audit log,
+  notifications about new findings to Teams or Power Automate, CSV export of every table.
 
 </div>
 

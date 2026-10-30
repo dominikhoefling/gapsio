@@ -22,8 +22,12 @@ Customer subscription / resource group
 ## Data protection
 
 - All data stays in the customer's storage account in the selected region. Nothing is sent to the vendor.
-- The only outbound call besides Microsoft APIs is the optional, anonymous update check to the GitHub releases API
-  ([updates](updates.md)).
+- Outbound calls besides Microsoft APIs: the optional, anonymous update check to the GitHub releases API
+  ([updates](updates.md)) and – only if you configure a webhook – notifications about new findings (severity, category,
+  title, device name; no exclusion values or command lines) to your Teams workflow or Power Automate flow
+  ([operations](operations.md#notifications)).
+- Accepting a risk is recorded with the signed-in administrator, time, justification and expiry in an audit log in your
+  storage account.
 - Shared key access is disabled; storage is accessed with Entra ID only. Application Insights and Log Analytics use
   Entra authentication (local auth disabled).
 - Snapshots can be stored immutably (WORM) with `-EnableImmutability`.
