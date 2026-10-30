@@ -6,7 +6,7 @@ $script:WlStorageVersion = '2023-11-03'
 # Single source of the version: ModuleVersion in Wardline.psd1 (the release workflow checks it against the git tag).
 $script:WlVersion = (Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'Wardline.psd1')).ModuleVersion.ToString()
 # GitHub repository that publishes Wardline releases (update check). Override with the app setting WL_UPDATE_REPOSITORY.
-$script:WlDefaultRepository = 'OWNER/wardline'
+$script:WlDefaultRepository = 'dominikhoefling/wardline'
 
 #region Configuration & warnings
 function Get-WlSetting {

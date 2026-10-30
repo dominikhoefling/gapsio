@@ -47,4 +47,4 @@ Customer subscription / resource group
 - Release packages are built by GitHub Actions from a tagged commit, checksummed (`SHA256SUMS`) and – for public
   releases – carry a build provenance attestation (`gh attestation verify`).
 
-Report vulnerabilities privately: see [SECURITY.md](https://github.com/OWNER/wardline/blob/main/SECURITY.md).
+Report vulnerabilities privately: see [SECURITY.md](https://github.com/dominikhoefling/wardline/blob/main/SECURITY.md).

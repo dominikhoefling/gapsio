@@ -1,6 +1,6 @@
 site_name: Wardline
 site_description: Self-hosted visibility into where Microsoft Defender and AI agent protection actually has gaps.
-repo_url: https://github.com/OWNER/wardline
+repo_url: https://github.com/dominikhoefling/wardline
 repo_name: wardline
 edit_uri: edit/main/docs/
 copyright: Wardline

@@ -44,7 +44,7 @@ folder and run:
 ## Verify a release yourself
 
 ```powershell
-gh attestation verify wardline-functionapp.zip --repo OWNER/wardline
+gh attestation verify wardline-functionapp.zip --repo dominikhoefling/wardline
 Get-FileHash -Algorithm SHA256 wardline-functionapp.zip   # compare with SHA256SUMS
 ```
 

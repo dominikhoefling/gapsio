@@ -16,7 +16,7 @@ new resource group. It takes about 10 minutes.
 
 ```powershell
 # 1. Download and extract the latest release
-Invoke-WebRequest https://github.com/OWNER/wardline/releases/latest/download/wardline.zip -OutFile wardline.zip
+Invoke-WebRequest https://github.com/dominikhoefling/wardline/releases/latest/download/wardline.zip -OutFile wardline.zip
 Expand-Archive wardline.zip -DestinationPath . -Force
 cd wardline
 

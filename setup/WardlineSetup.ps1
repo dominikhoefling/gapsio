@@ -2,7 +2,7 @@
 # so it runs in Azure Cloud Shell, on Windows, macOS and Linux without additional PowerShell modules.
 
 # GitHub repository that publishes the Wardline releases (Update-Wardline.ps1). Override with -Repository.
-$script:WardlineRepository = 'OWNER/wardline'
+$script:WardlineRepository = 'dominikhoefling/wardline'
 # Permission model; Update-Wardline.ps1 points this to the permissions.json of the release it installs.
 $script:WardlinePermissionsPath = Join-Path $PSScriptRoot 'permissions.json'
 

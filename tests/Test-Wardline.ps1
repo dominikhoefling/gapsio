@@ -7,6 +7,7 @@
 #>
 param([string]$OutDir)
 $ErrorActionPreference = 'Stop'
+$env:WL_UPDATE_CHECK = 'false'   # no live GitHub calls during tests; the update test enables it explicitly
 $root = Split-Path $PSScriptRoot -Parent
 Import-Module (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1') -Force
 $mod = Get-Module Wardline
@@ -726,7 +727,7 @@ Write-Host '== Versions and update check' -ForegroundColor Cyan
     param($A)
     & $A ((Get-WlVersion) -eq (Get-Module Wardline).Version.ToString()) 'Get-WlVersion = ModuleVersion of Wardline.psd1'
     & $A ((Compare-WlVersion 'v0.10.0' '0.9.3') -eq 1 -and (Compare-WlVersion '0.4.0' 'v0.4.0') -eq 0 -and (Compare-WlVersion '0.4.0-rc.1' '0.4.1') -eq -1) 'Compare-WlVersion handles v prefix, numeric order and pre-release suffix'
-    $env:WL_UPDATE_REPOSITORY = $null
+    $env:WL_UPDATE_CHECK = $null; $env:WL_UPDATE_REPOSITORY = 'OWNER/wardline'
     & $A ($null -eq (Update-WlReleaseInfo -Force)) 'Update check skipped while the repository is a placeholder'
     $env:WL_UPDATE_REPOSITORY = 'contoso/wardline'; $env:WL_UPDATE_CHECK = 'false'
     & $A ($null -eq (Update-WlReleaseInfo -Force)) 'WL_UPDATE_CHECK=false disables the update check'
@@ -738,7 +739,7 @@ Write-Host '== Versions and update check' -ForegroundColor Cyan
     $u2 = Update-WlReleaseInfo
     & $A ($script:ghCalls -eq 1 -and $u2.latest -eq '9.9.9') 'Release info is cached for a day (no second GitHub call)'
     Remove-Item function:Invoke-RestMethod
-    $env:WL_UPDATE_REPOSITORY = $null
+    $env:WL_UPDATE_REPOSITORY = $null; $env:WL_UPDATE_CHECK = 'false'
 } ${function:Assert}
 $r = Call 'me' -Principal $adminP; $me = $r.Body | ConvertFrom-Json
 Assert ($me.version -and $me.update.available -and $me.update.latest -eq '9.9.9') 'api/me returns version and update info for admins'

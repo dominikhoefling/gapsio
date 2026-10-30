@@ -1,7 +1,7 @@
 # Features and permissions
 
 Wardline follows least privilege: every feature adds only the read-only application permissions it needs – nothing
-more. The single source of truth is [`setup/permissions.json`](https://github.com/OWNER/wardline/blob/main/setup/permissions.json);
+more. The single source of truth is [`setup/permissions.json`](https://github.com/dominikhoefling/wardline/blob/main/setup/permissions.json);
 the install, grant and app registration scripts all read it.
 
 | Feature | Default | What you get | Permissions (read-only, application) |
