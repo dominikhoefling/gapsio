@@ -1519,6 +1519,102 @@ function Get-WlDependencyFindings {
     @($f)
 }
 
+function Get-WlUpdateFindings {
+    <#
+    .SYNOPSIS
+    Update hygiene: platform/engine age relative to the fleet, signature age, and update-ring design
+    (platform/engine/security-intelligence channels, gradual release).
+    Platform versions are 4.18.YYMMn.x (monthly); Microsoft supports the current and the two previous
+    releases (N-2). Engine versions are 1.1.YYMM0.x. Signatures are published several times a day.
+    #>
+    param([hashtable]$Devices, [object[]]$SettingValues)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $now = [DateTime]::UtcNow
+    $month = { param($v) if ([string]$v -match '^\d+\.\d+\.(\d{2})(\d{2})\d*\.') { [int]$Matches[1] * 12 + [int]$Matches[2] } else { $null } }
+    $active = @($Devices.Values | Where-Object {
+            $ls = $null; try { if ($_.lastSeen) { $ls = ConvertTo-WlUtc $_.lastSeen } } catch {}
+            -not $ls -or ($now - $ls).TotalDays -le 14 })
+    $win = @($active | Where-Object { ([string]$_.os) -match '^Windows' })
+
+    # 1) Platform age vs. fleet (N-2) and version sprawl
+    $withPlat = @($win | Where-Object { & $month $_.avPlatformVersion })
+    if ($withPlat.Count -ge 2) {
+        $ref = ($withPlat | ForEach-Object { & $month $_.avPlatformVersion } | Measure-Object -Maximum).Maximum
+        foreach ($d in $withPlat) {
+            $lag = $ref - (& $month $d.avPlatformVersion)
+            if ($lag -le 2) { continue }
+            $sev = if ($lag -ge 6) { 'High' } else { 'Medium' }
+            $f.Add((New-WlFinding -Severity $sev -Category 'Updates' -Title (& $T 'Defender platform outside the supported window (N-2)' 'Defender-Plattform außerhalb des Support-Fensters (N-2)') `
+                        -Detail (& $T "$($d.deviceName) runs platform $($d.avPlatformVersion), $lag monthly releases behind the newest version in this tenant. Microsoft supports only the current and the two previous platform releases; older platforms miss protection features, and ASR/EDR capabilities tied to newer platforms are silently unavailable." `
+                            "$($d.deviceName) läuft mit Plattform $($d.avPlatformVersion), $lag Monatsreleases hinter der neuesten Version in diesem Tenant. Microsoft unterstützt nur die aktuelle und die zwei vorherigen Plattform-Releases; ältere Plattformen fehlen Schutzfunktionen, und an neuere Plattformen gebundene ASR-/EDR-Fähigkeiten sind still nicht verfügbar.") `
+                        -Recommendation (& $T 'Check the update path for this device: Windows Update / WSUS category "Microsoft Defender Antivirus" approved, MoCAMP/KB4052623 allowed, no blocking proxy. Then verify with Get-MpComputerStatus.' 'Update-Pfad des Geräts prüfen: Windows Update / WSUS-Kategorie „Microsoft Defender Antivirus“ freigegeben, MoCAMP/KB4052623 erlaubt, kein blockierender Proxy. Danach mit Get-MpComputerStatus verifizieren.') `
+                        -Subject 'upd|platform-lag' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+        $distinct = @($withPlat | ForEach-Object { & $month $_.avPlatformVersion } | Sort-Object -Unique)
+        if ($distinct.Count -ge 4 -and $withPlat.Count -ge 10) {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Updates' -Title (& $T 'Defender platform version sprawl' 'Defender-Plattformversionen zersplittert') `
+                        -Detail (& $T "$($withPlat.Count) active Windows devices run $($distinct.Count) different monthly platform releases. A healthy fleet sits on at most two or three (current ring plus devices in transition); more usually means a broken update path for a subset of devices." `
+                            "$($withPlat.Count) aktive Windows-Geräte laufen auf $($distinct.Count) verschiedenen Monats-Releases der Plattform. Eine gesunde Flotte liegt auf höchstens zwei bis drei (aktueller Ring plus Geräte im Übergang); mehr bedeutet meist einen defekten Update-Pfad für einen Teil der Geräte.") `
+                        -Recommendation (& $T 'Group the lagging devices by update source (WSUS, Intune, air-gapped) and fix the path rather than the individual devices.' 'Zurückhängende Geräte nach Update-Quelle gruppieren (WSUS, Intune, abgeschottet) und den Pfad statt der einzelnen Geräte reparieren.') -Subject 'upd|sprawl' -StableKey))
+        }
+    }
+
+    # 2) Signature age on devices that are actually online
+    foreach ($d in $active) {
+        if (-not $d.avSignatureTime) { continue }
+        $sigAt = $null; try { $sigAt = ConvertTo-WlUtc $d.avSignatureTime } catch { continue }
+        $age = [math]::Floor(($now - $sigAt).TotalDays)
+        if ($age -lt 3) { continue }
+        $sev = if ($age -ge 7) { 'High' } else { 'Medium' }
+        $f.Add((New-WlFinding -Severity $sev -Category 'Updates' -Title (& $T 'Security intelligence older than three days on an active device' 'Security Intelligence auf aktivem Gerät älter als drei Tage') `
+                    -Detail (& $T "$($d.deviceName) was seen recently, but its security intelligence (version $($d.avSignatureVersion)) was published $age days ago. Signatures are released several times a day; a device that is online and still days behind has a broken update source – the 'up to date' flag alone can hide this." `
+                        "$($d.deviceName) war kürzlich online, seine Security Intelligence (Version $($d.avSignatureVersion)) wurde aber vor $age Tagen veröffentlicht. Signaturen erscheinen mehrmals täglich; ein Gerät, das online ist und trotzdem Tage hinterherhängt, hat eine defekte Update-Quelle – das 'aktuell'-Flag allein verdeckt das.") `
+                    -Recommendation (& $T 'Check SignatureFallbackOrder and connectivity to MMPC/WU; run "MpCmdRun -SignatureUpdate" on the device and read Get-MpComputerStatus.' 'SignatureFallbackOrder und Verbindung zu MMPC/WU prüfen; auf dem Gerät „MpCmdRun -SignatureUpdate“ ausführen und Get-MpComputerStatus lesen.') `
+                    -Subject 'upd|sig-age' -DeviceId $d.deviceId -DeviceName $d.deviceName))
+    }
+
+    # 3) Update-ring design (tenant level)
+    $assigned = @($SettingValues | Where-Object { $_ -and (Test-WlAssigned $_.assignments) })
+    $chan = { param($pattern) @($assigned | Where-Object { $_.definitionId -match $pattern -and [string]$_.value -match '_(\d+)$' } | ForEach-Object { [pscustomobject]@{ v = [int]([regex]::Match([string]$_.value, '_(\d+)$').Groups[1].Value); policy = $_.policyName } }) }
+    $plat = @(& $chan 'platformupdateschannel'); $eng = @(& $chan 'engineupdateschannel'); $sig = @(& $chan 'securityintelligenceupdateschannel')
+    $gradualOff = @($assigned | Where-Object { $_.definitionId -match 'disablegradualrelease' -and [string]$_.value -match '_1$|true' })
+
+    if ($gradualOff.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Updates' -Title (& $T 'Gradual release disabled for Defender updates' 'Gradual Release für Defender-Updates deaktiviert') `
+                    -Detail (& $T "DisableGradualRelease is set in '$(@($gradualOff | ForEach-Object { $_.policyName } | Sort-Object -Unique) -join ', ')'. All affected devices receive every platform, engine and signature update immediately, without Microsoft's staged rollout. That removes the safety net against a bad update across the whole fleet; it is meant for break-fix, not for production." `
+                        "DisableGradualRelease ist in '$(@($gradualOff | ForEach-Object { $_.policyName } | Sort-Object -Unique) -join ', ')' gesetzt. Alle betroffenen Geräte erhalten jedes Plattform-, Engine- und Signatur-Update sofort, ohne Microsofts gestaffelten Rollout. Das entfernt das Sicherheitsnetz gegen ein fehlerhaftes Update für die ganze Flotte; gedacht ist es für Break-Fix, nicht für Produktion.") `
+                    -Recommendation (& $T 'Remove DisableGradualRelease and use the update channels (Beta/Preview for a pilot ring, Staged/Broad for production) instead.' 'DisableGradualRelease entfernen und stattdessen die Update-Kanäle nutzen (Beta/Preview für den Pilotring, Staged/Broad für Produktion).') -Subject 'upd|gradual-off' -StableKey))
+    }
+    $critical = @($plat + $eng | Where-Object { $_.v -eq 6 })
+    if ($critical.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Updates' -Title (& $T 'Defender updates on the "Critical – Time delay" channel' 'Defender-Updates im Kanal „Critical – Time delay“') `
+                    -Detail (& $T "Policy '$(@($critical | ForEach-Object { $_.policy } | Sort-Object -Unique) -join ', ')' puts platform/engine updates on the Critical channel, which delays them by about two weeks. Devices on this channel run with known-fixed bugs and without new protection capabilities for that time." `
+                        "Richtlinie '$(@($critical | ForEach-Object { $_.policy } | Sort-Object -Unique) -join ', ')' legt Plattform-/Engine-Updates auf den Critical-Kanal, der sie um etwa zwei Wochen verzögert. Geräte in diesem Kanal laufen so lange mit bereits behobenen Fehlern und ohne neue Schutzfunktionen.") `
+                    -Recommendation (& $T 'Limit the Critical channel to a small set of genuinely change-sensitive systems; use Broad for the rest.' 'Critical-Kanal auf wenige, wirklich änderungsempfindliche Systeme begrenzen; für den Rest Broad verwenden.') -Subject 'upd|critical-channel' -StableKey))
+    }
+    if (@($sig | Where-Object { $_.v -eq 5 }).Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Updates' -Title (& $T 'Security intelligence on the Broad channel' 'Security Intelligence im Broad-Kanal') `
+                    -Detail (& $T 'The security intelligence update channel is set to Current Channel (Broad). Devices then receive new signatures only after the gradual release cycle has completed – they lag behind the rest of the world by hours. Microsoft intends this only for a small set of datacenter systems.' 'Der Kanal für Security-Intelligence-Updates steht auf Current Channel (Broad). Geräte erhalten neue Signaturen dann erst nach Abschluss des gestaffelten Rollouts – sie hängen Stunden hinter dem Rest der Welt. Microsoft sieht das nur für wenige Rechenzentrumssysteme vor.') `
+                    -Recommendation (& $T 'Leave the security intelligence channel at Not configured or Staged for the general population.' 'Den Security-Intelligence-Kanal für die breite Masse auf Nicht konfiguriert oder Staged lassen.') -Subject 'upd|sig-broad' -StableKey))
+    }
+    if ($win.Count -ge 10) {
+        $configured = @($plat + $eng | Where-Object { $_.v -gt 0 })
+        if (-not $configured.Count) {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Updates' -Title (& $T 'No Defender update rings defined' 'Keine Defender-Update-Ringe definiert') `
+                        -Detail (& $T "$($win.Count) Windows devices are onboarded, but no assigned policy sets a platform or engine update channel. Every device then follows Microsoft's default gradual rollout, with no pilot group of your own to catch a problematic platform release before it reaches servers and critical clients." `
+                            "$($win.Count) Windows-Geräte sind onboardet, aber keine zugewiesene Richtlinie setzt einen Plattform- oder Engine-Update-Kanal. Alle Geräte folgen dann Microsofts Standard-Rollout, ohne eigene Pilotgruppe, die ein problematisches Plattform-Release abfängt, bevor es Server und kritische Clients erreicht.") `
+                        -Recommendation (& $T 'Define rings: a pilot group on Beta or Current Channel (Preview), the broad population on Current Channel (Staged/Broad).' 'Ringe definieren: Pilotgruppe auf Beta oder Current Channel (Preview), breite Masse auf Current Channel (Staged/Broad).') -Subject 'upd|no-rings' -StableKey))
+        }
+        elseif (-not @($configured | Where-Object { $_.v -in 2, 3 }).Count) {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Updates' -Title (& $T 'Defender update rings without a pilot group' 'Defender-Update-Ringe ohne Pilotgruppe') `
+                        -Detail (& $T 'Update channels are configured, but no assigned policy puts any device on Beta or Current Channel (Preview). Platform problems are then discovered on the production population instead of a pilot ring.' 'Update-Kanäle sind konfiguriert, aber keine zugewiesene Richtlinie legt Geräte auf Beta oder Current Channel (Preview). Plattformprobleme fallen dann in der Produktion statt im Pilotring auf.') `
+                        -Recommendation (& $T 'Assign a small, representative group (IT, security team) to Beta or Preview.' 'Eine kleine, repräsentative Gruppe (IT, Security-Team) auf Beta oder Preview legen.') -Subject 'upd|no-pilot' -StableKey))
+        }
+    }
+    @($f)
+}
+
 function Get-WlEndpointFindings {
     <#
     .SYNOPSIS
@@ -1695,6 +1791,7 @@ function Get-WlEndpointFindings {
     }
 
     foreach ($x in @(Get-WlDependencyFindings -Devices $Devices -Baseline $Baseline -SettingValues $SettingValues -Asr $Asr -Indicators $Indicators)) { $f.Add($x) }
+    foreach ($x in @(Get-WlUpdateFindings -Devices $Devices -SettingValues $SettingValues)) { $f.Add($x) }
 
     @($f | Sort-Object { $script:WlSeverityOrder[$_.severity] }, category, { Get-WlProp $_.title 'en' })
 }
