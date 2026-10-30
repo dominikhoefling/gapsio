@@ -722,6 +722,31 @@ $r = Call 'changes' -Principal $adminP -Query @{ module = 'agents' }; Assert ([i
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' }; Assert ([int]$r.StatusCode -eq 400) 'POST without X-Wardline is rejected'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Wardline' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1) 'POST run creates a queue message'
 
+Write-Host '== Graph v1.0 first with beta fallback' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $saved = $script:WlV1Unavailable.Clone(); $script:WlV1Unavailable.Clear()
+    $script:v1Calls = [System.Collections.Generic.List[string]]::new()
+    function Invoke-WlGraph { param($Path, [switch]$Beta, [switch]$All, $Headers)
+        $script:v1Calls.Add("$(if ($Beta) { 'beta' } else { 'v1' }):$Path")
+        if ($Path -like 'betaonly/*' -and -not $Beta) { throw 'Resource not found for the segment' }
+        if ($Path -like 'broken/*') { throw 'Forbidden' }
+        @([pscustomobject]@{ id = 'x'; api = $(if ($Beta) { 'beta' } else { 'v1' }) })
+    }
+    $r = Invoke-WlGraphV1First -Path 'stable/items?$select=id' -All -Context 't'
+    & $A ($r[0].api -eq 'v1' -and $script:v1Calls.Count -eq 1) 'v1.0 is used when it works'
+    $r = Invoke-WlGraphV1First -Path 'betaonly/items' -All -Context 't'
+    & $A ($r[0].api -eq 'beta') 'Falls back to beta when v1.0 fails'
+    $n = $script:v1Calls.Count
+    $r = Invoke-WlGraphV1First -Path "betaonly/items('abc')/settings" -All -Context 't'
+    & $A ($r[0].api -eq 'beta' -and $script:v1Calls.Count -eq $n + 1) 'Fallback is remembered per endpoint (no second v1.0 attempt)'
+    Reset-WlWarnings
+    $r = Invoke-WlGraphV1First -Path 'broken/items' -Context 'Broken endpoint'
+    & $A ($null -eq $r -and @(Get-WlWarnings | Where-Object { $_ -like 'Broken endpoint*' }).Count -eq 1) 'Both failing: $null and one warning'
+    Remove-Item function:Invoke-WlGraph
+    $script:WlV1Unavailable.Clear(); foreach ($k in $saved.Keys) { $script:WlV1Unavailable[$k] = $saved[$k] }
+} ${function:Assert}
+
 Write-Host '== Versions and update check' -ForegroundColor Cyan
 & $mod {
     param($A)

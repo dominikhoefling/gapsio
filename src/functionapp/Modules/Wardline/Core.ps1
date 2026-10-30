@@ -254,6 +254,33 @@ function Invoke-WlGraphSafe {
     catch { Add-WlWarning "${Context}: $($_.Exception.Message)"; $null }
 }
 
+$script:WlV1Unavailable = @{}
+function Invoke-WlGraphV1First {
+    <#
+    .SYNOPSIS
+    Calls Microsoft Graph v1.0 first and falls back to beta when the endpoint is not available in v1.0 (yet).
+    The fallback is remembered per endpoint for the rest of the run, so beta-only endpoints cost one extra call at most.
+    Errors are logged as a warning (unless -Silent) and $null is returned, like Invoke-WlGraphSafe.
+    Use it for endpoints that exist in v1.0 with the same shape (Agent ID, Conditional Access, role management).
+    Endpoints that only exist in beta (Intune Settings Catalog, intents, remediations) call beta directly.
+    #>
+    param([Parameter(Mandatory)][string]$Path, [switch]$All, [Parameter(Mandatory)][string]$Context, [switch]$Silent)
+    $root = (($Path -split '\?')[0] -split '/' | Where-Object { $_ } | Select-Object -First 2) -join '/' -replace '\(.*$', ''
+    if (-not $script:WlV1Unavailable.ContainsKey($root)) {
+        try { return Invoke-WlGraph -Path $Path -All:$All }
+        catch { $v1Error = $_.Exception.Message }
+    }
+    try {
+        $r = Invoke-WlGraph -Beta -Path $Path -All:$All
+        if ($v1Error) { $script:WlV1Unavailable[$root] = $true }
+        return $r
+    }
+    catch {
+        if (-not $Silent) { Add-WlWarning "${Context}: $($_.Exception.Message)" }
+        return $null
+    }
+}
+
 function Invoke-WlHunting {
     <#
     .SYNOPSIS

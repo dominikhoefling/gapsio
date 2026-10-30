@@ -79,19 +79,6 @@ function Resolve-WlPrincipalInfo {
     catch { return [pscustomobject]@{ id = $Id; type = 'unknown'; upn = $null; displayName = $Id } }
 }
 
-function Invoke-WlIntuneGraphSafe {
-    <#
-    .SYNOPSIS
-    Calls Intune endpoints via Graph v1.0 first and falls back to beta where needed.
-    #>
-    param([Parameter(Mandatory)][string]$Path, [switch]$All, [Parameter(Mandatory)][string]$Context)
-    try { Invoke-WlGraph -Path $Path -All:$All }
-    catch {
-        try { Invoke-WlGraph -Beta -Path $Path -All:$All }
-        catch { Add-WlWarning "${Context}: $($_.Exception.Message)"; $null }
-    }
-}
-
 function New-WlEntitlement {
     param(
         [string]$PrincipalId, [string]$PrincipalType, [string]$Upn, [string]$DisplayName,
@@ -143,7 +130,7 @@ function Invoke-WlAccessCollection {
     #region Role definitions
     $roleById = @{}
     $roles = [System.Collections.Generic.List[object]]::new()
-    $defs = Invoke-WlGraphSafe -All -Context 'Entra role definitions' -Path 'roleManagement/directory/roleDefinitions?$select=id,displayName,description,isBuiltIn,isPrivileged,templateId,rolePermissions'
+    $defs = Invoke-WlGraphV1First -All -Context 'Entra role definitions' -Path 'roleManagement/directory/roleDefinitions?$select=id,displayName,description,isBuiltIn,isPrivileged,templateId,rolePermissions'
     foreach ($d in @($defs)) {
         if (-not $d) { continue }
         $actions = @(foreach ($rp in @($d.rolePermissions)) { if ($rp) { @($rp.allowedResourceActions) } }) | Where-Object { $_ }
@@ -190,14 +177,14 @@ function Invoke-WlAccessCollection {
     #endregion
 
     #region Intune RBAC
-    $intuneDefs = Invoke-WlIntuneGraphSafe -All -Context 'Intune role definitions' -Path 'deviceManagement/roleDefinitions?$select=id,displayName,description,isBuiltIn'
+    $intuneDefs = Invoke-WlGraphV1First -All -Context 'Intune role definitions' -Path 'deviceManagement/roleDefinitions?$select=id,displayName,description,isBuiltIn'
     foreach ($idf in @($intuneDefs)) {
         if (-not $idf) { continue }
         $roles.Add([pscustomobject]@{ platform = 'Intune'; id = [string]$idf.id; name = [string]$idf.displayName; description = [string]$idf.description; builtIn = [bool]$idf.isBuiltIn; privileged = $null; actions = @() })
-        $ras = Invoke-WlIntuneGraphSafe -All -Context "Intune role assignments '$($idf.displayName)'" -Path "deviceManagement/roleDefinitions/$($idf.id)/roleAssignments"
+        $ras = Invoke-WlGraphV1First -All -Context "Intune role assignments '$($idf.displayName)'" -Path "deviceManagement/roleDefinitions/$($idf.id)/roleAssignments"
         foreach ($ra in @($ras)) {
             if (-not $ra) { continue }
-            $detail = Invoke-WlIntuneGraphSafe -Context "Intune role assignment '$($ra.displayName)'" -Path "deviceManagement/roleAssignments/$($ra.id)"
+            $detail = Invoke-WlGraphV1First -Context "Intune role assignment '$($ra.displayName)'" -Path "deviceManagement/roleAssignments/$($ra.id)"
             if (-not $detail) { continue }
             $scopeType = [string](Get-WlProp $detail 'scopeType')
             $scopeMembers = @(Get-WlProp $detail 'scopeMembers') | Where-Object { $_ }

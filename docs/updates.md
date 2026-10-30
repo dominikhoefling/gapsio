@@ -52,12 +52,6 @@ Get-FileHash -Algorithm SHA256 wardline-functionapp.zip   # compare with SHA256S
 
 Wardline uses [semantic versioning](https://semver.org/):
 
-## API stability and Graph versions
-
-- Wardline now calls Microsoft Graph endpoints with a **v1.0-first** strategy and only falls back to **beta** when an endpoint is not yet available in v1.0.
-- This reduces break risk from beta changes while keeping feature coverage.
-- One notable beta dependency remains: Agent Registry (`/agentRegistry/agentInstances`) until the Microsoft Agent 365 API transition is complete.
-
 | Change | Example | What to expect |
 |---|---|---|
 | Patch | 0.4.0 → 0.4.1 | Bug fixes only. No new permissions, no template changes. |
@@ -74,3 +68,11 @@ Release assets (same names in every release, so `releases/latest/download/<name>
 | `permissions.json` | Permission check of the update script |
 | `release.json` | Version and template hash |
 | `SHA256SUMS` | Checksums of all assets |
+
+## API stability and Graph versions
+
+- Endpoints that exist in Microsoft Graph **v1.0** with the same data (Agent ID, Conditional Access, Entra and Intune role
+  management) are called **v1.0 first**, with an automatic fallback to **beta**.
+- Intune endpoints that only exist in **beta** (Settings Catalog, endpoint security templates, Remediations, legacy
+  device configuration properties) are called in beta directly – a v1.0 attempt would only add failing calls or miss properties.
+- The Agent 365 registry (`/agentRegistry/agentInstances`) remains beta-only for now.
