@@ -405,7 +405,7 @@ if (-not $SkipCode) {
 # ---------------------------------------------------------------- First run
 if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Step 'Starting the first run'
-    Write-Note 'New Graph permissions can take up to an hour to take effect. Missing data in the first run shows up as notices in the portal.'
+    Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
         $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' })

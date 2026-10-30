@@ -449,6 +449,34 @@ Write-Host '== Least privilege: features and federated data app' -ForegroundColo
     }
 } ${function:Assert}
 
+& $mod {
+    param($A)
+    $b64 = { param($o) [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($o | ConvertTo-Json -Compress))).TrimEnd('=').Replace('+', '-').Replace('/', '_') }
+    $iat = [DateTimeOffset]::new(2026, 10, 30, 6, 0, 0, [TimeSpan]::Zero).ToUnixTimeSeconds()
+    $jwt = 'eyJhbGciOiJub25lIn0.' + (& $b64 @{ iat = $iat; roles = @('Policy.Read.All', 'ThreatHunting.Read.All') }) + '.sig'
+    $script:WlTokens['https://graph.microsoft.com'] = @{ Token = $jwt; ExpiresOn = [DateTime]::UtcNow.AddMinutes(30) }
+    $e403 = New-WlHttpException -Status 403 -Message 'HTTP 403 for GET https://graph.microsoft.com/beta/x :: {"error":{"code":"Authorization_RequestDenied","message":"Insufficient privileges"}}'
+    $t = Get-WlErrorText -Exception $e403 -Context 'Agent identities (AgentIdentity.Read.All)'
+    & $A ($t -like 'HTTP 403 (Authorization_RequestDenied)*' -and $t -like '*Token issued 2026-10-30 06:00 UTC with 2 permission(s)*' -and $t -like '*Not in the token: AgentIdentity.Read.All*' -and $t -like '*up to 24 hours*') "403 notice explains the token ($t)"
+    $t = Get-WlErrorText -Exception $e403 -Context 'Conditional Access policies (Policy.Read.All)'
+    & $A ($t -like '*The token contains Policy.Read.All*') '403 notice: permission present in the token'
+    $e404 = New-WlHttpException -Status 404 -Message 'HTTP 404 for GET x :: nf'
+    & $A ((Get-WlErrorText -Exception $e404 -Context 'X') -eq 'HTTP 404 for GET x :: nf') 'Other errors keep their message'
+    $script:WlTokens.Clear()
+    $saved = @{ IDENTITY_ENDPOINT = $env:IDENTITY_ENDPOINT; IDENTITY_HEADER = $env:IDENTITY_HEADER }
+    try {
+        function Invoke-RestMethod { [pscustomobject]@{ access_token = 'long'; expires_on = [DateTimeOffset]::UtcNow.AddHours(24).ToUnixTimeSeconds() } }
+        $env:IDENTITY_ENDPOINT = 'http://mi.local/msi/token'; $env:IDENTITY_HEADER = 'h'
+        $null = Get-WlToken -Resource 'https://graph.microsoft.com'
+        & $A ($script:WlTokens['https://graph.microsoft.com'].ExpiresOn -le [DateTime]::UtcNow.AddMinutes(61)) 'Managed identity tokens are cached for at most an hour'
+    }
+    finally {
+        foreach ($n in $saved.Keys) { [Environment]::SetEnvironmentVariable($n, $saved[$n]) }
+        $script:WlTokens.Clear()
+        Remove-Item function:Invoke-RestMethod -ErrorAction SilentlyContinue
+    }
+} ${function:Assert}
+
 Write-Host '== Setup: permission model' -ForegroundColor Cyan
 . (Join-Path $root 'setup/WardlineSetup.ps1')
 Assert ((Resolve-WardlineFeatures -Features 'hunting', 'Hunting') -join ',' -eq 'Core,Hunting') 'Resolve-WardlineFeatures: Core always, names normalised, no duplicates'
