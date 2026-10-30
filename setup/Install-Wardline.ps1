@@ -140,8 +140,27 @@ if (-not $PSBoundParameters.ContainsKey('Location')) {
     if ($rgLocation -and $rgLocation.Trim()) { $Location = $rgLocation.Trim(); Write-Ok "Region:       $Location (existing resource group)" }
 }
 
-$template = Join-Path $root 'deploy/main.bicep'
-if (-not (Test-Path $template)) { $template = Join-Path $root 'deploy/azuredeploy.json' }
+# The compiled template (kept in sync with main.bicep by CI) needs no Bicep CLI and its hash lets Update-Wardline.ps1
+# detect infrastructure changes.
+$template = Join-Path $root 'deploy/azuredeploy.json'
+if (-not (Test-Path $template)) { $template = Join-Path $root 'deploy/main.bicep' }
+
+# Re-runs: adopt the names of an existing installation (tag wardline-component), so an update without the naming
+# parameters never creates a second set of resources next to custom-named ones.
+$existingRaw = Invoke-Az -Arguments @('resource', 'list', '-g', $ResourceGroup, '--query', "[?tags.""wardline-component""!=null].{name:name, component:tags.""wardline-component""}", '-o', 'json') -AllowFailure
+$existing = @{}
+if ($existingRaw) { foreach ($r in @($existingRaw | ConvertFrom-Json)) { if (-not $existing.ContainsKey($r.component)) { $existing[$r.component] = $r.name } } }
+$adopt = [ordered]@{ functionapp = 'FunctionAppName'; storage = 'StorageAccountName'; runner = 'RunnerIdentityName'; deployer = 'DeployIdentityName'; plan = 'PlanName'; logs = 'LogWorkspaceName'; appinsights = 'AppInsightsName' }
+$adopted = @()
+foreach ($c in $adopt.Keys) {
+    $var = $adopt[$c]
+    $given = Get-Variable -Name $var -ValueOnly
+    if ($existing.ContainsKey($c)) {
+        if ($given -and $given -ne $existing[$c]) { throw "The resource group already contains a Wardline $c named '$($existing[$c])'. Renaming is not supported – use -$var $($existing[$c]) or a new resource group." }
+        if (-not $given) { Set-Variable -Name $var -Value $existing[$c]; $adopted += "$c=$($existing[$c])" }
+    }
+}
+if ($adopted.Count) { $NamingMode = 'Customized'; Write-Ok "Existing names: $($adopted -join ', ')" }
 
 function Deploy-Infrastructure {
     param([string]$SsoClientId = '')

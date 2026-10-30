@@ -103,14 +103,14 @@ var roles = {
 resource runner 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: runnerIdentityName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'runner' })
 }
 
 // ---------- Storage (Entra authentication only) ----------
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'storage' })
   kind: 'StorageV2'
   sku: {
     name: storageSku
@@ -207,7 +207,7 @@ resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logWorkspaceName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'logs' })
   properties: {
     sku: {
       name: 'PerGB2018'
@@ -219,7 +219,7 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'appinsights' })
   kind: 'web'
   properties: {
     Application_Type: 'web'
@@ -273,7 +273,7 @@ resource raMetrics 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: planName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'plan' })
   kind: 'functionapp'
   sku: {
     name: 'FC1'
@@ -404,7 +404,7 @@ resource auth 'Microsoft.Web/sites/config@2024-04-01' = if (!empty(ssoClientId))
 resource deployer 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (!empty(packageUri)) {
   name: deployIdentityName
   location: location
-  tags: tags
+  tags: union(tags, { 'wardline-component': 'deployer' })
 }
 
 resource raDeploy 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(packageUri)) {
@@ -418,7 +418,7 @@ resource raDeploy 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!em
 }
 
 resource deployCode 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (!empty(packageUri)) {
-  name: 'deploy-${deployIdentityName}-code'
+  name: 'deploy-${namePrefix}-code'
   location: location
   tags: tags
   kind: 'AzureCLI'
