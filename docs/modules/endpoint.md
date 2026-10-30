@@ -84,3 +84,18 @@ configured but cannot work:
 
 Indicator pitfalls are reported too: private (RFC 1918) IP indicators are ignored, URL indicators with a path
 only match in Microsoft Edge, and an allow and a block indicator for the same value resolve by creation order.
+
+## Update findings
+
+The *Updates* category looks at how Defender itself is kept current:
+
+- **Platform age (N-2)** – the platform version (`4.18.YYMM*.x`) of every active Windows device is compared with the
+  newest version in the tenant. More than two monthly releases behind is Medium, six or more is High. Microsoft only
+  supports the current and the two previous platform releases.
+- **Version sprawl** – four or more different monthly platform releases across 10+ devices usually means a broken
+  update path for a subset of the fleet.
+- **Signature age** – a device that was seen in the last 14 days but whose security intelligence was published
+  three or more days ago (High from seven days). This catches devices where the "up to date" flag is misleading.
+- **Update rings** – `DisableGradualRelease`, the Critical (time-delay) platform/engine channel and security
+  intelligence on the Broad channel are flagged. In fleets of 10+ Windows devices Wardline also reports when no
+  platform/engine channel is configured at all or when no policy puts a pilot group on Beta/Preview.

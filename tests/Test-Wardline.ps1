@@ -266,8 +266,9 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; ConfigurationId = 'scid-5002'; ConfigurationName = 'Enable real-time protection'; IsApplicable = $true; IsCompliant = $true }
     )
     Info = @(
-        [pscustomobject]@{ DeviceId = 'd-win1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true' },
-        [pscustomobject]@{ DeviceId = 'd-win2'; AvMode = '1'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true' },
+        [pscustomobject]@{ DeviceId = 'd-win1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25090.3'; AvEngVer = '1.1.25090.2'; AvSigVer = '1.435.100.0'; AvSigTime = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win2'; AvMode = '1'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25040.1'; AvEngVer = '1.1.25040.1'; AvSigVer = '1.430.10.0'; AvSigTime = (T 10) },
+        [pscustomobject]@{ DeviceId = 'd-win3'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25080.2'; AvSigTime = (T 1) },
         [pscustomobject]@{ DeviceId = 'd-mac1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true' }
     )
     Alerts = @([pscustomobject]@{ DeviceId = 'd-win1'; Alerts = 1; LastAlert = (T 2) })
@@ -623,6 +624,13 @@ Assert (@($dep | Where-Object { $_.title.en -match 'Allow and block indicator' -
 Assert (@($dep | Where-Object { $_.title.en -eq 'File indicators without EnableFileHashComputation' }).Count -eq 1) 'Dependency: file hash computation'
 Assert (@($dep | Where-Object { $_.title.en -match 'cloud block level below High' }).Count -eq 0) 'Dependency: no block-level finding when cloudblocklevel_2 is set'
 Assert (@($dep | Where-Object { $_.deviceName -eq 'MAC-01' -or $_.deviceName -eq 'LNX-01' }).Count -eq 0) 'Dependency: Windows-only device findings'
+# Update findings (platform age vs. fleet, signature age, rings)
+$upd = @($f | Where-Object { $_.category -eq 'Updates' })
+Assert (@($upd | Where-Object { $_.title.en -match 'supported window' -and $_.deviceName -eq 'WIN-02' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Updates: WIN-02 platform 5 releases behind'
+Assert (@($upd | Where-Object { $_.title.en -match 'supported window' -and $_.deviceName -ne 'WIN-02' }).Count -eq 0) 'Updates: SRV-01 (N-1) and WIN-01 (newest) not flagged'
+Assert (@($upd | Where-Object { $_.title.en -match 'Security intelligence older' -and $_.deviceName -eq 'WIN-02' -and $_.severity -eq 'High' }).Count -eq 1) 'Updates: WIN-02 signatures 10 days old'
+Assert (@($upd | Where-Object { $_.title.en -match 'Security intelligence older' }).Count -eq 1) 'Updates: only one signature-age finding'
+Assert (@($upd | Where-Object { $_.title.en -match 'update rings' }).Count -eq 0) 'Updates: ring findings suppressed for small fleets'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
 # ASR
 $asr = @{}; foreach ($x in $ep.asrRules) { $asr[$x.id] = $x }
@@ -975,6 +983,27 @@ Write-Host '== Graph v1.0 first with beta fallback' -ForegroundColor Cyan
     & $A ($null -eq $r -and @(Get-WlWarnings | Where-Object { $_ -like 'Broken endpoint*' }).Count -eq 1) 'Both failing: $null and one warning'
     Remove-Item function:Invoke-WlGraph
     $script:WlV1Unavailable.Clear(); foreach ($k in $saved.Keys) { $script:WlV1Unavailable[$k] = $saved[$k] }
+} ${function:Assert}
+
+Write-Host '== Update rings (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $devs = @{}
+    1..12 | ForEach-Object { $d = New-WlDevice -Id "r$_" -Name "RING-$_" -Os 'Windows11'; $d.avPlatformVersion = '4.18.25090.1'; $devs["r$_"] = $d }
+    $sv = { param($id, $v) [pscustomobject]@{ definitionId = "device_vendor_msft_policy_config_defender_$id"; value = "device_vendor_msft_policy_config_defender_${id}_$v"; assignments = @('All devices'); policyId = 'p1'; policyName = 'Ring policy' } }
+    $u = @(Get-WlUpdateFindings -Devices $devs -SettingValues @())
+    & $A (@($u | Where-Object { $_.title.en -eq 'No Defender update rings defined' }).Count -eq 1) 'Rings: none configured with 12 devices'
+    $u = @(Get-WlUpdateFindings -Devices $devs -SettingValues @((& $sv 'platformupdateschannel' 5), (& $sv 'engineupdateschannel' 6), (& $sv 'securityintelligenceupdateschannel' 5), (& $sv 'disablegradualrelease' 1)))
+    & $A (@($u | Where-Object { $_.title.en -match 'without a pilot group' }).Count -eq 1) 'Rings: Broad only -> no pilot'
+    & $A (@($u | Where-Object { $_.title.en -match 'Critical' }).Count -eq 1) 'Rings: critical channel flagged'
+    & $A (@($u | Where-Object { $_.title.en -match 'Broad channel' }).Count -eq 1) 'Rings: SI broad flagged'
+    & $A (@($u | Where-Object { $_.title.en -match 'Gradual release disabled' }).Count -eq 1) 'Rings: gradual release off'
+    $u = @(Get-WlUpdateFindings -Devices $devs -SettingValues @((& $sv 'platformupdateschannel' 3)))
+    & $A (@($u | Where-Object { $_.title.en -match 'rings' }).Count -eq 0) 'Rings: pilot channel present -> no ring finding'
+    $devs['r1'].avPlatformVersion = '4.18.24110.1'; $devs['r2'].avPlatformVersion = '4.18.25010.1'; $devs['r3'].avPlatformVersion = '4.18.25050.1'
+    $u = @(Get-WlUpdateFindings -Devices $devs -SettingValues @())
+    & $A (@($u | Where-Object { $_.title.en -match 'supported window' -and $_.severity -eq 'High' -and $_.deviceName -eq 'RING-1' }).Count -eq 1) 'Platform: 10 months behind -> High'
+    & $A (@($u | Where-Object { $_.title.en -match 'sprawl' }).Count -eq 1) 'Platform: 4 releases across 12 devices -> sprawl'
 } ${function:Assert}
 
 Write-Host '== Versions and update check' -ForegroundColor Cyan
