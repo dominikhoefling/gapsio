@@ -106,6 +106,12 @@ $me = Invoke-Graph -Uri 'https://graph.microsoft.com/v1.0/me?$select=id,userPrin
 Write-Ok "Signed in:    $($me.userPrincipalName)"
 Write-Ok "Features:     $($featureList -join ', ')"
 
+# Updates: keep the region of an existing installation unless -Location is given explicitly
+if (-not $PSBoundParameters.ContainsKey('Location')) {
+    $rgLocation = Invoke-Az -Arguments @('group', 'show', '-n', $ResourceGroup, '--query', 'location', '-o', 'tsv') -AllowFailure
+    if ($rgLocation -and $rgLocation.Trim()) { $Location = $rgLocation.Trim(); Write-Ok "Region:       $Location (existing resource group)" }
+}
+
 $template = Join-Path $root 'deploy/azuredeploy.json'
 if (-not (Test-Path $template)) { $template = Join-Path $root 'deploy/main.bicep' }
 
