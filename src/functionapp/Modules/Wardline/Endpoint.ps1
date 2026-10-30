@@ -1269,8 +1269,8 @@ DeviceInfo
         $ob = [string]$r.OnboardingStatus
         $id = [string]$r.DeviceId
         if ($ob -eq 'Onboarded' -or -not $ob) {
-            $last = [datetime]::MinValue
-            if (-not $Devices.ContainsKey($id) -and [datetime]::TryParse([string]$r.LastSeen, [ref]$last) -and $last.ToUniversalTime() -lt [DateTime]::UtcNow.AddDays(-$days)) {
+            $last = $null; try { $last = ConvertTo-WlUtc $r.LastSeen } catch { }
+            if (-not $Devices.ContainsKey($id) -and $last -and $last -lt [DateTime]::UtcNow.AddDays(-$days)) {
                 & $add $id $name ([string]$r.OSPlatform) 'Defender' 'SensorInactive' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null
             }
         }
@@ -1293,8 +1293,8 @@ DeviceInfo
             if ($null -eq $m) { continue }
             $os = [string]$m.operatingSystem
             if ($os -notmatch '^(Windows|macOS|Linux)') { continue }
-            $sync = [datetime]::MinValue
-            if ([datetime]::TryParse([string]$m.lastSyncDateTime, [ref]$sync) -and $sync.ToUniversalTime() -lt [DateTime]::UtcNow.AddDays(-30)) { continue }
+            $sync = $null; try { $sync = ConvertTo-WlUtc $m.lastSyncDateTime } catch { }
+            if ($sync -and $sync -lt [DateTime]::UtcNow.AddDays(-30)) { continue }
             $aad = ([string]$m.azureADDeviceId).ToLowerInvariant()
             $short = (([string]$m.deviceName) -split '\.')[0].ToLowerInvariant()
             $dev = if ($aad -and $byAad.ContainsKey($aad)) { $byAad[$aad] } elseif ($short -and $byName.ContainsKey($short)) { $byName[$short] } else { $null }

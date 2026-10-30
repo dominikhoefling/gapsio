@@ -1272,7 +1272,21 @@ $r = Call 'access' -Principal $adminP; Assert ([int]$r.StatusCode -eq 404) 'Defa
 $r = Call 'access/me' -Principal $userP; Assert ([int]$r.StatusCode -eq 404) 'Default: my access off -> 404'
 $r = Call 'me' -Principal $adminP; $me = $r.Body | ConvertFrom-Json; Assert ((@($me.modules) -join ',') -eq 'endpoint,agents') "Default modules endpoint,agents, is $(@($me.modules) -join ',')"
 $queue.Clear(); $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'access' } -Headers @{ 'X-Wardline' = '1' }; $qm = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(([xml]$queue[0]).QueueMessage.MessageText)) | ConvertFrom-Json; Assert ($qm.module -eq 'all') 'Disabled module becomes all'
+$histBefore = @($blobs['state/endpoint-changes.json'] | ConvertFrom-Json -Depth 64).Count
 $res = Invoke-WlCollection -Module 'all' 6>$null 3>$null; Assert ((@($res | ForEach-Object module) -join ',') -eq 'endpoint,agents') "all = enabled modules only, is $(@($res | ForEach-Object module) -join ',')"
+$histAfter = @($blobs['state/endpoint-changes.json'] | ConvertFrom-Json -Depth 64).Count
+Assert ($histBefore -ge 2 -and $histAfter -ge $histBefore) "Change history survives further runs regardless of culture ($histBefore -> $histAfter, culture $([Globalization.CultureInfo]::CurrentCulture.Name))"
+& $mod {
+    param($A)
+    $saved = [Globalization.CultureInfo]::CurrentCulture
+    [Globalization.CultureInfo]::CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo('de-DE')
+    try {
+        $dt = ('{"at":"2026-10-30T22:47:14.0000000Z"}' | ConvertFrom-Json).at
+        & $A ($dt -is [datetime] -and (ConvertTo-WlUtc $dt).Hour -eq 22) 'ConvertTo-WlUtc: deserialized DateTime kept as UTC under de-DE'
+        & $A ((ConvertTo-WlUtc '2026-10-30').Day -eq 30 -and (Test-WlAcceptanceActive ([pscustomobject]@{ expires = '2099-10-30' }))) 'ConvertTo-WlUtc / acceptance expiry: ISO date culture-independent'
+    }
+    finally { [Globalization.CultureInfo]::CurrentCulture = $saved }
+} ${function:Assert}
 $env:WL_MODULES = 'endpoint,agents,access'
 $env:WEBSITE_AUTH_ENABLED = $null
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without enabled authentication: 503 (header is not trusted)'
