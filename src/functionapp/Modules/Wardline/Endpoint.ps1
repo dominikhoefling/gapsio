@@ -97,6 +97,28 @@ function Get-WlPlatformText {
     $Platforms
 }
 
+function Invoke-WlIntuneGraphSafe {
+    <#
+    .SYNOPSIS
+    Calls Intune endpoints via Graph v1.0 first and falls back to beta if the endpoint
+    isn't available in v1.0 yet.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$All,
+        [Parameter(Mandatory)][string]$Context,
+        [switch]$Silent
+    )
+    try { return Invoke-WlGraph -Path $Path -All:$All }
+    catch {
+        try { return Invoke-WlGraph -Beta -Path $Path -All:$All }
+        catch {
+            if (-not $Silent) { Add-WlWarning "${Context}: $($_.Exception.Message)" }
+            return $null
+        }
+    }
+}
+
 $script:WlDefinitionCache = @{}
 function Resolve-WlOptionDisplay {
     <#
@@ -107,8 +129,7 @@ function Resolve-WlOptionDisplay {
     param([string]$DefinitionId, [string]$ItemId)
     if (-not $DefinitionId -or -not $ItemId) { return $null }
     if (-not $script:WlDefinitionCache.ContainsKey($DefinitionId)) {
-        $d = $null
-        try { $d = Invoke-WlGraph -Beta -Path "deviceManagement/configurationSettings('$DefinitionId')?`$select=id,options" } catch { $d = $null }
+        $d = Invoke-WlIntuneGraphSafe -Context "Settings catalog definition '$DefinitionId'" -Silent -Path "deviceManagement/configurationSettings('$DefinitionId')?`$select=id,options"
         $script:WlDefinitionCache[$DefinitionId] = $d
     }
     $def = $script:WlDefinitionCache[$DefinitionId]
@@ -174,11 +195,11 @@ function Get-WlEndpointPolicies {
     '^com\.apple\.managedclient\.preferences_(allowedthreats|disallowedthreatactions|enablerealtimeprotection|enforcementlevel.*|exclusions.*|passivemode|scanarchives|threattypesettings.*|automaticsamplesubmission.*|cloudblocklevel|enabled|diagnosticlevel|behaviormonitoring|ignoreexclusions)$'
 
     # 1) Settings Catalog (incl. endpoint security policies and security settings management from the Defender portal)
-    $cps = Invoke-WlGraphSafe -Beta -All -Context 'Intune Settings Catalog (configurationPolicies)' `
+    $cps = Invoke-WlIntuneGraphSafe -All -Context 'Intune Settings Catalog (configurationPolicies)' `
         -Path 'deviceManagement/configurationPolicies?$select=id,name,platforms,technologies,lastModifiedDateTime,templateReference'
     foreach ($cp in @($cps)) {
         if ($null -eq $cp) { continue }
-        $settings = Invoke-WlGraphSafe -Beta -All -Context "Settings of policy '$($cp.name)'" -Path "deviceManagement/configurationPolicies('$($cp.id)')/settings"
+        $settings = Invoke-WlIntuneGraphSafe -All -Context "Settings of policy '$($cp.name)'" -Path "deviceManagement/configurationPolicies('$($cp.id)')/settings"
         $values = [System.Collections.Generic.List[object]]::new()
         foreach ($s in @($settings)) {
             if ($null -eq $s) { continue }
@@ -193,7 +214,7 @@ function Get-WlEndpointPolicies {
         }
         if ($values.Count -eq 0) { continue }
 
-        $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of policy '$($cp.name)'" -Path "deviceManagement/configurationPolicies('$($cp.id)')/assignments"
+        $assign = Invoke-WlIntuneGraphSafe -All -Context "Assignments of policy '$($cp.name)'" -Path "deviceManagement/configurationPolicies('$($cp.id)')/assignments"
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $tmpl = Get-WlProp $cp 'templateReference'
         $platform = Get-WlPlatformText ([string]$cp.platforms)
@@ -240,13 +261,13 @@ function Get-WlEndpointPolicies {
     }
 
     # 2) Older endpoint security templates (intents)
-    $intents = Invoke-WlGraphSafe -Beta -All -Context 'Intune endpoint security templates (intents)' -Path 'deviceManagement/intents?$select=id,displayName,templateId,lastModifiedDateTime'
+    $intents = Invoke-WlIntuneGraphSafe -All -Context 'Intune endpoint security templates (intents)' -Path 'deviceManagement/intents?$select=id,displayName,templateId,lastModifiedDateTime'
     foreach ($it in @($intents)) {
         if ($null -eq $it) { continue }
-        $isettings = Invoke-WlGraphSafe -Beta -All -Context "Settings of template '$($it.displayName)'" -Path "deviceManagement/intents/$($it.id)/settings"
+        $isettings = Invoke-WlIntuneGraphSafe -All -Context "Settings of template '$($it.displayName)'" -Path "deviceManagement/intents/$($it.id)/settings"
         $hits = @($isettings | Where-Object { $_ -and ([string](Get-WlProp $_ 'definitionId')) -match 'exclu|allowedapp|guardedfoldersallowed' })
         if ($hits.Count -eq 0) { continue }
-        $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of template '$($it.displayName)'" -Path "deviceManagement/intents/$($it.id)/assignments"
+        $assign = Invoke-WlIntuneGraphSafe -All -Context "Assignments of template '$($it.displayName)'" -Path "deviceManagement/intents/$($it.id)/assignments"
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $policies.Add([pscustomobject]@{ id = $it.id; name = $it.displayName; kind = 'EndpointSecurityTemplate'; platforms = 'Windows'; template = $it.templateId; lastModified = [string]$it.lastModifiedDateTime; assignments = $assignText })
         foreach ($h in $hits) {
@@ -270,13 +291,13 @@ function Get-WlEndpointPolicies {
         defenderAttackSurfaceReductionExcludedPaths = 'ASR'
         defenderGuardedFoldersAllowedAppPaths       = 'CFA'
     }
-    $dcs = Invoke-WlGraphSafe -Beta -All -Context 'Intune device configuration (deviceConfigurations)' -Path 'deviceManagement/deviceConfigurations'
+    $dcs = Invoke-WlIntuneGraphSafe -All -Context 'Intune device configuration (deviceConfigurations)' -Path 'deviceManagement/deviceConfigurations'
     foreach ($dc in @($dcs)) {
         if ($null -eq $dc) { continue }
         $found = @()
         foreach ($prop in $legacyMap.Keys) { $vals = @(Get-WlProp $dc $prop) | Where-Object { $_ }; if ($vals) { $found += , @($prop, $vals) } }
         if ($found.Count -eq 0) { continue }
-        $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of '$($dc.displayName)'" -Path "deviceManagement/deviceConfigurations/$($dc.id)/assignments"
+        $assign = Invoke-WlIntuneGraphSafe -All -Context "Assignments of '$($dc.displayName)'" -Path "deviceManagement/deviceConfigurations/$($dc.id)/assignments"
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $policies.Add([pscustomobject]@{ id = $dc.id; name = $dc.displayName; kind = 'LegacyConfiguration'; platforms = 'Windows'; template = [string]$dc.'@odata.type'; lastModified = [string]$dc.lastModifiedDateTime; assignments = $assignText })
         foreach ($f in $found) {
@@ -547,10 +568,10 @@ function Get-WlDeviceInventory {
     covered by Advanced Hunting.
     #>
     if (-not (Test-WlFeature -Name 'inventory')) { return }
-    $scripts = Invoke-WlGraphSafe -Beta -All -Context 'Device inventory (Intune Remediations)' -Path 'deviceManagement/deviceHealthScripts?$select=id,displayName'
+    $scripts = Invoke-WlIntuneGraphSafe -All -Context 'Device inventory (Intune Remediations)' -Path 'deviceManagement/deviceHealthScripts?$select=id,displayName'
     $hs = @($scripts | Where-Object { $_ -and ([string]$_.displayName) -like 'Wardline*' }) | Select-Object -First 1
     if (-not $hs) { Add-WlWarning 'Device inventory is enabled, but the Wardline detection script was not found in Intune. Run Install-Wardline.ps1 -DeviceInventory again.'; return }
-    $states = Invoke-WlGraphSafe -Beta -All -Context 'Device inventory (results)' -Path "deviceManagement/deviceHealthScripts/$($hs.id)/deviceRunStates?`$expand=managedDevice"
+    $states = Invoke-WlIntuneGraphSafe -All -Context 'Device inventory (results)' -Path "deviceManagement/deviceHealthScripts/$($hs.id)/deviceRunStates?`$expand=managedDevice"
     $typeMap = @{ P = 'Path'; R = 'Process'; E = 'Extension'; I = 'IP'; T = 'TempPath'; A = 'ASR'; C = 'CFA' }
     $runModes = @{ 'normal' = '0'; 'passive mode' = '1'; 'passive' = '1'; 'sxs passive mode' = '2'; 'edr block mode' = '4' }
     foreach ($st in @($states)) {

@@ -20,3 +20,5 @@ First version published on GitHub.
 
 ### Changed
 - The access module (PIM, roles, access packages) is optional and off by default (`-Features …,Access`).
+- **Graph API stability hardening**: agent and Intune data collection now use **v1.0 first** and fall back to **beta** only when the endpoint is not yet available in v1.0.
+- **Beta scope reduced**: Agent Registry (`/agentRegistry/agentInstances`) remains beta-based for now (plus announced transition to Agent 365 APIs).

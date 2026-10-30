@@ -8,6 +8,9 @@ $securityHeaders = @{
     'X-Frame-Options'         = 'DENY'
     'Referrer-Policy'         = 'same-origin'   # Easy Auth requires a Referer on POST with a session cookie (CSRF protection)
     'Content-Security-Policy' = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    'Strict-Transport-Security' = 'max-age=31536000'
+    'Permissions-Policy'      = 'geolocation=(), camera=(), microphone=()'
+    'Cross-Origin-Resource-Policy' = 'same-origin'
 }
 
 function Send-File {
