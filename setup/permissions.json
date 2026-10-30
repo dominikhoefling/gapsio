@@ -1,0 +1,76 @@
+{
+  "description": "Least-privilege permissions per Wardline feature. All permissions are read-only application permissions. Install-Wardline.ps1, Grant-WardlinePermissions.ps1 and New-WardlineAppRegistrations.ps1 grant exactly the permissions of the selected features – nothing more.",
+  "resources": {
+    "graph": { "appId": "00000003-0000-0000-c000-000000000000", "name": "Microsoft Graph" },
+    "mde": { "appId": "fc780465-2017-40d4-a0c5-307022471b92", "name": "WindowsDefenderATP (Microsoft Defender for Endpoint API)" }
+  },
+  "features": [
+    {
+      "id": "Core",
+      "required": true,
+      "module": "endpoint",
+      "name": "Endpoint: policies, exclusions, ASR configuration and MDAV baseline from Intune",
+      "permissions": [
+        { "resource": "graph", "value": "DeviceManagementConfiguration.Read.All", "why": "Intune policies: exclusions, ASR rules, Defender settings (Windows, macOS, Linux)" },
+        { "resource": "graph", "value": "GroupMember.Read.All", "why": "Display names of the groups policies are assigned to" }
+      ]
+    },
+    {
+      "id": "Hunting",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: device state, local exclusions, effective ASR mode, Linux/macOS drift, local AI agents (Advanced Hunting)",
+      "permissions": [
+        { "resource": "graph", "value": "ThreatHunting.Read.All", "why": "Advanced Hunting queries (DeviceInfo, TVM, DeviceRegistryEvents, DeviceProcessEvents, AgentsInfo)" }
+      ]
+    },
+    {
+      "id": "Indicators",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: allow indicators from Defender for Endpoint",
+      "permissions": [
+        { "resource": "mde", "value": "Ti.Read.All", "why": "Read custom indicators (allow/block)" }
+      ]
+    },
+    {
+      "id": "Inventory",
+      "default": false,
+      "module": "endpoint",
+      "name": "Endpoint: optional device inventory via Intune Remediations (detection script only)",
+      "permissions": [
+        { "resource": "graph", "value": "DeviceManagementScripts.Read.All", "why": "Results of the Wardline detection script" },
+        { "resource": "graph", "value": "DeviceManagementManagedDevices.Read.All", "why": "Map Intune devices to Defender devices" }
+      ]
+    },
+    {
+      "id": "Agents",
+      "default": true,
+      "module": "agents",
+      "name": "Agents: Entra Agent ID, Agent 365 registry and Conditional Access coverage",
+      "permissions": [
+        { "resource": "graph", "value": "AgentIdentityBlueprint.Read.All", "why": "Agent identity blueprints" },
+        { "resource": "graph", "value": "AgentIdentityBlueprintPrincipal.Read.All", "why": "Blueprint principals in the tenant" },
+        { "resource": "graph", "value": "AgentIdentity.Read.All", "why": "Agent identities and their sponsors" },
+        { "resource": "graph", "value": "User.ReadBasic.All", "why": "Agent users and sponsors (basic profile only)" },
+        { "resource": "graph", "value": "AgentInstance.Read.All", "why": "Agent 365 registry (optional, needs the licence)" },
+        { "resource": "graph", "value": "Policy.Read.All", "why": "Conditional Access policies and security defaults" }
+      ]
+    },
+    {
+      "id": "Access",
+      "default": false,
+      "module": "access",
+      "name": "Access: admin roles – active, eligible via PIM, requestable via access packages (Entra ID and Intune)",
+      "permissions": [
+        { "resource": "graph", "value": "RoleManagement.Read.Directory", "why": "Entra role definitions and assignments" },
+        { "resource": "graph", "value": "RoleAssignmentSchedule.Read.Directory", "why": "PIM: active and activated assignments" },
+        { "resource": "graph", "value": "RoleEligibilitySchedule.Read.Directory", "why": "PIM: eligible assignments" },
+        { "resource": "graph", "value": "PrivilegedEligibilitySchedule.Read.AzureADGroup", "why": "PIM for groups" },
+        { "resource": "graph", "value": "EntitlementManagement.Read.All", "why": "Access packages and their policies" },
+        { "resource": "graph", "value": "DeviceManagementRBAC.Read.All", "why": "Intune roles" },
+        { "resource": "graph", "value": "Directory.Read.All", "why": "Resolve role holders of any type (users, groups, service principals)" }
+      ]
+    }
+  ]
+}

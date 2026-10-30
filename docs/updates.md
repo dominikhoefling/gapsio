@@ -1,0 +1,70 @@
+# Updates
+
+Wardline **never updates itself**. You decide when a new version goes into your tenant.
+
+## How you learn about a new release
+
+- Once a day the Function App asks the GitHub releases API for the latest Wardline release. It is an anonymous GET
+  request – **no tenant data is sent**. The result is stored in your storage account.
+- Administrators see **"Update available: x.y.z"** in the portal sidebar, linked to the release notes.
+- Turn the check off with the app setting `WL_UPDATE_CHECK=false` (or the Bicep parameter `updateCheck=false`).
+- You can also watch the GitHub repository (**Watch › Custom › Releases**) to get an e-mail for every release.
+
+## Updating
+
+```powershell
+az login
+./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -CheckOnly   # what would change
+./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline              # update to the latest release
+./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -Version 0.5.0
+```
+
+Role needed: Contributor (or Website Contributor) on the resource group. The script
+
+1. finds the Wardline Function App and reads the installed version and features,
+2. downloads the release assets from GitHub,
+3. verifies the **SHA256 checksums** – and the **build provenance attestation** if the GitHub CLI (`gh`) is installed,
+4. checks whether the release needs **additional permissions** for your features (reported; granted only with
+   `-GrantPermissions`, which needs Privileged Role Administrator),
+5. checks whether the release **changes the Azure resources** – if so, it tells you to run `Install-Wardline.ps1` from
+   the new release with your usual parameters (idempotent, keeps data and settings),
+6. deploys the new function package. Data, history, settings and permissions stay as they are.
+
+If the deployment fails, the previous version keeps running.
+
+## Offline / air-gapped
+
+Download `wardline-functionapp.zip`, `SHA256SUMS`, `permissions.json` and `release.json` from the release into one
+folder and run:
+
+```powershell
+./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -PackagePath ./release/wardline-functionapp.zip
+```
+
+## Verify a release yourself
+
+```powershell
+gh attestation verify wardline-functionapp.zip --repo OWNER/wardline
+Get-FileHash -Algorithm SHA256 wardline-functionapp.zip   # compare with SHA256SUMS
+```
+
+## Versioning
+
+Wardline uses [semantic versioning](https://semver.org/):
+
+| Change | Example | What to expect |
+|---|---|---|
+| Patch | 0.4.0 → 0.4.1 | Bug fixes only. No new permissions, no template changes. |
+| Minor | 0.4.x → 0.5.0 | New features. May need new permissions or a template update – the update script tells you. |
+| Major | 0.x → 1.0 | Breaking changes, described in the release notes. |
+
+Release assets (same names in every release, so `releases/latest/download/<name>` always works):
+
+| Asset | Used for |
+|---|---|
+| `wardline.zip` | New installation (setup scripts, template, function package) |
+| `wardline-functionapp.zip` | Code update, Deploy to Azure button |
+| `azuredeploy.json` | Deploy to Azure button, template change detection |
+| `permissions.json` | Permission check of the update script |
+| `release.json` | Version and template hash |
+| `SHA256SUMS` | Checksums of all assets |
