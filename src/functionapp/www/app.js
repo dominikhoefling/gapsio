@@ -190,6 +190,7 @@
     'ch.lede': ['What changed between two runs. Every run is also kept as a dated snapshot in your company’s storage account.', 'Was sich zwischen zwei Läufen verändert hat. Jeder Lauf wird zusätzlich als datierter Snapshot im Storage Account Ihres Unternehmens aufbewahrt.'],
     'ch.kind': ['Kind', 'Art'], 'ch.area': ['Area', 'Bereich'], 'ch.what': ['What', 'Was'], 'ch.before': ['Before', 'Vorher'], 'ch.after': ['After', 'Nachher'],
     'ch.Added': ['Added', 'Neu'], 'ch.Changed': ['Changed', 'Geändert'], 'ch.Removed': ['Removed', 'Entfernt'], 'ch.Other': ['Not broken down', 'Ohne Aufschlüsselung'],
+    'ch.state.present': ['present on device', 'auf dem Gerät vorhanden'], 'ch.state.removed': ['removed', 'entfernt'],
     'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
     'ch.areas': ['By area', 'Nach Bereich'],
     'v.license': ['Licence', 'Lizenz'],
@@ -581,9 +582,11 @@
     const b = split(before), a = split(after);
     return { before: mark(b, bag(a), 'del'), after: mark(a, bag(b), 'ins') };
   }
+  const stateText = (v) => v === 'present' ? t('ch.state.present') : v === 'removed' ? t('ch.state.removed') : (v || '–');
   function changeCells(r) {
-    if (r.change === 'Added') return { before: h('span', { class: 'muted' }, '–'), after: h('span', { class: 'diff ins-all' }, r.after || '–') };
-    if (r.change === 'Removed') return { before: h('span', { class: 'diff del-all' }, r.before || '–'), after: h('span', { class: 'muted' }, '–') };
+    // Added: After shows the new state in green. Removed: Before shows what was there, After says "removed" in red.
+    if (r.change === 'Added') return { before: h('span', { class: 'muted' }, '–'), after: h('span', { class: 'diff ins-all' }, stateText(r.after)) };
+    if (r.change === 'Removed') return { before: h('span', null, stateText(r.before)), after: h('span', { class: 'diff del-all' }, t('ch.state.removed')) };
     const d = diffParts(r.before, r.after);
     return { before: h('span', { class: 'diff' }, d.before), after: h('span', { class: 'diff' }, d.after) };
   }

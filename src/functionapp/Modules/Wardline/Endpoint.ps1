@@ -900,7 +900,7 @@ function Update-WlLocalExclusionState {
         $s.label = if ($s.origin -eq 'GPO') { New-WlText "GPO $(Get-WlTypeName $s.type) exclusion '$($s.value)' on $($s.deviceName)" "GPO-$(Get-WlTypeName $s.type -De)-Exclusion '$($s.value)' auf $($s.deviceName)" }
         else { New-WlText "Local $(Get-WlTypeName $s.type) exclusion '$($s.value)' on $($s.deviceName)" "Lokale $(Get-WlTypeName $s.type -De)-Exclusion '$($s.value)' auf $($s.deviceName)" }
         $s.state = if ($s.present) { 'present' } else { 'removed' }
-        $s.fp = Get-WlHash "$($s.present)|$($s.removedAt)"
+        $s.fp = Get-WlHash "$($s.present)"
         [pscustomobject]$s
     }
     @($out)

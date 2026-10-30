@@ -597,24 +597,39 @@ function Compare-WlCollection {
     <#
     .SYNOPSIS
     Compares two collections by 'key' and 'fp' (fingerprint) and returns the changes.
+    Items with a presence lifecycle (boolean 'present', e.g. local exclusions that stay in the list for 90 days
+    after removal) are reported in plain words: appearing or coming back = Added, disappearing from the device =
+    Removed. Bookkeeping changes on an already removed entry and its final clean-up are not changes.
     #>
     param([string]$Module, [string]$Name, [object[]]$Old, [object[]]$New, [string]$At)
     $changes = [System.Collections.Generic.List[object]]::new()
     $oldMap = @{}; foreach ($o in @($Old)) { if ($o -and (Get-WlProp $o 'key')) { $oldMap[[string]$o.key] = $o } }
     $newMap = @{}; foreach ($n in @($New)) { if ($n -and (Get-WlProp $n 'key')) { $newMap[[string]$n.key] = $n } }
+    $presence = { param($x) $p = Get-WlProp $x 'present'; if ($null -eq $p) { $null } else { [bool]$p } }
 
     foreach ($k in $newMap.Keys) {
         $n = $newMap[$k]
+        $np = & $presence $n
         if (-not $oldMap.ContainsKey($k)) {
+            if ($np -eq $false) { continue }   # first seen already removed: history, not a change
             $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Added'; label = (Get-WlProp $n 'label'); before = $null; after = (Get-WlProp $n 'state') })
+            continue
         }
-        elseif ([string](Get-WlProp $oldMap[$k] 'fp') -ne [string](Get-WlProp $n 'fp')) {
-            $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Changed'; label = (Get-WlProp $n 'label'); before = (Get-WlProp $oldMap[$k] 'state'); after = (Get-WlProp $n 'state') })
+        $o = $oldMap[$k]
+        $op = & $presence $o
+        if ($null -ne $np -and $null -ne $op) {
+            if ($op -and -not $np) { $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Removed'; label = (Get-WlProp $n 'label'); before = (Get-WlProp $o 'state'); after = $null }) }
+            elseif (-not $op -and $np) { $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Added'; label = (Get-WlProp $n 'label'); before = $null; after = (Get-WlProp $n 'state') }) }
+            continue
+        }
+        if ([string](Get-WlProp $o 'fp') -ne [string](Get-WlProp $n 'fp')) {
+            $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Changed'; label = (Get-WlProp $n 'label'); before = (Get-WlProp $o 'state'); after = (Get-WlProp $n 'state') })
         }
     }
     foreach ($k in $oldMap.Keys) {
         if (-not $newMap.ContainsKey($k)) {
             $o = $oldMap[$k]
+            if ((& $presence $o) -eq $false) { continue }   # clean-up of an entry that was already reported as removed
             $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Removed'; label = (Get-WlProp $o 'label'); before = (Get-WlProp $o 'state'); after = $null })
         }
     }

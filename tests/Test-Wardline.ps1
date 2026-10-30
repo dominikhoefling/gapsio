@@ -383,8 +383,8 @@ $agentFx = @{
     policies = @(
         [pscustomobject]@{ id = 'ca-1'; displayName = 'Agents: approved only'; state = 'enabled'; conditions = [pscustomobject]@{ clientApplications = [pscustomobject]@{ includeAgentIdServicePrincipals = @('All'); excludeAgentIdServicePrincipals = @('ai-3') }; applications = [pscustomobject]@{ includeApplications = @('All') } }; grantControls = [pscustomobject]@{ operator = 'OR'; builtInControls = @('block') } },
         [pscustomobject]@{ id = 'ca-2'; displayName = 'Agent users: compliant device'; state = 'enabledForReportingButNotEnforced'; conditions = [pscustomobject]@{ users = [pscustomobject]@{ includeUsers = @('AllAgentIdUsers'); excludeUsers = @('au-2') }; applications = [pscustomobject]@{ includeApplications = @('All') } }; grantControls = [pscustomobject]@{ operator = 'OR'; builtInControls = @('compliantDevice') } },
-        [pscustomobject]@{ id = 'ca-3'; displayName = 'Alle Benutzer: MFA'; state = 'enabled'; conditions = [pscustomobject]@{ users = [pscustomobject]@{ includeUsers = @('All') }; applications = [pscustomobject]@{ includeApplications = @('All') } }; grantControls = [pscustomobject]@{ operator = 'OR'; builtInControls = @('mfa') } },
-        [pscustomobject]@{ id = 'ca-4'; displayName = 'Agents: Risiko hoch (aus)'; state = 'disabled'; conditions = [pscustomobject]@{ clientApplications = [pscustomobject]@{ includeAgentIdServicePrincipals = @('All') }; agentIdRiskLevels = @('high') }; grantControls = [pscustomobject]@{ builtInControls = @('block') } }
+        [pscustomobject]@{ id = 'ca-3'; displayName = 'All users: MFA'; state = 'enabled'; conditions = [pscustomobject]@{ users = [pscustomobject]@{ includeUsers = @('All') }; applications = [pscustomobject]@{ includeApplications = @('All') } }; grantControls = [pscustomobject]@{ operator = 'OR'; builtInControls = @('mfa') } },
+        [pscustomobject]@{ id = 'ca-4'; displayName = 'Agents: high risk (disabled)'; state = 'disabled'; conditions = [pscustomobject]@{ clientApplications = [pscustomobject]@{ includeAgentIdServicePrincipals = @('All') }; agentIdRiskLevels = @('high') }; grantControls = [pscustomobject]@{ builtInControls = @('block') } }
     )
 }
 $hunting.AgentsInfo = @(
@@ -823,6 +823,20 @@ $lastRun = $runIdx[0]
 Assert ($lastRun.drift.Removed -ge 1 -and ($lastRun.drift.Added + $lastRun.drift.Changed + $lastRun.drift.Removed) -eq $lastRun.changes) 'Run index: drift per kind'
 Assert ($null -ne $lastRun.findings.Critical -and ($lastRun.findings.High + $lastRun.findings.Critical + $lastRun.findings.Medium + $lastRun.findings.Low) -ge 1) 'Run index: open findings per severity'
 Assert ($lastRun.protection.devices -ge 4 -and $lastRun.protection.NetworkProtection.on -ge 1 -and $lastRun.protection.NetworkProtection.off -ge 1) 'Run index: devices per protection feature'
+& $mod {
+    param($A)
+    $mk = { param($k, $p, $rem) [pscustomobject]@{ key = $k; present = $p; removedAt = $rem; state = $(if ($p) { 'present' } else { 'removed' }); fp = (Get-WlHash "$p"); label = (New-WlText "x $k" "x $k") } }
+    $old = @((& $mk 'k1' $true $null), (& $mk 'k2' $false '2026-01-01'), (& $mk 'k3' $false '2026-01-01'), (& $mk 'k4' $true $null))
+    $new = @((& $mk 'k1' $false '2026-02-01'), (& $mk 'k2' $false '2026-02-02'), (& $mk 'k4' $true $null), (& $mk 'k5' $false '2026-02-01'), (& $mk 'k6' $true $null))
+    $c = @(Compare-WlCollection -Module 'endpoint' -Name 'localExclusions' -Old $old -New $new -At 'now')
+    & $A (@($c | Where-Object { $_.key -eq 'k1' -and $_.change -eq 'Removed' -and $_.before -eq 'present' -and $null -eq $_.after }).Count -eq 1) 'Lifecycle: present -> removed is reported as Removed'
+    & $A (@($c | Where-Object { $_.key -eq 'k2' }).Count -eq 0) 'Lifecycle: bookkeeping on an already removed entry is not a change'
+    & $A (@($c | Where-Object { $_.key -eq 'k3' }).Count -eq 0) 'Lifecycle: 90-day clean-up of a removed entry is not a change'
+    & $A (@($c | Where-Object { $_.key -eq 'k5' }).Count -eq 0) 'Lifecycle: entry first seen already removed is not Added'
+    & $A (@($c | Where-Object { $_.key -eq 'k6' -and $_.change -eq 'Added' -and $_.after -eq 'present' }).Count -eq 1 -and $c.Count -eq 2) 'Lifecycle: new present entry is Added, nothing else'
+    $c = @(Compare-WlCollection -Module 'endpoint' -Name 'localExclusions' -Old @((& $mk 'k1' $false '2026-01-01')) -New @((& $mk 'k1' $true $null)) -At 'now')
+    & $A ($c.Count -eq 1 -and $c[0].change -eq 'Added') 'Lifecycle: removed -> present again is Added'
+} ${function:Assert}
 
 Write-Host '== End-to-end: device inventory (optional)' -ForegroundColor Cyan
 Assert ($ep.localDetection -eq 'AdvancedHunting') 'Default: Advanced Hunting only'
