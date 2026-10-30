@@ -116,7 +116,7 @@ $fixtures = @{
         [pscustomobject]@{ id = 'pol-mac'; name = 'Defender macOS'; platforms = 'macOS'; technologies = 'mdm'; lastModifiedDateTime = '2026-08-01T10:00:00Z'; templateReference = $null },
         [pscustomobject]@{ id = 'pol-lnx'; name = 'Linux Global Exclusions'; platforms = 'linux'; technologies = 'microsoftSense'; lastModifiedDateTime = '2026-07-01T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Global Exclusions (AV+EDR)' } },
         [pscustomobject]@{ id = 'pol-edge'; name = 'Edge Settings'; platforms = 'windows10'; technologies = 'mdm'; lastModifiedDateTime = '2026-07-01T10:00:00Z'; templateReference = $null },
-        [pscustomobject]@{ id = 'pol-asr'; name = 'ASR Clients'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-10T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Attack Surface Reduction Rules' } },
+        [pscustomobject]@{ id = 'pol-asr'; name = 'ASR Clients'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-06-10T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Attack Surface Reduction Rules' } },
         [pscustomobject]@{ id = 'pol-asr2'; name = 'ASR Pilot'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-11T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Attack Surface Reduction Rules' } },
         [pscustomobject]@{ id = 'pol-lnx2'; name = 'Linux AV'; platforms = 'linux'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-12T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Antivirus' } }
     )
@@ -231,7 +231,7 @@ $now = [DateTime]::UtcNow
 function T { param([int]$DaysAgo) $now.AddDays(-$DaysAgo).ToString('o') }
 $hunting = @{
     DeviceInfo = @(
-        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; ManagedBy = 'Intune'; LastSeen = (T 0) },
         [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; LastSeen = (T 0) },
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; OSVersion = '15.6'; MachineGroup = 'Mac'; DeviceType = 'Workstation'; LastSeen = (T 0) },
         [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) },
@@ -631,6 +631,11 @@ Assert (@($upd | Where-Object { $_.title.en -match 'supported window' -and $_.de
 Assert (@($upd | Where-Object { $_.title.en -match 'Security intelligence older' -and $_.deviceName -eq 'WIN-02' -and $_.severity -eq 'High' }).Count -eq 1) 'Updates: WIN-02 signatures 10 days old'
 Assert (@($upd | Where-Object { $_.title.en -match 'Security intelligence older' }).Count -eq 1) 'Updates: only one signature-age finding'
 Assert (@($upd | Where-Object { $_.title.en -match 'update rings' }).Count -eq 0) 'Updates: ring findings suppressed for small fleets'
+# Inventory findings (grouping, duplicates, management channel, eternal audit)
+$inv = @($f | Where-Object { $_.category -eq 'Inventory' })
+Assert (@($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' -and $_.managedBy -eq 'Intune' }).Count -eq 1) 'Inventory: ManagedBy collected from DeviceInfo'
+Assert (@($inv | Where-Object { $_.title.en -match 'device group|Duplicate|management channel' }).Count -eq 0) 'Inventory: clean fixture -> no grouping/duplicate/unmanaged findings'
+Assert (@($inv | Where-Object { $_.title.en -match '^ASR rule in audit mode for 1\d\d\+ days' }).Count -eq 1) 'Inventory: eternal audit for pol-asr (psexec-wmi), not for the 59-day-old pol-win'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
 # ASR
 $asr = @{}; foreach ($x in $ep.asrRules) { $asr[$x.id] = $x }
@@ -1004,6 +1009,31 @@ Write-Host '== Update rings (unit)' -ForegroundColor Cyan
     $u = @(Get-WlUpdateFindings -Devices $devs -SettingValues @())
     & $A (@($u | Where-Object { $_.title.en -match 'supported window' -and $_.severity -eq 'High' -and $_.deviceName -eq 'RING-1' }).Count -eq 1) 'Platform: 10 months behind -> High'
     & $A (@($u | Where-Object { $_.title.en -match 'sprawl' }).Count -eq 1) 'Platform: 4 releases across 12 devices -> sprawl'
+} ${function:Assert}
+
+Write-Host '== Inventory hygiene (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $devs = @{}
+    $mk = { param($id, $name, $os, $grp, $aad, $mb) $d = New-WlDevice -Id $id -Name $name -Os $os; $d.deviceGroup = $grp; $d.aadDeviceId = $aad; $d.managedBy = $mb; $devs[$id] = $d }
+    & $mk 'a' 'PC-1' 'Windows11' 'Clients' 'aad-1' 'Intune'
+    & $mk 'a-old' 'PC-1' 'Windows11' 'Clients' 'aad-1' 'Intune'
+    & $mk 'b' 'pc-2.contoso.local' 'Windows11' 'Clients' $null 'MicrosoftDefenderForEndpoint'
+    & $mk 'b2' 'PC-2' 'Windows11' 'Clients' $null 'ConfigMgr'
+    & $mk 'c' 'KIOSK-1' 'Windows11' 'UnassignedGroup' $null 'Unknown'
+    & $mk 'd' 'MAC-1' 'macOS' '' $null 'Unknown'
+    $sv = @([pscustomobject]@{ definitionId = 'x'; value = 'x_1'; assignments = @('All'); policyId = 'p'; policyName = 'P' })
+    $i = @(Get-WlInventoryFindings -Devices $devs -SettingValues $sv -Asr $null)
+    & $A (@($i | Where-Object { $_.title.en -eq '2 onboarded device(s) not in any device group' -and $_.detail.en -match 'KIOSK-1' -and $_.detail.en -match 'MAC-1' }).Count -eq 1) 'Inventory: ungrouped (empty + UnassignedGroup)'
+    & $A (@($i | Where-Object { $_.title.en -eq 'Duplicate device records: PC-1' }).Count -eq 1) 'Inventory: duplicate by Entra device ID'
+    & $A (@($i | Where-Object { $_.title.en -match 'Duplicate device records: pc-2' }).Count -eq 1) 'Inventory: duplicate by short name, case/FQDN-insensitive'
+    & $A (@($i | Where-Object { $_.title.en -match 'without a management channel' -and $_.detail.en -match 'KIOSK-1' -and $_.detail.en -notmatch 'MAC-1' }).Count -eq 1) 'Inventory: unmanaged Windows only'
+    $devs.Remove('c'); $devs.Remove('d'); $devs.Remove('a-old'); $devs.Remove('b2')
+    $i = @(Get-WlInventoryFindings -Devices $devs -SettingValues $sv -Asr $null)
+    & $A ($i.Count -eq 0) 'Inventory: clean fleet -> nothing'
+    $devs['a'].deviceGroup = ''; $devs['b'].deviceGroup = ''
+    $i = @(Get-WlInventoryFindings -Devices $devs -SettingValues $sv -Asr $null)
+    & $A (@($i | Where-Object { $_.title.en -match 'device group' }).Count -eq 0) 'Inventory: no groups used at all -> no ungrouped finding'
 } ${function:Assert}
 
 Write-Host '== Versions and update check' -ForegroundColor Cyan
