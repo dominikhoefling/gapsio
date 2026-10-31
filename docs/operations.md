@@ -13,11 +13,15 @@ Set by the install script; change them in the Function App configuration or via 
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `WL_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`) – derived from `-Features` |
+| `WL_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`) – derived from `-Features` |
 | `WL_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `inventory`) – derived from `-Features` |
 | `WL_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `WL_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
 | `WL_SCHEDULE_ACCESS` | `0 47 2 * * *` | Schedule of the access collection |
+| `WL_SCHEDULE_LICENSING` | `0 17 3 * * *` | Schedule of the licensing collection |
+| `WL_LICENSING_DAYS` | `30` | Observation window for device logons (7–90, [Licensing module](modules/licensing.md)) |
+| `WL_LICENSING_DEVICES_PER_USER` | `5` | Devices covered per user licence |
+| `WL_LICENSING_DETAIL` | `users` | `users` keeps UPNs in the licensing snapshot, `aggregate` pseudonymises them |
 | `WL_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-ChangeRetentionDays`) |
 | `WL_SNAPSHOT_RETENTION_DAYS` | `365` | Retention of the snapshots (`-SnapshotRetentionDays`); informational – the storage lifecycle rule enforces it |
 | `WL_DEVICE_INVENTORY` | `false` | Device inventory via Intune Remediations (`-DeviceInventory`) |

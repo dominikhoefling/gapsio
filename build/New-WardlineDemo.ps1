@@ -42,9 +42,10 @@ New-Item -ItemType Directory -Force -Path $demo | Out-Null
 Copy-Item -Path (Join-Path $root 'src/functionapp/www/*') -Destination $demo -Recurse -Force
 $read = { param($n) $p = Join-Path $tmp $n; if (Test-Path $p) { Get-Content -Raw $p | ConvertFrom-Json -Depth 64 } else { $null } }
 $data = [ordered]@{
-    me       = [ordered]@{ oid = 'u-alice'; upn = 'alice.demo@contoso.example'; displayName = 'Alice (Demo)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1')).ModuleVersion }
+    me       = [ordered]@{ oid = 'u-alice'; upn = 'alice.demo@contoso.example'; displayName = 'Alice (Demo)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents', 'licensing'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Wardline/Wardline.psd1')).ModuleVersion }
     endpoint = & $read 'endpoint-latest.json'
     agents   = & $read 'agents-latest.json'
+    licensing = & $read 'licensing-latest.json'
     runs     = @(& $read 'runs.json')
     changes  = @(& $read 'endpoint-changes.json')
     acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }

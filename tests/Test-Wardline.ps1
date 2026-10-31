@@ -202,6 +202,11 @@ $fixtures = @{
         [pscustomobject]@{ id = 'int-ios'; deviceName = 'iPhone'; operatingSystem = 'iOS'; azureADDeviceId = 'AAD-IOS'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-1).ToString("o")); userPrincipalName = 'dave@contoso.com' }
     )
     healthScripts = @([pscustomobject]@{ id = 'hs1'; displayName = 'Wardline – local Defender exclusions (read-only)' }, [pscustomobject]@{ id = 'hs2'; displayName = 'Other script' })
+    skus = @(
+        [pscustomobject]@{ skuId = 'sku-p2'; skuPartNumber = 'WIN_DEF_ATP'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 12; prepaidUnits = [pscustomobject]@{ enabled = 10; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; provisioningStatus = 'Success' }) },
+        [pscustomobject]@{ skuId = 'sku-p1'; skuPartNumber = 'DEFENDER_ENDPOINT_P1'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 1; prepaidUnits = [pscustomobject]@{ enabled = 5; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = '292cc034-7b7c-4950-aaf5-943befd3f1d4'; servicePlanName = 'MDE_LITE'; provisioningStatus = 'Success' }) },
+        [pscustomobject]@{ skuId = 'sku-e3'; skuPartNumber = 'SPE_E3'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 50; prepaidUnits = [pscustomobject]@{ enabled = 60 }; servicePlans = @([pscustomobject]@{ servicePlanId = '00000000-0000-0000-0000-00000000aaaa'; servicePlanName = 'EXCHANGE_S_ENTERPRISE' }) }
+    )
     runStates = @(
         [pscustomobject]@{ lastStateUpdateDateTime = [DateTime]::UtcNow.AddMinutes(-30).ToString('o'); managedDevice = [pscustomobject]@{ deviceName = 'WIN-01'; azureADDeviceId = 'aad-win1' }
             preRemediationDetectionScriptOutput = '{"v":1,"m":1,"tp":0,"rm":"Normal","n":2,"tr":0,"x":[["P","L","C:\\Users\\Public\\x"],["P","L","C:\\Legacy\\Tool"]]}' },
@@ -244,6 +249,21 @@ $hunting = @{
     Tampering = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Attempts = 3; Last = (T 1); Name = 'WIN-01' },
         [pscustomobject]@{ DeviceId = 'd-win3'; Attempts = 12; Last = (T 1); Name = 'SRV-01' }
+    )
+    ThirdPartyAv = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; Products = '["CrowdStrike Falcon Sensor"]' },
+        [pscustomobject]@{ DeviceId = 'd-win2'; Products = @('SentinelOne Sentinel Agent') }
+    )
+    LicDevices = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; MachineGroup = 'Clients'; LastSeen = (T 0); LoggedOnUsers = '[{"UserName":"alice","DomainName":"CONTOSO"}]' },
+        [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN2'; MachineGroup = 'Clients'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; DeviceType = 'Workstation'; MachineGroup = 'Mac'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; DeviceType = 'Server'; MachineGroup = 'Server'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-lnx1'; DeviceName = 'LNX-01'; OSPlatform = 'Linux'; DeviceType = 'Server'; MachineGroup = 'Server'; LastSeen = (T 0) }
+    )
+    LicLogons = @(
+        [pscustomobject]@{ DeviceId = 'd-win2'; AccountName = 'zed'; Logons = 4; Last = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-mac1'; AccountName = 'hank'; Logons = 2; Last = (T 2) }
     )
     AsrInfo = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Asr = '{"LsassCredentialTheft":"Block","ObfuscatedScript":"Audit","OfficeChildProcess":"Warn","VulnerableSignedDriver":"Off","BlockWebshellCreation":""}' },
@@ -319,10 +339,10 @@ $hunting = @{
 
 # Access
 $users = @{
-    'u-alice' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-alice'; userPrincipalName = 'alice@contoso.com'; displayName = 'Alice'; userType = 'Member' }
-    'u-bob'   = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-bob'; userPrincipalName = 'bob@contoso.com'; displayName = 'Bob'; userType = 'Member' }
-    'u-carol' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-carol'; userPrincipalName = 'carol@contoso.com'; displayName = 'Carol'; userType = 'Member' }
-    'u-dave'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-dave'; userPrincipalName = 'dave@contoso.com'; displayName = 'Dave'; userType = 'Member' }
+    'u-alice' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-alice'; userPrincipalName = 'alice@contoso.com'; displayName = 'Alice'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Enabled' }) }
+    'u-bob'   = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-bob'; userPrincipalName = 'bob@contoso.com'; displayName = 'Bob'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '292cc034-7b7c-4950-aaf5-943befd3f1d4'; servicePlanName = 'MDE_LITE'; capabilityStatus = 'Enabled' }) }
+    'u-carol' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-carol'; userPrincipalName = 'carol@contoso.com'; displayName = 'Carol'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Enabled' }) }
+    'u-dave'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-dave'; userPrincipalName = 'dave@contoso.com'; displayName = 'Dave'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Deleted' }) }
     'u-erin'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-erin'; userPrincipalName = 'erin@contoso.com'; displayName = 'Erin'; userType = 'Member' }
     'u-frank' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-frank'; userPrincipalName = 'frank@contoso.com'; displayName = 'Frank'; userType = 'Member' }
     'u-gina'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-gina'; userPrincipalName = 'gina@contoso.com'; displayName = 'Gina'; userType = 'Member' }
@@ -548,6 +568,9 @@ $queue = [System.Collections.Generic.List[string]]::new()
             elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
             elseif ($q -match '// WardlineFleetTroubleshooting') { $script:Hunt.Troubleshooting }
             elseif ($q -match '// WardlineFleetTampering') { $script:Hunt.Tampering }
+            elseif ($q -match '// WardlineThirdPartyAv') { $script:Hunt.ThirdPartyAv }
+            elseif ($q -match '// WardlineLicensingDevices') { $script:Hunt.LicDevices }
+            elseif ($q -match '// WardlineLicensingLogons') { $script:Hunt.LicLogons }
             elseif ($q -match '// WardlineUsage') { $script:Hunt.Usage }
             elseif ($q -match '// WardlineNetworkProtection') { $script:Hunt.NpEvents }
             elseif ($q -match 'startswith "Windows"') { $script:Hunt.TvmWin }
@@ -572,7 +595,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
         if ($Uri -match 'api.securitycenter.microsoft.com/api/alerts') { return (V $script:Fx.mdeAlerts) }
         if ($Uri -match 'api.securitycenter.microsoft.com/api/machines\?') {
             if ($Uri -notmatch "healthStatus eq 'Inactive' and lastSeen lt ") { throw "machines filter unexpected: $Uri" }
-            return (V @([pscustomobject]@{ id = 'd-old9'; computerDnsName = 'OLD-09'; osPlatform = 'Windows10'; lastSeen = (T 120); rbacGroupName = 'Clients'; onboardingStatus = 'Onboarded'; healthStatus = 'Inactive' }))
+            return (V @([pscustomobject]@{ id = 'd-old9'; computerDnsName = 'OLD-09'; osPlatform = 'Windows10'; lastSeen = ([DateTime]::UtcNow.AddDays(-120).ToString('o')); rbacGroupName = 'Clients'; onboardingStatus = 'Onboarded'; healthStatus = 'Inactive' }))
         }
 
         $path = ($Uri -replace '^https://graph.microsoft.com/(v1.0|beta)/', '')
@@ -588,6 +611,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
             }
             '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-WlHttpException -Status 404 -Message 'HTTP 404 Not Found') }; return (V $script:Fx.agents.registry) }
             '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
+            '^subscribedSkus' { return (V $script:Fx.skus) }
+            '^users\?\$select=id,userPrincipalName,displayName,accountEnabled,userType,assignedPlans' { return (V @($script:Users.Values)) }
             '^identity/conditionalAccess/policies' { return (V $script:Fx.agents.policies) }
             '^policies/identitySecurityDefaultsEnforcementPolicy' { return [pscustomobject]@{ isEnabled = $false } }
             "^deviceManagement/configurationSettings\('([^']+)'\)" { if ($script:Fx.definitions.ContainsKey($Matches[1])) { return $script:Fx.definitions[$Matches[1]] }; throw (New-WlHttpException -Status 404 -Message 'nf') }
@@ -700,6 +725,13 @@ Assert (@($flt | Where-Object { $_.title.en -match 'without a device tag' }).Cou
 Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) inactive for 90+ days still in the inventory' -and $_.detail.en -match 'OLD-09' }).Count -eq 1) 'Fleet: inactive devices from MDE API'
 Assert ($ep.summary.fleet.internetFacingHigh -eq 1 -and $ep.summary.fleet.tampering30d -eq 2 -and $ep.summary.fleet.troubleshootingActive -eq 1 -and $ep.summary.fleet.tvmExcluded -eq 1 -and $ep.summary.fleet.tagged -eq 2 -and $ep.summary.fleet.inactive90d -eq 1) "Fleet summary ($($ep.summary.fleet | ConvertTo-Json -Compress))"
 Assert (@($ep.inactiveDevices).Count -eq 1 -and $ep.inactiveDevices[0].deviceName -eq 'OLD-09') 'Fleet: inactive devices in snapshot'
+# Third-party AV/EDR (software inventory)
+$dw2 = @($ep.devices | Where-Object { $_.deviceName -eq 'WIN-02' })[0]
+Assert (@($dw1.thirdPartyAv) -contains 'CrowdStrike Falcon Sensor' -and @($dw2.thirdPartyAv) -contains 'SentinelOne Sentinel Agent' -and @($ds1.thirdPartyAv).Count -eq 0) 'Fleet: third-party products parsed (JSON string and array)'
+Assert (@($flt | Where-Object { $_.title.en -eq 'Third-party AV/EDR alongside active Defender Antivirus' -and $_.deviceName -eq 'WIN-01' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Fleet: third-party AV + Defender active -> Medium (WIN-01)'
+Assert (@($flt | Where-Object { $_.title.en -eq 'Third-party AV/EDR alongside active Defender Antivirus' -and $_.deviceName -eq 'WIN-02' }).Count -eq 0) 'Fleet: no double-AV finding when Defender is passive (WIN-02)'
+Assert (@($flt | Where-Object { $_.title.en -eq '2 onboarded device(s) with a third-party AV/EDR product' -and $_.deviceCount -eq 2 -and $_.detail.en -match 'CrowdStrike \(1\)' -and $_.detail.en -match '1 device\(s\) run Defender in passive' }).Count -eq 1) 'Fleet: aggregated third-party AV finding'
+Assert ($ep.summary.fleet.thirdPartyAv -eq 2) 'Fleet summary: thirdPartyAv count'
 # ASR
 $asr = @{}; foreach ($x in $ep.asrRules) { $asr[$x.id] = $x }
 Assert (@($ep.asrRules).Count -eq 19) "19 ASR rules expected, $(@($ep.asrRules).Count)"
@@ -1032,6 +1064,50 @@ $access.pimActivations['g1'] = @([pscustomobject]@{ groupId = 'g1'; principalId 
 $access.signIns = @([pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 2) }, [pscustomobject]@{ userId = 'u-gina'; createdDateTime = (T 10) })
 $e = @($ac.entitlements)
 
+Write-Host '== End-to-end: licensing (Defender for Endpoint)' -ForegroundColor Cyan
+$env:WL_MODULES = 'endpoint,agents,access,licensing'
+$rl = Invoke-WlLicensingCollection 6>$null
+$lic = $blobs['state/licensing-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($lic.module -eq 'licensing' -and $lic.scope -eq 'Defender for Endpoint') 'Licensing snapshot written'
+Assert ($lic.warnings.Count -eq 0) "Warnings in the licensing run: $($lic.warnings -join ' | ')"
+Assert (@($lic.skus).Count -eq 2 -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'SPE_E3' }).Count -eq 0) 'Only SKUs with an MDE plan are listed (E3 without MDE plan skipped)'
+$p2 = @($lic.skus | Where-Object { $_.skuPartNumber -eq 'WIN_DEF_ATP' })[0]
+Assert ($p2.tier -eq 'P2' -and $p2.enabled -eq 10 -and $p2.consumed -eq 12 -and -not $p2.isServer) 'P2 SKU: tier, units'
+Assert ($lic.summary.licensedUsers -eq 3 -and $lic.summary.usersP2 -eq 2 -and $lic.summary.usersP1 -eq 1) "Licensed users: $($lic.summary.licensedUsers) (P2 $($lic.summary.usersP2), P1 $($lic.summary.usersP1)) – Dave's deleted plan does not count"
+Assert ($lic.summary.servers -eq 2 -and $lic.summary.clients -eq 3) "Servers ($($lic.summary.servers)) are separated from clients ($($lic.summary.clients))"
+$lw1 = @($lic.devices | Where-Object { $_.deviceName -eq 'WIN-01' })[0]
+Assert ($lw1.state -eq 'Licensed' -and $lw1.licensedBy -eq 'alice@contoso.com' -and $lw1.confidence -eq 'Intune' -and $lw1.tier -eq 'P2') 'WIN-01 licensed via Intune primary user (exact match)'
+$lw2 = @($lic.devices | Where-Object { $_.deviceName -eq 'WIN-02' })[0]
+Assert ($lw2.state -eq 'Unlicensed' -and $lw2.confidence -eq 'Logon') 'WIN-02: only an unlicensed account (zed) logged on'
+$lm1 = @($lic.devices | Where-Object { $_.deviceName -eq 'MAC-01' })[0]
+Assert ($lm1.state -eq 'Unlicensed' -and $lm1.users[0].upn -eq 'hank' -and -not $lm1.users[0].tier) 'MAC-01: Hank (no MDE plan) seen by logon name, not licensed'
+Assert (@($lic.users | Where-Object { $_.upn -eq 'carol@contoso.com' })[0].state -eq 'NoDevice') 'Carol licensed but no device'
+Assert ($lic.summary.clientsUnlicensed -eq 2 -and $lic.summary.clientsLicensed -eq 1 -and $lic.summary.usersNoDevice -eq 2) "Licensing summary (unlicensed $($lic.summary.clientsUnlicensed), licensed $($lic.summary.clientsLicensed), noDevice $($lic.summary.usersNoDevice))"
+$lf = @($lic.findings)
+Assert (@($lf | Where-Object { $_.title.en -like 'More licences assigned than purchased: WIN_DEF_ATP' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: consumed > enabled'
+Assert (@($lf | Where-Object { $_.title.en -like '2 onboarded client(s) used only by users without*' -and $_.deviceCount -eq 2 }).Count -eq 1) 'Finding: unlicensed clients (aggregated with device count)'
+Assert (@($lf | Where-Object { $_.title.en -like '*licensed user(s) without an onboarded device*' }).Count -eq 1) 'Finding: licensed users without device'
+Assert (@($lf | Where-Object { $_.title.en -like '*covered only by Plan 1*' }).Count -eq 0) 'No P1 finding (Bob has no device)'
+Assert (@($lf | Where-Object { $_.title.en -like '2 onboarded server(s)*' }).Count -eq 1) 'Finding: servers without visible server SKU'
+Assert (@($lf | Where-Object { $_.category -ne 'Licensing' }).Count -eq 0) 'All licensing findings use category Licensing'
+Assert (@($lic.caveats).Count -ge 3 -and $lic.caveats[0].de) 'Caveats are bilingual'
+$env:WL_LICENSING_DETAIL = 'aggregate'
+$null = Invoke-WlLicensingCollection 6>$null
+$lic2 = $blobs['state/licensing-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($lic2.detail -eq 'aggregate' -and @($lic2.users | Where-Object { $_.upn -like '*@*' }).Count -eq 0 -and $null -eq $lic2.users[0].displayName) 'WL_LICENSING_DETAIL=aggregate pseudonymises users'
+$env:WL_LICENSING_DETAIL = $null
+$null = Invoke-WlLicensingCollection 6>$null
+# Unit: plan tier resolution by name and by ID, best tier
+& $mod {
+    param($A)
+    & $A ((Get-WlMdePlanTier ([pscustomobject]@{ servicePlanId = 'BFC1BBD9-981B-4F71-9B82-17C35FD0E2A4' })) -eq 'MDB') 'Plan tier by ID (case-insensitive)'
+    & $A ((Get-WlMdePlanTier ([pscustomobject]@{ servicePlanName = 'mde_lite' })) -eq 'P1') 'Plan tier by name'
+    & $A ($null -eq (Get-WlMdePlanTier ([pscustomobject]@{ servicePlanName = 'EXCHANGE_S_ENTERPRISE' }))) 'Non-MDE plan -> null'
+    & $A ((Get-WlBestTier @('P1', 'MDB', 'P2', $null)) -eq 'P2' -and (Get-WlBestTier @('P1', 'MDB')) -eq 'MDB') 'Best tier ranking'
+    $m = Get-WlLicensingModel -Skus @() -Users @() -Data @{ devices = @(); logons = @(); intune = @() }
+    & $A ($m.summary.clients -eq 0 -and @($m.findings).Count -eq 0) 'Empty model: no findings'
+} ${function:Assert}
+
 Write-Host '== API' -ForegroundColor Cyan
 Add-Type -TypeDefinition 'public class HttpResponseContext { public object StatusCode; public object Body; public string ContentType; public System.Collections.Hashtable Headers; }' -ErrorAction SilentlyContinue
 $script:resp = $null
@@ -1068,6 +1144,11 @@ $r = Call 'coverage' -Principal $adminP -Query @{ page = '0' }; Assert ([int]$r.
 $r = Call 'access/me' -Principal $userP; $m = $r.Body | ConvertFrom-Json
 Assert ([int]$r.StatusCode -eq 200 -and @($m.entitlements | Where-Object { $_.state -eq 'Requestable' }).Count -ge 1 -and @($m.audiences).Count -eq 1) 'My access for Hank (requestable + open package)'
 $r = Call 'agents' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'agents') 'Admin gets agents'
+$r = Call 'licensing' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'licensing') 'Admin gets licensing'
+$r = Call 'licensing' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on licensing'
+$env:WL_MODULES = 'endpoint,agents,access'
+$r = Call 'licensing' -Principal $adminP; Assert ([int]$r.StatusCode -eq 404) 'licensing route is 404 when the module is not enabled'
+$env:WL_MODULES = 'endpoint,agents,access,licensing'
 $r = Call 'changes' -Principal $adminP -Query @{ module = 'agents' }; Assert ([int]$r.StatusCode -eq 200) 'changes?module=agents'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' }; Assert ([int]$r.StatusCode -eq 400) 'POST without X-Wardline is rejected'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Wardline' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1) 'POST run creates a queue message'
@@ -1442,7 +1523,7 @@ $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without 
 
 if ($OutDir) {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-    foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
+    foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/licensing-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
     # The demo is static: the paged device collections are written inline again
     (Get-EpSnapshot) | ConvertTo-Json -Depth 64 -Compress | Set-Content -Path (Join-Path $OutDir 'endpoint-latest.json') -Encoding utf8
     (Call 'access/me' -Principal $userP) | Out-Null

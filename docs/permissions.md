@@ -13,6 +13,7 @@ the install, grant and app registration scripts all read it.
 | `Coverage` | on | Intune-managed devices that are not onboarded to Defender for Endpoint (sensor problems and device discovery need only `Hunting`) | Graph: `DeviceManagementManagedDevices.Read.All` |
 | `Agents` | on | Entra Agent ID, Agent 365 package catalog, Conditional Access coverage | Graph: `AgentIdentityBlueprint.Read.All`, `AgentIdentityBlueprintPrincipal.Read.All`, `AgentIdentity.Read.All`, `User.ReadBasic.All`, `CopilotPackages.Read.All`, `AgentInstance.Read.All` (legacy fallback), `Policy.Read.All` |
 | `Access` | off | Defender XDR unified RBAC: roles, assignments, data-source scope, PIM eligibility and activations, access packages, portal usage, Entra bypass roles | Graph: `RoleManagement.Read.Defender`, `RoleManagement.Read.Directory`, `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup`, `EntitlementManagement.Read.All`, `AuditLog.Read.All`, `Directory.Read.All` |
+| `Licensing` | off | Defender for Endpoint licence indication: plans owned, entitled users, onboarded client devices and their users ([Licensing module](modules/licensing.md)); needs `Hunting` | Graph: `Organization.Read.All`, `User.Read.All` |
 | `Inventory` | off | Device inventory via Intune Remediations (use `-DeviceInventory`) | Graph: `DeviceManagementScripts.Read.All`, `DeviceManagementManagedDevices.Read.All` |
 
 ```powershell

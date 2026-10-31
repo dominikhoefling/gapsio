@@ -40,13 +40,13 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
 }
 $modules = Get-WlModules
-$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } default { $null } }
+$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } '^licensing$' { 'licensing' } default { $null } }
 if ($routeModule -and $modules -notcontains $routeModule) {
     Send-Response -Status 404 -Body "The module '$routeModule' is not enabled in this installation."
     return
@@ -108,6 +108,7 @@ try {
         }
         'agents' { Send-Snapshot -Name 'agents-latest.json' }
         'access' { Send-Snapshot -Name 'access-latest.json' }
+        'licensing' { Send-Snapshot -Name 'licensing-latest.json' }
         'access/me' {
             $snap = Get-WlBlob -Container 'state' -Name 'access-latest.json'
             if (-not $snap) { Send-Response -Status 404 -Body 'No data yet.'; return }

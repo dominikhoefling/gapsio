@@ -77,6 +77,9 @@ param dataAppId string = ''
 @description('Module "Access" (PIM, roles, access packages). Optional, off by default.')
 param enableAccess bool = false
 
+@description('Module "Licensing" (Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices). Optional, off by default.')
+param enableLicensing bool = false
+
 @description('Daily check for a newer Wardline release (anonymous GET to the GitHub releases API, no tenant data). Wardline never updates itself.')
 param updateCheck bool = true
 
@@ -101,6 +104,9 @@ param scheduleEndpoint string = '0 17 2 * * *'
 @description('Schedule of the access module (NCRONTAB, UTC).')
 param scheduleAccess string = '0 47 2 * * *'
 
+@description('Schedule of the licensing module (NCRONTAB, UTC).')
+param scheduleLicensing string = '0 17 3 * * *'
+
 @description('Redundancy of the storage account.')
 @allowed([ 'Standard_LRS', 'Standard_ZRS', 'Standard_GRS' ])
 param storageSku string = 'Standard_LRS'
@@ -118,7 +124,7 @@ var deployIdentityName = empty(customDeployIdentityName) ? 'id-${namePrefix}-dep
 var planName = empty(customPlanName) ? 'plan-${namePrefix}-${suffix}' : customPlanName
 var logWorkspaceName = empty(customLogWorkspaceName) ? 'log-${namePrefix}-${suffix}' : customLogWorkspaceName
 var appInsightsName = empty(customAppInsightsName) ? 'appi-${namePrefix}-${suffix}' : customAppInsightsName
-var modules = 'endpoint${enableAgents ? ',agents' : ''}${enableAccess ? ',access' : ''}'
+var modules = 'endpoint${enableAgents ? ',agents' : ''}${enableAccess ? ',access' : ''}${enableLicensing ? ',licensing' : ''}'
 
 var roles = {
   storageBlobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
@@ -352,6 +358,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_STORAGE_SUFFIX', value: environment().suffixes.storage }
         { name: 'WL_SCHEDULE_ENDPOINT', value: scheduleEndpoint }
         { name: 'WL_SCHEDULE_ACCESS', value: scheduleAccess }
+        { name: 'WL_SCHEDULE_LICENSING', value: scheduleLicensing }
         { name: 'WL_CHANGE_RETENTION_DAYS', value: string(changeDays) }
         { name: 'WL_SNAPSHOT_RETENTION_DAYS', value: string(snapshotDays) }
         { name: 'WL_DEVICE_INVENTORY', value: deviceInventory ? 'true' : 'false' }
