@@ -1288,6 +1288,7 @@ function Test-WlBaselineValue {
         'lte' { return ($c -is [long]) -and $c -le [long](Get-WlProp $Expect 'value') }
         'range' { return ($c -is [long]) -and $c -ge [long](Get-WlProp $Expect 'min') -and $c -le [long](Get-WlProp $Expect 'max') }
         'match' { return ([string]$Value).ToLowerInvariant() -match [string](Get-WlProp $Expect 'pattern') }
+        'notmatch' { return ("$Display $Value").ToLowerInvariant() -notmatch [string](Get-WlProp $Expect 'pattern') }
         default { return $false }
     }
 }

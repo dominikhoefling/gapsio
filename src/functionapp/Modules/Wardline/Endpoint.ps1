@@ -36,7 +36,8 @@ function New-WlDevice {
         checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
         tags = @(); internetFacing = $null; tvmExcluded = $null; tvmExclusionReason = $null; assetValue = $null; transient = $null; mitigationStatus = $null; clientVersion = $null
         troubleshooting30d = 0; troubleshootingActive = $false; troubleshootingLast = $null; tampering30d = 0; tamperingLast = $null
-        thirdPartyAv = @()
+        thirdPartyAv = @(); osBuild = $null; connectivityType = $null; wsl = $null; wslPlugin = $null
+        quickScanDays = $null; fullScanDays = $null; fullScanNever = $null; avPlatformRing = $null; avSignatureRing = $null; avEngineRing = $null
     }
 }
 
@@ -488,18 +489,18 @@ function Get-WlDeviceStates {
     $qInfo = @"
 DeviceInfo
 | where Timestamp > ago(${days}d)
-| extend ManagedBy = column_ifexists("ManagedBy", "")
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers, ManagedBy,
+| extend ManagedBy = column_ifexists("ManagedBy", ""), ConnectivityType = column_ifexists("ConnectivityType", "")
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, OSBuild, ConnectivityType, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers, ManagedBy,
     ClientVersion, RegistryDeviceTag, DeviceManualTags, DeviceDynamicTags, IsInternetFacing, IsExcluded, ExclusionReason, AssetValue, IsTransient, MitigationStatus) by DeviceId
 | where isempty(OnboardingStatus) or OnboardingStatus == "Onboarded"
 | extend LastUser = tostring(parse_json(LoggedOnUsers)[0].UserName)
-| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp,
+| project DeviceId, DeviceName, OSPlatform, OSVersion, OSBuild = tostring(OSBuild), ConnectivityType, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp,
     ClientVersion, RegistryDeviceTag, DeviceManualTags, DeviceDynamicTags, IsInternetFacing = tostring(IsInternetFacing), IsExcluded = tostring(IsExcluded), ExclusionReason, AssetValue, IsTransient = tostring(IsTransient), MitigationStatus
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')) {
         if ($null -eq $r) { continue }
         $d = New-WlDevice -Id ([string]$r.DeviceId) -Name ([string]$r.DeviceName) -Os ([string]$r.OSPlatform)
-        $d.osVersion = [string]$r.OSVersion; $d.deviceGroup = [string]$r.MachineGroup; $d.deviceType = [string]$r.DeviceType
+        $d.osVersion = [string]$r.OSVersion; $d.osBuild = [string](Get-WlProp $r 'OSBuild'); $d.connectivityType = [string](Get-WlProp $r 'ConnectivityType'); $d.deviceGroup = [string]$r.MachineGroup; $d.deviceType = [string]$r.DeviceType
         $d.lastSeen = [string]$r.LastSeen; $d.aadDeviceId = [string]$r.AadDeviceId
         $d.sensorHealth = [string](Get-WlProp $r 'SensorHealthState'); $d.exposure = [string](Get-WlProp $r 'ExposureLevel')
         $d.joinType = [string](Get-WlProp $r 'JoinType'); $d.lastUser = [string](Get-WlProp $r 'LastUser'); $d.managedBy = [string](Get-WlProp $r 'ManagedBy')
@@ -621,7 +622,8 @@ DeviceTvmInfoGathering
 | summarize arg_max(Timestamp, AdditionalFields) by DeviceId
 | extend f = parse_json(AdditionalFields)
 | project DeviceId, AvMode = tostring(f.AvMode), AvSig = tostring(f.AvIsSignatureUptoDate), AvPlat = tostring(f.AvIsPlatformUptodate), AvEng = tostring(f.AvIsEngineUptoDate),
-    AvSigVer = tostring(f.AvSignatureVersion), AvEngVer = tostring(f.AvEngineVersion), AvPlatVer = tostring(f.AvPlatformVersion), AvSigTime = tostring(f.AvSignaturePublishTime)
+    AvSigVer = tostring(f.AvSignatureVersion), AvEngVer = tostring(f.AvEngineVersion), AvPlatVer = tostring(f.AvPlatformVersion), AvSigTime = tostring(f.AvSignaturePublishTime),
+    AvScan = tostring(f.AvScanResults), AvPlatRing = tostring(f.AvPlatformRing), AvSigRing = tostring(f.AvSignatureRing), AvEngRing = tostring(f.AvEngineRing)
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfoG -Context 'Advanced Hunting DeviceTvmInfoGathering')) {
         if ($null -eq $r) { continue }
@@ -635,6 +637,13 @@ DeviceTvmInfoGathering
         $devices[$id].engineUpToDate = [string]$r.AvEng
         $devices[$id].avSignatureVersion = [string](Get-WlProp $r 'AvSigVer'); $devices[$id].avEngineVersion = [string](Get-WlProp $r 'AvEngVer')
         $devices[$id].avPlatformVersion = [string](Get-WlProp $r 'AvPlatVer'); $devices[$id].avSignatureTime = [string](Get-WlProp $r 'AvSigTime')
+        $devices[$id].avPlatformRing = [string](Get-WlProp $r 'AvPlatRing'); $devices[$id].avSignatureRing = [string](Get-WlProp $r 'AvSigRing'); $devices[$id].avEngineRing = [string](Get-WlProp $r 'AvEngRing')
+        $scan = [string](Get-WlProp $r 'AvScan')
+        if ($scan -and $scan -notin '{}', 'null') {
+            $devices[$id].quickScanDays = Get-WlScanAge -ScanResults $scan -Kind 'Quick'
+            $devices[$id].fullScanDays = Get-WlScanAge -ScanResults $scan -Kind 'Full'
+            $devices[$id].fullScanNever = ($null -eq $devices[$id].fullScanDays)
+        }
     }
 
     $qAlerts = @"
@@ -844,6 +853,315 @@ function Get-WlFleetFindings {
         $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($inactive.Count) device(s) inactive for 90+ days still in the inventory" "$($inactive.Count) Gerät(e) seit 90+ Tagen inaktiv, aber noch im Inventar") `
                     -Detail (& $T "These onboarded devices have not reported to Defender for at least 90 days: $(& $names $inactive). They keep counting against device groups, reports and licences, and a stale record can mask a re-imaged device with the same name." "Diese onboardeten Geräte haben sich seit mindestens 90 Tagen nicht bei Defender gemeldet: $(& $names $inactive). Sie zählen weiter in Gerätegruppen, Berichten und Lizenzen, und ein veralteter Datensatz kann ein neu installiertes Gerät gleichen Namens verdecken.") `
                     -Recommendation (& $T 'Offboard retired devices (offboarding package or API) and remove them from Intune/Entra; keep an offboarding step in the decommissioning process.' 'Ausgemusterte Geräte offboarden (Offboarding-Paket oder API) und aus Intune/Entra entfernen; einen Offboarding-Schritt in den Außerbetriebnahme-Prozess aufnehmen.') -Subject 'fleet|inactive90' -StableKey))
+    }
+    @($f.ToArray())
+}
+#endregion
+
+#region Device hygiene (OS support, scans, connectivity, WSL, ASR telemetry, threat actions)
+# End of servicing (Microsoft lifecycle). Windows 10 LTSC 2019/2021 (builds 17763/19044) stay supported, so Windows 10
+# is only flagged for other builds. Dates are the end of standard support; ESU can extend Windows 10 and Server 2012/R2.
+$script:WlOsEndOfSupport = @(
+    @{ platform = 'Windows7'; name = 'Windows 7'; end = '2020-01-14' }
+    @{ platform = 'Windows8'; name = 'Windows 8'; end = '2016-01-12' }
+    @{ platform = 'Windows8.1'; name = 'Windows 8.1'; end = '2023-01-10' }
+    @{ platform = 'Windows10'; name = 'Windows 10'; end = '2025-10-14'; keepBuilds = @(17763, 19044) }
+    @{ platform = 'Windows11'; name = 'Windows 11 21H2'; end = '2024-10-08'; builds = @(22000) }
+    @{ platform = 'Windows11'; name = 'Windows 11 22H2'; end = '2025-10-14'; builds = @(22621) }
+    @{ platform = 'Windows11'; name = 'Windows 11 23H2'; end = '2026-11-10'; builds = @(22631) }
+    @{ platform = 'WindowsServer2008R2'; name = 'Windows Server 2008 R2'; end = '2020-01-14' }
+    @{ platform = 'WindowsServer2012'; name = 'Windows Server 2012'; end = '2023-10-10' }
+    @{ platform = 'WindowsServer2012R2'; name = 'Windows Server 2012 R2'; end = '2023-10-10' }
+    @{ platform = 'WindowsServer2016'; name = 'Windows Server 2016'; end = '2027-01-12' }
+)
+
+function Get-WlOsSupportState {
+    <#
+    .SYNOPSIS
+    End-of-support entry for a device (DeviceInfo OSPlatform + OSBuild), or $null when supported/unknown.
+    macOS is rated relative to the newest major version in the tenant (Defender supports the current and two previous releases).
+    #>
+    param($Device, [int]$NewestMacMajor)
+    $os = [string]$Device.os; $build = 0
+    [void][int]::TryParse(([string]$Device.osBuild), [ref]$build)
+    foreach ($e in $script:WlOsEndOfSupport) {
+        if ($e.platform -ne $os) { continue }
+        if ($e.builds -and $build -notin $e.builds) { continue }
+        if ($e.keepBuilds -and $build -in $e.keepBuilds) { return $null }
+        return [pscustomobject]@{ name = $e.name; end = $e.end }
+    }
+    if ($os -eq 'macOS' -and $NewestMacMajor -gt 0) {
+        $major = 0; if ([string]$Device.osVersion -match '^(\d+)') { $major = [int]$Matches[1] }
+        # Apple jumped from 15 (Sequoia) to 26 (Tahoe): compare release ranks, not version numbers
+        $rank = { param($m) if ($m -ge 26) { $m - 10 } else { $m } }
+        if ($major -gt 0 -and (& $rank $major) -lt ((& $rank $NewestMacMajor) - 2)) { return [pscustomobject]@{ name = "macOS $major"; end = 'n-2' } }
+    }
+    $null
+}
+
+function Get-WlHygieneFacts {
+    <#
+    .SYNOPSIS
+    Additional device facts from Advanced Hunting (documented tables, tolerant field access):
+      - ASR telemetry per rule (DeviceEvents Asr*Audited / Asr*Blocked, 30 days): events, devices, top processes
+      - WSL installed without the Defender for Endpoint plug-in for WSL (DeviceTvmSoftwareInventory)
+      - threat default actions set to Allow / NoAction in the registry (DeviceRegistryEvents, Windows Defender\Threats)
+    #>
+    param([hashtable]$Devices)
+    $qAsr = @"
+// WardlineAsrTelemetry
+DeviceEvents
+| where Timestamp > ago(30d)
+| where ActionType startswith "Asr" and (ActionType endswith "Audited" or ActionType endswith "Blocked")
+| extend Rule = replace_regex(ActionType, @"^Asr|(Audited|Blocked)$", ""), Kind = iff(ActionType endswith "Audited", "Audited", "Blocked")
+| summarize Events = count(), Devices = dcount(DeviceId) by Rule, Kind, Proc = tolower(InitiatingProcessFileName)
+| order by Events desc
+| summarize Events = sum(Events), Devices = max(Devices), Top = make_list(strcat(Proc, " (", Events, ")"), 5) by Rule, Kind
+"@
+    $byKey = @{}; foreach ($r in $script:WlAsrRules) { $byKey[([string]$r.key).ToLowerInvariant()] = $r }
+    $alias = @{ 'untrustedexecutable' = 'prevalence'; 'officemacrowin32apicalls' = 'macro-win32'; 'lsasscredentialtheft' = 'lsass'; 'psexecwmichildprocess' = 'psexec-wmi'; 'untrustedusbprocess' = 'usb'
+        'officecommappchildprocess' = 'office-comm'; 'adobereaderchildprocess' = 'adobe-child'; 'persistencethroughwmi' = 'wmi-persistence'; 'vulnerablesigneddriver' = 'vulnerable-driver'; 'ransomware' = 'ransomware' }
+    $asr = @{}
+    foreach ($row in @(Invoke-WlHuntingSafe -Query $qAsr -Context 'Advanced Hunting ASR telemetry (30 days)')) {
+        if ($null -eq $row) { continue }
+        $k = ([string]$row.Rule).ToLowerInvariant()
+        $id = if ($byKey.ContainsKey($k)) { $byKey[$k].id } elseif ($alias.ContainsKey($k)) { $alias[$k] } else { $null }
+        if (-not $id) { continue }
+        if (-not $asr.ContainsKey($id)) { $asr[$id] = [ordered]@{ audited = 0; blocked = 0; auditDevices = 0; blockDevices = 0; topAudited = @(); topBlocked = @() } }
+        $top = $row.Top; if ($top -is [string]) { try { $top = $top | ConvertFrom-Json } catch { $top = @($top) } }
+        if ([string]$row.Kind -eq 'Audited') { $asr[$id].audited += [int]$row.Events; $asr[$id].auditDevices = [Math]::Max($asr[$id].auditDevices, [int]$row.Devices); $asr[$id].topAudited = @($top | ForEach-Object { [string]$_ }) }
+        else { $asr[$id].blocked += [int]$row.Events; $asr[$id].blockDevices = [Math]::Max($asr[$id].blockDevices, [int]$row.Devices); $asr[$id].topBlocked = @($top | ForEach-Object { [string]$_ }) }
+    }
+
+    $qWsl = @"
+// WardlineWsl
+DeviceTvmSoftwareInventory
+| where OSPlatform startswith "Windows"
+| where SoftwareName has_any ("windows_subsystem_for_linux", "windows subsystem for linux", "wsl")
+| summarize Wsl = countif(SoftwareName !has "defender" and SoftwareName !has "plug"), Plugin = countif(SoftwareName has "defender" or SoftwareName has "plug") by DeviceId
+"@
+    foreach ($row in @(Invoke-WlHuntingSafe -Query $qWsl -Context 'Advanced Hunting software inventory (WSL)')) {
+        if ($null -eq $row) { continue }
+        $id = [string]$row.DeviceId
+        if (-not $Devices.ContainsKey($id)) { continue }
+        $Devices[$id].wsl = [int]$row.Wsl -gt 0
+        $Devices[$id].wslPlugin = [int]$row.Plugin -gt 0
+    }
+
+    $qThreat = @"
+// WardlineThreatActions
+DeviceRegistryEvents
+| where Timestamp > ago(30d)
+| where RegistryKey has @"\Windows Defender\Threats\Threat" and ActionType == "RegistryValueSet"
+| where RegistryValueData in ("6", "9")
+| summarize arg_max(Timestamp, RegistryKey, RegistryValueName, RegistryValueData, InitiatingProcessFileName), Name = take_any(DeviceName) by DeviceId, RegistryValueName
+"@
+    $threat = foreach ($row in @(Invoke-WlHuntingSafe -Query $qThreat -Context 'Advanced Hunting threat default actions (registry)')) {
+        if ($null -eq $row) { continue }
+        $id = [string]$row.DeviceId
+        $kind = if ([string]$row.RegistryKey -match 'ThreatIdDefaultAction') { 'ThreatId' } else { 'Severity' }
+        [pscustomobject]@{ deviceId = $id; deviceName = $(if ($Devices.ContainsKey($id)) { $Devices[$id].deviceName } else { [string]$row.Name }); kind = $kind
+            value = [string]$row.RegistryValueName; action = $(if ([string]$row.RegistryValueData -eq '6') { 'Allow' } else { 'NoAction' }); at = [string]$row.Timestamp; process = [string]$row.InitiatingProcessFileName }
+    }
+    [pscustomobject]@{ asr = $asr; threatActions = @($threat) }
+}
+
+function Get-WlScanAge {
+    # Days since the last completed scan of a kind ('Quick' / 'Full') from DeviceTvmInfoGathering AvScanResults, or $null.
+    param($ScanResults, [string]$Kind)
+    if (-not $ScanResults) { return $null }
+    $j = $ScanResults
+    if ($j -is [string]) { if (-not $j.Trim()) { return $null }; try { $j = $j | ConvertFrom-Json -AsHashtable } catch { return $null } }
+    $entry = $null
+    $keys = if ($j -is [System.Collections.IDictionary]) { @($j.Keys) } else { @($j.PSObject.Properties.Name) }
+    foreach ($k in $keys) { if ([string]$k -match "^$Kind") { $entry = Get-WlProp $j $k } }
+    if (-not $entry) { return $null }
+    $ts = $null
+    $ekeys = if ($entry -is [System.Collections.IDictionary]) { @($entry.Keys) } else { @($entry.PSObject.Properties.Name) }
+    foreach ($k in $ekeys) { if ([string]$k -match 'time') { $v = [string](Get-WlProp $entry $k); if ($v) { try { $ts = ConvertTo-WlUtc $v } catch { } } } }
+    if (-not $ts) { return $null }
+    [int][Math]::Floor(([DateTime]::UtcNow - $ts).TotalDays)
+}
+
+function Get-WlHygieneFindings {
+    <#
+    .SYNOPSIS
+    Fleet hygiene beyond configuration (category 'Fleet' / 'ASR'), each aggregated so a large fleet does not produce one finding per device:
+      - operating systems past end of support (Windows, Windows Server, macOS older than n-2)
+      - devices without a recent completed quick scan / never a full scan
+      - devices still on standard (non-streamlined) connectivity
+      - WSL without the Defender plug-in for WSL
+      - PsExec/WMI ASR rule blocking on ConfigMgr-managed devices (breaks the ConfigMgr client)
+      - threat default actions set to Allow / NoAction locally
+    #>
+    param([hashtable]$Devices, $Facts, $Asr)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $all = @($Devices.Values)
+    $now = [DateTime]::UtcNow
+
+    # 1) End of support
+    $macMajor = (@($all | Where-Object { $_.os -eq 'macOS' -and [string]$_.osVersion -match '^\d+' } | ForEach-Object { [int](([string]$_.osVersion -split '\.')[0]) }) | Measure-Object -Maximum).Maximum
+    $eos = @(foreach ($d in $all) { $s = Get-WlOsSupportState -Device $d -NewestMacMajor ([int]$macMajor); if ($s) { [pscustomobject]@{ deviceId = $d.deviceId; deviceName = $d.deviceName; os = $s.name; end = $s.end } } })
+    foreach ($g in @($eos | Group-Object os)) {
+        $end = $g.Group[0].end
+        $future = $false; $endDate = $null
+        if ($end -ne 'n-2') { $endDate = [DateTime]::Parse($end, [Globalization.CultureInfo]::InvariantCulture); $future = $endDate -gt $now }
+        $sev = if ($future) { 'Low' } elseif ($g.Name -match 'Windows (7|8)|2008') { 'High' } else { 'Medium' }
+        $whenEn = if ($end -eq 'n-2') { 'is older than the three macOS releases Defender supports' } elseif ($future) { "reaches end of support on $end" } else { "has been out of support since $end" }
+        $whenDe = if ($end -eq 'n-2') { 'ist älter als die drei macOS-Versionen, die Defender unterstützt' } elseif ($future) { "erreicht am $end das Support-Ende" } else { "ist seit $end ohne Support" }
+        $f.Add((New-WlFinding -Severity $sev -Category 'Fleet' -Title (& $T "$($g.Count) device(s) on $($g.Name) – $(if ($future) { 'end of support ahead' } else { 'out of support' })" "$($g.Count) Gerät(e) mit $($g.Name) – $(if ($future) { 'Support-Ende naht' } else { 'ohne Support' })") `
+                    -Detail (& $T "$($g.Name) ${whenEn}: $(& $names $g.Group). Without security updates the OS stays exploitable whatever Defender blocks, and new Defender platform features stop arriving$(if ($g.Name -match 'Windows 10|2012') { ' – unless the devices are enrolled in Extended Security Updates' })." "$($g.Name) ${whenDe}: $(& $names $g.Group). Ohne Sicherheitsupdates bleibt das Betriebssystem angreifbar, egal was Defender blockiert, und neue Defender-Plattformfunktionen kommen nicht mehr an$(if ($g.Name -match 'Windows 10|2012') { ' – es sei denn, die Geräte sind in Extended Security Updates aufgenommen' }).") `
+                    -Recommendation (& $T 'Plan the upgrade or replacement; until then keep the devices in a device group with the strictest settings (cloud block level High+, all ASR rules in block) and document ESU coverage.' 'Upgrade oder Ersatz planen; bis dahin die Geräte in einer Gerätegruppe mit den strengsten Einstellungen führen (Cloud Block Level High+, alle ASR-Regeln im Block) und ESU-Abdeckung dokumentieren.') -Subject "hyg|eos|$($g.Name)" -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $g.Count -PassThru | Add-Member -NotePropertyName deviceSample -NotePropertyValue @($g.Group | Select-Object -First 10 | ForEach-Object deviceName) -PassThru))
+    }
+
+    # 2) Scan hygiene (Windows, active mode only – passive devices do not run scheduled scans)
+    $scanned = @($all | Where-Object { $_.os -match '^Windows' -and $_.avMode -in '0', '4' -and ($null -ne $_.quickScanDays -or $null -ne $_.fullScanDays -or $_.fullScanNever) })
+    $noQuick = @($scanned | Where-Object { $null -ne $_.quickScanDays -and $_.quickScanDays -gt 14 })
+    if ($noQuick.Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($noQuick.Count) device(s) without a quick scan in 14 days" "$($noQuick.Count) Gerät(e) ohne Schnellscan in 14 Tagen") `
+                    -Detail (& $T "Defender reports no completed quick scan for more than 14 days on: $(& $names $noQuick). Scheduled scans find dormant files and refresh the remediation history; missed scans often mean the schedule is set to 'Never', the device is never idle at the scan time, or catch-up scans are disabled." "Defender meldet seit mehr als 14 Tagen keinen abgeschlossenen Schnellscan auf: $(& $names $noQuick). Geplante Scans finden ruhende Dateien und aktualisieren die Bereinigungshistorie; ausbleibende Scans bedeuten oft einen Zeitplan 'Nie', ein Gerät, das zur Scanzeit nie im Leerlauf ist, oder abgeschaltete Catch-up-Scans.") `
+                    -Recommendation (& $T 'Schedule a daily quick scan with randomisation and keep catch-up quick scans enabled; on VDI use a shared, randomised schedule.' 'Täglichen Schnellscan mit Randomisierung planen und Catch-up-Schnellscans aktiv lassen; auf VDI einen gemeinsamen, randomisierten Zeitplan nutzen.') -Subject 'hyg|quickscan' -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $noQuick.Count -PassThru))
+    }
+    $noFull = @($scanned | Where-Object { $_.fullScanNever -eq $true })
+    if ($noFull.Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($noFull.Count) device(s) never completed a full scan" "$($noFull.Count) Gerät(e) ohne je abgeschlossenen vollständigen Scan") `
+                    -Detail (& $T "No full scan is recorded for: $(& $names $noFull). After onboarding – especially after a migration from another AV – one full scan establishes that nothing dormant was carried over." "Für diese Geräte ist kein vollständiger Scan verzeichnet: $(& $names $noFull). Nach dem Onboarding – besonders nach einer Migration von einem anderen AV – stellt ein einmaliger vollständiger Scan sicher, dass nichts Ruhendes übernommen wurde.") `
+                    -Recommendation (& $T 'Run one full scan per device after onboarding (portal action "Run antivirus scan" or Start-MpScan -ScanType FullScan), outside working hours.' 'Nach dem Onboarding einmal pro Gerät einen vollständigen Scan ausführen (Portal-Aktion „Antivirusscan ausführen“ oder Start-MpScan -ScanType FullScan), außerhalb der Arbeitszeit.') -Subject 'hyg|fullscan' -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $noFull.Count -PassThru))
+    }
+
+    # 3) Connectivity: streamlined is the default for new onboardings; standard needs the long URL list
+    $standard = @($all | Where-Object { ([string]$_.connectivityType) -match '^standard' })
+    $streamlined = @($all | Where-Object { ([string]$_.connectivityType) -match '^streamlined' })
+    if ($standard.Count -and ($standard.Count + $streamlined.Count) -gt 0) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($standard.Count) device(s) still on standard connectivity" "$($standard.Count) Gerät(e) noch mit Standard-Konnektivität") `
+                    -Detail (& $T "$($streamlined.Count) device(s) use streamlined connectivity, these still use the standard method: $(& $names $standard). Standard connectivity needs a long, changing list of URLs in proxies and firewalls; streamlined uses a consolidated domain set." "$($streamlined.Count) Gerät(e) nutzen Streamlined Connectivity, diese noch die Standardmethode: $(& $names $standard). Standard-Konnektivität braucht eine lange, sich ändernde URL-Liste in Proxys und Firewalls; Streamlined nutzt einen konsolidierten Domänensatz.") `
+                    -Recommendation (& $T 'Re-onboard with the streamlined onboarding package (no offboarding needed) after allowing the consolidated URLs; verify with the client analyzer.' 'Mit dem Streamlined-Onboarding-Paket neu onboarden (kein Offboarding nötig), nachdem die konsolidierten URLs freigegeben sind; mit dem Client Analyzer prüfen.') -Subject 'hyg|connectivity' -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $standard.Count -PassThru))
+    }
+
+    # 4) WSL without the Defender plug-in
+    $wsl = @($all | Where-Object { $_.wsl -eq $true -and $_.wslPlugin -ne $true })
+    if ($wsl.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Fleet' -Title (& $T "$($wsl.Count) device(s) run WSL without the Defender plug-in" "$($wsl.Count) Gerät(e) mit WSL ohne Defender-Plug-in") `
+                    -Detail (& $T "Windows Subsystem for Linux is installed without the Defender for Endpoint plug-in for WSL on: $(& $names $wsl). Processes inside the WSL distributions are invisible to EDR – a convenient place for tooling that would be detected on Windows." "Windows Subsystem for Linux ist ohne das Defender-for-Endpoint-Plug-in für WSL installiert auf: $(& $names $wsl). Prozesse in den WSL-Distributionen sind für EDR unsichtbar – ein bequemer Ort für Werkzeuge, die unter Windows erkannt würden.") `
+                    -Recommendation (& $T 'Deploy the Defender for Endpoint plug-in for WSL (MSI) to these devices, or remove WSL where it is not needed.' 'Das Defender-for-Endpoint-Plug-in für WSL (MSI) auf diese Geräte verteilen oder WSL entfernen, wo es nicht gebraucht wird.') -Subject 'hyg|wsl' -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $wsl.Count -PassThru))
+    }
+
+    # 5) PsExec/WMI ASR rule in block mode on ConfigMgr clients (Microsoft: not compatible, breaks the client)
+    $cm = @($all | Where-Object { ([string]$_.managedBy) -match 'configmgr|configuration manager|sccm|mecm|co-?managed' -and $_.asr -and $_.asr['psexec-wmi'] -eq 'Block' })
+    if ($cm.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'ASR' -Title (& $T "PsExec/WMI ASR rule blocks on $($cm.Count) ConfigMgr-managed device(s)" "PsExec/WMI-ASR-Regel blockiert auf $($cm.Count) ConfigMgr-verwalteten Gerät(en)") `
+                    -Detail (& $T "'Block process creations originating from PSExec and WMI commands' is in block mode on: $(& $names $cm). Configuration Manager runs its client operations through WMI; Microsoft documents the rule as incompatible with ConfigMgr-managed devices." "'Block process creations originating from PSExec and WMI commands' steht im Block-Modus auf: $(& $names $cm). Configuration Manager führt seine Client-Vorgänge über WMI aus; Microsoft dokumentiert die Regel als nicht kompatibel mit ConfigMgr-verwalteten Geräten.") `
+                    -Recommendation (& $T 'Exclude ConfigMgr-managed devices from the block assignment (audit only) until they are fully Intune-managed.' 'ConfigMgr-verwaltete Geräte von der Block-Zuweisung ausnehmen (nur Audit), bis sie vollständig über Intune verwaltet werden.') -Subject 'hyg|psexec-cm' -StableKey))
+    }
+
+    # 6) Threat default actions Allow / NoAction (registry, GPO or local)
+    foreach ($g in @(@(Get-WlProp $Facts 'threatActions') | Where-Object { $_ } | Group-Object deviceId)) {
+        $e = $g.Group[0]
+        $vals = (@($g.Group | ForEach-Object { if ($_.kind -eq 'ThreatId') { "threat ID $($_.value) = $($_.action)" } else { "severity $($_.value) = $($_.action)" } }) -join ', ')
+        $valsDe = (@($g.Group | ForEach-Object { if ($_.kind -eq 'ThreatId') { "Bedrohungs-ID $($_.value) = $($_.action)" } else { "Schweregrad $($_.value) = $($_.action)" } }) -join ', ')
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Device' -Title (& $T 'Detected threats are allowed to run' 'Erkannte Bedrohungen dürfen laufen') `
+                    -Detail (& $T "On $($e.deviceName) Defender's threat default actions were set to allow detected threats: $vals (last change $($e.at), process $($e.process)). Each entry is an exclusion that does not appear in any exclusion list." "Auf $($e.deviceName) wurden die Standardaktionen von Defender so gesetzt, dass erkannte Bedrohungen laufen dürfen: $valsDe (letzte Änderung $($e.at), Prozess $($e.process)). Jeder Eintrag ist ein Ausschluss, der in keiner Ausschlussliste auftaucht.") `
+                    -Recommendation (& $T 'Remove the ThreatIdDefaultAction / ThreatSeverityDefaultAction values (GPO or registry) and handle a false positive with a narrow indicator or a submission to Microsoft instead.' 'Die Werte ThreatIdDefaultAction / ThreatSeverityDefaultAction entfernen (GPO oder Registry) und einen False Positive stattdessen mit einem engen Indikator oder einer Einsendung an Microsoft behandeln.') -Subject 'hyg|threataction' -DeviceId $e.deviceId -DeviceName $e.deviceName))
+    }
+    @($f.ToArray())
+}
+#endregion
+
+#region Intune integration: Defender connector, device risk in compliance, Conditional Access
+$script:WlMtdDefenderId = 'fc780465-2017-40d4-a0c5-307022471b92'
+$script:WlCompliancePlatforms = [ordered]@{
+    'Windows' = '#microsoft.graph.windows10CompliancePolicy'
+    'macOS'   = '#microsoft.graph.macOSCompliancePolicy'
+    'iOS'     = '#microsoft.graph.iosCompliancePolicy'
+    'Android' = '#microsoft.graph.android'
+}
+
+function Get-WlMtdFacts {
+    <#
+    .SYNOPSIS
+    Feature "coverage": the Defender for Endpoint connector in Intune (DeviceManagementServiceConfig.Read.All), compliance
+    policies that evaluate the Defender device risk (DeviceManagementConfiguration.Read.All) and Conditional Access policies
+    that require a compliant device (Policy.Read.All). $null when the feature is off.
+    #>
+    if (-not (Test-WlFeature -Name 'coverage')) { return $null }
+    $conn = Invoke-WlGraphSafe -Path 'deviceManagement/mobileThreatDefenseConnectors' -Context 'Intune Defender for Endpoint connector (DeviceManagementServiceConfig.Read.All)'
+    $mde = @(@(Get-WlProp $conn 'value') | Where-Object { $_ -and [string]$_.id -eq $script:WlMtdDefenderId })[0]
+    $pols = Invoke-WlGraphSafe -All -Path 'deviceManagement/deviceCompliancePolicies?$expand=assignments' -Context 'Intune compliance policies'
+    $compliance = @(foreach ($p in @($pols)) {
+            if (-not $p) { continue }
+            $type = [string](Get-WlProp $p '@odata.type')
+            $platform = $null; foreach ($k in $script:WlCompliancePlatforms.Keys) { if ($type -like "$($script:WlCompliancePlatforms[$k])*") { $platform = $k } }
+            if (-not $platform) { continue }
+            $enabled = [bool](Get-WlProp $p 'deviceThreatProtectionEnabled')
+            [pscustomobject]@{ id = [string]$p.id; name = [string]$p.displayName; platform = $platform; threatProtection = $enabled
+                level = [string](Get-WlProp $p 'deviceThreatProtectionRequiredSecurityLevel'); assigned = [bool]@(Get-WlProp $p 'assignments').Count }
+        })
+    $ca = Invoke-WlGraphSafe -All -Path 'identity/conditionalAccess/policies' -Context 'Conditional Access policies (Policy.Read.All)'
+    $caCompliant = @(@($ca) | Where-Object { $_ -and [string]$_.state -eq 'enabled' -and @(Get-WlProp (Get-WlProp $_ 'grantControls') 'builtInControls') -contains 'compliantDevice' })
+    [pscustomobject]@{
+        connectorRead = ($null -ne $conn); connector = $mde
+        complianceRead = ($null -ne $pols); compliance = $compliance
+        caRead = ($null -ne $ca); caCompliant = @($caCompliant | ForEach-Object { [string]$_.displayName })
+    }
+}
+
+function Get-WlMtdFindings {
+    param($Facts, [hashtable]$Devices)
+    $f = [System.Collections.Generic.List[object]]::new()
+    if (-not $Facts) { return @() }
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $present = [ordered]@{}
+    foreach ($d in $Devices.Values) {
+        $p = switch -Regex ([string]$d.os) { '^Windows' { 'Windows' } '^macOS' { 'macOS' } '^iOS' { 'iOS' } '^Android' { 'Android' } default { $null } }
+        if ($p -and -not ($d.deviceType -eq 'Server' -or [string]$d.os -match 'Server')) { $present[$p] = [int]$present[$p] + 1 }
+    }
+    if (-not $present.Count) { return @() }
+    $c = $Facts.connector
+    if ($Facts.connectorRead -and (-not $c -or [string]$c.partnerState -notin 'enabled', 'available')) {
+        $f.Add((New-WlFinding -Severity 'High' -Category 'Coverage' -Title (& $T 'Intune connection to Defender for Endpoint not enabled' 'Intune-Verbindung zu Defender for Endpoint nicht aktiv') `
+                    -Detail (& $T "The Microsoft Defender for Endpoint connector in Intune is $(if ($c) { "in state '$($c.partnerState)'" } else { 'not set up' }). Without it, Defender's device risk does not reach Intune compliance – a compromised device keeps access to company data, and security settings management cannot hand over to Intune." "Der Microsoft-Defender-for-Endpoint-Connector in Intune ist $(if ($c) { "im Zustand '$($c.partnerState)'" } else { 'nicht eingerichtet' }). Ohne ihn erreicht das Geräterisiko von Defender die Intune-Compliance nicht – ein kompromittiertes Gerät behält den Zugriff auf Unternehmensdaten.") `
+                    -Recommendation (& $T 'Defender portal › Settings › Endpoints › Advanced features › Microsoft Intune connection = On; then Intune › Endpoint security › Microsoft Defender for Endpoint: enable the platforms.' 'Defender-Portal › Einstellungen › Endpunkte › Erweiterte Features › Microsoft Intune-Verbindung = Ein; danach in Intune › Endpunktsicherheit › Microsoft Defender for Endpoint die Plattformen aktivieren.') -Subject 'mtd|connector' -StableKey))
+        return @($f.ToArray())
+    }
+    if ($c) {
+        $toggle = @{ Windows = 'windowsEnabled'; macOS = 'macEnabled'; iOS = 'iosEnabled'; Android = 'androidEnabled' }
+        $off = @(foreach ($p in $present.Keys) { $v = Get-WlProp $c $toggle[$p]; if ($null -ne $v -and -not [bool]$v) { "$p ($($present[$p]))" } })
+        if ($off.Count) {
+            $f.Add((New-WlFinding -Severity 'Medium' -Category 'Coverage' -Title (& $T "Defender connector off for $($off.Count) platform(s) in use" "Defender-Connector für $($off.Count) genutzte Plattform(en) aus") `
+                        -Detail (& $T "The Intune connector does not pass Defender device risk for: $($off -join ', '). Devices of these platforms are rated compliant regardless of active threats." "Der Intune-Connector übergibt das Defender-Geräterisiko nicht für: $($off -join ', '). Geräte dieser Plattformen gelten unabhängig von aktiven Bedrohungen als konform.") `
+                        -Recommendation (& $T 'Intune › Endpoint security › Microsoft Defender for Endpoint: turn on "Connect … devices to Microsoft Defender for Endpoint" for these platforms.' 'Intune › Endpunktsicherheit › Microsoft Defender for Endpoint: „… Geräte mit Microsoft Defender for Endpoint verbinden“ für diese Plattformen einschalten.') -Subject 'mtd|platforms' -StableKey))
+        }
+        $hb = [string](Get-WlProp $c 'lastHeartbeatDateTime')
+        if ($hb) { try { $age = ([DateTime]::UtcNow - (ConvertTo-WlUtc $hb)).TotalHours; if ($age -gt 48) {
+                    $f.Add((New-WlFinding -Severity 'Medium' -Category 'Coverage' -Title (& $T 'Defender connector has not reported to Intune for 2+ days' 'Defender-Connector meldet sich seit 2+ Tagen nicht bei Intune') `
+                                -Detail (& $T "Last heartbeat: $hb. Device risk levels in Intune are stale; compliance decisions use outdated risk." "Letzter Heartbeat: $hb. Die Risikostufen in Intune sind veraltet; Compliance-Entscheidungen beruhen auf altem Risiko.") `
+                                -Recommendation (& $T 'Check the connection in the Defender advanced features and in Intune; re-enable it if it shows as unavailable.' 'Verbindung in den erweiterten Defender-Features und in Intune prüfen; bei „nicht verfügbar“ neu aktivieren.') -Subject 'mtd|heartbeat' -StableKey)) } } catch { } }
+    }
+    if ($Facts.complianceRead) {
+        $missing = @(foreach ($p in $present.Keys) { if (-not @($Facts.compliance | Where-Object { $_.platform -eq $p -and $_.assigned -and $_.threatProtection }).Count) { "$p ($($present[$p]))" } })
+        if ($missing.Count) {
+            $f.Add((New-WlFinding -Severity 'Medium' -Category 'Coverage' -Title (& $T "Defender device risk not part of compliance for $($missing.Count) platform(s)" "Defender-Geräterisiko für $($missing.Count) Plattform(en) nicht Teil der Compliance") `
+                        -Detail (& $T "No assigned compliance policy requires a maximum machine risk score for: $($missing -join ', '). Defender detects a compromise, but the device stays compliant and keeps its access." "Keine zugewiesene Compliance-Richtlinie verlangt einen maximalen Computerrisikowert für: $($missing -join ', '). Defender erkennt eine Kompromittierung, das Gerät bleibt aber konform und behält seinen Zugriff.") `
+                        -Recommendation (& $T 'Add "Require the device to be at or under the machine risk score" = Clear or Low to the compliance policy of each platform.' 'In der Compliance-Richtlinie jeder Plattform „Gerät muss höchstens den Computerrisikowert haben“ = Klar oder Niedrig setzen.') -Subject 'mtd|compliance' -StableKey))
+        }
+        $lax = @($Facts.compliance | Where-Object { $_.assigned -and $_.threatProtection -and $_.level -in 'medium', 'high' })
+        if ($lax.Count) {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Coverage' -Title (& $T "$($lax.Count) compliance policy(ies) tolerate medium or high device risk" "$($lax.Count) Compliance-Richtlinie(n) tolerieren mittleres oder hohes Geräterisiko") `
+                        -Detail (& $T "Policies: $((@($lax | ForEach-Object { "$($_.name) ($($_.platform), $($_.level))" })) -join ', '). A device with an active medium-severity threat is still compliant." "Richtlinien: $((@($lax | ForEach-Object { "$($_.name) ($($_.platform), $($_.level))" })) -join ', '). Ein Gerät mit aktiver Bedrohung mittleren Schweregrads bleibt konform.") `
+                        -Recommendation (& $T 'Use Clear or Low as the maximum allowed machine risk score.' 'Klar oder Niedrig als maximal erlaubten Computerrisikowert verwenden.') -Subject 'mtd|lax' -StableKey))
+        }
+    }
+    if ($Facts.caRead -and -not @($Facts.caCompliant).Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Coverage' -Title (& $T 'No Conditional Access policy requires a compliant device' 'Keine Conditional-Access-Richtlinie verlangt ein konformes Gerät') `
+                    -Detail (& $T 'Device compliance – and with it the Defender device risk – is evaluated but not enforced at sign-in. A device flagged as high risk can still reach Microsoft 365 and other Entra-protected apps.' 'Die Gerätekonformität – und damit das Defender-Geräterisiko – wird bewertet, aber bei der Anmeldung nicht erzwungen. Ein als hochriskant markiertes Gerät erreicht weiterhin Microsoft 365 und andere Entra-geschützte Apps.') `
+                    -Recommendation (& $T 'Create a Conditional Access policy with the grant control "Require device to be marked as compliant" (report-only first) for the apps that hold company data.' 'Eine Conditional-Access-Richtlinie mit der Gewährung „Gerät muss als konform markiert sein“ (zunächst nur Bericht) für die Apps mit Unternehmensdaten anlegen.') -Subject 'mtd|ca' -StableKey))
     }
     @($f.ToArray())
 }
@@ -1625,7 +1943,8 @@ function Test-WlBaseline {
     .SYNOPSIS
     Rates every baseline check on three levels: target (baseline), configured (Intune policies) and effective
     (device state from Advanced Hunting). Checks are per platform (Windows/macOS/Linux).
-    Status codes: OK, Deviation, NotConfigured, NotAssigned, Inconsistent, DeviceDeviation, NoData, NotRelevant
+    Status codes: OK, Deviation, NotConfigured, NotAssigned, Inconsistent, DeviceDeviation, NoData, NotRelevant, Default
+    (Default: weakeningOnly check without a configured value – the product default is the safe value)
     #>
     param($Baseline, [object[]]$SettingValues, [hashtable]$Devices)
     $results = foreach ($chk in @($Baseline.checks)) {
@@ -1680,6 +1999,9 @@ function Test-WlBaseline {
         }
         elseif (@($configured | Where-Object { $_.assigned -and $_.ok }).Count -eq 0) { 'Deviation' }
         else { 'Inconsistent' }
+
+        # Checks for settings that are safe at their default ("weakeningOnly"): only a configured weakening value counts.
+        if ([bool](Get-WlProp $chk 'weakeningOnly') -and $status -in 'NotConfigured', 'NotAssigned') { $status = 'Default' }
 
         # Platform without devices and without policies: not relevant
         if ($status -in 'NotConfigured', 'NotAssigned' -and $platformDevices.Count -eq 0 -and $platform -ne 'Windows') { $status = 'NotRelevant' }
@@ -2132,6 +2454,14 @@ function Get-WlEndpointFindings {
         if ($d.avMode -eq '1' -or $d.avMode -eq '2' -or $d.checks['PassiveModeOff'] -eq 'BAD') {
             $extraEn = if ($locals.Count -gt 0) { " In addition there are $($locals.Count) local exclusion(s)." } else { '' }
             $extraDe = if ($locals.Count -gt 0) { " Zusätzlich $($locals.Count) lokale Exclusion(s)." } else { '' }
+            if (@($d.thirdPartyAv).Count -eq 0 -and $d.os -match '^Windows') {
+                $extraEn += ' No third-party AV/EDR appears in the software inventory – a leftover ForceDefenderPassiveMode setting or a fake security-center registration is likely.'
+                $extraDe += ' Im Softwareinventar ist kein Fremd-AV/EDR zu sehen – wahrscheinlich ein übrig gebliebenes ForceDefenderPassiveMode oder eine gefälschte Security-Center-Registrierung.'
+            }
+            elseif ($d.avMode -ne '4') {
+                $extraEn += " EDR in block mode is not active, so Defender does not remediate what the other product ($((@($d.thirdPartyAv) | Select-Object -First 2) -join ', ')) misses."
+                $extraDe += " EDR im Block-Modus ist nicht aktiv, Defender bereinigt also nicht, was das andere Produkt ($((@($d.thirdPartyAv) | Select-Object -First 2) -join ', ')) übersieht."
+            }
             $f.Add((New-WlFinding -Severity 'Critical' -Category 'Device' -Title (& $T 'Microsoft Defender Antivirus in passive mode' 'Microsoft Defender Antivirus im Passiv-Modus') `
                         -Detail (& $T "$dn runs in mode '$($d.avModeText)'. If this is not intended, a third-party or fake AV registration (e.g. Defendnot) may have disabled protection.$extraEn" `
                             "$dn läuft im Modus '$($d.avModeText)'. Ist das nicht beabsichtigt, kann eine fremde oder gefälschte AV-Registrierung (z. B. Defendnot) den Schutz ausgehebelt haben.$extraDe") `
@@ -2233,9 +2563,14 @@ function Get-WlEndpointFindings {
                             -Recommendation (& $T 'Check assignments and device groups; verify Get-MpPreference (AttackSurfaceReductionRules_Actions) on affected devices.' 'Zuweisung und Gerätegruppen prüfen; auf betroffenen Geräten Get-MpPreference (AttackSurfaceReductionRules_Actions) kontrollieren.') -Subject "asr|$($r.id)"))
             }
             'BlockRecommended' {
-                $f.Add((New-WlFinding -Severity 'Low' -Category 'ASR' -Title (& $T "ASR rule not yet in block mode: $($r.name)" "ASR-Regel noch nicht im Block-Modus: $($r.name)") `
-                            -Detail (& $T "$($r.effective.Block) of $($r.measured) devices block; the rest are in audit/warn. Audit is a stage, not a goal – switch to block after one to three months as a rule of thumb." `
-                                "$($r.effective.Block) von $($r.measured) Geräten blockieren, die übrigen stehen auf Audit/Warn. Audit ist eine Etappe, kein Ziel – als Faustregel nach ein bis drei Monaten auf Block umstellen.") `
+                $tel = Get-WlProp $r 'telemetry'
+                $aud = [int](Get-WlProp $tel 'audited')
+                $telEn = if ($null -eq $tel) { '' } elseif ($aud -eq 0) { ' No audit event in the last 30 days – switching to block is unlikely to disrupt anyone.' } else { " $aud audit event(s) on $([int](Get-WlProp $tel 'auditDevices')) device(s) in 30 days; top processes: $((@(Get-WlProp $tel 'topAudited') | Select-Object -First 5) -join ', ')." }
+                $telDe = if ($null -eq $tel) { '' } elseif ($aud -eq 0) { ' Kein Audit-Ereignis in den letzten 30 Tagen – die Umstellung auf Block stört voraussichtlich niemanden.' } else { " $aud Audit-Ereignis(se) auf $([int](Get-WlProp $tel 'auditDevices')) Gerät(en) in 30 Tagen; häufigste Prozesse: $((@(Get-WlProp $tel 'topAudited') | Select-Object -First 5) -join ', ')." }
+                $ready = ($null -ne $tel -and $aud -eq 0)
+                $f.Add((New-WlFinding -Severity 'Low' -Category 'ASR' -Title $(if ($ready) { (& $T "ASR rule ready for block mode: $($r.name)" "ASR-Regel bereit für den Block-Modus: $($r.name)") } else { (& $T "ASR rule not yet in block mode: $($r.name)" "ASR-Regel noch nicht im Block-Modus: $($r.name)") }) `
+                            -Detail (& $T "$($r.effective.Block) of $($r.measured) devices block; the rest are in audit/warn. Audit is a stage, not a goal – switch to block after one to three months as a rule of thumb.$telEn" `
+                                "$($r.effective.Block) von $($r.measured) Geräten blockieren, die übrigen stehen auf Audit/Warn. Audit ist eine Etappe, kein Ziel – als Faustregel nach ein bis drei Monaten auf Block umstellen.$telDe") `
                             -Recommendation (& $T 'Review audit events (DeviceEvents, ActionType Asr*Audited) and switch to block.' 'Audit-Ereignisse (DeviceEvents, ActionType Asr*Audited) auswerten und auf Block umstellen.') -Subject "asr|$($r.id)"))
             }
         }
@@ -2518,6 +2853,12 @@ function Invoke-WlEndpointCollection {
     Get-WlAsrDeviceStates -Devices $devices
     $asr = Get-WlAsrOverview -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $linuxEvents = Get-WlLinuxConfigEvents
+    $hygiene = Get-WlHygieneFacts -Devices $devices
+    $mtd = Get-WlMtdFacts
+    foreach ($r in @($asr.rules)) {
+        $t = $hygiene.asr[$r.id]
+        $r | Add-Member -NotePropertyName telemetry -NotePropertyValue $(if ($t) { [pscustomobject]$t } else { [pscustomobject]@{ audited = 0; blocked = 0; auditDevices = 0; blockDevices = 0; topAudited = @(); topBlocked = @() } }) -Force
+    }
 
     $coverage = Get-WlCoverage -Devices $devices
     $fleet = Get-WlFleetFacts -Devices $devices
@@ -2527,7 +2868,7 @@ function Invoke-WlEndpointCollection {
     $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents -Policies $pol.Policies) +
         @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
         @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count) +
-        @(Get-WlFleetFindings -Devices $devices -Facts $fleet)
+        @(Get-WlFleetFindings -Devices $devices -Facts $fleet) + @(Get-WlHygieneFindings -Devices $devices -Facts $hygiene -Asr $asr) + @(Get-WlMtdFindings -Facts $mtd -Devices $devices)
     $findings = @(Merge-WlDeviceFindings -Findings $findings)
 
     $deviceList = @($(foreach ($d in $devices.Values) {

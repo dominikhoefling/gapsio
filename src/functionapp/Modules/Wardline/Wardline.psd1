@@ -13,7 +13,7 @@
         'Get-WlBlob', 'Get-WlBlobText', 'Set-WlBlob', 'Remove-WlBlob', 'Add-WlQueueMessage', 'Get-WlPage', 'Get-WlPagedMeta', 'Get-WlPagedCollection', 'Get-WlPagedIndex', 'Get-WlPagedIndexRaw', 'Search-WlDevices', 'Get-WlDevice',
         'Get-WlHash', 'Get-WlSettingValues', 'Get-WlExclusionRisk', 'Get-WlIndicatorRisk',
         'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',
-        'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlLicensingCollection', 'Get-WlLicensingModel', 'Invoke-WlCollection',
+        'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlLicensingCollection', 'Get-WlLicensingModel', 'Get-WlSkuDisplayName', 'Invoke-WlCollection',
         'Get-WlModules', 'Test-WlModuleEnabled', 'Test-WlFeature', 'Get-WlVersion', 'Compare-WlVersion', 'Update-WlReleaseInfo', 'Get-WlAcceptances', 'Test-WlAcceptanceActive', 'Set-WlAcceptance', 'Get-WlAssignments', 'Set-WlAssignment', 'Search-WlDirectory', 'Send-WlNotification', 'Test-WlLicenseKey', 'Get-WlLicense', 'Set-WlLicense', 'Get-WlLicenseTier', 'Get-WlCommunityRows', 'Get-WlPageSize', 'Protect-WlCommunity', 'Protect-WlCommunityList', 'Hide-WlItem',
         'Update-WlLocalExclusionState', 'Get-WlEndpointFindings', 'Test-WlBaseline'
     )

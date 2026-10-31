@@ -110,7 +110,7 @@
     'b.noPolicy': ['no policy', 'keiner Richtlinie'], 'b.meets': ['meets target', 'entspricht Soll'], 'b.deviates': ['deviates', 'weicht ab'], 'b.notAssigned': [' (not assigned, not effective)', ' (nicht zugewiesen, wirkt nicht)'],
     'b.setting': ['Setting', 'Einstellung'], 'b.deviceOnly': ['device state only', 'nur Gerätezustand'], 'b.seen': ['{0} Defender settings found in policies (to verify the baseline)', '{0} Defender-Einstellungen in Richtlinien gefunden (zum Abgleich der Baseline)'],
     'st.OK': ['OK', 'OK'], 'st.Deviation': ['Deviation', 'Abweichung'], 'st.NotConfigured': ['Not configured', 'Nicht konfiguriert'], 'st.NotAssigned': ['Not assigned', 'Nicht zugewiesen'],
-    'st.Inconsistent': ['Inconsistent', 'Uneinheitlich'], 'st.DeviceDeviation': ['Deviation on devices', 'Abweichung am Gerät'], 'st.NoData': ['No data', 'Keine Daten'], 'st.NotRelevant': ['Not relevant', 'Nicht relevant'],
+    'st.Inconsistent': ['Inconsistent', 'Uneinheitlich'], 'st.DeviceDeviation': ['Deviation on devices', 'Abweichung am Gerät'], 'st.NoData': ['No data', 'Keine Daten'], 'st.NotRelevant': ['Not relevant', 'Nicht relevant'], 'st.Default': ['Default (not weakened)', 'Standard (nicht abgeschwächt)'],
     'st.Conflict': ['Conflict', 'Konflikt'], 'st.BelowTarget': ['Configured below target', 'Unter Soll konfiguriert'], 'st.NoDeviceData': ['No device data', 'Keine Gerätedaten'], 'st.BlockRecommended': ['Target met, block recommended', 'Soll erfüllt, Block empfohlen'],
     // ASR
     'a.lede': ['Three levels per rule: target (baseline), what is configured in Intune and which mode actually applies on the devices – overall, per Defender device group and per device.', 'Pro Regel drei Ebenen: Soll (Baseline), was in Intune konfiguriert ist, und welcher Modus auf den Geräten tatsächlich wirkt – gesamt, pro Defender-Gerätegruppe und pro Gerät.'],
@@ -265,7 +265,7 @@
     'dv.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'ov.thirdParty': ['devices with a third-party AV/EDR product', 'Geräte mit Fremd-AV/EDR-Produkt'], 'd.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'chart.3pav.1': ['third-party product present', 'Fremdprodukt vorhanden'], 'chart.3pav.0': ['Defender only', 'nur Defender'],
     // licensing (optional module, Defender for Endpoint only)
     'li.lede': ['Indication, not an audit: which Defender for Endpoint plans are purchased and assigned, which users hold them, and which onboarded client devices were used in the last {0} days only by people without a plan. Devices are mapped to users via the Intune primary user and the Defender logon events – shared, kiosk and unattended devices need a manual look. Server licences are not visible in Microsoft 365.', 'Indikation, kein Audit: welche Defender-for-Endpoint-Pläne gekauft und zugewiesen sind, welche Benutzer sie halten und welche onboardeten Client-Geräte in den letzten {0} Tagen nur von Personen ohne Plan genutzt wurden. Geräte werden über den primären Intune-Benutzer und die Defender-Anmeldeereignisse Benutzern zugeordnet – Shared-, Kiosk- und unbeaufsichtigte Geräte brauchen einen manuellen Blick. Serverlizenzen sind in Microsoft 365 nicht sichtbar.'],
-    'li.skus': ['Purchased plans', 'Gekaufte Pläne'], 'li.sku': ['SKU', 'SKU'], 'li.tier': ['Plan', 'Plan'], 'li.enabled': ['Purchased', 'Gekauft'], 'li.consumed': ['Assigned', 'Zugewiesen'], 'li.free': ['Free', 'Frei'], 'li.over': ['over-assigned', 'überzugewiesen'],
+    'li.skus': ['Purchased plans', 'Gekaufte Pläne'], 'li.sku': ['Product', 'Produkt'], 'li.tier': ['Plan', 'Plan'], 'li.enabled': ['Purchased', 'Gekauft'], 'li.consumed': ['Assigned', 'Zugewiesen'], 'li.free': ['Free', 'Frei'], 'li.over': ['over-assigned', 'überzugewiesen'],
     'li.tier.P2': ['Plan 2', 'Plan 2'], 'li.tier.P1': ['Plan 1', 'Plan 1'], 'li.tier.MDB': ['Defender for Business', 'Defender for Business'], 'li.tier.Server': ['Servers', 'Server'],
     'li.licensedUsers': ['users with an MDE plan', 'Benutzer mit MDE-Plan'], 'li.clients': ['onboarded clients', 'onboardete Clients'], 'li.clientsUnlicensed': ['clients used only by unlicensed users', 'Clients nur von Unlizenzierten genutzt'], 'li.clientsNoUser': ['clients without any user seen', 'Clients ohne erkannten Benutzer'],
     'li.usersNoDevice': ['licensed users without a device', 'lizenzierte Benutzer ohne Gerät'], 'li.usersOver': ['users above {0} devices', 'Benutzer über {0} Geräten'], 'li.servers': ['onboarded servers (separate licence)', 'onboardete Server (separate Lizenz)'], 'li.p1only': ['clients covered by Plan 1 only', 'Clients nur durch Plan 1 abgedeckt'],
@@ -1675,7 +1675,7 @@
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
       main.append(h('p', { class: 'lede' }, t('b.lede', tx(ep.baselineName) || 'Wardline', ep.baselineSource === 'custom' ? t('b.src.custom') : t('b.src.default'))));
       const rows = arr(ep.baseline);
-      const stClass = s => s === 'OK' ? 'good' : (s === 'NotRelevant' || s === 'NoData') ? '' : (s === 'Inconsistent' ? 'warn' : 'bad');
+      const stClass = s => (s === 'OK' || s === 'Default') ? 'good' : (s === 'NotRelevant' || s === 'NoData') ? '' : (s === 'Inconsistent' ? 'warn' : 'bad');
       main.append(dataTable({
         name: 'baseline', rows, sort: (a, b) => (a.status === 'OK') - (b.status === 'OK') || sevRank(a.severity) - sevRank(b.severity),
         search: r => `${tx(r.title)} ${tx(r.category)} ${r.platform} ${code('st', r.status)}`,
@@ -1773,10 +1773,10 @@
       const skus = arr(li.skus);
       main.append(h('h2', null, t('li.skus')));
       main.append(dataTable({
-        name: 'lic-skus', rows: skus, sort: (a, b) => String(a.tier).localeCompare(String(b.tier)) || String(a.skuPartNumber).localeCompare(String(b.skuPartNumber)),
-        search: r => `${r.skuPartNumber} ${r.tier}`,
+        name: 'lic-skus', rows: skus, sort: (a, b) => String(a.tier).localeCompare(String(b.tier)) || String(a.skuName || a.skuPartNumber).localeCompare(String(b.skuName || b.skuPartNumber)),
+        search: r => `${r.skuName || ''} ${r.skuPartNumber} ${r.tier}`,
         columns: [
-          { title: t('li.sku'), cell: r => h('span', { class: 'mono' }, r.skuPartNumber), text: r => r.skuPartNumber },
+          { title: t('li.sku'), cell: r => h('span', { title: r.skuPartNumber }, r.skuName || r.skuPartNumber, r.skuName && r.skuName !== r.skuPartNumber ? h('div', { class: 'muted mono small' }, r.skuPartNumber) : null), text: r => r.skuName || r.skuPartNumber },
           { title: t('li.tier'), text: r => r.isServer ? t('li.tier.Server') : code('li.tier', r.tier) },
           { title: t('li.enabled'), text: r => num(r.enabled) },
           { title: t('li.consumed'), cell: r => h('span', { class: r.consumed > r.enabled ? 'state bad' : '' }, `${num(r.consumed)}${r.consumed > r.enabled ? ` · ${t('li.over')}` : ''}`), text: r => num(r.consumed) },

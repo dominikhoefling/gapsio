@@ -269,6 +269,248 @@ function Get-WlAccessFindings {
     @($f)
 }
 
+#region API apps with Defender permissions, access reviews, PIM activation rules
+# Resources whose application permissions reach Defender: MDE API (WindowsDefenderATP), Defender XDR API (Microsoft Threat
+# Protection) and the Defender-related part of Microsoft Graph.
+$script:WlApiResources = @(
+    @{ appId = 'fc780465-2017-40d4-a0c5-307022471b92'; name = 'Defender for Endpoint API'; filter = $null }
+    @{ appId = '8ee8fdad-f234-4243-8f3b-15c294843740'; name = 'Defender XDR API'; filter = $null }
+    @{ appId = '00000003-0000-0000-c000-000000000000'; name = 'Microsoft Graph'; filter = '^(Security|ThreatHunting|ThreatIndicators|ThreatIntelligence|ThreatSubmission|CustomDetection|RoleManagement\.(Read|ReadWrite)\.Defender)' }
+)
+# Application permissions with direct impact on devices or detections
+$script:WlApiHighImpact = 'Offboard|LiveResponse|Isolate|RestrictExecution|StopAndQuarantine|CollectForensics|Library\.Manage|Machine\.Scan|ReadWrite|SecurityActions'
+$script:WlMicrosoftTenants = @('f8cdef31-a31e-4b4a-93e4-5f571e91255a', '72f988bf-86f1-41af-91ab-2d7cd011db47', '33e01921-4d64-4f8c-a055-5bdaffd5e33d')
+
+function Get-WlApiApps {
+    <#
+    .SYNOPSIS
+    Service principals holding application permissions on the Defender APIs (appRoleAssignedTo of the resource service
+    principals), with credential type and lifetime and the owners of the app registration (Directory.Read.All).
+    #>
+    $tenant = [string](Get-WlSetting -Name 'WL_TENANT_ID')
+    $byClient = @{}
+    foreach ($res in $script:WlApiResources) {
+        $sp = Invoke-WlGraphSafe -Path "servicePrincipals(appId='$($res.appId)')?`$select=id,appId,displayName,appRoles" -Context "Service principal $($res.name)"
+        if (-not $sp) { continue }
+        $roleName = @{}; foreach ($r in @($sp.appRoles)) { if ($r) { $roleName[[string]$r.id] = [string]$r.value } }
+        $assign = Invoke-WlGraphSafe -All -Path "servicePrincipals/$($sp.id)/appRoleAssignedTo?`$top=999" -Context "App role assignments $($res.name)"
+        foreach ($a in @($assign)) {
+            if (-not $a -or [string]$a.principalType -ne 'ServicePrincipal') { continue }
+            $v = $roleName[[string]$a.appRoleId]
+            if (-not $v) { continue }
+            if ($res.filter -and $v -notmatch $res.filter) { continue }
+            $cid = [string]$a.principalId
+            if (-not $byClient.ContainsKey($cid)) { $byClient[$cid] = [ordered]@{ id = $cid; displayName = [string]$a.principalDisplayName; permissions = [System.Collections.Generic.List[string]]::new() } }
+            $byClient[$cid].permissions.Add("$($res.name): $v")
+        }
+    }
+    $now = [DateTime]::UtcNow
+    $out = foreach ($c in $byClient.Values) {
+        $sp = Invoke-WlGraphSafe -Path "servicePrincipals/$($c.id)?`$select=id,appId,displayName,appOwnerOrganizationId,accountEnabled" -Context "Service principal $($c.displayName)"
+        $owner = [string](Get-WlProp $sp 'appOwnerOrganizationId')
+        $internal = $owner -and $owner -eq $tenant
+        $microsoft = $owner -in $script:WlMicrosoftTenants
+        $secrets = 0; $certs = 0; $longest = $null; $expired = 0; $owners = @()
+        if ($internal) {
+            $app = Invoke-WlGraphSafe -Path "applications(appId='$([string](Get-WlProp $sp 'appId'))')?`$select=id,displayName,passwordCredentials,keyCredentials" -Context "App registration $($c.displayName)"
+            if ($app) {
+                foreach ($pc in @($app.passwordCredentials)) { if ($pc) { $secrets++ } }
+                foreach ($kc in @($app.keyCredentials)) { if ($kc) { $certs++ } }
+                foreach ($cr in @(@($app.passwordCredentials) + @($app.keyCredentials))) {
+                    if (-not $cr) { continue }
+                    try {
+                        $end = ConvertTo-WlUtc ([string]$cr.endDateTime); $start = ConvertTo-WlUtc ([string]$cr.startDateTime)
+                        if ($end -lt $now) { $expired++; continue }
+                        $days = [int]($end - $start).TotalDays; if ($null -eq $longest -or $days -gt $longest) { $longest = $days }
+                    }
+                    catch { }
+                }
+                $o = Invoke-WlGraphSafe -All -Path "applications/$($app.id)/owners?`$select=id,displayName,userPrincipalName" -Context "Owners of $($c.displayName)"
+                $owners = @(@($o) | Where-Object { $_ } | ForEach-Object { if ($_.userPrincipalName) { [string]$_.userPrincipalName } else { [string]$_.displayName } })
+            }
+        }
+        $perms = @($c.permissions | Sort-Object -Unique)
+        $high = @($perms | Where-Object { ($_ -split ': ', 2)[1] -match $script:WlApiHighImpact })
+        [pscustomobject]@{
+            key = Get-WlHash "api|$($c.id)"; fp = Get-WlHash "$($perms -join ';')|$secrets|$certs|$($owners -join ';')"
+            label = "API app $($c.displayName)"; state = $(if ($high.Count) { 'HighImpact' } else { 'ReadOnly' })
+            servicePrincipalId = $c.id; appId = [string](Get-WlProp $sp 'appId'); displayName = $c.displayName
+            origin = $(if ($internal) { 'Tenant' } elseif ($microsoft) { 'Microsoft' } else { 'External' })
+            enabled = [bool](Get-WlProp $sp 'accountEnabled'); permissions = $perms; highImpact = $high
+            secrets = $secrets; certificates = $certs; expiredCredentials = $expired; longestCredentialDays = $longest; owners = $owners
+        }
+    }
+    @($out | Sort-Object { -@($_.highImpact).Count }, displayName)
+}
+
+function Get-WlAccessReviewCoverage {
+    <#
+    .SYNOPSIS
+    Which Defender-relevant groups and Entra roles are under an access review (AccessReview.Read.All).
+    Returns $null when the definitions cannot be read.
+    #>
+    $defs = $null
+    try { $defs = @(Invoke-WlGraph -All -Path 'identityGovernance/accessReviews/definitions?$select=id,displayName,status,scope,instanceEnumerationScope') }
+    catch { Add-WlWarning "Access review definitions (AccessReview.Read.All): $(Get-WlErrorText -Exception $_.Exception -Context 'access reviews')"; return $null }
+    $active = @(@($defs) | Where-Object { $_ -and [string]$_.status -notin 'Completed', 'Deleted' })
+    [pscustomobject]@{ count = $active.Count; text = ((@($active | ForEach-Object { ($_ | ConvertTo-Json -Depth 12 -Compress) })) -join "`n").ToLowerInvariant() }
+}
+
+function Get-WlPimGroupRules {
+    <#
+    .SYNOPSIS
+    PIM for Groups activation rules (member role) of a group: MFA / authentication context, justification, approval,
+    maximum duration (RoleManagementPolicy.Read.AzureADGroup). $null when the group is not managed by PIM.
+    #>
+    param([string]$GroupId)
+    $a = Invoke-WlGraphSafe -Path "policies/roleManagementPolicyAssignments?`$filter=scopeId eq '$GroupId' and scopeType eq 'Group' and roleDefinitionId eq 'member'&`$expand=policy(`$expand=rules)" -Context "PIM policy for group $GroupId (RoleManagementPolicy.Read.AzureADGroup)"
+    $pol = @(Get-WlProp $a 'value')[0]
+    if (-not $pol) { return $null }
+    $rules = @(Get-WlProp (Get-WlProp $pol 'policy') 'rules')
+    $r = { param($id) $rules | Where-Object { [string]$_.id -eq $id } | Select-Object -First 1 }
+    $en = & $r 'Enablement_EndUser_Assignment'; $ap = & $r 'Approval_EndUser_Assignment'; $ex = & $r 'Expiration_EndUser_Assignment'; $ac = & $r 'AuthenticationContext_EndUser_Assignment'
+    $enabled = @(Get-WlProp $en 'enabledRules' | ForEach-Object { [string]$_ })
+    $hours = $null
+    $dur = [string](Get-WlProp $ex 'maximumDuration'); if ($dur) { try { $hours = [System.Xml.XmlConvert]::ToTimeSpan($dur).TotalHours } catch { } }
+    [pscustomobject]@{
+        mfa = ($enabled -contains 'MultiFactorAuthentication') -or [bool](Get-WlProp $ac 'isEnabled')
+        justification = $enabled -contains 'Justification'
+        approval = [bool](Get-WlProp (Get-WlProp $ap 'setting') 'isApprovalRequired')
+        maxHours = $hours
+    }
+}
+
+function Get-WlPlatformAccessFindings {
+    <#
+    .SYNOPSIS
+    Findings for programmatic access (API apps) and identity governance around the Defender role groups.
+    #>
+    param([object[]]$ApiApps, $Reviews, [hashtable]$GroupGrants, [hashtable]$PimRules)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    foreach ($a in @($ApiApps | Where-Object { $_ -and @($_.highImpact).Count -and $_.enabled })) {
+        $weak = [System.Collections.Generic.List[object]]::new()
+        if ($a.secrets -gt 0) { $weak.Add(@("$($a.secrets) client secret(s)", "$($a.secrets) Client Secret(s)")) }
+        if ($a.longestCredentialDays -gt 730) { $weak.Add(@("a credential valid for $([int]($a.longestCredentialDays / 365)) years", "ein Anmeldeinformationen-Gültigkeitszeitraum von $([int]($a.longestCredentialDays / 365)) Jahren")) }
+        if ($a.origin -eq 'Tenant' -and @($a.owners).Count -eq 0) { $weak.Add(@('no owner', 'kein Besitzer')) }
+        if ($a.origin -eq 'External') { $weak.Add(@('registered in another tenant', 'in einem anderen Mandanten registriert')) }
+        $sev = if ($weak.Count) { 'High' } else { 'Medium' }
+        $wEn = if ($weak.Count) { " Weak points: $((@($weak | ForEach-Object { $_[0] })) -join ', ')." } else { '' }
+        $wDe = if ($weak.Count) { " Schwachstellen: $((@($weak | ForEach-Object { $_[1] })) -join ', ')." } else { '' }
+        $f.Add((New-WlFinding -Severity $sev -Category 'Platform' -Title (& $T "API app with Defender write permissions: $($a.displayName)" "API-App mit Defender-Schreibrechten: $($a.displayName)") `
+                    -Detail (& $T "The $($a.origin.ToLowerInvariant()) app '$($a.displayName)' holds application permissions that act on devices or detections without a user: $((@($a.highImpact)) -join ', ').$wEn Owners: $(if (@($a.owners).Count) { @($a.owners) -join ', ' } else { '–' }). Application permissions bypass Conditional Access, PIM and unified RBAC scoping." "Die App '$($a.displayName)' ($($a.origin)) hält Anwendungsberechtigungen, die ohne Benutzer auf Geräte oder Erkennungen wirken: $((@($a.highImpact)) -join ', ').$wDe Besitzer: $(if (@($a.owners).Count) { @($a.owners) -join ', ' } else { '–' }). Anwendungsberechtigungen umgehen Conditional Access, PIM und das Scoping von Unified RBAC.") `
+                    -Recommendation (& $T 'Confirm the integration is still needed and reduce it to the permissions it uses; replace client secrets with certificates or a managed identity, keep credentials short-lived and give the app a responsible owner.' 'Prüfen, ob die Integration noch gebraucht wird, und auf die genutzten Berechtigungen reduzieren; Client Secrets durch Zertifikate oder eine Managed Identity ersetzen, Anmeldeinformationen kurzlebig halten und der App einen verantwortlichen Besitzer geben.') -Subject "api|$($a.servicePrincipalId)"))
+    }
+    $secretApps = @($ApiApps | Where-Object { $_ -and $_.secrets -gt 0 -and @($_.highImpact).Count -eq 0 })
+    if ($secretApps.Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Platform' -Title (& $T "$($secretApps.Count) app(s) read Defender data with a client secret" "$($secretApps.Count) App(s) lesen Defender-Daten mit Client Secret") `
+                    -Detail (& $T "Read-only integrations that authenticate with a shared secret: $((@($secretApps | Select-Object -First 10 | ForEach-Object displayName)) -join ', '). A leaked secret exposes alerts, devices and hunting data to anyone." "Nur-Lese-Integrationen, die sich mit einem geteilten Secret anmelden: $((@($secretApps | Select-Object -First 10 | ForEach-Object displayName)) -join ', '). Ein abgeflossenes Secret legt Alerts, Geräte und Hunting-Daten für jeden offen.") `
+                    -Recommendation (& $T 'Switch to certificate credentials or managed identities and rotate the remaining secrets.' 'Auf Zertifikate oder Managed Identities umstellen und verbleibende Secrets rotieren.') -Subject 'api|secrets' -StableKey))
+    }
+
+    if ($Reviews -and $GroupGrants.Count) {
+        $unreviewed = @(foreach ($gid in @($GroupGrants.Keys)) {
+                if ($Reviews.text -notmatch [regex]::Escape(([string]$gid).ToLowerInvariant())) {
+                    [pscustomobject]@{ id = $gid; name = (Get-WlGroupNameCached $gid); privileged = [bool]@($GroupGrants[$gid] | Where-Object { $_.privileged }).Count }
+                }
+            })
+        if ($unreviewed.Count) {
+            $priv = @($unreviewed | Where-Object { $_.privileged })
+            $f.Add((New-WlFinding -Severity $(if ($priv.Count) { 'Medium' } else { 'Low' }) -Category 'LeastPrivilege' -Title (& $T "$($unreviewed.Count) Defender role group(s) without an access review" "$($unreviewed.Count) Defender-Rollengruppe(n) ohne Access Review") `
+                        -Detail (& $T "These groups grant unified RBAC roles but no active access review covers them: $((@($unreviewed | Select-Object -First 12 | ForEach-Object name)) -join ', ')$(if ($priv.Count) { " – $($priv.Count) of them grant response, live response or settings permissions" }). Membership that is never re-attested only grows." "Diese Gruppen vergeben Unified-RBAC-Rollen, aber kein aktiver Access Review deckt sie ab: $((@($unreviewed | Select-Object -First 12 | ForEach-Object name)) -join ', ')$(if ($priv.Count) { " – $($priv.Count) davon vergeben Response-, Live-Response- oder Einstellungsrechte" }). Mitgliedschaften, die nie neu bestätigt werden, wachsen nur.") `
+                        -Recommendation (& $T 'Create a recurring access review (quarterly for privileged groups) with automatic removal when reviewers do not respond.' 'Einen wiederkehrenden Access Review anlegen (quartalsweise für privilegierte Gruppen) mit automatischer Entfernung, wenn Prüfer nicht antworten.') -Subject 'acc|noreview' -StableKey))
+        }
+    }
+
+    foreach ($gid in @($PimRules.Keys)) {
+        $r = $PimRules[$gid]; if (-not $r) { continue }
+        $privileged = [bool]@($GroupGrants[$gid] | Where-Object { $_.privileged }).Count
+        if (-not $privileged) { continue }
+        $gaps = [System.Collections.Generic.List[object]]::new()
+        if (-not $r.mfa) { $gaps.Add(@('no MFA or authentication context on activation', 'keine MFA bzw. kein Authentifizierungskontext bei Aktivierung')) }
+        if (-not $r.justification) { $gaps.Add(@('no justification required', 'keine Begründung erforderlich')) }
+        if ($r.maxHours -gt 8) { $gaps.Add(@("activation lasts up to $($r.maxHours) hours", "Aktivierung bis zu $($r.maxHours) Stunden")) }
+        if (-not $gaps.Count) { continue }
+        $name = Get-WlGroupNameCached $gid
+        $f.Add((New-WlFinding -Severity $(if (-not $r.mfa) { 'Medium' } else { 'Low' }) -Category 'LeastPrivilege' -Title (& $T "Weak PIM activation for Defender group: $name" "Schwache PIM-Aktivierung für Defender-Gruppe: $name") `
+                    -Detail (& $T "The group grants privileged Defender permissions through PIM for Groups, but activation has gaps: $((@($gaps | ForEach-Object { $_[0] })) -join ', ')$(if (-not $r.approval) { '; no approval' })." "Die Gruppe vergibt privilegierte Defender-Rechte über PIM for Groups, die Aktivierung hat aber Lücken: $((@($gaps | ForEach-Object { $_[1] })) -join ', ')$(if (-not $r.approval) { '; keine Genehmigung' }).") `
+                    -Recommendation (& $T 'Require MFA (ideally an authentication context with phishing-resistant MFA) and a justification on activation, limit the duration to a working shift, and add approval for live response.' 'Bei Aktivierung MFA (idealerweise Authentifizierungskontext mit phishing-resistenter MFA) und Begründung verlangen, die Dauer auf eine Schicht begrenzen und für Live Response eine Genehmigung einführen.') -Subject "acc|pim|$gid"))
+    }
+    @($f.ToArray())
+}
+#endregion
+
+#region Purview audit (unified audit log) for Defender for Endpoint – optional feature "audit"
+function Get-WlDefenderAuditFacts {
+    <#
+    .SYNOPSIS
+    Feature "audit" (AuditLogsQuery.Read.All): Defender for Endpoint portal activity from the unified audit log
+    (record type mdatpAudit) via the Graph audit log query API. Queries run asynchronously: each run reads the query
+    started by the previous run and starts the next one, so a run never waits for Purview.
+    #>
+    param($Previous)
+    if (-not ((Get-WlSetting -Name 'WL_FEATURES' -Default '') -split '[,; ]+' -contains 'audit')) { return $null }
+    $records = $null; $queryAt = $null
+    $prevId = [string](Get-WlProp (Get-WlProp $Previous 'auditQuery') 'id')
+    if ($prevId) {
+        $q = Invoke-WlGraphSafe -Beta -Path "security/auditLog/queries/$prevId" -Context 'Audit log query status (AuditLogsQuery.Read.All)'
+        if ([string](Get-WlProp $q 'status') -eq 'succeeded') {
+            $records = @(Invoke-WlGraphSafe -Beta -All -Path "security/auditLog/queries/$prevId/records" -Context 'Audit log records')
+            $queryAt = [string](Get-WlProp (Get-WlProp $Previous 'auditQuery') 'createdAt')
+        }
+        elseif ($q -and [string](Get-WlProp $q 'status') -in 'notStarted', 'running') {
+            return [pscustomobject]@{ query = (Get-WlProp $Previous 'auditQuery'); records = $null; summary = (Get-WlProp $Previous 'auditSummary') }
+        }
+    }
+    $now = [DateTime]::UtcNow
+    $body = @{ displayName = "Wardline Defender audit $($now.ToString('yyyy-MM-dd'))"; filterStartDateTime = $now.AddDays(-30).ToString('o'); filterEndDateTime = $now.ToString('o'); recordTypeFilters = @('mdatpAudit') }
+    $new = $null
+    try { $new = Invoke-WlGraph -Beta -Path 'security/auditLog/queries' -Method POST -Body $body } catch { Add-WlWarning "Audit log query (AuditLogsQuery.Read.All): $(Get-WlErrorText -Exception $_.Exception -Context 'audit')" }
+    $summary = $null
+    if ($null -ne $records) {
+        $rows = @(foreach ($r in $records) {
+                if (-not $r) { continue }
+                $op = [string](Get-WlProp $r 'operation')
+                $kind = switch -Regex ($op.ToLowerInvariant()) { 'offboard' { 'Offboarding'; break } 'onboard' { 'Onboarding'; break } 'live ?response' { 'LiveResponse'; break } 'advancedfeature|setting|tamper|indicator|exclusion|rule' { 'Settings'; break } default { $null } }
+                if ($kind) { [pscustomobject]@{ kind = $kind; operation = $op; user = [string](Get-WlProp $r 'userPrincipalName'); at = [string](Get-WlProp $r 'createdDateTime') } }
+            })
+        $summary = [pscustomobject]@{ since = $queryAt; total = @($records).Count; events = @($rows | Sort-Object at -Descending | Select-Object -First 200) }
+    }
+    elseif ($Previous) { $summary = Get-WlProp $Previous 'auditSummary' }
+    [pscustomobject]@{ query = $(if ($new) { [pscustomobject]@{ id = [string]$new.id; createdAt = $now.ToString('o') } } else { $null }); records = $records; summary = $summary }
+}
+
+function Get-WlDefenderAuditFindings {
+    param($Audit)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $ev = @(Get-WlProp (Get-WlProp $Audit 'summary') 'events')
+    if (-not $ev.Count) { return @() }
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $list = { param($rows) (@($rows | Select-Object -First 8 | ForEach-Object { "$($_.user) ($($_.at))" })) -join ', ' }
+    $off = @($ev | Where-Object { $_.kind -eq 'Offboarding' })
+    if ($off.Count) {
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Platform' -Title (& $T "Offboarding package downloaded $($off.Count) time(s) in 30 days" "Offboarding-Paket in 30 Tagen $($off.Count)-mal heruntergeladen") `
+                    -Detail (& $T "Downloads by: $(& $list $off). An offboarding script silently removes a device from Defender – attackers use it to blind devices before moving laterally." "Downloads durch: $(& $list $off). Ein Offboarding-Skript entfernt ein Gerät still aus Defender – Angreifer nutzen das, um Geräte vor der lateralen Bewegung blind zu machen.") `
+                    -Recommendation (& $T 'Confirm each download against a decommissioning ticket; restrict the permission to download offboarding packages to a small, PIM-protected role.' 'Jeden Download mit einem Außerbetriebnahme-Ticket abgleichen; das Recht zum Herunterladen von Offboarding-Paketen auf eine kleine, PIM-geschützte Rolle beschränken.') -Subject 'audit|offboard' -StableKey))
+    }
+    $lr = @($ev | Where-Object { $_.kind -eq 'LiveResponse' })
+    if ($lr.Count) {
+        $people = @($lr | Select-Object -ExpandProperty user -Unique)
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Platform' -Title (& $T "$($lr.Count) live response action(s) by $($people.Count) person(s) in 30 days" "$($lr.Count) Live-Response-Aktion(en) durch $($people.Count) Person(en) in 30 Tagen") `
+                    -Detail (& $T "Live response runs as SYSTEM on the device. Recent use: $(& $list $lr)." "Live Response läuft auf dem Gerät als SYSTEM. Jüngste Nutzung: $(& $list $lr).") `
+                    -Recommendation (& $T 'Check that every session belongs to an incident or ticket and that the people hold live response only through PIM.' 'Prüfen, dass jede Sitzung zu einem Incident oder Ticket gehört und die Personen Live Response nur über PIM halten.') -Subject 'audit|lr' -StableKey))
+    }
+    $set = @($ev | Where-Object { $_.kind -eq 'Settings' })
+    if ($set.Count) {
+        $ops = (@($set | Group-Object operation | Sort-Object Count -Descending | Select-Object -First 6 | ForEach-Object { "$($_.Name) ($($_.Count))" })) -join ', '
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Platform' -Title (& $T "$($set.Count) Defender setting change(s) in the portal in 30 days" "$($set.Count) Defender-Einstellungsänderung(en) im Portal in 30 Tagen") `
+                    -Detail (& $T "Changes: $ops. Last by: $(& $list $set). Portal changes (advanced features, indicators, rules) do not appear in any device timeline." "Änderungen: $ops. Zuletzt durch: $(& $list $set). Portal-Änderungen (erweiterte Features, Indikatoren, Regeln) erscheinen in keiner Geräte-Timeline.") `
+                    -Recommendation (& $T 'Match the changes against change tickets; forward the unified audit log to the SIEM and alert on tamper protection, EDR in block mode and indicator changes.' 'Änderungen mit Change-Tickets abgleichen; das Unified Audit Log ins SIEM leiten und bei Änderungen an Tamper Protection, EDR im Block-Modus und Indikatoren alarmieren.') -Subject 'audit|settings' -StableKey))
+    }
+    @($f.ToArray())
+}
+#endregion
+
 function Invoke-WlAccessCollection {
     <#
     .SYNOPSIS
@@ -476,7 +718,15 @@ function Invoke-WlAccessCollection {
     foreach ($b in $bypass) { if ($usage.ContainsKey($b.principalId)) { $b.lastUsed = $usage[$b.principalId] } }
     #endregion
 
-    $findings = @(Get-WlAccessFindings -Entitlements $ents -Bypass @($bypass) -UnusedDays $unusedDays)
+    #region Programmatic access and governance
+    $apiApps = @(Get-WlApiApps)
+    $reviews = Get-WlAccessReviewCoverage
+    $pimRules = @{}
+    foreach ($gid in @($groupGrants.Keys)) { if (@($groupGrants[$gid] | Where-Object { $_.privileged }).Count) { $pimRules[$gid] = Get-WlPimGroupRules -GroupId $gid } }
+    $audit = Get-WlDefenderAuditFacts -Previous $prev
+    #endregion
+
+    $findings = @(Get-WlAccessFindings -Entitlements $ents -Bypass @($bypass) -UnusedDays $unusedDays) + @(Get-WlPlatformAccessFindings -ApiApps $apiApps -Reviews $reviews -GroupGrants $groupGrants -PimRules $pimRules) + @(Get-WlDefenderAuditFindings -Audit $audit)
     $principals = @($ents | Select-Object -ExpandProperty principalId -Unique)
     $activeEnts = @($ents | Where-Object { $_.state -eq 'Active' })
     $snapshot = [ordered]@{
@@ -498,6 +748,9 @@ function Invoke-WlAccessCollection {
             bypassUsers        = @($bypass | Select-Object -ExpandProperty principalId -Unique).Count
             openAudiences      = $audiences.Count
             roleGrantingGroups = $groupGrants.Count
+            apiApps            = $apiApps.Count
+            apiAppsHighImpact  = @($apiApps | Where-Object { @($_.highImpact).Count }).Count
+            accessReviews      = $(if ($reviews) { $reviews.count } else { $null })
             findings           = $findings.Count
         }
         unusedDays         = $unusedDays
@@ -507,11 +760,14 @@ function Invoke-WlAccessCollection {
         entitlements       = $ents
         bypass             = @($bypass)
         audiences          = @($audiences)
+        apiApps            = $apiApps
+        auditQuery         = $(if ($audit) { $audit.query } else { $null })
+        auditSummary       = $(if ($audit) { $audit.summary } else { $null })
         findings           = $findings
         warnings           = @(Get-WlWarnings)
     }
     foreach ($k in ($usage.Keys | Sort-Object)) { $snapshot.principalUsage[$k] = $usage[$k] }
-    $r = Save-WlSnapshot -Module 'access' -Snapshot $snapshot -Collections @('entitlements', 'bypass', 'audiences', 'findings') -Started $started
+    $r = Save-WlSnapshot -Module 'access' -Snapshot $snapshot -Collections @('entitlements', 'bypass', 'audiences', 'apiApps', 'findings') -Started $started
     Write-Information "Wardline access: done, $($r.changes) change(s), $($r.warnings) warning(s)." -InformationAction Continue
     $r
 }

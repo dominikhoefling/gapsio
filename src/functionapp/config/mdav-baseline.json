@@ -3,7 +3,7 @@
     "en": "Wardline MDAV best practice",
     "de": "Wardline MDAV Best Practice"
   },
-  "version": "2026.10.4",
+  "version": "2026.10.31",
   "description": {
     "en": "Recommended configuration for Microsoft Defender Antivirus (Windows) and Microsoft Defender for Endpoint (macOS, Linux). Customise per customer: edit this file and upload it to the storage account as config/mdav-baseline.json. Text fields can be a string or {\"en\": \"...\", \"de\": \"...\"}.",
     "de": "Empfohlene Konfiguration für Microsoft Defender Antivirus (Windows) und Microsoft Defender for Endpoint (macOS). Werte können pro Kunde angepasst werden: diese Datei bearbeiten und als config/mdav-baseline.json in den Storage Account hochladen."
@@ -1261,6 +1261,653 @@
         "de": "Linux-Richtlinie › Network protection › Enforcement level = block."
       },
       "effective": "NetworkProtection"
+    },
+    {
+      "id": "threat-default-action",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Threat default actions never 'Allow'",
+        "de": "Standardaktionen für Bedrohungen nie 'Zulassen'"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_threatseveritydefaultaction_(low|moderate|high|severe)severitythreats$",
+      "expect": {
+        "op": "notmatch",
+        "pattern": "allow|noaction"
+      },
+      "expectText": {
+        "en": "Default (recommended action) or Quarantine/Remove/Block per severity",
+        "de": "Standard (empfohlene Aktion) oder Quarantäne/Entfernen/Blockieren je Schweregrad"
+      },
+      "rationale": {
+        "en": "'Allow' as the default action for a severity level detects threats and then lets them run – a silent exception for every malware family of that level. Microsoft recommends leaving the threat actions at their default; tamper protection protects them.",
+        "de": "'Zulassen' als Standardaktion für einen Schweregrad erkennt Bedrohungen und lässt sie dann laufen – eine stille Ausnahme für jede Malware-Familie dieses Schweregrads. Microsoft empfiehlt, die Aktionen auf dem Standard zu lassen; Tamper Protection schützt sie."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Threat Severity Default Action: remove the setting or choose Quarantine/Remove.",
+        "de": "Settings Catalog > Defender > Threat Severity Default Action: Einstellung entfernen oder Quarantäne/Entfernen wählen."
+      }
+    },
+    {
+      "id": "brute-force-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Brute-force protection (RDP/SMB) in block mode",
+        "de": "Brute-Force-Schutz (RDP/SMB) im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "bruteforceprotectionconfiguredstate$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Block (1); audit (2) only as an interim step",
+        "de": "Blockieren (1); Audit (2) nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Behavioural network blocking stops password-guessing over RDP and SMB after repeated failures from the same source. Not configured leaves it at the product default.",
+        "de": "Behavioural Network Blocking stoppt das Erraten von Passwörtern über RDP und SMB nach wiederholten Fehlversuchen derselben Quelle. Nicht konfiguriert belässt es beim Produktstandard."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Brute Force Protection Configured State = Block; exclusions only for known scanners or jump hosts.",
+        "de": "Settings Catalog > Defender > Brute Force Protection Configured State = Block; Ausnahmen nur für bekannte Scanner oder Jump-Hosts."
+      }
+    },
+    {
+      "id": "remote-encryption-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Remote encryption protection in block mode",
+        "de": "Schutz vor Remote-Verschlüsselung im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "remoteencryptionprotectionconfiguredstate$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Block (1)",
+        "de": "Blockieren (1)"
+      },
+      "rationale": {
+        "en": "Blocks a remote device that encrypts files over SMB shares on this device (human-operated ransomware from an unmanaged host).",
+        "de": "Blockiert ein entferntes Gerät, das Dateien über SMB-Freigaben auf diesem Gerät verschlüsselt (Human-operated Ransomware von einem unverwalteten Host)."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block.",
+        "de": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block."
+      }
+    },
+    {
+      "id": "np-protocol-parsing",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "Network protection inspects all protocols",
+        "de": "Network Protection prüft alle Protokolle"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_configuration_disable(tls|http|dns|dnsovertcp|ssh|rdp|ftp|smtp)parsing$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "No Disable…Parsing setting enabled",
+        "de": "Keine Disable…Parsing-Einstellung aktiviert"
+      },
+      "rationale": {
+        "en": "Each Disable…Parsing switch blinds network protection for one protocol – TLS (SNI) and DNS are the basis for URL indicators, web content filtering and C2 blocking.",
+        "de": "Jeder Disable…Parsing-Schalter macht Network Protection für ein Protokoll blind – TLS (SNI) und DNS sind die Grundlage für URL-Indikatoren, Web Content Filtering und C2-Blockierung."
+      },
+      "remediation": {
+        "en": "Remove the Disable…Parsing settings; solve performance issues with process exclusions for network inspection instead.",
+        "de": "Disable…Parsing-Einstellungen entfernen; Performance-Probleme stattdessen gezielt lösen."
+      }
+    },
+    {
+      "id": "np-inbound-filtering",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "Inbound connection filtering not disabled",
+        "de": "Eingehende Verbindungsfilterung nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableinboundconnectionfiltering$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Inbound filtering lets network protection inspect connections to the device (e.g. exploitation of exposed services).",
+        "de": "Die eingehende Filterung lässt Network Protection Verbindungen zum Gerät prüfen (z. B. Ausnutzung exponierter Dienste)."
+      },
+      "remediation": {
+        "en": "Remove DisableInboundConnectionFiltering.",
+        "de": "DisableInboundConnectionFiltering entfernen."
+      }
+    },
+    {
+      "id": "np-datagram",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "UDP inspection not disabled",
+        "de": "UDP-Prüfung nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_configuration_disabledatagramprocessing$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Without datagram processing, DNS over UDP and QUIC are not inspected by network protection.",
+        "de": "Ohne Datagram Processing prüft Network Protection weder DNS über UDP noch QUIC."
+      },
+      "remediation": {
+        "en": "Remove DisableDatagramProcessing.",
+        "de": "DisableDatagramProcessing entfernen."
+      }
+    },
+    {
+      "id": "np-dns-sinkhole",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "DNS sinkhole not disabled",
+        "de": "DNS-Sinkhole nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "enablednssinkhole$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled or not configured",
+        "de": "Aktiviert oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "The sinkhole stops DNS-based exfiltration and resolution of known malicious domains.",
+        "de": "Das Sinkhole stoppt DNS-basierte Exfiltration und die Auflösung bekannter bösartiger Domains."
+      },
+      "remediation": {
+        "en": "Remove the setting or set Enable Dns Sinkhole = 1.",
+        "de": "Einstellung entfernen oder Enable Dns Sinkhole = 1 setzen."
+      }
+    },
+    {
+      "id": "on-access-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "On-access protection not disabled",
+        "de": "On-Access-Schutz nicht deaktiviert"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_allowonaccessprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed (1) or not configured",
+        "de": "Erlaubt (1) oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "With on-access protection off, files are no longer scanned when they are opened – real-time protection is reduced to process monitoring.",
+        "de": "Ohne On-Access-Schutz werden Dateien beim Öffnen nicht mehr gescannt – der Echtzeitschutz schrumpft auf Prozessüberwachung."
+      },
+      "remediation": {
+        "en": "Remove Allow On Access Protection = Not allowed.",
+        "de": "Allow On Access Protection = Not allowed entfernen."
+      }
+    },
+    {
+      "id": "archive-scanning",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Archive scanning not disabled",
+        "de": "Archiv-Scan nicht deaktiviert"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_allowarchivescanning",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed (1) or not configured",
+        "de": "Erlaubt (1) oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "Malware is routinely delivered in ZIP/RAR/ISO containers; without archive scanning it is only found once extracted.",
+        "de": "Malware wird regelmäßig in ZIP/RAR/ISO-Containern zugestellt; ohne Archiv-Scan wird sie erst nach dem Entpacken gefunden."
+      },
+      "remediation": {
+        "en": "Remove Allow Archive Scanning = Not allowed.",
+        "de": "Allow Archive Scanning = Not allowed entfernen."
+      }
+    },
+    {
+      "id": "realtime-scan-direction",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Real-time protection scans both directions",
+        "de": "Echtzeitschutz prüft beide Richtungen"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_realtimescandirection",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Incoming and outgoing (0)",
+        "de": "Ein- und ausgehend (0)"
+      },
+      "rationale": {
+        "en": "Incoming-only or outgoing-only scanning is a server performance tweak that leaves half of the file activity unscanned; use it only on documented high-throughput servers.",
+        "de": "Nur ein- oder nur ausgehend zu prüfen ist eine Server-Performance-Optimierung, die die Hälfte der Dateiaktivität ungeprüft lässt; nur auf dokumentierten Hochlast-Servern verwenden."
+      },
+      "remediation": {
+        "en": "Real Time Scan Direction = Monitor all files (0), or restrict the policy to the servers that need it.",
+        "de": "Real Time Scan Direction = Monitor all files (0) oder die Richtlinie auf die Server beschränken, die es brauchen."
+      }
+    },
+    {
+      "id": "block-at-first-sight",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Block at first sight not disabled",
+        "de": "Block at First Sight nicht deaktiviert"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableblockatfirstsee?n?$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Block at first sight holds new executables until the cloud has rated them – the main protection against fresh, never-seen malware.",
+        "de": "Block at First Sight hält neue ausführbare Dateien zurück, bis die Cloud sie bewertet hat – der wichtigste Schutz gegen frische, unbekannte Malware."
+      },
+      "remediation": {
+        "en": "Remove the Disable Block At First Seen setting.",
+        "de": "Einstellung Disable Block At First Seen entfernen."
+      }
+    },
+    {
+      "id": "av-not-disabled-by-policy",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Defender Antivirus not switched off by policy",
+        "de": "Defender Antivirus nicht per Richtlinie abgeschaltet"
+      },
+      "severity": "Critical",
+      "weakeningOnly": true,
+      "definitionIdPattern": "(disableantispywaredefender|_disableantivirus)$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not configured",
+        "de": "Nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "'Turn off Microsoft Defender Antivirus' is a legacy setting from third-party AV migrations; where it still applies, Defender does not protect at all (servers) or the device depends on another product.",
+        "de": "'Microsoft Defender Antivirus deaktivieren' ist eine Altlast aus Migrationen zu Fremd-AV; wo es noch greift, schützt Defender gar nicht (Server) oder das Gerät hängt an einem anderen Produkt."
+      },
+      "remediation": {
+        "en": "Remove the setting (Intune ADMX or GPO) and verify the running mode afterwards.",
+        "de": "Einstellung entfernen (Intune-ADMX oder GPO) und danach den Running Mode prüfen."
+      }
+    },
+    {
+      "id": "auto-exclusions",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Automatic server-role exclusions not disabled",
+        "de": "Automatische Serverrollen-Ausschlüsse nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableautoexclusions$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Windows Server 2016+ excludes role-specific paths (AD DS, DNS, DHCP, Hyper-V …) automatically. Switching this off is only right when the same exclusions are maintained by hand – otherwise domain controllers run into performance issues.",
+        "de": "Windows Server 2016+ schließt rollenspezifische Pfade (AD DS, DNS, DHCP, Hyper-V …) automatisch aus. Das abzuschalten ist nur richtig, wenn dieselben Ausschlüsse manuell gepflegt werden – sonst drohen Performance-Probleme auf Domänencontrollern."
+      },
+      "remediation": {
+        "en": "Remove Disable Auto Exclusions, or document the manual replacement exclusions.",
+        "de": "Disable Auto Exclusions entfernen oder die manuellen Ersatz-Ausschlüsse dokumentieren."
+      }
+    },
+    {
+      "id": "scheduled-scan-day",
+      "platform": "Windows",
+      "category": {
+        "en": "Scans",
+        "de": "Scans"
+      },
+      "title": {
+        "en": "Scheduled scan not set to 'Never'",
+        "de": "Geplanter Scan nicht auf 'Nie'"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_schedulescanday",
+      "expect": {
+        "op": "ne",
+        "value": 8
+      },
+      "expectText": {
+        "en": "Every day or a fixed weekday",
+        "de": "Täglich oder fester Wochentag"
+      },
+      "rationale": {
+        "en": "Without scheduled scans, dormant files are only found when they are accessed – and the scan history Defender uses for remediation stays empty.",
+        "de": "Ohne geplante Scans werden ruhende Dateien erst beim Zugriff gefunden – und die Scan-Historie, die Defender für die Bereinigung nutzt, bleibt leer."
+      },
+      "remediation": {
+        "en": "Schedule Scan Day = Every day (quick scan) with randomisation.",
+        "de": "Schedule Scan Day = Every day (Schnellscan) mit Randomisierung."
+      }
+    },
+    {
+      "id": "signatures-before-scan",
+      "platform": "Windows",
+      "category": {
+        "en": "Scans",
+        "de": "Scans"
+      },
+      "title": {
+        "en": "Check for new security intelligence before a scan",
+        "de": "Vor dem Scan auf neue Security Intelligence prüfen"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_checkforsignaturesbeforerunningscan",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "Scheduled scans then run with current definitions instead of whatever the device had at the last update.",
+        "de": "Geplante Scans laufen dann mit aktuellen Definitionen statt mit dem Stand des letzten Updates."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Check For Signatures Before Running Scan = Enabled.",
+        "de": "Settings Catalog > Defender > Check For Signatures Before Running Scan = Enabled."
+      }
+    },
+    {
+      "id": "controlled-folder-access",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Controlled folder access in block mode",
+        "de": "Controlled Folder Access im Block-Modus"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess",
+      "expect": {
+        "op": "in",
+        "values": [
+          1,
+          3
+        ]
+      },
+      "effective": "ControlledFolderAccess",
+      "expectText": {
+        "en": "Enabled (1) or block disk modification (3); audit (2/4) only as an interim step",
+        "de": "Aktiviert (1) oder Block Disk Modification (3); Audit (2/4) nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Controlled folder access stops untrusted processes from changing protected folders – a last line against ransomware. Audit mode that is never switched on protects nothing.",
+        "de": "Controlled Folder Access hindert nicht vertrauenswürdige Prozesse daran, geschützte Ordner zu ändern – eine letzte Linie gegen Ransomware. Ein Audit-Modus, der nie scharf geschaltet wird, schützt nichts."
+      },
+      "remediation": {
+        "en": "Run in audit, add allowed apps from the audit events (DeviceEvents, ControlledFolderAccessViolationAudited), then switch to Enabled – at least for high-value devices.",
+        "de": "Im Audit laufen lassen, erlaubte Apps aus den Audit-Ereignissen (DeviceEvents, ControlledFolderAccessViolationAudited) ergänzen, dann auf Enabled stellen – zumindest für hochwertige Geräte."
+      }
+    },
+    {
+      "id": "smartscreen-shell",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "SmartScreen for apps and files (Windows)",
+        "de": "SmartScreen für Apps und Dateien (Windows)"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "_smartscreen_enablesmartscreeninshell$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "SmartScreen checks downloaded executables against reputation before they run (Mark of the Web) and complements Defender's cloud protection.",
+        "de": "SmartScreen prüft heruntergeladene ausführbare Dateien vor dem Start auf Reputation (Mark of the Web) und ergänzt den Cloud-Schutz von Defender."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Smart Screen > Enable Smart Screen In Shell = Enabled.",
+        "de": "Settings Catalog > Smart Screen > Enable Smart Screen In Shell = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-no-override-shell",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Users cannot bypass SmartScreen warnings (Windows)",
+        "de": "Benutzer können SmartScreen-Warnungen nicht übergehen (Windows)"
+      },
+      "severity": "Low",
+      "definitionIdPattern": "_smartscreen_preventoverrideforfilesinshell$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "A warning that can be clicked away is a speed bump; blocking keeps the reputation verdict authoritative.",
+        "de": "Eine wegklickbare Warnung ist nur eine Bremsschwelle; Blockieren macht das Reputationsurteil verbindlich."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Smart Screen > Prevent Override For Files In Shell = Enabled.",
+        "de": "Settings Catalog > Smart Screen > Prevent Override For Files In Shell = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-edge",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Microsoft Edge: SmartScreen enabled",
+        "de": "Microsoft Edge: SmartScreen aktiv"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "microsoft_edge.*_smartscreenenabled$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "SmartScreen in Edge delivers Defender URL indicators with full-URL precision and the block page for web content filtering.",
+        "de": "SmartScreen in Edge liefert Defender-URL-Indikatoren mit voller URL-Genauigkeit und die Sperrseite für Web Content Filtering."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Microsoft Edge > SmartScreen settings > Configure Microsoft Defender SmartScreen = Enabled.",
+        "de": "Settings Catalog > Microsoft Edge > SmartScreen settings > Configure Microsoft Defender SmartScreen = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-edge-no-override",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Microsoft Edge: SmartScreen warnings cannot be bypassed",
+        "de": "Microsoft Edge: SmartScreen-Warnungen nicht übergehbar"
+      },
+      "severity": "Low",
+      "definitionIdPattern": "microsoft_edge.*_preventsmartscreenpromptoverride$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "Without it, users can continue to a site Defender or SmartScreen flagged as malicious.",
+        "de": "Ohne diese Einstellung können Benutzer eine von Defender oder SmartScreen als bösartig markierte Seite trotzdem aufrufen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Microsoft Edge > SmartScreen settings > Prevent bypassing Microsoft Defender SmartScreen prompts for sites = Enabled.",
+        "de": "Settings Catalog > Microsoft Edge > SmartScreen settings > Prevent bypassing Microsoft Defender SmartScreen prompts for sites = Enabled."
+      }
+    },
+    {
+      "id": "threat-id-default-action",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "No per-threat 'allow' overrides (ThreatIdDefaultAction)",
+        "de": "Keine Freigabe einzelner Bedrohungen (ThreatIdDefaultAction)"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "threats_threatiddefaultaction$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not configured",
+        "de": "Nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "'Specify threats upon which default action should not be taken' turns individual detections (by threat ID) into allowed software – an exclusion that no exclusion report lists.",
+        "de": "'Bedrohungen angeben, bei denen keine Standardaktion ausgeführt werden soll' macht einzelne Erkennungen (per Bedrohungs-ID) zu erlaubter Software – ein Ausschluss, den kein Ausschlussbericht zeigt."
+      },
+      "remediation": {
+        "en": "Remove the setting; handle false positives with a submission to Microsoft or a narrow SHA256 allow indicator with an expiry date.",
+        "de": "Einstellung entfernen; False Positives per Einsendung an Microsoft oder mit einem engen SHA256-Allow-Indikator mit Ablaufdatum behandeln."
+      }
     }
   ],
   "asrRules": [

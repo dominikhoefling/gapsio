@@ -236,10 +236,10 @@ $now = [DateTime]::UtcNow
 function T { param([int]$DaysAgo) $now.AddDays(-$DaysAgo).ToString('o') }
 $hunting = @{
     DeviceInfo = @(
-        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; ManagedBy = 'Intune'; LastSeen = (T 0); DeviceManualTags = '["Finance Dept","VIP"]'; IsInternetFacing = 'false' },
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; OSBuild = '26100'; ConnectivityType = 'Streamlined'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; ManagedBy = 'Intune'; LastSeen = (T 0); DeviceManualTags = '["Finance Dept","VIP"]'; IsInternetFacing = 'false' },
         [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; LastSeen = (T 0); IsExcluded = 'true'; ExclusionReason = 'Duplicate device' },
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; OSVersion = '15.6'; MachineGroup = 'Mac'; DeviceType = 'Workstation'; LastSeen = (T 0) },
-        [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0); IsInternetFacing = 'true'; ExposureLevel = 'High'; AssetValue = 'High'; RegistryDeviceTag = 'DMZ' },
+        [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; ConnectivityType = 'Standard'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0); IsInternetFacing = 'true'; ExposureLevel = 'High'; AssetValue = 'High'; RegistryDeviceTag = 'DMZ' },
         [pscustomobject]@{ DeviceId = 'd-lnx1'; DeviceName = 'LNX-01'; OSPlatform = 'Linux'; OSVersion = 'Ubuntu 24.04'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) }
     )
     Troubleshooting = @(
@@ -250,6 +250,11 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-win1'; Attempts = 3; Last = (T 1); Name = 'WIN-01' },
         [pscustomobject]@{ DeviceId = 'd-win3'; Attempts = 12; Last = (T 1); Name = 'SRV-01' }
     )
+    AsrTelemetry = @(
+        [pscustomobject]@{ Rule = 'ObfuscatedScript'; Kind = 'Audited'; Events = 4; Devices = 1; Top = '["powershell.exe (4)"]' }
+    )
+    Wsl = @([pscustomobject]@{ DeviceId = 'd-win1'; Wsl = 1; Plugin = 0 })
+    ThreatActions = @([pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; RegistryKey = 'HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender\Threats\ThreatIdDefaultAction'; RegistryValueName = '2147519003'; RegistryValueData = '6'; Timestamp = (T 2); InitiatingProcessFileName = 'reg.exe' })
     ThirdPartyAv = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Products = '["CrowdStrike Falcon Sensor"]' },
         [pscustomobject]@{ DeviceId = 'd-win2'; Products = @('SentinelOne Sentinel Agent') }
@@ -296,9 +301,9 @@ $hunting = @{
     )
     AgentVersions = @([pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; SoftwareVersion = '101.2510.0001' })
     Info = @(
-        [pscustomobject]@{ DeviceId = 'd-win1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25090.3'; AvEngVer = '1.1.25090.2'; AvSigVer = '1.435.100.0'; AvSigTime = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25090.3'; AvEngVer = '1.1.25090.2'; AvSigVer = '1.435.100.0'; AvSigTime = (T 0); AvScan = ('{"Quick":{"ScanStatus":"Completed","Timestamp":"' + (T 20) + '"},"Full":{"ScanStatus":"Completed","Timestamp":"' + (T 40) + '"}}') },
         [pscustomobject]@{ DeviceId = 'd-win2'; AvMode = '1'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25040.1'; AvEngVer = '1.1.25040.1'; AvSigVer = '1.430.10.0'; AvSigTime = (T 10) },
-        [pscustomobject]@{ DeviceId = 'd-win3'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25080.2'; AvSigTime = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-win3'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true'; AvPlatVer = '4.18.25080.2'; AvSigTime = (T 1); AvScan = ('{"Quick":{"ScanStatus":"Completed","Timestamp":"' + (T 1) + '"}}') },
         [pscustomobject]@{ DeviceId = 'd-mac1'; AvMode = '0'; AvSig = 'true'; AvPlat = 'true'; AvEng = 'true' }
     )
     Alerts = @([pscustomobject]@{ DeviceId = 'd-win1'; Alerts = 1; LastAlert = (T 2) })
@@ -565,6 +570,9 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $q = [string]$Body.Query
             $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
+            elseif ($q -match '// WardlineAsrTelemetry') { $script:Hunt.AsrTelemetry }
+            elseif ($q -match '// WardlineWsl') { $script:Hunt.Wsl }
+            elseif ($q -match '// WardlineThreatActions') { $script:Hunt.ThreatActions }
             elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
             elseif ($q -match '// WardlineFleetTroubleshooting') { $script:Hunt.Troubleshooting }
             elseif ($q -match '// WardlineFleetTampering') { $script:Hunt.Tampering }
@@ -642,6 +650,37 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^users\?\$filter=startswith\(displayName,''([^'']*)''\)' { $q = $Matches[1]; return (V @($script:Users.Values | Where-Object { [string]$_.displayName -like "$q*" })) }
             '^groups\?\$filter=startswith\(displayName,''([^'']*)''\)' { $q = $Matches[1]; return (V @($script:Acc.groups.Values | Where-Object { [string]$_.displayName -like "$q*" })) }
             '^users/([^?]+)\?' { return $script:Users[$Matches[1]] }
+            "^servicePrincipals\(appId='([^']+)'\)" {
+                $rid = $Matches[1]
+                $roles = switch ($rid) {
+                    'fc780465-2017-40d4-a0c5-307022471b92' { @([pscustomobject]@{ id = 'r-off'; value = 'Machine.Offboard' }, [pscustomobject]@{ id = 'r-read'; value = 'Machine.Read.All' }) }
+                    '00000003-0000-0000-c000-000000000000' { @([pscustomobject]@{ id = 'g-hunt'; value = 'ThreatHunting.Read.All' }, [pscustomobject]@{ id = 'g-mail'; value = 'Mail.Read' }) }
+                    default { @() }
+                }
+                return [pscustomobject]@{ id = "res-$rid"; appId = $rid; displayName = $rid; appRoles = $roles }
+            }
+            '^servicePrincipals/res-([^/]+)/appRoleAssignedTo' {
+                $rows = switch ($Matches[1]) {
+                    'fc780465-2017-40d4-a0c5-307022471b92' { @([pscustomobject]@{ principalType = 'ServicePrincipal'; principalId = 'sp-auto'; principalDisplayName = 'SOAR automation'; appRoleId = 'r-off' }, [pscustomobject]@{ principalType = 'ServicePrincipal'; principalId = 'sp-wl'; principalDisplayName = 'Wardline'; appRoleId = 'r-read' }) }
+                    '00000003-0000-0000-c000-000000000000' { @([pscustomobject]@{ principalType = 'ServicePrincipal'; principalId = 'sp-wl'; principalDisplayName = 'Wardline'; appRoleId = 'g-hunt' }, [pscustomobject]@{ principalType = 'ServicePrincipal'; principalId = 'sp-mail'; principalDisplayName = 'Mail app'; appRoleId = 'g-mail' }) }
+                    default { @() }
+                }
+                return (V $rows)
+            }
+            '^servicePrincipals/(sp-[^/?]+)\?' { $id = $Matches[1]; return [pscustomobject]@{ id = $id; appId = "app-$id"; displayName = $id; appOwnerOrganizationId = (Get-WlSetting -Name 'WL_TENANT_ID'); accountEnabled = $true } }
+            "^applications\(appId='app-sp-auto'\)" { return [pscustomobject]@{ id = 'obj-auto'; passwordCredentials = @([pscustomobject]@{ startDateTime = [DateTime]::UtcNow.AddDays(-10).ToString('o'); endDateTime = [DateTime]::UtcNow.AddYears(3).ToString('o') }); keyCredentials = @() } }
+            "^applications\(appId='app-sp-wl'\)" { return [pscustomobject]@{ id = 'obj-wl'; passwordCredentials = @(); keyCredentials = @([pscustomobject]@{ startDateTime = [DateTime]::UtcNow.AddDays(-10).ToString('o'); endDateTime = [DateTime]::UtcNow.AddDays(355).ToString('o') }) } }
+            '^applications/obj-auto/owners' { return (V @()) }
+            '^applications/obj-wl/owners' { return (V @([pscustomobject]@{ id = 'u-alice'; userPrincipalName = 'alice@contoso.com' })) }
+            '^identityGovernance/accessReviews/definitions' { return (V @()) }
+            '^deviceManagement/mobileThreatDefenseConnectors' { return (V @([pscustomobject]@{ id = 'fc780465-2017-40d4-a0c5-307022471b92'; partnerState = 'enabled'; windowsEnabled = $true; macEnabled = $false; iosEnabled = $true; androidEnabled = $true; lastHeartbeatDateTime = [DateTime]::UtcNow.AddHours(-3).ToString('o') })) }
+            '^deviceManagement/deviceCompliancePolicies' { return (V @([pscustomobject]@{ '@odata.type' = '#microsoft.graph.windows10CompliancePolicy'; id = 'cp-win'; displayName = 'Windows compliance'; deviceThreatProtectionEnabled = $true; deviceThreatProtectionRequiredSecurityLevel = 'medium'; assignments = @([pscustomobject]@{ id = 'a1' }) })) }
+            '^policies/roleManagementPolicyAssignments' {
+                return [pscustomobject]@{ value = @([pscustomobject]@{ policy = [pscustomobject]@{ rules = @(
+                                    [pscustomobject]@{ id = 'Enablement_EndUser_Assignment'; enabledRules = @('Justification') },
+                                    [pscustomobject]@{ id = 'Expiration_EndUser_Assignment'; maximumDuration = 'PT10H' },
+                                    [pscustomobject]@{ id = 'Approval_EndUser_Assignment'; setting = [pscustomobject]@{ isApprovalRequired = $false } }) } }) }
+            }
             default { throw "Nicht simulierter Aufruf: $Method $Uri" }
         }
     }
@@ -725,6 +764,35 @@ Assert (@($flt | Where-Object { $_.title.en -match 'without a device tag' }).Cou
 Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) inactive for 90+ days still in the inventory' -and $_.detail.en -match 'OLD-09' }).Count -eq 1) 'Fleet: inactive devices from MDE API'
 Assert ($ep.summary.fleet.internetFacingHigh -eq 1 -and $ep.summary.fleet.tampering30d -eq 2 -and $ep.summary.fleet.troubleshootingActive -eq 1 -and $ep.summary.fleet.tvmExcluded -eq 1 -and $ep.summary.fleet.tagged -eq 2 -and $ep.summary.fleet.inactive90d -eq 1) "Fleet summary ($($ep.summary.fleet | ConvertTo-Json -Compress))"
 Assert (@($ep.inactiveDevices).Count -eq 1 -and $ep.inactiveDevices[0].deviceName -eq 'OLD-09') 'Fleet: inactive devices in snapshot'
+# Hygiene: scans, connectivity, WSL, threat actions, ASR telemetry, end of support
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) without a quick scan in 14 days' -and $_.detail.en -match 'WIN-01' }).Count -eq 1) 'Hygiene: quick scan older than 14 days (WIN-01)'
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) never completed a full scan' -and $_.detail.en -match 'SRV-01' }).Count -eq 1) 'Hygiene: never a full scan (SRV-01)'
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) still on standard connectivity' -and $_.detail.en -match 'SRV-01' }).Count -eq 1) 'Hygiene: standard connectivity (SRV-01)'
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) run WSL without the Defender plug-in' -and $_.detail.en -match 'WIN-01' }).Count -eq 1) 'Hygiene: WSL without plug-in'
+Assert (@($ep.findings | Where-Object { $_.title.en -eq 'Detected threats are allowed to run' -and $_.deviceName -eq 'WIN-01' -and $_.severity -eq 'High' }).Count -eq 1) 'Hygiene: ThreatIdDefaultAction = Allow (registry)'
+$obf = @($ep.asrRules | Where-Object { $_.id -eq 'obfuscated' })[0]
+Assert ($obf.telemetry.audited -eq 4 -and @($obf.telemetry.topAudited) -contains 'powershell.exe (4)') 'ASR telemetry attached to rule (obfuscated: 4 audit events)'
+$eos = & $mod {
+    @(
+        (Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'Windows10'; osBuild = '19045' }) -NewestMacMajor 0).name,
+        [string](Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'Windows10'; osBuild = '17763' }) -NewestMacMajor 0),
+        (Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'Windows11'; osBuild = '22621' }) -NewestMacMajor 0).name,
+        [string](Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'Windows11'; osBuild = '26100' }) -NewestMacMajor 0),
+        (Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'macOS'; osVersion = '13.6' }) -NewestMacMajor 26).name,
+        [string](Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'macOS'; osVersion = '15.6' }) -NewestMacMajor 26),
+        (Get-WlOsSupportState -Device ([pscustomobject]@{ os = 'WindowsServer2012R2'; osBuild = '9600' }) -NewestMacMajor 0).name)
+}
+Assert ($eos[0] -eq 'Windows 10' -and -not $eos[1] -and $eos[2] -eq 'Windows 11 22H2' -and -not $eos[3] -and $eos[4] -eq 'macOS 13' -and -not $eos[5] -and $eos[6] -eq 'Windows Server 2012 R2') "End of support: Win10 22H2 yes, LTSC 2019 no, Win11 22H2 yes, 24H2 no, macOS n-3 yes, n-2 no, 2012 R2 yes ($($eos -join ' | '))"
+$auditF = & $mod { Get-WlDefenderAuditFindings -Audit ([pscustomobject]@{ summary = [pscustomobject]@{ events = @(
+                    [pscustomobject]@{ kind = 'Offboarding'; operation = 'DownloadOffboardingPkg'; user = 'eve@contoso.com'; at = '2026-10-01T10:00:00Z' },
+                    [pscustomobject]@{ kind = 'LiveResponse'; operation = 'RunLiveResponseSession'; user = 'bob@contoso.com'; at = '2026-10-02T10:00:00Z' }) } }) }
+Assert (@($auditF | Where-Object { $_.title.en -eq 'Offboarding package downloaded 1 time(s) in 30 days' -and $_.detail.en -match 'eve@' }).Count -eq 1 -and @($auditF | Where-Object { $_.title.en -like '1 live response action(s) by 1 person(s)*' }).Count -eq 1) 'Audit log: offboarding download and live response findings'
+$scanAge = & $mod { Get-WlScanAge -ScanResults ('{"Quick":{"Timestamp":"' + [DateTime]::UtcNow.AddDays(-3).ToString('o') + '"}}') -Kind 'Quick' }
+Assert ($scanAge -eq 3) "Scan age from AvScanResults ($scanAge)"
+$cov = @($ep.findings | Where-Object { $_.category -eq 'Coverage' })
+Assert (@($cov | Where-Object { $_.title.en -eq 'Defender connector off for 1 platform(s) in use' -and $_.detail.en -match 'macOS' }).Count -eq 1) 'Intune connector: macOS toggle off while macOS devices exist'
+Assert (@($cov | Where-Object { $_.title.en -eq 'Defender device risk not part of compliance for 1 platform(s)' -and $_.detail.en -match 'macOS' }).Count -eq 1) 'Compliance: no macOS policy with machine risk score'
+Assert (@($cov | Where-Object { $_.title.en -eq '1 compliance policy(ies) tolerate medium or high device risk' }).Count -eq 1) 'Compliance: Windows policy allows medium risk'
 # Third-party AV/EDR (software inventory)
 $dw2 = @($ep.devices | Where-Object { $_.deviceName -eq 'WIN-02' })[0]
 Assert (@($dw1.thirdPartyAv) -contains 'CrowdStrike Falcon Sensor' -and @($dw2.thirdPartyAv) -contains 'SentinelOne Sentinel Agent' -and @($ds1.thirdPartyAv).Count -eq 0) 'Fleet: third-party products parsed (JSON string and array)'
@@ -795,7 +863,7 @@ Assert (@($cov | Where-Object { $_.deviceName -in 'LAPTOP-RETIRED', 'iPhone', 'W
 Assert (@($cov | Where-Object { $_.deviceName -eq 'OLD-01' -and $_.status -eq 'SensorInactive' }).Count -eq 1) 'Coverage: onboarded device without recent data = sensor inactive'
 Assert (@($cov | Where-Object { $_.deviceName -eq 'PRINTER-7' -and $_.status -eq 'CanBeOnboarded' }).Count -eq 1) 'Coverage: device discovery'
 Assert ($dWin1.intuneDeviceId -eq 'int-win1') 'Intune device ID on the Defender device (deep link)'
-Assert (@($f | Where-Object { $_.category -eq 'Coverage' }).Count -eq 3 -and $ep.summary.coverageGaps -eq 2 -and $ep.summary.discoveredDevices -eq 1) "Coverage findings and summary ($($ep.summary.coverageGaps)/$($ep.summary.discoveredDevices))"
+Assert (@($f | Where-Object { $_.category -eq 'Coverage' -and $_.title.en -notmatch 'connector|compliance|Conditional Access' }).Count -eq 3 -and $ep.summary.coverageGaps -eq 2 -and $ep.summary.discoveredDevices -eq 1) "Coverage findings and summary ($($ep.summary.coverageGaps)/$($ep.summary.discoveredDevices))"
 $ps = @($pe | Where-Object { $_.value -eq 'powershell.exe' })[0]
 $svc = @($pe | Where-Object { $_.value -eq 'C:\Program Files\Vendor\svc.exe' })[0]
 $wild = @($pe | Where-Object { $_.value -like '*`**' })[0]
@@ -1016,6 +1084,12 @@ $env:WL_MODULES = 'endpoint,agents,access'
 $ra = Invoke-WlAccessCollection 6>$null
 $ac = $blobs['state/access-latest.json'] | ConvertFrom-Json -Depth 64
 Assert ($ac.warnings.Count -eq 0) "Warnings in the access run: $($ac.warnings -join ' | ')"
+Assert ($ac.summary.apiApps -eq 2 -and $ac.summary.apiAppsHighImpact -eq 1) "API apps: 2 with Defender permissions, 1 with write permissions (Mail.Read app ignored) ($($ac.summary.apiApps)/$($ac.summary.apiAppsHighImpact))"
+$apiF = @($ac.findings | Where-Object { $_.title.en -eq 'API app with Defender write permissions: SOAR automation' })
+Assert ($apiF.Count -eq 1 -and $apiF[0].severity -eq 'High' -and $apiF[0].detail.en -match 'client secret' -and $apiF[0].detail.en -match 'no owner' -and $apiF[0].detail.en -match 'Machine.Offboard') 'API app: offboard permission with secret, 3-year credential, no owner -> High'
+Assert (@($ac.findings | Where-Object { $_.title.en -match 'Wardline' }).Count -eq 0) 'API app: read-only app with certificate -> no finding'
+Assert (@($ac.findings | Where-Object { $_.title.en -match 'Defender role group\(s\) without an access review' }).Count -eq 1) 'Access reviews: role groups without review'
+Assert (@($ac.findings | Where-Object { $_.title.en -like 'Weak PIM activation for Defender group:*' -and $_.detail.en -match 'no MFA' -and $_.detail.en -match '10 hours' }).Count -ge 1) 'PIM for Groups: activation without MFA, 10 hours'
 $e = @($ac.entitlements)
 function Has { param($upn, $role, $state, $via) @($e | Where-Object { $_.upn -eq $upn -and $_.role -eq $role -and $_.state -eq $state -and $_.via -like $via }).Count -ge 1 }
 function Ent { param($upn, $role, $state) @($e | Where-Object { $_.upn -eq $upn -and $_.role -eq $role -and $_.state -eq $state })[0] }
@@ -1040,7 +1114,7 @@ Assert (@($byp | Where-Object { $_.upn -eq 'alice@contoso.com' -and $_.role -eq 
 Assert (@($byp | Where-Object { $_.upn -eq 'bob@contoso.com' -and $_.role -eq 'Security Reader' -and $_.level -eq 'Low' }).Count -eq 1) 'Bob Security Reader listed as bypass (Low)'
 Assert (@($e | Where-Object { $_.role -in 'Global Administrator', 'Security Reader' }).Count -eq 0) 'Entra roles not mixed into the unified RBAC table'
 $af = @($ac.findings)
-Assert (@($af | Where-Object { $_.category -ne 'LeastPrivilege' }).Count -eq 0 -and $af.Count -ge 5) "Access findings are LeastPrivilege ($($af.Count))"
+Assert (@($af | Where-Object { $_.category -notin 'LeastPrivilege', 'Platform' }).Count -eq 0 -and $af.Count -ge 5) "Access findings are LeastPrivilege/Platform ($($af.Count))"
 Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Carol' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Finding: Carol holds settings permission but never used the portal'
 Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Dave' }).Count -eq 1) 'Finding: Dave (via group) never used the portal'
 Assert (@($af | Where-Object { $_.title.en -like 'Standing Defender permission never used: Alice' }).Count -eq 0) 'No unused finding for Alice (used 2 days ago)'
@@ -1073,6 +1147,8 @@ Assert ($lic.warnings.Count -eq 0) "Warnings in the licensing run: $($lic.warnin
 Assert (@($lic.skus).Count -eq 2 -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'SPE_E3' }).Count -eq 0) 'Only SKUs with an MDE plan are listed (E3 without MDE plan skipped)'
 $p2 = @($lic.skus | Where-Object { $_.skuPartNumber -eq 'WIN_DEF_ATP' })[0]
 Assert ($p2.tier -eq 'P2' -and $p2.enabled -eq 10 -and $p2.consumed -eq 12 -and -not $p2.isServer) 'P2 SKU: tier, units'
+Assert ($p2.skuName -eq 'Defender for Endpoint P2' -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'DEFENDER_ENDPOINT_P1' })[0].skuName -eq 'Defender for Endpoint P1') 'SKU display names: WIN_DEF_ATP -> Defender for Endpoint P2, DEFENDER_ENDPOINT_P1 -> P1'
+Assert ((Get-WlSkuDisplayName -PartNumber 'CONTOSO_BUNDLE' -Tier 'P2') -eq 'Defender for Endpoint P2 (in CONTOSO_BUNDLE)' -and (Get-WlSkuDisplayName -PartNumber 'SPE_E5' -Tier 'P2') -eq 'Microsoft 365 E5') 'SKU display names: suites and unknown part numbers'
 Assert ($lic.summary.licensedUsers -eq 3 -and $lic.summary.usersP2 -eq 2 -and $lic.summary.usersP1 -eq 1) "Licensed users: $($lic.summary.licensedUsers) (P2 $($lic.summary.usersP2), P1 $($lic.summary.usersP1)) – Dave's deleted plan does not count"
 Assert ($lic.summary.servers -eq 2 -and $lic.summary.clients -eq 3) "Servers ($($lic.summary.servers)) are separated from clients ($($lic.summary.clients))"
 $lw1 = @($lic.devices | Where-Object { $_.deviceName -eq 'WIN-01' })[0]
@@ -1084,7 +1160,7 @@ Assert ($lm1.state -eq 'Unlicensed' -and $lm1.users[0].upn -eq 'hank' -and -not 
 Assert (@($lic.users | Where-Object { $_.upn -eq 'carol@contoso.com' })[0].state -eq 'NoDevice') 'Carol licensed but no device'
 Assert ($lic.summary.clientsUnlicensed -eq 2 -and $lic.summary.clientsLicensed -eq 1 -and $lic.summary.usersNoDevice -eq 2) "Licensing summary (unlicensed $($lic.summary.clientsUnlicensed), licensed $($lic.summary.clientsLicensed), noDevice $($lic.summary.usersNoDevice))"
 $lf = @($lic.findings)
-Assert (@($lf | Where-Object { $_.title.en -like 'More licences assigned than purchased: WIN_DEF_ATP' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: consumed > enabled'
+Assert (@($lf | Where-Object { $_.title.en -like 'More licences assigned than purchased: Defender for Endpoint P2' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: consumed > enabled'
 Assert (@($lf | Where-Object { $_.title.en -like '2 onboarded client(s) used only by users without*' -and $_.deviceCount -eq 2 }).Count -eq 1) 'Finding: unlicensed clients (aggregated with device count)'
 Assert (@($lf | Where-Object { $_.title.en -like '*licensed user(s) without an onboarded device*' }).Count -eq 1) 'Finding: licensed users without device'
 Assert (@($lf | Where-Object { $_.title.en -like '*covered only by Plan 1*' }).Count -eq 0) 'No P1 finding (Bob has no device)'
