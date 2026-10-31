@@ -24,8 +24,11 @@
 - **Origin of local exclusions** (Windows): entries under `…\Policies\…` count as GPO, all others under
   `…\Windows Defender\Exclusions` as local. Exclusions set from script files only show the script call.
 - **Exclusions without activity** are checked tenant-wide (any device) over the 30 days Advanced Hunting keeps. Values
-  with wildcards or environment variables are not checked, and very large tenants can hit Advanced Hunting limits – the
-  exclusions then stay "not checked" and the run shows a notice.
+  with wildcards or environment variables are not checked. Results above 100,000 rows are collected in shards; if a
+  shard is still truncated the exclusions stay "not checked" and the run shows a notice.
+- **Very large fleets**: a run is limited by the Advanced Hunting budget (45 calls/minute, 10 minutes of query
+  time per hour) and the Function timeout of 60 minutes. Up to about 300,000 devices fit into one run; beyond that
+  the collection should be scheduled less often or the per-device queries reduced via `-Features`.
 - **Device page**: Wardline does not resolve which groups a device is a member of, so it shows policy assignments
   instead of the exact set of policies that apply to the device.
 - **Assignments**: policies without assignments count as "not effective" and do not count for the baseline. The

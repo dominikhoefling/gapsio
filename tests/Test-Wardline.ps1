@@ -621,7 +621,7 @@ $r1 = Invoke-WlEndpointCollection 6>$null
 $ep = Get-EpSnapshot
 Assert ($null -eq ($blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64).devices -and $ep.devicesPages.count -eq 5 -and $ep.devicesPages.pages -eq 1) "Devices are paged, not inline (pages=$($ep.devicesPages.pages), count=$($ep.devicesPages.count))"
 Assert ($blobs.ContainsKey('state/endpoint-devices/0000.json') -and $blobs.ContainsKey('state/endpoint-devices.tsv') -and $blobs.ContainsKey('state/endpoint-devices-fp.json')) 'Device page, index and fingerprint blobs written'
-Assert (($blobs['state/endpoint-devices.tsv'] -split "`n")[0] -like "deviceId`tdeviceName`t*`tchecks`tpage") 'Device index header'
+Assert (($blobs['state/endpoint-devices.tsv'] -split "`n")[0] -like "deviceId`tdeviceName`t*`tchecks`t_filter`t_search`tpage") 'Device index header'
 Assert ($ep.deviceStats.devices -eq 5 -and $ep.deviceStats.charts.os.Windows11 -eq 2 -and $ep.deviceStats.charts.TamperProtection.on -ge 1 -and $ep.deviceStats.groups.Server -eq 2) "deviceStats aggregates (devices=$($ep.deviceStats.devices), Windows11=$($ep.deviceStats.charts.os.Windows11))"
 Assert ($ep.warnings.Count -eq 0) "Warnings in the endpoint run: $($ep.warnings -join ' | ')"
 Assert ($ep.summary.devices -eq 5) "5 devices expected, $($ep.summary.devices)"
