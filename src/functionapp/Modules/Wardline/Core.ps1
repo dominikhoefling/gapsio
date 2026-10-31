@@ -489,6 +489,7 @@ function Write-WlPagedCollection {
     .SYNOPSIS
     Writes a collection in pages, the tab-separated index (IndexColumns + page) and the fingerprint list; removes
     pages of the previous run that are no longer needed. Returns the meta object stored in the snapshot.
+    Written without per-cell function calls on purpose: 300,000 devices x 25 columns must finish in seconds.
     #>
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [AllowEmptyCollection()][object[]]$Items, [string[]]$IndexColumns = @(), [string]$At)
     $items = @($Items | Where-Object { $_ })
@@ -496,62 +497,102 @@ function Write-WlPagedCollection {
     $pages = [int][Math]::Ceiling($items.Count / $size)
     $prev = Get-WlPagedMeta -Module $Module -Name $Name
     $tsv = [System.Text.StringBuilder]::new()
-    if ($IndexColumns.Count) { [void]$tsv.AppendLine((@($IndexColumns) + 'page') -join "`t") }
-    $fps = [System.Collections.Generic.List[object]]::new()
+    $cols = @($IndexColumns)
+    if ($cols.Count) { [void]$tsv.Append(($cols + 'page') -join "`t").Append("`n") }
+    $fps = [System.Collections.Generic.List[object]]::new($items.Count)
+    $tabRx = [regex]'[\t\r\n]'
     for ($p = 0; $p -lt $pages; $p++) {
         $slice = @($items[($p * $size)..([Math]::Min($items.Count, ($p + 1) * $size) - 1)])
         Set-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" -Object $slice -Depth 32
         foreach ($it in $slice) {
-            if ($IndexColumns.Count) { [void]$tsv.AppendLine((@($IndexColumns | ForEach-Object { ConvertTo-WlTsvValue (Get-WlProp $it $_) }) + $p) -join "`t") }
-            $fp = [ordered]@{ key = Get-WlProp $it 'key'; fp = Get-WlProp $it 'fp'; label = Get-WlProp $it 'label'; state = Get-WlProp $it 'state' }
-            $pr = Get-WlProp $it 'present'; if ($null -ne $pr) { $fp.present = [bool]$pr }
+            $isDict = $it -is [System.Collections.IDictionary]
+            $props = $null; if (-not $isDict) { $props = $it.PSObject.Properties }   # direct assignment: an if-expression would enumerate the collection
+            if ($cols.Count) {
+                foreach ($c in $cols) {
+                    $v = $null
+                    if ($isDict) { $v = $it[$c] } else { $pp = $props[$c]; if ($pp) { $v = $pp.Value } }
+                    if ($null -eq $v) { }
+                    elseif ($v -is [string]) { [void]$tsv.Append($tabRx.Replace($v, ' ')) }
+                    elseif ($v -is [System.Collections.IDictionary]) { $first = $true; foreach ($e in $v.GetEnumerator()) { if (-not $first) { [void]$tsv.Append(';') }; $first = $false; [void]$tsv.Append([string]$e.Key).Append('=').Append([string]$e.Value) } }
+                    elseif ($v -is [datetime]) { [void]$tsv.Append($v.ToUniversalTime().ToString('o')) }
+                    elseif ($v -is [pscustomobject]) { $first = $true; foreach ($e in $v.PSObject.Properties) { if (-not $first) { [void]$tsv.Append(';') }; $first = $false; [void]$tsv.Append($e.Name).Append('=').Append([string]$e.Value) } }
+                    else { [void]$tsv.Append($tabRx.Replace([string]$v, ' ')) }
+                    [void]$tsv.Append("`t")
+                }
+                [void]$tsv.Append($p).Append("`n")
+            }
+            $g = { param($n) if ($isDict) { return $it[$n] }; $pp = $props[$n]; if ($pp) { return $pp.Value }; $null }
+            $fp = [ordered]@{ key = & $g 'key'; fp = & $g 'fp'; label = & $g 'label'; state = & $g 'state' }
+            $pr = & $g 'present'; if ($null -ne $pr) { $fp.present = [bool]$pr }
             $fps.Add([pscustomobject]$fp)
         }
     }
     if ($prev) { for ($p = $pages; $p -lt [int]$prev.pages; $p++) { Remove-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" } }
-    if ($IndexColumns.Count) { Set-WlBlob -Container 'state' -Name "$Module-$Name.tsv" -Object $tsv.ToString() -ContentType 'text/tab-separated-values; charset=utf-8' }
+    if ($cols.Count) { Set-WlBlob -Container 'state' -Name "$Module-$Name.tsv" -Object $tsv.ToString() -ContentType 'text/tab-separated-values; charset=utf-8' }
     Set-WlBlob -Container 'state' -Name "$Module-$Name-fp.json" -Object @($fps.ToArray())
-    $meta = [ordered]@{ count = $items.Count; pageSize = $size; pages = $pages; index = [bool]$IndexColumns.Count; at = $At }
+    $meta = [ordered]@{ count = $items.Count; pageSize = $size; pages = $pages; index = [bool]$cols.Count; at = $At }
     Set-WlBlob -Container 'state' -Name "$Module-$Name.json" -Object $meta
     $meta
 }
 
 $script:WlIndexCache = @{}
-function Get-WlPagedIndex {
+function Get-WlPagedIndexRaw {
     <#
     .SYNOPSIS
-    The tab-separated index of a paged collection as objects (one per item, string values, plus page). Cached in
-    the worker process per snapshot time so searches do not re-download the index on every request.
+    The tab-separated index of a paged collection in columnar form: @{ cols = @{ name = position }; rows = List[string[]] }.
+    Cached in the worker process per snapshot time so searches do not re-download or re-parse the index on
+    every request. Row values are strings; the last column is the page number.
     #>
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
     $meta = Get-WlPagedMeta -Module $Module -Name $Name
-    if (-not $meta -or -not $meta.index) { return @() }
+    $empty = @{ cols = @{}; names = @(); rows = [System.Collections.Generic.List[string[]]]::new() }
+    if (-not $meta -or -not $meta.index) { return $empty }
     $ck = "$Module-$Name"
     $c = $script:WlIndexCache[$ck]
-    if ($c -and $c.at -eq [string]$meta.at) { return $c.rows }
+    if ($c -and $c.at -eq [string]$meta.at) { return $c }
     $text = Get-WlBlobText -Container 'state' -Name "$Module-$Name.tsv"
-    $rows = @()
-    if ($text) {
-        $lines = $text -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ }
-        if ($lines.Count -gt 1) {
-            $cols = $lines[0] -split "`t"
-            $rows = foreach ($l in $lines[1..($lines.Count - 1)]) {
-                $v = $l -split "`t"; $o = [ordered]@{}
-                for ($i = 0; $i -lt $cols.Count; $i++) { $o[$cols[$i]] = $(if ($i -lt $v.Count) { $v[$i] } else { '' }) }
-                [pscustomobject]$o
-            }
-        }
+    if (-not $text) { return $empty }
+    $lines = $text.Split("`n")
+    $names = @($lines[0].TrimEnd("`r").Split("`t"))
+    $cols = @{}; for ($i = 0; $i -lt $names.Count; $i++) { $cols[$names[$i]] = $i }
+    $rows = [System.Collections.Generic.List[string[]]]::new($lines.Count)
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $l = $lines[$i]
+        if ($l.Length -eq 0) { continue }
+        $rows.Add($l.TrimEnd("`r").Split("`t"))
     }
-    $script:WlIndexCache[$ck] = @{ at = [string]$meta.at; rows = @($rows) }
-    @($rows)
+    $c = @{ at = [string]$meta.at; cols = $cols; names = $names; rows = $rows }
+    $script:WlIndexCache[$ck] = $c
+    $c
+}
+
+function ConvertFrom-WlIndexRow {
+    # One raw index row as an object with the column names (string values).
+    param([Parameter(Mandatory)]$Index, [Parameter(Mandatory)][AllowEmptyString()][AllowEmptyCollection()][string[]]$Row)
+    $o = [ordered]@{}
+    $names = $Index.names
+    for ($i = 0; $i -lt $names.Count; $i++) { $o[$names[$i]] = $(if ($i -lt $Row.Count) { $Row[$i] } else { '' }) }
+    [pscustomobject]$o
+}
+
+function Get-WlPagedIndex {
+    # The index as objects (one per item). Convenient for small collections; large searches use Get-WlPagedIndexRaw.
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
+    $ix = Get-WlPagedIndexRaw -Module $Module -Name $Name
+    @(foreach ($r in $ix.rows) { ConvertFrom-WlIndexRow -Index $ix -Row $r })
 }
 
 function Get-WlPagedItem {
     # One item of a paged collection by a property value (uses the index to find the page).
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Property, [Parameter(Mandatory)][string]$Value)
-    $hit = @(Get-WlPagedIndex -Module $Module -Name $Name | Where-Object { [string](Get-WlProp $_ $Property) -eq $Value })
-    if (-not $hit.Count) { return $null }
-    @(Get-WlPage -Module $Module -Name $Name -Page ([int]$hit[0].page) | Where-Object { [string](Get-WlProp $_ $Property) -eq $Value })[0]
+    $ix = Get-WlPagedIndexRaw -Module $Module -Name $Name
+    if (-not $ix.cols.ContainsKey($Property)) { return $null }
+    $ci = $ix.cols[$Property]; $pi = $ix.cols['page']
+    $page = -1
+    foreach ($r in $ix.rows) { if ($r[$ci] -eq $Value) { $page = [int]$r[$pi]; break } }
+    if ($page -lt 0) { return $null }
+    foreach ($x in (Get-WlPage -Module $Module -Name $Name -Page $page)) { if ([string](Get-WlProp $x $Property) -eq $Value) { return $x } }
+    $null
 }
 #endregion
 
@@ -767,34 +808,51 @@ function Compare-WlCollection {
     #>
     param([string]$Module, [string]$Name, [object[]]$Old, [object[]]$New, [string]$At)
     $changes = [System.Collections.Generic.List[object]]::new()
-    $oldMap = @{}; foreach ($o in @($Old)) { if ($o -and (Get-WlProp $o 'key')) { $oldMap[[string]$o.key] = $o } }
-    $newMap = @{}; foreach ($n in @($New)) { if ($n -and (Get-WlProp $n 'key')) { $newMap[[string]$n.key] = $n } }
-    $presence = { param($x) $p = Get-WlProp $x 'present'; if ($null -eq $p) { $null } else { [bool]$p } }
+    # Inline property access (no function or scriptblock calls per item): this runs over hundreds of thousands
+    # of devices in large fleets. Items are PSCustomObjects (snapshots, JSON) or hashtables.
+    $oldMap = [System.Collections.Generic.Dictionary[string, object]]::new()
+    foreach ($o in $Old) {
+        if ($null -eq $o) { continue }
+        $k = if ($o -is [System.Collections.IDictionary]) { $o['key'] } else { $o.PSObject.Properties['key'].Value }
+        if ($k) { $oldMap[[string]$k] = $o }
+    }
+    $newMap = [System.Collections.Generic.Dictionary[string, object]]::new()
+    foreach ($n in $New) {
+        if ($null -eq $n) { continue }
+        $k = if ($n -is [System.Collections.IDictionary]) { $n['key'] } else { $n.PSObject.Properties['key'].Value }
+        if ($k) { $newMap[[string]$k] = $n }
+    }
+    $mk = { param($k, $change, $src, $before, $after) [pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = $change; label = (Get-WlProp $src 'label'); before = $before; after = $after } }
 
     foreach ($k in $newMap.Keys) {
         $n = $newMap[$k]
-        $np = & $presence $n
+        if ($n -is [System.Collections.IDictionary]) { $nfp = $n['fp']; $npRaw = $n['present'] }
+        else { $ps = $n.PSObject.Properties; $nfp = $ps['fp'].Value; $npRaw = $ps['present'].Value }
+        $np = $null; if ($null -ne $npRaw) { $np = [bool]$npRaw }
         if (-not $oldMap.ContainsKey($k)) {
             if ($np -eq $false) { continue }   # first seen already removed: history, not a change
-            $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Added'; label = (Get-WlProp $n 'label'); before = $null; after = (Get-WlProp $n 'state') })
+            $changes.Add((& $mk $k 'Added' $n $null (Get-WlProp $n 'state')))
             continue
         }
         $o = $oldMap[$k]
-        $op = & $presence $o
+        if ($o -is [System.Collections.IDictionary]) { $ofp = $o['fp']; $opRaw = $o['present'] }
+        else { $ps = $o.PSObject.Properties; $ofp = $ps['fp'].Value; $opRaw = $ps['present'].Value }
+        $op = $null; if ($null -ne $opRaw) { $op = [bool]$opRaw }
         if ($null -ne $np -and $null -ne $op) {
-            if ($op -and -not $np) { $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Removed'; label = (Get-WlProp $n 'label'); before = (Get-WlProp $o 'state'); after = $null }) }
-            elseif (-not $op -and $np) { $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Added'; label = (Get-WlProp $n 'label'); before = $null; after = (Get-WlProp $n 'state') }) }
+            if ($op -and -not $np) { $changes.Add((& $mk $k 'Removed' $n (Get-WlProp $o 'state') $null)) }
+            elseif (-not $op -and $np) { $changes.Add((& $mk $k 'Added' $n $null (Get-WlProp $n 'state'))) }
             continue
         }
-        if ([string](Get-WlProp $o 'fp') -ne [string](Get-WlProp $n 'fp')) {
-            $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Changed'; label = (Get-WlProp $n 'label'); before = (Get-WlProp $o 'state'); after = (Get-WlProp $n 'state') })
+        if ([string]$ofp -ne [string]$nfp) {
+            $changes.Add((& $mk $k 'Changed' $n (Get-WlProp $o 'state') (Get-WlProp $n 'state')))
         }
     }
     foreach ($k in $oldMap.Keys) {
         if (-not $newMap.ContainsKey($k)) {
             $o = $oldMap[$k]
-            if ((& $presence $o) -eq $false) { continue }   # clean-up of an entry that was already reported as removed
-            $changes.Add([pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = 'Removed'; label = (Get-WlProp $o 'label'); before = (Get-WlProp $o 'state'); after = $null })
+            $opRaw = Get-WlProp $o 'present'
+            if ($null -ne $opRaw -and -not [bool]$opRaw) { continue }   # clean-up of an entry that was already reported as removed
+            $changes.Add((& $mk $k 'Removed' $o (Get-WlProp $o 'state') $null))
         }
     }
     $changes.ToArray()

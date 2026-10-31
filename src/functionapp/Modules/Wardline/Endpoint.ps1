@@ -2069,7 +2069,7 @@ function Get-WlEndpointFindings {
 
 #region Device statistics and search (large fleets)
 $script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
-    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks')
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks', '_filter', '_search')
 $script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
 function Get-WlDeviceChartState {
@@ -2098,37 +2098,98 @@ function Test-WlDeviceIssue {
     $false
 }
 
+function Get-WlDeviceFilter {
+    <#
+    .SYNOPSIS
+    Pre-computed filter tokens of a device (" TamperProtection:off sig:on sensor:on mode:Active issue:1 asrBelow:1 "),
+    stored with the device and in the index, so statistics and server-side search are plain string operations
+    even for 300,000 devices. Single source of truth for the chart states (same rules as the portal).
+    #>
+    param([Parameter(Mandatory)]$Device)
+    # Inline property access on purpose (called once per device; 300,000 devices must finish in seconds).
+    $isDict = $Device -is [System.Collections.IDictionary]
+    $props = $null; if (-not $isDict) { $props = $Device.PSObject.Properties }
+    $get = { param($n) if ($isDict) { return $Device[$n] }; $p = $props[$n]; if ($p) { return $p.Value }; $null }
+    $checks = & $get 'checks'
+    $cDict = $checks -is [System.Collections.IDictionary]
+    $cProps = $null; if ($checks -and -not $cDict) { $cProps = $checks.PSObject.Properties }
+    $sb = [System.Text.StringBuilder]::new(' ')
+    $bad = $false
+    foreach ($c in $script:WlDeviceFeatures) {
+        $v = $null
+        if ($cDict) { $v = $checks[$c] } elseif ($cProps) { $p = $cProps[$c]; if ($p) { $v = $p.Value } }
+        $v = [string]$v
+        $s = if ($v -eq 'GOOD') { 'on' } elseif ($v -eq 'BAD') { 'off' } elseif ($v -eq 'N/A') { 'na' } else { 'unknown' }
+        [void]$sb.Append($c).Append(':').Append($s).Append(' ')
+    }
+    if ($cDict) { foreach ($v in $checks.Values) { if ($v -eq 'BAD') { $bad = $true; break } } } elseif ($cProps) { foreach ($p in $cProps) { if ($p.Value -eq 'BAD') { $bad = $true; break } } }
+    $v = [string](& $get 'signatureUpToDate'); [void]$sb.Append('sig:').Append($(if ($v -match '^(true|1)$') { 'on' } elseif ($v -match '^(false|0)$') { 'off' } else { 'unknown' })).Append(' ')
+    $v = [string](& $get 'sensorHealth'); [void]$sb.Append('sensor:').Append($(if (-not $v) { 'unknown' } elseif ($v -match '^active$') { 'on' } else { 'off' })).Append(' ')
+    $m = [string](& $get 'avMode'); [void]$sb.Append('mode:').Append($(if ($m -eq '0') { 'Active' } elseif ($m -eq '4') { 'EdrBlock' } elseif ($m -eq '1' -or $m -eq '2') { 'Passive' } else { 'Unknown' })).Append(' ')
+    $issue = $bad -or ($m -and $m -ne '0')
+    $asr = & $get 'asrBelowMinimum'; $asrBelow = $asr -and [int]$asr -gt 0
+    if (-not $issue) { $issue = $asrBelow; if (-not $issue) { foreach ($n in 'localExclusions', 'exclusionAlerts') { $x = & $get $n; if ($x -and [int]$x -gt 0) { $issue = $true; break } } } }
+    [void]$sb.Append('issue:').Append($(if ($issue) { '1' } else { '0' })).Append(' ')
+    [void]$sb.Append('asrBelow:').Append($(if ($asrBelow) { '1' } else { '0' })).Append(' ')
+    $sb.ToString()
+}
+
+function Get-WlDeviceSearchText {
+    param([Parameter(Mandatory)]$Device)
+    if ($Device -is [System.Collections.IDictionary]) { return "$($Device['deviceName']) $($Device['os']) $($Device['osVersion']) $($Device['deviceGroup']) $($Device['lastUser'])".ToLowerInvariant() }
+    "$($Device.deviceName) $($Device.os) $($Device.osVersion) $($Device.deviceGroup) $($Device.lastUser)".ToLowerInvariant()
+}
+
 function Get-WlDeviceStats {
     <#
     .SYNOPSIS
     Counts for the device charts (per protection feature, signatures, sensor, run mode, platform, device group,
     devices with issues) – stored in the snapshot so the portal does not need the device list for the overview.
+    Reads the pre-computed _filter tokens; devices without them (unit tests) are classified on the fly.
     #>
     param([AllowEmptyCollection()][object[]]$Devices)
-    $list = @($Devices | Where-Object { $_ })
-    $charts = [ordered]@{}
-    foreach ($c in @($script:WlDeviceFeatures) + @('sig', 'sensor', 'mode', 'os')) { $charts[$c] = [ordered]@{} }
-    $groups = [ordered]@{}; $issues = 0
-    foreach ($d in $list) {
-        foreach ($c in $charts.Keys) { $s = Get-WlDeviceChartState -Device $d -Chart $c; if (-not $charts[$c].Contains($s)) { $charts[$c][$s] = 0 }; $charts[$c][$s]++ }
-        $g = [string](Get-WlProp $d 'deviceGroup'); if ($g) { if (-not $groups.Contains($g)) { $groups[$g] = 0 }; $groups[$g]++ }
-        if (Test-WlDeviceIssue -Device $d) { $issues++ }
+    $chartIds = @($script:WlDeviceFeatures) + @('sig', 'sensor', 'mode')
+    $counts = @{}; foreach ($c in $chartIds + @('os')) { $counts[$c] = [System.Collections.Generic.Dictionary[string, int]]::new() }
+    $groups = [System.Collections.Generic.Dictionary[string, int]]::new(); $issues = 0; $n = 0
+    foreach ($d in $Devices) {
+        if ($null -eq $d) { continue }
+        $n++
+        $isDict = $d -is [System.Collections.IDictionary]
+        $props = $null; if (-not $isDict) { $props = $d.PSObject.Properties }
+        $get = { param($name) if ($isDict) { return $d[$name] }; $p = $props[$name]; if ($p) { return $p.Value }; $null }
+        $filter = & $get '_filter'
+        if (-not $filter) { $filter = Get-WlDeviceFilter -Device $d }
+        foreach ($tok in ([string]$filter).Split(' ', [StringSplitOptions]::RemoveEmptyEntries)) {
+            $i = $tok.IndexOf(':'); if ($i -lt 1) { continue }
+            $k = $tok.Substring(0, $i); $v = $tok.Substring($i + 1)
+            if ($k -eq 'issue') { if ($v -eq '1') { $issues++ }; continue }
+            if ($counts.ContainsKey($k)) { $counts[$k][$v] = $(if ($counts[$k].ContainsKey($v)) { $counts[$k][$v] + 1 } else { 1 }) }
+        }
+        $os = [string](& $get 'os'); if (-not $os) { $os = '–' }
+        $counts['os'][$os] = $(if ($counts['os'].ContainsKey($os)) { $counts['os'][$os] + 1 } else { 1 })
+        $g = [string](& $get 'deviceGroup')
+        if ($g) { $groups[$g] = $(if ($groups.ContainsKey($g)) { $groups[$g] + 1 } else { 1 }) }
     }
-    [ordered]@{ devices = $list.Count; issues = $issues; charts = $charts; groups = $groups }
+    $charts = [ordered]@{}
+    foreach ($c in $chartIds + @('os')) { $o = [ordered]@{}; foreach ($k in ($counts[$c].Keys | Sort-Object)) { $o[$k] = $counts[$c][$k] }; $charts[$c] = $o }
+    $grp = [ordered]@{}; foreach ($k in ($groups.Keys | Sort-Object)) { $grp[$k] = $groups[$k] }
+    [ordered]@{ devices = $n; issues = $issues; charts = $charts; groups = $grp }
 }
 
 function ConvertFrom-WlDeviceIndexRow {
     # Index rows are strings; give the portal the same shapes as the full device object (numbers, checks object).
-    param($Row)
+    param([Parameter(Mandatory)]$Index, [Parameter(Mandatory)][AllowEmptyString()][AllowEmptyCollection()][string[]]$Row)
     $o = [ordered]@{}
-    foreach ($p in $Row.PSObject.Properties) {
-        $v = [string]$p.Value
-        switch ($p.Name) {
-            'checks' { $c = [ordered]@{}; foreach ($kv in ($v -split ';')) { if ($kv -match '^([^=]+)=(.*)$') { $c[$Matches[1]] = $Matches[2] } }; $o.checks = $c }
-            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts' } { $o[$p.Name] = $(if ($v -eq '') { $null } else { [int]$v }) }
-            'localExclusionsHighRisk' { $o[$p.Name] = ($v -match '^(true|1)$') }
-            'page' { $o.page = [int]$v }
-            default { $o[$p.Name] = $(if ($v -eq '') { $null } else { $v }) }
+    $names = $Index.names
+    for ($i = 0; $i -lt $names.Count; $i++) {
+        $name = $names[$i]
+        if ($name -eq 'page' -or $name.StartsWith('_')) { continue }
+        $v = if ($i -lt $Row.Count) { $Row[$i] } else { '' }
+        switch ($name) {
+            'checks' { $c = [ordered]@{}; foreach ($kv in $v.Split(';')) { $e = $kv.IndexOf('='); if ($e -gt 0) { $c[$kv.Substring(0, $e)] = $kv.Substring($e + 1) } }; $o.checks = $c }
+            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
+            'localExclusionsHighRisk' { $o[$name] = ($v -match '^(true|1)$') }
+            default { $o[$name] = $(if ($v -eq '') { $null } else { $v }) }
         }
     }
     [pscustomobject]$o
@@ -2137,31 +2198,39 @@ function ConvertFrom-WlDeviceIndexRow {
 function Search-WlDevices {
     <#
     .SYNOPSIS
-    Server-side device list for the portal: free text (name, group, user, platform), platform, device group,
-    only devices with issues, chart segment (<chart>|<state>), ASR below minimum; paged and sorted (issues first,
-    then by name).
+    Server-side device list for the portal: free text (name, platform, version, group, user), platform, device
+    group, only devices with issues, chart segment (<chart>|<state>), ASR below minimum; paged and sorted (issues
+    first, then by name). Works on the cached columnar index with pre-computed filter tokens.
     #>
     param([string]$Query, [string]$Os, [string]$Group, [switch]$IssuesOnly, [string]$Chart, [switch]$AsrBelow, [int]$Page = 0, [int]$Size = 200)
-    $rows = @(Get-WlPagedIndex -Module 'endpoint' -Name 'devices' | ForEach-Object { ConvertFrom-WlDeviceIndexRow $_ })
+    $ix = Get-WlPagedIndexRaw -Module 'endpoint' -Name 'devices'
+    $cols = $ix.cols
     $q = ([string]$Query).Trim().ToLowerInvariant()
-    $chartId = $null; $chartState = $null
-    if ($Chart -match '^([^|]+)\|(.+)$') { $chartId = $Matches[1]; $chartState = $Matches[2] }
-    $hits = foreach ($r in $rows) {
-        if ($Os -and [string]$r.os -ne $Os) { continue }
-        if ($Group -and [string]$r.deviceGroup -ne $Group) { continue }
-        if ($AsrBelow -and -not ($r.asrBelowMinimum -gt 0)) { continue }
-        if ($IssuesOnly -and -not (Test-WlDeviceIssue -Device $r)) { continue }
-        if ($chartId -and (Get-WlDeviceChartState -Device $r -Chart $chartId) -ne $chartState) { continue }
-        if ($q -and "$($r.deviceName) $($r.os) $($r.deviceGroup) $($r.lastUser) $($r.osVersion)".ToLowerInvariant().IndexOf($q) -lt 0) { continue }
-        $r
+    $tokens = [System.Collections.Generic.List[string]]::new()
+    if ($Chart -match '^([^|]+)\|(.+)$') { if ($Matches[1] -eq 'os') { if (-not $Os) { $Os = $Matches[2] } } else { $tokens.Add(" $($Matches[1]):$($Matches[2]) ") } }
+    if ($IssuesOnly) { $tokens.Add(' issue:1 ') }
+    if ($AsrBelow) { $tokens.Add(' asrBelow:1 ') }
+    $ciOs = $cols['os']; $ciGroup = $cols['deviceGroup']; $ciFilter = $cols['_filter']; $ciSearch = $cols['_search']; $ciName = $cols['deviceName']
+    $hits = [System.Collections.Generic.List[string[]]]::new()
+    $keys = [System.Collections.Generic.List[string]]::new()
+    foreach ($r in $ix.rows) {
+        if ($Os -and $r[$ciOs] -ne $Os) { continue }
+        if ($Group -and $r[$ciGroup] -ne $Group) { continue }
+        if ($tokens.Count) { $f = $r[$ciFilter]; $ok = $true; foreach ($t in $tokens) { if (-not $f.Contains($t)) { $ok = $false; break } }; if (-not $ok) { continue } }
+        if ($q -and -not $r[$ciSearch].Contains($q)) { continue }
+        $hits.Add($r)
+        $keys.Add($(if ($r[$ciFilter].Contains(' issue:1 ')) { '0' } else { '1' }) + $r[$ciName])
     }
-    $hits = @($hits | Sort-Object { -[int](Test-WlDeviceIssue -Device $_) }, deviceName)
+    $order = [int[]]::new($hits.Count); for ($i = 0; $i -lt $order.Length; $i++) { $order[$i] = $i }
+    $keyArr = $keys.ToArray()
+    [Array]::Sort($keyArr, $order, [StringComparer]::OrdinalIgnoreCase)
     $Size = [Math]::Max(1, [Math]::Min(1000, $Size)); if ($Page -lt 0) { $Page = 0 }
     $start = $Page * $Size
-    $slice = if ($start -lt $hits.Count) { @($hits[$start..([Math]::Min($hits.Count, $start + $Size) - 1)]) } else { @() }
+    $rows = [System.Collections.Generic.List[object]]::new()
+    for ($i = $start; $i -lt $hits.Count -and $i -lt $start + $Size; $i++) { $rows.Add((ConvertFrom-WlDeviceIndexRow -Index $ix -Row $hits[$order[$i]])) }
     [ordered]@{
         total = $hits.Count; page = $Page; size = $Size; pages = [int][Math]::Ceiling($hits.Count / $Size)
-        rows  = @($slice | Select-Object -Property * -ExcludeProperty page)
+        rows  = @($rows.ToArray())
     }
 }
 
@@ -2181,11 +2250,11 @@ function Merge-WlDeviceFindings {
     param([AllowEmptyCollection()][object[]]$Findings, [int]$Threshold = [int](Get-WlSetting -Name 'WL_FINDING_ROLLUP' -Default '200'))
     $out = [System.Collections.Generic.List[object]]::new()
     $groups = [ordered]@{}
-    foreach ($f in @($Findings | Where-Object { $_ })) {
-        if (-not (Get-WlProp $f 'deviceId')) { $out.Add($f); continue }
-        $subject = [string](Get-WlProp $f 'subject')
-        $tpl = ([string](Get-WlProp $f.title 'en')) -replace [regex]::Escape([string]$f.deviceName), '*'
-        $gk = "$($f.category)|$($f.severity)|$(if ($subject) { $subject } else { $tpl })"
+    foreach ($f in $Findings) {
+        if ($null -eq $f) { continue }
+        if (-not $f.deviceId) { $out.Add($f); continue }
+        $subject = [string]$f.subject
+        $gk = if ($subject) { "$($f.category)|$($f.severity)|$subject" } else { "$($f.category)|$($f.severity)|$(([string]$f.title.en).Replace([string]$f.deviceName, '*'))" }
         if (-not $groups.Contains($gk)) { $groups[$gk] = [System.Collections.Generic.List[object]]::new() }
         $groups[$gk].Add($f)
     }
@@ -2249,6 +2318,8 @@ function Invoke-WlEndpointCollection {
                 $d.state = "Mode=$($d.avModeText); " + (@($d.checks.Keys | ForEach-Object { "$_=$($d.checks[$_])" }) -join '; ') +
                 $(if ($d.asr) { '; ASR ' + (@($d.asr.Keys | ForEach-Object { "$_=$($d.asr[$_])" }) -join ',') } else { '' })
                 $d.fp = Get-WlHash "$($d.state)|$($d.localExclusions)"
+                $d._filter = Get-WlDeviceFilter -Device $d
+                $d._search = Get-WlDeviceSearchText -Device $d
                 [pscustomobject]$d
             }) | Sort-Object deviceName, deviceId)
 

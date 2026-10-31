@@ -52,6 +52,10 @@ param changeRetentionDays int = 0
 var snapshotDays = snapshotRetentionDays > 0 ? snapshotRetentionDays : retentionDays
 var changeDays = changeRetentionDays > 0 ? changeRetentionDays : retentionDays
 
+@description('Memory per Function instance in MB. 4096 is recommended for large fleets (more than ~50,000 devices); 2048 is enough for small tenants.')
+@allowed([2048, 4096])
+param instanceMemoryMB int = 4096
+
 @description('Store snapshots immutably (WORM, time-based retention). The policy is not locked initially.')
 param enableImmutability bool = false
 
@@ -374,7 +378,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       }
       scaleAndConcurrency: {
         maximumInstanceCount: 40
-        instanceMemoryMB: 2048
+        instanceMemoryMB: instanceMemoryMB
       }
       runtime: {
         name: 'powershell'

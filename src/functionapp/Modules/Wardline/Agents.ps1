@@ -576,7 +576,9 @@ function Invoke-WlAgentsCollection {
         foreach ($d in @(Get-WlProp $ep 'devices')) { if ($d -and $d.deviceId) { $epDevices[[string]$d.deviceId] = $d } }   # snapshots of older versions
         $ids = @($ai | ForEach-Object { [string]$_.LocalDeviceId } | Where-Object { $_ } | Sort-Object -Unique)
         if ($ids.Count -and -not $epDevices.Count -and (Get-WlPagedMeta -Module 'endpoint' -Name 'devices')) {
-            $idx = @{}; foreach ($r in @(Get-WlPagedIndex -Module 'endpoint' -Name 'devices')) { $idx[[string]$r.deviceId] = [int]$r.page }
+            $ix = Get-WlPagedIndexRaw -Module 'endpoint' -Name 'devices'
+            $idx = @{}; $ciId = $ix.cols['deviceId']; $ciPage = $ix.cols['page']
+            if ($null -ne $ciId) { foreach ($r in $ix.rows) { $idx[$r[$ciId]] = [int]$r[$ciPage] } }
             $pages = @{}
             foreach ($id in $ids) {
                 if (-not $idx.ContainsKey($id)) { continue }

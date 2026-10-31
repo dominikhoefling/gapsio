@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "17010254564741114264"
+      "templateHash": "8028181881467057607"
     }
   },
   "parameters": {
@@ -106,6 +106,17 @@
       "maxValue": 3650,
       "metadata": {
         "description": "Retention of the change history (drift between runs) in days. 0 = retentionDays."
+      }
+    },
+    "instanceMemoryMB": {
+      "type": "int",
+      "defaultValue": 4096,
+      "allowedValues": [
+        2048,
+        4096
+      ],
+      "metadata": {
+        "description": "Memory per Function instance in MB. 4096 is recommended for large fleets (more than ~50,000 devices); 2048 is enough for small tenants."
       }
     },
     "enableImmutability": {
@@ -621,7 +632,7 @@
           },
           "scaleAndConcurrency": {
             "maximumInstanceCount": 40,
-            "instanceMemoryMB": 2048
+            "instanceMemoryMB": "[parameters('instanceMemoryMB')]"
           },
           "runtime": {
             "name": "powershell",
