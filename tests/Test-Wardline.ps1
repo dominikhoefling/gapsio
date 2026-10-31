@@ -388,8 +388,10 @@ $agentFx = @{
     )
 }
 $hunting.AgentsInfo = @(
-    [pscustomobject]@{ AgentId = 'mde-1'; Name = 'Report Agent'; Platform = 'Microsoft Foundry'; EntraAgentID = 'ai-2'; EntraBlueprintID = 'bp-app-1'; PublishedStatus = 'Published'; LifecycleStatus = 'Active' },
-    [pscustomobject]@{ AgentId = 'mde-2'; Name = 'Local Agent'; Platform = 'LocalAgents'; EntraAgentID = ''; EntraBlueprintID = ''; PublishedStatus = ''; LifecycleStatus = ''; IsLocal = $true
+    [pscustomobject]@{ AgentId = 'mde-1'; Name = 'Report Agent'; Platform = 'Microsoft Foundry'; EntraAgentId = 'ai-2'; EntraBlueprintId = 'bp-app-1'; PublishedStatus = 'Published'; LifecycleStatus = 'Active'
+        Model = 'gpt-5'; Guardrails = '[]'; Endpoints = '[{"url":"https://agent.contoso.com/api","transport":"https","isExternal":true}]'; Owners = '[{"displayName":"Bob","userPrincipalName":"bob@contoso.com"}]'
+        DeclaredTools = '[{"name":"search"},{"name":"mail"}]'; McpServers = '[{"name":"crm","url":"https://mcp.contoso.com","transport":"http"}]' },
+    [pscustomobject]@{ AgentId = 'mde-2'; Name = 'Local Agent'; Platform = 'LocalAgents'; EntraAgentId = ''; EntraBlueprintId = ''; PublishedStatus = ''; LifecycleStatus = ''; IsLocal = $true
         Vendor = 'OpenAI'; LocalDeviceId = 'd-win1'; LocalDeviceName = 'WIN-01'; LocalOs = 'Windows11'; LocalUser = 'alice@contoso.com'; AutoApprove = 'true'; TrustedProcess = 'true'; Process = 'codex.exe'
         LocalMcps = '[{"name":"filesystem","commandName":"npx","commandArgs":["-y","@modelcontextprotocol/server-filesystem"]},{"name":"pinned","commandName":"npx","commandArgs":["tool@1.2.3"]}]'; McpServers = '[]' }
 )
@@ -888,7 +890,10 @@ Assert ($a1.platform -eq 'Copilot Studio' -and @($a1.sources) -contains 'Agent36
 Assert ($a1.caIdentity.status -eq 'Protected' -and $a1.caUser.status -eq 'ReportOnly') "Helpdesk: CA agent protected, agent user report-only, is $($a1.caIdentity.status)/$($a1.caUser.status)"
 Assert (@($a1.caUser.policies | Where-Object { $_.id -eq 'ca-3' }).Count -eq 0) '"All users" does not apply to agent users'
 $a2 = $ags['Report Agent']
-Assert ($a2.platform -eq 'Microsoft Foundry' -and @($a2.sources) -contains 'DefenderAgentsInfo') 'AgentsInfo match via EntraAgentID'
+Assert ($a2.platform -eq 'Microsoft Foundry' -and @($a2.sources) -contains 'DefenderAgentsInfo') 'AgentsInfo match via EntraAgentId'
+Assert ($a2.model -eq 'gpt-5' -and $a2.guardrails -eq 0 -and $a2.tools -eq 2 -and $null -eq $a2.permissions -and @($a2.owners) -contains 'Bob (bob@contoso.com)') "AgentsInfo details (model=$($a2.model) guardrails=$($a2.guardrails) tools=$($a2.tools) owners=$(@($a2.owners) -join ','))"
+Assert (@($a2.endpoints).Count -eq 1 -and $a2.endpoints[0].external -eq $true -and $a2.endpoints[0].url -eq 'https://agent.contoso.com/api') 'AgentsInfo endpoints parsed'
+Assert (@($a2.mcpServers).Count -eq 1 -and $a2.mcpServers[0].endpoint -eq 'https://mcp.contoso.com' -and $a2.mcpServers[0].kind -eq 'http') 'AgentsInfo McpServers parsed'
 Assert ($a2.caUser.status -eq 'NotCovered') "Report agent user: excluded from report-only -> not covered, is $($a2.caUser.status)"
 Assert ($ags['Legacy Agent'].caIdentity.status -eq 'Excluded') "Legacy agent excluded, is $($ags['Legacy Agent'].caIdentity.status)"
 Assert ($ags['Sales Agent'].caIdentity.status -eq 'NoAgentId' -and $ags['Sales Agent'].agentType -eq 'Cloud') 'Agents without Entra Agent ID'
@@ -903,6 +908,9 @@ Assert (@($af | Where-Object { $_.title.en -eq 'Agent without sponsor: Report Ag
 Assert (@($af | Where-Object { $_.title.en -eq 'Agent excluded from Conditional Access: Legacy Agent' }).Count -eq 1) 'Finding: agent excluded'
 Assert (@($af | Where-Object { $_.title.en -eq 'Blueprint unknown in this tenant: Legacy Agent' }).Count -eq 1) 'Finding: unknown blueprint'
 Assert (@($af | Where-Object { $_.title.en -match '^Cloud agent without Entra Agent ID' }).Count -eq 1) 'Finding: agents without Entra Agent ID'
+Assert (@($af | Where-Object { $_.title.en -eq 'Agent without guardrails: Report Agent' -and $_.severity -eq 'Low' }).Count -eq 1) 'Finding: agent without guardrails (explicit empty array)'
+Assert (@($af | Where-Object { $_.title.en -eq 'Agent endpoint reachable from outside: Report Agent' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Finding: externally reachable agent endpoint'
+Assert (@($af | Where-Object { $_.title.en -match '^Agent without guardrails' }).Count -eq 1) 'No guardrail finding when Guardrails is unknown (null)'
 $la = $ags['Local Agent']
 Assert ($la.agentType -eq 'Local' -and $la.caIdentity.status -eq 'UserContext' -and $la.device.name -eq 'WIN-01' -and $la.user -eq 'alice@contoso.com' -and $la.autoApprove) 'Local agent with device, user and auto-approve'
 Assert (@($la.mcpServers | Where-Object { $_.unpinned }).Count -eq 1) 'Local agent: one unpinned MCP server'
