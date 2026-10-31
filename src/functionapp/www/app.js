@@ -197,19 +197,22 @@
     'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
     'ch.areas': ['By area', 'Nach Bereich'],
     'v.license': ['Licence', 'Lizenz'],
-    'lic.lede': ['Wardline checks the licence offline – it never calls home. Without a valid licence everything keeps working; administrators only see a notice.', 'Wardline prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz funktioniert alles weiter; Administratoren sehen nur einen Hinweis.'],
+    'lic.lede': ['Wardline checks the licence offline – it never calls home. Without a valid licence Wardline runs as Community edition: all checks run, summaries and charts are complete, but every list shows only its first {0} entries in clear – the rest is masked on the server.', 'Wardline prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz läuft Wardline als Community-Edition: alle Prüfungen laufen, Zusammenfassungen und Diagramme sind vollständig, aber jede Liste zeigt nur die ersten {0} Einträge im Klartext – der Rest wird serverseitig maskiert.'],
+    'lic.community.rows': ['Community edition: {0} of {1} entries shown in clear, the rest is masked.', 'Community-Edition: {0} von {1} Einträgen im Klartext, der Rest ist maskiert.'],
+    'lic.community.link': ['Get a licence for the full list.', 'Mit Lizenz die ganze Liste sehen.'], 'lic.community.masked': ['Masked – licence required', 'Maskiert – Lizenz erforderlich'],
+    'lic.community.export': ['The export contains only the unmasked entries.', 'Der Export enthält nur die unmaskierten Einträge.'],
     'lic.status': ['Status', 'Status'], 'lic.customer': ['Licensed to', 'Lizenziert für'], 'lic.plan': ['Plan', 'Tarif'], 'lic.expires': ['Valid until', 'Gültig bis'], 'lic.id': ['Licence ID', 'Lizenz-ID'],
     'lic.tenant': ['Tenant', 'Tenant'], 'lic.source': ['Entered', 'Hinterlegt'], 'lic.src.Portal': ['in the portal by {0} on {1}', 'im Portal von {0} am {1}'], 'lic.src.AppSetting': ['at installation (-LicenseKey)', 'bei der Installation (-LicenseKey)'],
     'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with WL1.)', 'Lizenzschlüssel (beginnt mit WL1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
     'lic.saved': ['Licence saved.', 'Lizenz gespeichert.'], 'lic.buy': ['Get a licence', 'Lizenz erwerben'], 'lic.days': ['{0} days left', 'noch {0} Tage'],
-    'lic.st.None': ['No licence (evaluation)', 'Keine Lizenz (Testphase)'], 'lic.st.Valid': ['Valid', 'Gültig'], 'lic.st.ExpiringSoon': ['Expires soon', 'Läuft bald ab'],
+    'lic.st.None': ['No licence (Community edition)', 'Keine Lizenz (Community-Edition)'], 'lic.st.Valid': ['Valid', 'Gültig'], 'lic.st.ExpiringSoon': ['Expires soon', 'Läuft bald ab'],
     'lic.st.Expired': ['Expired', 'Abgelaufen'], 'lic.st.Invalid': ['Invalid key', 'Ungültiger Schlüssel'], 'lic.st.WrongTenant': ['Key belongs to another tenant', 'Schlüssel gehört zu einem anderen Tenant'],
     'lic.plan.Monthly': ['Monthly', 'Monatlich'], 'lic.plan.Annual': ['Annual', 'Jährlich'], 'lic.plan.Assessment': ['Assessment', 'Assessment'], 'lic.plan.Pilot': ['Pilot', 'Pilot'], 'lic.plan.Partner': ['Partner', 'Partner'],
     'lic.side': ['Licence: {0}', 'Lizenz: {0}'],
-    'lic.n.None': ['Wardline runs without a licence key (evaluation).', 'Wardline läuft ohne Lizenzschlüssel (Testphase).'],
+    'lic.n.None': ['Wardline runs as Community edition without a licence key: lists show the first {0} entries, the rest is masked.', 'Wardline läuft ohne Lizenzschlüssel als Community-Edition: Listen zeigen die ersten {0} Einträge, der Rest ist maskiert.'],
     'lic.n.ExpiringSoon': ['The Wardline licence expires in {0} days.', 'Die Wardline-Lizenz läuft in {0} Tagen ab.'],
-    'lic.n.Expired': ['The Wardline licence expired on {0}. Everything keeps working – please renew.', 'Die Wardline-Lizenz ist am {0} abgelaufen. Alles funktioniert weiter – bitte verlängern.'],
-    'lic.n.Invalid': ['The Wardline licence key is not valid.', 'Der Wardline-Lizenzschlüssel ist ungültig.'], 'lic.n.WrongTenant': ['The Wardline licence key belongs to another tenant.', 'Der Wardline-Lizenzschlüssel gehört zu einem anderen Tenant.'],
+    'lic.n.Expired': ['The Wardline licence expired on {0}. After 30 days Wardline falls back to the Community edition – please renew.', 'Die Wardline-Lizenz ist am {0} abgelaufen. Nach 30 Tagen fällt Wardline auf die Community-Edition zurück – bitte verlängern.'],
+    'lic.n.Invalid': ['The Wardline licence key is not valid – Community edition.', 'Der Wardline-Lizenzschlüssel ist ungültig – Community-Edition.'], 'lic.n.WrongTenant': ['The Wardline licence key belongs to another tenant – Community edition.', 'Der Wardline-Lizenzschlüssel gehört zu einem anderen Tenant – Community-Edition.'],
     'lic.n.action': ['Licence …', 'Lizenz …'],
     'chart.more': ['+ {0} more', '+ {0} weitere'], 'chart.total': ['Total: {0}', 'Gesamt: {0}'], 'chart.on': ['On', 'An'], 'chart.off': ['Off', 'Aus'],
     'chart.na': ['Not applicable', 'Nicht anwendbar'], 'chart.unknown': ['Unknown', 'Unbekannt'], 'chart.share': ['{0} of {1} devices', '{0} von {1} Geräten'],
@@ -392,6 +395,19 @@
     document.body.append(a); a.click(); a.remove();
   }
 
+  /** Community edition: rows beyond the first N arrive masked from the server (_masked = true). */
+  const isMasked = (r) => !!(r && r._masked);
+  const communityRows = () => (state.me && state.me.tier === 'Community' && Number(state.me.communityRows)) || 0;
+  function communityNotice(rows, total, clear) {
+    const n = rows.filter(isMasked).length;
+    if (!n && total === undefined) return null;
+    const all = total || rows.length;
+    const shown = clear !== undefined ? Math.min(clear, all) : all - n;
+    return h('div', { class: 'community-note', role: 'note' }, t('lic.community.rows', num(shown), num(all)), ' ', h('a', { href: '#/license' }, t('lic.community.link')), ' ', h('span', { class: 'muted' }, t('lic.community.export')));
+  }
+  function maskRow(tr) { tr.classList.add('masked'); tr.classList.remove('clickable'); tr.removeAttribute('tabindex'); tr.title = t('lic.community.masked'); tr.setAttribute('aria-label', t('lic.community.masked')); }
+  const maskedLast = (sort) => (a, b) => (isMasked(a) - isMasked(b)) || (sort ? sort(a, b) : 0);
+
   /** Table with search, optional filters, detail row and CSV export. */
   function dataTable({ name, columns, rows, search, filters = [], detail, empty, sort, rowClass }) {
     const wrap = h('div');
@@ -408,25 +424,27 @@
     const tbody = h('tbody');
     const table = h('table', null, h('thead', null, h('tr', null, columns.map(c => h('th', { scope: 'col' }, c.title)))), tbody);
     const body = h('div');
-    wrap.append(toolbar, count, body);
+    const note = h('div');
+    wrap.append(toolbar, count, note, body);
 
     let current = [];
     function apply() {
       const term = q.value.trim().toLowerCase();
       current = rows.filter(r => {
-        if (term && !search(r).toLowerCase().includes(term)) return false;
+        if (term && !(isMasked(r) || search(r).toLowerCase().includes(term))) return false;
         for (const { f, input } of filterEls) {
           if (f.type === 'check') { if (input.checked && !f.test(r)) return false; }
           else if (input.value && !f.test(r, input.value)) return false;
         }
         return true;
       });
-      if (sort) current.sort(sort);
+      if (sort || rows.some(isMasked)) current.sort(maskedLast(sort));
       tbody.replaceChildren();
       const max = 1500;
       for (const r of current.slice(0, max)) {
         const tr = h('tr', { class: [detail ? 'clickable' : '', rowClass ? rowClass(r) : ''].join(' ').trim() || null, tabindex: detail ? '0' : null }, columns.map(c => h('td', null, c.cell ? c.cell(r) : c.text(r))));
-        if (detail) {
+        if (isMasked(r)) maskRow(tr);
+        else if (detail) {
           const toggle = () => {
             const next = tr.nextElementSibling;
             if (next && next.classList.contains('detail')) { next.remove(); tr.setAttribute('aria-expanded', 'false'); return; }
@@ -440,11 +458,12 @@
         tbody.append(tr);
       }
       count.textContent = current.length > max ? t('entries.capped', num(current.length), max) : (current.length === 1 ? t('entry') : t('entries', num(current.length)));
+      note.replaceChildren(communityNotice(current) || '');
       body.replaceChildren(current.length ? h('div', { class: 'table-wrap' }, table) : h('div', { class: 'empty' }, rows.length ? t('no.match') : (empty || t('no.entries'))));
     }
     q.addEventListener('input', apply);
     filterEls.forEach(x => x.input.addEventListener('change', apply));
-    exportBtn.addEventListener('click', () => csvExport(name, columns, current));
+    exportBtn.addEventListener('click', () => csvExport(name, columns, current.filter(r => !isMasked(r))));
     apply();
     return wrap;
   }
@@ -471,7 +490,8 @@
     const table = h('table', null, h('thead', null, h('tr', null, columns.map(c => h('th', { scope: 'col' }, c.title)))), tbody);
     const body = h('div');
     const pager = h('div', { class: 'toolbar' }, prev, next);
-    wrap.append(toolbar, count, body, pager);
+    const note = h('div');
+    wrap.append(toolbar, count, note, body, pager);
     let page = 0, current = [], total = 0, pages = 0, seq = 0, timer = null;
     const params = () => {
       const p = new URLSearchParams({ ...fixed, page: String(page), size: String(size) });
@@ -489,7 +509,8 @@
       tbody.replaceChildren();
       for (const r of current) {
         const tr = h('tr', { class: detail ? 'clickable' : null, tabindex: detail ? '0' : null }, columns.map(c => h('td', null, c.cell ? c.cell(r) : c.text(r))));
-        if (detail) {
+        if (isMasked(r)) maskRow(tr);
+        else if (detail) {
           const toggle = () => {
             const nx = tr.nextElementSibling;
             if (nx && nx.classList.contains('detail')) { nx.remove(); tr.setAttribute('aria-expanded', 'false'); return; }
@@ -503,6 +524,7 @@
         tbody.append(tr);
       }
       count.textContent = total ? t('d.remote.count', num(total), num(page + 1), num(pages)) : '';
+      note.replaceChildren(res.tier === 'Community' && total > communityRows() ? communityNotice(current, total, communityRows()) : '');
       body.replaceChildren(current.length ? h('div', { class: 'table-wrap' }, table) : h('div', { class: 'empty' }, q.value || filterEls.some(x => x.input.value || x.input.checked) ? t('no.match') : (empty || t('no.entries'))));
       prev.disabled = page <= 0; next.disabled = page + 1 >= pages;
       pager.style.display = pages > 1 ? '' : 'none';
@@ -512,7 +534,7 @@
     filterEls.forEach(x => x.input.addEventListener('change', restart));
     prev.addEventListener('click', () => { if (page > 0) { page--; load(); } });
     next.addEventListener('click', () => { if (page + 1 < pages) { page++; load(); } });
-    exportBtn.addEventListener('click', () => csvExport(name, columns, current));
+    exportBtn.addEventListener('click', () => csvExport(name, columns, current.filter(r => !isMasked(r))));
     wrap.setFilter = (key, value) => { const x = filterEls.find(f => f.f.key === key); if (x) { x.input.value = value; restart(); } };
     load();
     return wrap;
@@ -1760,7 +1782,7 @@
     },
 
     async license(main) {
-      main.append(h('h1', null, t('v.license')), h('p', { class: 'lede' }, t('lic.lede')));
+      main.append(h('h1', null, t('v.license')), h('p', { class: 'lede' }, t('lic.lede', num(communityRows() || 10))));
       let l; try { l = await api('license'); } catch (e) { main.append(noData(e, 'endpoint')); return; }
       const st = h('span', { class: `state ${l.status === 'Valid' ? 'good' : l.status === 'ExpiringSoon' || l.status === 'None' ? 'warn' : 'bad'}` }, code('lic.st', l.status));
       main.append(h('div', { class: 'detail card' }, dl([
@@ -1910,7 +1932,7 @@
     const bar = $('#notice'); if (!bar) return;
     const l = state.me && state.me.isAdmin && state.me.license;
     if (!l || l.status === 'Valid') { bar.hidden = true; bar.replaceChildren(); return; }
-    const text = l.status === 'ExpiringSoon' ? t('lic.n.ExpiringSoon', l.daysLeft) : l.status === 'Expired' ? t('lic.n.Expired', fmtDay(l.expires)) : t(`lic.n.${l.status}`);
+    const text = l.status === 'ExpiringSoon' ? t('lic.n.ExpiringSoon', l.daysLeft) : l.status === 'Expired' ? t('lic.n.Expired', fmtDay(l.expires)) : t(`lic.n.${l.status}`, num(communityRows() || 10));
     bar.className = `notice-bar lic-${l.status}`;
     bar.replaceChildren(h('span', null, text), ' ', h('a', { href: '#/license' }, t('lic.n.action')));
     bar.hidden = false;

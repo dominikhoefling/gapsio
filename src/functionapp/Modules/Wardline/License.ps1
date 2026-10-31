@@ -91,3 +91,90 @@ function Set-WlLicense {
     Set-WlBlob -Container 'state' -Name 'license.json' -Object ([ordered]@{ key = $key; setBy = $By; setAt = [DateTime]::UtcNow.ToString('o') })
     Get-WlLicense
 }
+
+#region Community edition (no valid licence): first rows of every list are real, the rest is masked server-side
+$script:WlCommunityRows = 10
+$script:WlLicenseGraceDays = 30
+$script:WlLicenseTierOverride = $null   # tests only (set from inside the module)
+$script:WlMaskText = '••••••••'
+# Property names whose string values are enumerations/codes the portal needs for filters, charts and colours – never identifiers.
+$script:WlMaskKeepNames = @('severity', 'category', 'status', 'os', 'osPlatform', 'type', 'scope', 'platform', 'mode', 'agentType', 'source', 'kind', 'level', 'via', 'state', 'present',
+    'active', 'module', 'audience', 'principalType', 'dataSource', 'operator', 'assignmentType', 'operation', 'result', 'action', 'avMode', 'avModeText', 'sensorHealth', 'exposure',
+    'assetValue', 'joinType', 'deviceType', 'managedBy', 'usage', 'publishedStatus', 'lifecycle', 'networkProtectionSource', 'plan', 'tier', '_masked')
+# Property names whose whole subtree consists of codes (feature → GOOD/BAD, rule → mode, counts …).
+$script:WlMaskKeepParents = @('checks', 'asr', 'effective', 'targets', 'controls', 'riskLevels', 'sources', 'summary', 'charts', 'groups', 'modes', 'counts', 'dataSources', 'permissionGroups', 'sevCount')
+
+function Get-WlCommunityRows { $script:WlCommunityRows }
+
+function Get-WlLicenseTier {
+    <#
+    .SYNOPSIS
+    'Full' with a valid licence (including the 30-day warning window and a 30-day grace period after expiry), otherwise
+    'Community': every list shows the first rows, the rest is masked before it leaves the server. Demo builds are Full.
+    #>
+    param($License)
+    if ($script:WlLicenseTierOverride) { return $script:WlLicenseTierOverride }
+    if (-not $License) { try { $License = Get-WlLicense } catch { return 'Community' } }
+    $st = [string](Get-WlProp $License 'status')
+    if ($st -in 'Valid', 'ExpiringSoon') { return 'Full' }
+    if ($st -eq 'Expired') { $dl = Get-WlProp $License 'daysLeft'; if ($null -ne $dl -and [int]$dl -ge -$script:WlLicenseGraceDays) { return 'Full' } }
+    'Community'
+}
+
+function Hide-WlValue {
+    param($Value, [string]$Name = '', [bool]$Keep = $false)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [string]) {
+        if ($Keep -or $Value -eq '' -or $script:WlMaskKeepNames -contains $Name -or $Value -match '^\d{4}-\d{2}-\d{2}') { return $Value }
+        return $script:WlMaskText
+    }
+    if ($Value -is [bool] -or $Value -is [datetime] -or $Value -is [decimal] -or $Value.GetType().IsPrimitive) { return $Value }
+    if ($Value -is [System.Collections.IDictionary]) {
+        $o = [ordered]@{}
+        foreach ($k in @($Value.Keys)) { $o[$k] = Hide-WlValue -Value $Value[$k] -Name ([string]$k) -Keep ($Keep -or $script:WlMaskKeepParents -contains [string]$k) }
+        return $o
+    }
+    if ($Value -is [System.Collections.IEnumerable]) { return @(foreach ($e in $Value) { , (Hide-WlValue -Value $e -Name $Name -Keep $Keep) }) }
+    if ($Value -is [pscustomobject]) {
+        $o = [ordered]@{}
+        foreach ($p in $Value.PSObject.Properties) { $o[$p.Name] = Hide-WlValue -Value $p.Value -Name $p.Name -Keep ($Keep -or $script:WlMaskKeepParents -contains $p.Name) }
+        return [pscustomobject]$o
+    }
+    $Value
+}
+
+function Hide-WlItem {
+    # One list entry with every free text and identifier replaced; codes and numbers stay so filters and charts still work.
+    param($Item)
+    $o = Hide-WlValue -Value $Item
+    if ($o -is [System.Collections.IDictionary]) { $o['_masked'] = $true; return [pscustomobject]$o }
+    if ($o -is [pscustomobject]) { $o | Add-Member -NotePropertyName _masked -NotePropertyValue $true -Force; return $o }
+    $o
+}
+
+function Protect-WlCommunityList {
+    param([AllowEmptyCollection()][object[]]$Items, [int]$Limit = $script:WlCommunityRows, [int]$Offset = 0)
+    $out = [System.Collections.Generic.List[object]]::new()
+    $i = $Offset
+    foreach ($it in @($Items)) { if ($null -eq $it) { continue }; if ($i -lt $Limit) { $out.Add($it) } else { $out.Add((Hide-WlItem $it)) }; $i++ }
+    $out.ToArray()
+}
+
+function Protect-WlCommunity {
+    <#
+    .SYNOPSIS
+    Community view of a snapshot: every top-level list keeps its first rows, the rest is masked; summaries, statistics,
+    warnings and static catalogues stay complete. Marks the snapshot with tier = 'Community'.
+    #>
+    param([Parameter(Mandatory)]$Snapshot, [int]$Limit = $script:WlCommunityRows, [string[]]$Keep = @('warnings', 'seenDefenderSettings', 'asrCatalog', 'runs'))
+    $o = [ordered]@{}
+    $pairs = if ($Snapshot -is [System.Collections.IDictionary]) { @($Snapshot.GetEnumerator() | ForEach-Object { [pscustomobject]@{ Name = [string]$_.Key; Value = $_.Value } }) } else { @($Snapshot.PSObject.Properties) }
+    foreach ($p in $pairs) {
+        $v = $p.Value
+        if ($v -is [System.Collections.IEnumerable] -and $v -isnot [string] -and $v -isnot [System.Collections.IDictionary] -and $Keep -notcontains $p.Name) { $o[$p.Name] = Protect-WlCommunityList -Items @($v) -Limit $Limit }
+        else { $o[$p.Name] = $v }
+    }
+    $o['tier'] = 'Community'; $o['communityRows'] = $Limit
+    [pscustomobject]$o
+}
+#endregion

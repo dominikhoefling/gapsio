@@ -9,6 +9,15 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 First version published on GitHub.
 
 ### Added
+- **Community edition without a licence key**: collection and storage are always complete, but without a valid licence the
+  API serves every list (devices, findings, exclusions, agents, policies, entitlements, changes …) with only the first
+  10 entries in clear; further entries are masked on the server (names, identifiers, users, paths and free text →
+  `••••••••`, while severity, category, state, platform, numbers and dates stay so counts, filters and charts remain
+  correct). Masked rows are blurred in the portal, cannot be opened and are left out of CSV exports. Summaries, charts,
+  warnings and run history are complete. Expired licences keep the full view for a 30-day grace period. `api/me`
+  reports `tier` and `communityRows` to every user. The public demo is unaffected.
+- **Collapsible sidebar navigation**: modules are groups that fold (state remembered), the active group stays open, and
+  below 860 px the sidebar becomes a drawer behind a menu button. The access module is labelled *Permissions (unified RBAC)*.
 - **Large fleets (up to several hundred thousand devices)**: Advanced Hunting results above the 100,000-row limit are
   collected in hash shards with truncation notices and a per-minute call budget; device and coverage lists are stored in
   pages with a search index instead of inside the snapshot; the portal searches and filters devices on the server above

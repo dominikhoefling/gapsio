@@ -1072,6 +1072,25 @@ $r = Call 'changes' -Principal $adminP -Query @{ module = 'agents' }; Assert ([i
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' }; Assert ([int]$r.StatusCode -eq 400) 'POST without X-Wardline is rejected'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Wardline' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1) 'POST run creates a queue message'
 
+Write-Host '== Community edition (no licence)' -ForegroundColor Cyan
+$r = Call 'me' -Principal $userP; $m = $r.Body | ConvertFrom-Json; Assert ($m.tier -eq 'Community' -and $m.communityRows -eq 10) 'api/me: tier Community with row limit for everyone'
+& $mod {
+    param($A)
+    $items = @(1..25 | ForEach-Object { [pscustomobject]@{ id = "id-$_"; deviceName = "PC-$_"; severity = 'High'; os = 'Windows11'; count = $_; checks = [pscustomobject]@{ TamperProtection = 'GOOD' }; tags = @('a', 'b'); seen = '2026-01-01T00:00:00Z' } })
+    $p = @(Protect-WlCommunityList -Items $items)
+    & $A ($p.Count -eq 25 -and $p[9].deviceName -eq 'PC-10' -and -not $p[9].PSObject.Properties['_masked']) 'Community: first 10 rows untouched'
+    $m = $p[10]
+    & $A ($m._masked -and $m.deviceName -ne 'PC-11' -and $m.id -ne 'id-11' -and $m.severity -eq 'High' -and $m.os -eq 'Windows11' -and $m.count -eq 11 -and $m.checks.TamperProtection -eq 'GOOD' -and $m.seen -eq '2026-01-01T00:00:00Z' -and @($m.tags)[0] -ne 'a') 'Community: identifiers and tags masked, codes/numbers/dates kept'
+    $p2 = @(Protect-WlCommunityList -Items $items[10..14] -Offset 10)
+    & $A (@($p2 | Where-Object { $_._masked }).Count -eq 5) 'Community: offset counts across pages'
+    $snap = [pscustomobject]@{ module = 'x'; summary = [pscustomobject]@{ devices = 25 }; devices = $items; findings = $items[0..2]; warnings = @(1..12 | ForEach-Object { "w$_" }) }
+    $c = Protect-WlCommunity -Snapshot $snap
+    & $A ($c.tier -eq 'Community' -and $c.summary.devices -eq 25 -and @($c.devices | Where-Object { $_._masked }).Count -eq 15 -and @($c.findings | Where-Object { $_._masked }).Count -eq 0 -and $c.warnings[11] -eq 'w12') 'Community snapshot: lists masked beyond 10, summary/warnings complete'
+    & $A ((Get-WlLicenseTier -License ([pscustomobject]@{ status = 'Expired'; daysLeft = -10 })) -eq 'Full' -and (Get-WlLicenseTier -License ([pscustomobject]@{ status = 'Expired'; daysLeft = -40 })) -eq 'Community' -and (Get-WlLicenseTier -License ([pscustomobject]@{ status = 'ExpiringSoon' })) -eq 'Full' -and (Get-WlLicenseTier -License ([pscustomobject]@{ status = 'WrongTenant' })) -eq 'Community') 'Licence tier: grace period after expiry, otherwise Community'
+} ${function:Assert}
+$r = Call 'endpoint' -Principal $adminP; $cs = $r.Body | ConvertFrom-Json -Depth 64; Assert ($cs.tier -eq 'Community' -and $cs.module -eq 'endpoint' -and $cs.summary) 'api/endpoint: Community snapshot keeps summary'
+$r = Call 'devices' -Principal $adminP -Query @{ q = '' ; size = '3'; page = '4' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.tier -eq 'Community' -and @($sr.rows | Where-Object { -not $_._masked }).Count -eq 0 -or $sr.total -le 12) "devices search: rows beyond 10 masked in Community ($($sr.total))"
+
 Write-Host '== Licence keys' -ForegroundColor Cyan
 $licEc = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve]::CreateFromFriendlyName('nistP256'))
 $licPem = Join-Path ([IO.Path]::GetTempPath()) "wl-lic-$([guid]::NewGuid().ToString('n')).pem"
@@ -1106,7 +1125,8 @@ $r = Call 'license' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' =
 $r = Call 'license' -Method 'POST' -Principal $userP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = $k1 } | ConvertTo-Json); Assert ([int]$r.StatusCode -eq 403) 'api/license: non-admin gets 403'
 $r = Call 'license' -Method 'POST' -Principal $adminP -Headers @{ 'X-Wardline' = '1' } -Body (@{ key = $k1 } | ConvertTo-Json); Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).status -eq 'Valid') 'api/license: valid key stored'
 $r = Call 'me' -Principal $adminP; $lm = ($r.Body | ConvertFrom-Json).license; Assert ($lm.status -eq 'Valid' -and $lm.customer -eq 'Contoso GmbH' -and $lm.plan -eq 'Annual') 'api/me: licence summary for admins'
-$r = Call 'me' -Principal $userP; Assert ($null -eq ($r.Body | ConvertFrom-Json).license) 'api/me: no licence details for users'
+$r = Call 'me' -Principal $userP; $mu = $r.Body | ConvertFrom-Json; Assert ($null -eq $mu.license -and $mu.tier -eq 'Full') 'api/me: no licence details for users, but tier Full'
+$r = Call 'endpoint' -Principal $adminP; Assert ($null -eq ($r.Body | ConvertFrom-Json -Depth 64).tier) 'api/endpoint: licensed snapshot is served unchanged'
 $r = Call 'license' -Principal $adminP; Assert (($r.Body | ConvertFrom-Json).source -eq 'Portal' -and ($r.Body | ConvertFrom-Json).setBy -eq 'u-alice@contoso.com') 'api/license: source and who set it'
 & $mod { param($Pub) $script:WlLicensePublicKey = $Pub } $licPub
 
