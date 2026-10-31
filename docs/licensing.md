@@ -37,16 +37,21 @@ switches to the full view immediately – nothing has to be collected again, bec
 
 ## When the licence expires
 
-Wardline **does not stop**. Thirty days before the expiry date administrators see a notice; after it the notice says the
+Wardline **does not stop**. Before the expiry date administrators see a notice; after it the notice says the
 licence has expired. Collection, history and notifications keep working; the full view stays available for a **grace
-period of 30 days** after the expiry date, then Wardline falls back to the Community edition until a renewed key is
+period** after the expiry date, then Wardline falls back to the Community edition until a renewed key is
 entered – it simply replaces the old one.
+
+| Plan | Notice before expiry | Grace period after expiry |
+|---|---|---|
+| Monthly | 7 days | 7 days |
+| Annual and all other plans | 30 days | 30 days |
 
 | Status | Meaning | View |
 |---|---|---|
 | Valid | Signed for this tenant and not expired | Full |
-| Expires soon | Expires within 30 days | Full |
-| Expired | Past the expiry date | Full for 30 days, then Community |
+| Expires soon | Expires within 30 days (Monthly: 7) | Full |
+| Expired | Past the expiry date | Full for 30 days (Monthly: 7), then Community |
 | Invalid | Not a Wardline key or the signature does not match | Community |
 | Wrong tenant | Signed for a different tenant ID | Community |
 | None | No key entered | Community |
