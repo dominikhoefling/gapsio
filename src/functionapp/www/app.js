@@ -36,7 +36,8 @@
     'noaccess': ['Wardline is only available to administrators (app role “Wardline Administrator”). Please contact your security team.', 'Wardline steht nur Administratoren zur Verfügung (App-Rolle „Wardline Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Access', 'Zugriffe'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.menu': ['Menu', 'Menü'], 'nav.close': ['Close menu', 'Menü schließen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
@@ -1841,6 +1842,26 @@
     { group: 'nav.settings', admin: true, items: ['license'] }
   ];
   const VIEW_MODULE = { agents: 'agents', agentca: 'agents', access: 'access', whocan: 'access', mine: 'access' };
+  const NAV_ALIAS = { device: 'devices' };
+  let navCollapsed = {};
+  try { navCollapsed = JSON.parse(localStorage.getItem('wardline-nav') || '{}') || {}; } catch { navCollapsed = {}; }
+  const navGroupOf = (view) => { const v = NAV_ALIAS[view] || view; const g = NAV.find(g => g.items.includes(v)); return g ? g.group : null; };
+
+  function renderNav() {
+    const isAdmin = state.me && state.me.isAdmin;
+    const active = navGroupOf(state.view);
+    const groups = NAV.filter(g => (isAdmin || !g.admin) && (!g.module || hasMod(g.module)));
+    $('#nav').replaceChildren(...groups.map(g => {
+      const open = g.group === active || !navCollapsed[g.group];
+      const btn = h('button', { type: 'button', class: 'nav-group-title', 'aria-expanded': String(open), onclick: () => { navCollapsed[g.group] = open; try { localStorage.setItem('wardline-nav', JSON.stringify(navCollapsed)); } catch { /* ignore */ } renderNav(); } },
+        h('span', null, t(g.group)), h('span', { class: 'chev', 'aria-hidden': 'true' }, '›'));
+      const links = g.items.map(id => h('a', { class: 'nav-link', href: `#/${id}`, 'data-view': id, onclick: () => closeDrawer() }, t(`v.${id}`)));
+      if (state.view && (NAV_ALIAS[state.view] || state.view) && g.items.includes(NAV_ALIAS[state.view] || state.view)) links.forEach(a => { if (a.dataset.view === (NAV_ALIAS[state.view] || state.view)) a.setAttribute('aria-current', 'page'); });
+      return h('div', { class: `nav-group${open ? '' : ' collapsed'}` }, btn, h('div', { class: 'nav-items' }, links));
+    }));
+  }
+  function closeDrawer() { document.body.classList.remove('nav-open'); const b = $('#menu-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }
+  function toggleDrawer() { const open = document.body.classList.toggle('nav-open'); const b = $('#menu-btn'); if (b) b.setAttribute('aria-expanded', String(open)); }
 
   async function runNow(module, btn) {
     if (btn) btn.disabled = true;
@@ -1865,7 +1886,9 @@
     const isAdmin = state.me && state.me.isAdmin;
     document.documentElement.lang = lang;
     const skip = document.querySelector('.skip'); if (skip) skip.textContent = lang === 'de' ? 'Zum Inhalt springen' : 'Skip to content';
-    $('#nav').replaceChildren(...NAV.filter(g => (isAdmin || !g.admin) && (!g.module || hasMod(g.module))).map(g => h('div', { class: 'nav-group' }, h('div', { class: 'nav-group-title' }, t(g.group)), g.items.map(id => h('a', { class: 'nav-link', href: `#/${id}`, 'data-view': id }, t(`v.${id}`))))));
+    renderNav();
+    const mb = $('#menu-btn'); if (mb) { mb.setAttribute('aria-label', t('nav.menu')); mb.onclick = toggleDrawer; }
+    const sc = $('#scrim'); if (sc) sc.onclick = closeDrawer;
     $('#who').replaceChildren(h('strong', null, state.me.displayName || state.me.upn || t('signed.in')), h('span', null, isAdmin ? t('role.admin') : t('role.user')), h('br'), h('a', { href: '/.auth/logout', style: 'color:#A9D9DE' }, t('signout')));
     const up = state.me.update;
     $('#who').append(h('div', { class: 'version' }, state.me.version ? t('version', state.me.version) : null,
@@ -1907,8 +1930,8 @@
     let view = name || fallback;
     if (!views[view] || (!isAdmin && view !== 'mine') || (VIEW_MODULE[view] && !hasMod(VIEW_MODULE[view]))) view = fallback;
     state.view = view;
-    const navView = view === 'device' ? 'devices' : view;
-    document.querySelectorAll('.nav-link').forEach(a => { if (a.dataset.view === navView) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    renderNav();
+    closeDrawer();
     const main = $('#main');
     main.replaceChildren(h('p', { class: 'muted' }, t('loading')));
     const frag = h('div');
@@ -1926,6 +1949,7 @@
     catch (e) { $('#main').replaceChildren(h('div', { class: 'empty' }, t('signin.failed', e.message))); return; }
     renderChrome();
     window.addEventListener('hashchange', route);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
     await route();
   }
   init();
