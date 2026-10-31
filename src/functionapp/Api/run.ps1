@@ -40,13 +40,13 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
 }
 $modules = Get-WlModules
-$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } default { $null } }
+$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } default { $null } }
 if ($routeModule -and $modules -notcontains $routeModule) {
     Send-Response -Status 404 -Body "The module '$routeModule' is not enabled in this installation."
     return
@@ -67,6 +67,26 @@ try {
         'endpoint' {
             $t = Get-WlBlobText -Container 'state' -Name 'endpoint-latest.json'
             if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
+        }
+        { $_ -in 'devices', 'coverage' } {
+            # Paged collections: ?page=N returns one stored page as-is; devices additionally support server-side search.
+            $pageQ = [string]$Request.Query.page
+            $isSearch = $route -eq 'devices' -and @('q', 'os', 'group', 'issues', 'chart', 'asrBelow', 'size') | Where-Object { $null -ne $Request.Query.$_ }
+            if ($pageQ -match '^\d+$' -and -not $isSearch) {
+                $t = Get-WlPage -Module 'endpoint' -Name $route -Page ([int]$pageQ) -Raw
+                Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson; return
+            }
+            if ($route -eq 'coverage') { Send-Response -Status 400 -Body 'Parameter page is required.'; return }
+            $size = 200; if ([string]$Request.Query.size -match '^\d+$') { $size = [int]$Request.Query.size }
+            $pg = 0; if ($pageQ -match '^\d+$') { $pg = [int]$pageQ }
+            Send-Response -Status 200 -Body (Search-WlDevices -Query ([string]$Request.Query.q) -Os ([string]$Request.Query.os) -Group ([string]$Request.Query.group) -IssuesOnly:([string]$Request.Query.issues -eq '1') `
+                    -Chart ([string]$Request.Query.chart) -AsrBelow:([string]$Request.Query.asrBelow -eq '1') -Page $pg -Size $size)
+        }
+        'device' {
+            $id = [string]$Request.Query.id
+            if (-not $id) { Send-Response -Status 400 -Body 'Parameter id is required.'; return }
+            $d = Get-WlDevice -DeviceId $id
+            if ($d) { Send-Response -Status 200 -Body ([ordered]@{ device = $d }) } else { Send-Response -Status 404 -Body 'Device not found.' }
         }
         'agents' {
             $t = Get-WlBlobText -Container 'state' -Name 'agents-latest.json'

@@ -569,11 +569,21 @@ function Invoke-WlAgentsCollection {
     $ai = Get-WlAgentsInfo
     $ca = Get-WlCaPolicies
 
-    # Device state from the endpoint module (latest snapshot) for local agents
+    # Device state from the endpoint module (paged device collection) – only for the devices that host local agents
     $epDevices = @{}
     try {
         $ep = Get-WlBlob -Container 'state' -Name 'endpoint-latest.json'
-        foreach ($d in @(Get-WlProp $ep 'devices')) { if ($d -and $d.deviceId) { $epDevices[[string]$d.deviceId] = $d } }
+        foreach ($d in @(Get-WlProp $ep 'devices')) { if ($d -and $d.deviceId) { $epDevices[[string]$d.deviceId] = $d } }   # snapshots of older versions
+        $ids = @($ai | ForEach-Object { [string]$_.LocalDeviceId } | Where-Object { $_ } | Sort-Object -Unique)
+        if ($ids.Count -and -not $epDevices.Count -and (Get-WlPagedMeta -Module 'endpoint' -Name 'devices')) {
+            $idx = @{}; foreach ($r in @(Get-WlPagedIndex -Module 'endpoint' -Name 'devices')) { $idx[[string]$r.deviceId] = [int]$r.page }
+            $pages = @{}
+            foreach ($id in $ids) {
+                if (-not $idx.ContainsKey($id)) { continue }
+                $p = $idx[$id]; if (-not $pages.ContainsKey($p)) { $pages[$p] = @(Get-WlPage -Module 'endpoint' -Name 'devices' -Page $p) }
+                foreach ($d in $pages[$p]) { if ([string]$d.deviceId -eq $id) { $epDevices[$id] = $d } }
+            }
+        }
     }
     catch { }
 

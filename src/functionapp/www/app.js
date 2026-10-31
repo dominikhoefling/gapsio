@@ -242,6 +242,10 @@
     'd.cov.feature': ['The Intune comparison needs the feature Coverage (Install-Wardline.ps1 -Features …,Coverage).', 'Der Intune-Abgleich braucht die Funktion Coverage (Install-Wardline.ps1 -Features …,Coverage).'],
     // device page
     'dv.back': ['← All devices', '← Alle Geräte'], 'dv.notfound': ['Device not found in the latest run.', 'Gerät im letzten Lauf nicht gefunden.'],
+    'd.large': ['Large fleet: {0} devices. The list is searched and filtered on the server; charts show the totals of the last run.', 'Große Flotte: {0} Geräte. Die Liste wird serverseitig gesucht und gefiltert; die Diagramme zeigen die Summen des letzten Laufs.'],
+    'd.remote.count': ['{0} devices match – page {1} of {2}', '{0} Geräte passen – Seite {1} von {2}'], 'd.remote.loading': ['Searching…', 'Suche…'], 'd.remote.error': ['Search failed: {0}', 'Suche fehlgeschlagen: {0}'],
+    'd.prev': ['← Previous', '← Zurück'], 'd.next': ['Next →', 'Weiter →'], 'f.devicesN': ['{0} devices', '{0} Geräte'],
+    'd.cov.truncated': ['Only the first {0} entries are shown here; the export contains this subset.', 'Hier werden nur die ersten {0} Einträge angezeigt; der Export enthält diese Teilmenge.'],
     'dv.protection': ['Protection state', 'Schutzzustand'], 'dv.asr': ['ASR rules on this device', 'ASR-Regeln auf diesem Gerät'], 'dv.local': ['Local exclusions', 'Lokale Exclusions'],
     'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['Wardline does not resolve group memberships of devices; check the assignment to see whether a policy targets this device.', 'Wardline löst Gruppenmitgliedschaften von Geräten nicht auf; an der Zuweisung erkennst du, ob eine Richtlinie dieses Gerät trifft.'],
     'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
@@ -350,6 +354,7 @@
       if (key === 'run') return { message: t('demo.run') };
       if (opts.method === 'POST') return { message: t('demo.readonly') };
       if (key === 'changes') return d.changes || [];
+      if (key === 'devices' || key === 'device') return demoDevices(path, d);
       if (key in d) return d[key];
       const e = new Error('No data'); e.status = 404; throw e;
     }
@@ -440,6 +445,71 @@
 
   function dl(pairs) {
     return h('dl', null, pairs.filter(p => p && p[1] !== undefined && p[1] !== null && p[1] !== '').map(([k, v]) => [h('dt', null, k), h('dd', null, v)]));
+  }
+
+  /** Device table for large fleets: search and filters run on the server (api/devices), one page at a time. */
+  function remoteDeviceTable({ name, columns, filters = [], detail, empty, fixed = {}, size = 200 }) {
+    const wrap = h('div');
+    const q = h('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search.aria') });
+    const filterEls = filters.map(f => {
+      if (f.type === 'check') { const cb = h('input', { type: 'checkbox' }); cb.checked = !!f.checked; return { f, el: h('label', { class: 'check' }, cb, f.label), input: cb }; }
+      const opts = f.options.map(o => (typeof o === 'object' ? o : { value: o, label: f.optionLabel ? f.optionLabel(o) : o }));
+      const sel = h('select', { 'aria-label': f.label }, h('option', { value: '' }, `${f.label}: ${t('all')}`), opts.map(o => h('option', { value: o.value }, o.label)));
+      return { f, el: sel, input: sel };
+    });
+    const exportBtn = h('button', { type: 'button' }, t('export.csv'));
+    const prev = h('button', { type: 'button' }, t('d.prev')), next = h('button', { type: 'button' }, t('d.next'));
+    const toolbar = h('div', { class: 'toolbar' }, q, filterEls.map(x => x.el), h('span', { class: 'spacer' }), exportBtn);
+    const count = h('div', { class: 'count' });
+    const tbody = h('tbody');
+    const table = h('table', null, h('thead', null, h('tr', null, columns.map(c => h('th', { scope: 'col' }, c.title)))), tbody);
+    const body = h('div');
+    const pager = h('div', { class: 'toolbar' }, prev, next);
+    wrap.append(toolbar, count, body, pager);
+    let page = 0, current = [], total = 0, pages = 0, seq = 0, timer = null;
+    const params = () => {
+      const p = new URLSearchParams({ ...fixed, page: String(page), size: String(size) });
+      const term = q.value.trim(); if (term) p.set('q', term);
+      for (const { f, input } of filterEls) { if (f.type === 'check') { if (input.checked) p.set(f.key, '1'); } else if (input.value) p.set(f.key, input.value); }
+      return p.toString();
+    };
+    async function load() {
+      const my = ++seq;
+      count.textContent = t('d.remote.loading');
+      let res;
+      try { res = await api(`devices?${params()}`); } catch (e) { if (my === seq) { count.textContent = ''; body.replaceChildren(h('div', { class: 'empty' }, t('d.remote.error', e.message))); } return; }
+      if (my !== seq) return;
+      current = arr(res.rows); total = Number(res.total) || 0; pages = Number(res.pages) || 0;
+      tbody.replaceChildren();
+      for (const r of current) {
+        const tr = h('tr', { class: detail ? 'clickable' : null, tabindex: detail ? '0' : null }, columns.map(c => h('td', null, c.cell ? c.cell(r) : c.text(r))));
+        if (detail) {
+          const toggle = () => {
+            const nx = tr.nextElementSibling;
+            if (nx && nx.classList.contains('detail')) { nx.remove(); tr.setAttribute('aria-expanded', 'false'); return; }
+            tr.after(h('tr', { class: 'detail' }, h('td', { colspan: columns.length }, h('div', { class: 'detail' }, detail(r)))));
+            tr.setAttribute('aria-expanded', 'true');
+          };
+          tr.setAttribute('aria-expanded', 'false');
+          tr.addEventListener('click', toggle);
+          tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+        }
+        tbody.append(tr);
+      }
+      count.textContent = total ? t('d.remote.count', num(total), num(page + 1), num(pages)) : '';
+      body.replaceChildren(current.length ? h('div', { class: 'table-wrap' }, table) : h('div', { class: 'empty' }, q.value || filterEls.some(x => x.input.value || x.input.checked) ? t('no.match') : (empty || t('no.entries'))));
+      prev.disabled = page <= 0; next.disabled = page + 1 >= pages;
+      pager.style.display = pages > 1 ? '' : 'none';
+    }
+    const restart = () => { page = 0; load(); };
+    q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(restart, 300); });
+    filterEls.forEach(x => x.input.addEventListener('change', restart));
+    prev.addEventListener('click', () => { if (page > 0) { page--; load(); } });
+    next.addEventListener('click', () => { if (page + 1 < pages) { page++; load(); } });
+    exportBtn.addEventListener('click', () => csvExport(name, columns, current));
+    wrap.setFilter = (key, value) => { const x = filterEls.find(f => f.f.key === key); if (x) { x.input.value = value; restart(); } };
+    load();
+    return wrap;
   }
   function list(items) { return h('ul', null, arr(items).map(i => h('li', null, i))); }
   function tabs(view, items, active) {
@@ -634,7 +704,59 @@
   }
 
   // ---------- Loading data ----------
-  async function loadEndpoint(force) { if (!state.endpoint || force) state.endpoint = await api('endpoint'); return state.endpoint; }
+  // Demo: the paged device API (search, page, detail) emulated on the inline demo data. ?large in the URL shows the large-fleet view.
+  function demoDevices(path, d) {
+    const p = new URLSearchParams(path.split('?')[1] || '');
+    const all = arr(state.demoDevices || (d.endpoint && d.endpoint.devices));
+    if (path.startsWith('device?')) { const x = all.find(r => r.deviceId === p.get('id')); if (!x) { const e = new Error('Device not found.'); e.status = 404; throw e; } return { device: x }; }
+    const onOff = (v) => v === 'GOOD' ? 'on' : v === 'BAD' ? 'off' : v === 'N/A' ? 'na' : 'unknown';
+    const chartState = (r, id) => id === 'sig' ? (/^(true|1)$/i.test(String(r.signatureUpToDate)) ? 'on' : /^(false|0)$/i.test(String(r.signatureUpToDate)) ? 'off' : 'unknown')
+      : id === 'sensor' ? (!r.sensorHealth ? 'unknown' : /^active$/i.test(r.sensorHealth) ? 'on' : 'off')
+        : id === 'mode' ? (r.avMode === '0' ? 'Active' : r.avMode === '4' ? 'EdrBlock' : r.avMode === '1' || r.avMode === '2' ? 'Passive' : 'Unknown')
+          : id === 'os' ? (r.os || '–') : onOff(r.checks ? r.checks[id] : undefined);
+    const issue = r => Object.values(r.checks || {}).includes('BAD') || (r.avMode && r.avMode !== '0') || r.localExclusions > 0 || r.exclusionAlerts > 0 || r.asrBelowMinimum > 0;
+    const q = (p.get('q') || '').toLowerCase(), [cid, sid] = (p.get('chart') || '|').split('|');
+    const hits = all.filter(r => (!p.get('os') || r.os === p.get('os')) && (!p.get('group') || r.deviceGroup === p.get('group')) && (p.get('issues') !== '1' || issue(r)) && (p.get('asrBelow') !== '1' || r.asrBelowMinimum > 0)
+      && (!cid || chartState(r, cid) === sid) && (!q || `${r.deviceName} ${r.os} ${r.deviceGroup || ''} ${r.lastUser || ''}`.toLowerCase().includes(q)))
+      .sort((a, b) => (issue(b) - issue(a)) || String(a.deviceName).localeCompare(String(b.deviceName)));
+    const size = Math.max(1, Number(p.get('size')) || 200), page = Number(p.get('page')) || 0;
+    return { total: hits.length, page, size, pages: Math.ceil(hits.length / size), rows: hits.slice(page * size, (page + 1) * size) };
+  }
+
+  // Device collections are stored in pages. Up to INLINE_MAX devices are loaded completely (tables and charts work
+  // locally); above that the Devices view switches to server-side search (large fleets with hundreds of thousands of devices).
+  const INLINE_MAX = 10000;
+  async function loadPages(name, meta, maxPages) {
+    const n = Math.min(Number(meta.pages) || 0, maxPages);
+    const pages = await Promise.all(Array.from({ length: n }, (_, i) => api(`${name}?page=${i}`).catch(() => [])));
+    return pages.flatMap(p => arr(p));
+  }
+  async function loadEndpoint(force) {
+    if (!state.endpoint || force) {
+      const ep = await api('endpoint');
+      if (!ep.devices && ep.devicesPages) {
+        ep.largeFleet = Number(ep.devicesPages.count) > INLINE_MAX;
+        if (!ep.largeFleet) ep.devices = await loadPages('devices', ep.devicesPages, 1000);
+      }
+      if (!ep.coverage && ep.coveragePages) {
+        const maxPages = Math.ceil(INLINE_MAX / (Number(ep.coveragePages.pageSize) || 2000));
+        ep.coverage = await loadPages('coverage', ep.coveragePages, maxPages);
+        ep.coverageTruncated = Number(ep.coveragePages.pages) > maxPages;
+      }
+      if (window.WARDLINE_DEMO && /[?&]large\b/.test(location.search) && ep.devices && ep.deviceStats) {
+        // Demo of the large-fleet view: the list comes from the emulated paged API
+        state.demoDevices = ep.devices;
+        ep.devicesPages = { count: ep.devices.length, pages: 1, pageSize: 2000 }; ep.largeFleet = true; delete ep.devices;
+      }
+      state.endpoint = ep;
+    }
+    return state.endpoint;
+  }
+  async function loadDevice(ep, id) {
+    const local = arr(ep.devices).find(x => x.deviceId === id);
+    if (local || !ep.devicesPages) return local || null;
+    try { const r = await api(`device?id=${encodeURIComponent(id)}`); return (r && r.device) || null; } catch { return null; }
+  }
   async function loadAccess(force) { if (!state.access || force) state.access = await api('access'); return state.access; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadAcceptances(force) {
@@ -898,9 +1020,9 @@
           { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
           { title: t('f.finding'), cell: r => h('span', null, tx(r.title), r.accepted ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => tx(r.title) + (r.accepted ? ` (${t('acc.tag')})` : '') },
           { title: t('f.category'), text: r => `${code('mod', r.module)} · ${code('cat', r.category)}` },
-          { title: t('f.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName || '–' },
+          { title: t('f.device'), cell: r => r.deviceCount ? h('span', { title: arr(r.deviceSample).join(', ') }, t('f.devicesN', num(r.deviceCount))) : deviceLink(r.deviceId, r.deviceName), text: r => r.deviceCount ? t('f.devicesN', num(r.deviceCount)) : (r.deviceName || '–') },
           { title: t('asg.col'), cell: r => r.assigned ? assigneeChip(r.assigned) : h('span', { class: 'muted' }, '–'), text: r => assigneeText(r.assigned) || '–' }],
-        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceName]]), acceptBox(r, 'finding', r.module, tx(r.title))),
+        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceCount ? list(arr(r.deviceSample)) : r.deviceName]]), acceptBox(r, 'finding', r.module, tx(r.title))),
         empty: t('f.none')
       });
       main.append(table);
@@ -1006,10 +1128,15 @@
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
       const rows = arr(ep.devices);
       const cov = arr(ep.coverage);
+      const large = !!ep.largeFleet;
+      const devCount = large ? Number(ep.devicesPages.count) : rows.length;
+      const covCount = ep.coveragePages ? Number(ep.coveragePages.count) : cov.length;
       const active = params.get('tab') || 'devices';
-      main.append(tabs('devices', [['devices', t('d.tab.devices', rows.length)], ['coverage', t('d.tab.coverage', cov.length)]], active));
+      main.append(tabs('devices', [['devices', t('d.tab.devices', num(devCount))], ['coverage', t('d.tab.coverage', num(covCount))]], active));
       if (active === 'coverage') {
         main.append(h('p', { class: 'muted small' }, t('d.cov.lede')));
+        if (ep.coverageTruncated) main.append(h('p', { class: 'muted small' }, t('d.cov.truncated', num(cov.length))));
+        const hasDevice = (id) => large ? !!id : rows.some(d => d.deviceId === id);
         main.append(dataTable({
           name: 'coverage', rows: cov, sort: (a, b) => String(a.status).localeCompare(String(b.status)) || String(a.deviceName).localeCompare(String(b.deviceName)),
           search: r => `${r.deviceName} ${r.os || ''} ${r.user || ''}`,
@@ -1017,7 +1144,7 @@
             { label: t('d.cov.status'), options: [...new Set(cov.map(r => r.status))].sort(), optionLabel: c => code('cov', c), test: (r, v) => r.status === v },
             { label: t('d.cov.source'), options: [...new Set(cov.map(r => r.source))].sort(), optionLabel: c => code('covsrc', c), test: (r, v) => r.source === v }],
           columns: [
-            { title: t('d.device'), cell: r => r.deviceId && rows.some(d => d.deviceId === r.deviceId) ? deviceLink(r.deviceId, r.deviceName) : r.deviceName, text: r => r.deviceName },
+            { title: t('d.device'), cell: r => r.deviceId && hasDevice(r.deviceId) ? deviceLink(r.deviceId, r.deviceName) : r.deviceName, text: r => r.deviceName },
             { title: t('d.cov.status'), cell: r => h('span', { class: `state ${r.status === 'CanBeOnboarded' ? 'warn' : 'bad'}` }, code('cov', r.status)), text: r => code('cov', r.status) },
             { title: t('d.platform'), text: r => r.os || '–' },
             { title: t('d.cov.source'), text: r => code('covsrc', r.source) },
@@ -1047,10 +1174,55 @@
         { id: 'sig', title: t('d.sigs'), get: sigState, segs: STATE_SEGS, rate: true },
         { id: 'sensor', title: t('d.sensorHealth'), get: sensorState, segs: [['on', 'chart.on', 'var(--sev-ok)'], ['off', 'problem', 'var(--sev-krit)'], ['unknown', 'chart.unknown', 'var(--muted)']], rate: true, label: (r) => r.sensorHealth },
         { id: 'mode', title: t('d.runmode'), get: modeClass, segs: [['Active', 'mode.Active', 'var(--sev-ok)'], ['EdrBlock', 'mode.EdrBlock', 'var(--sev-hoch)'], ['Passive', 'mode.Passive', 'var(--sev-krit)'], ['Unknown', 'mode.Unknown', 'var(--muted)']] },
-        { id: 'os', title: t('d.platforms'), get: r => r.os || '–', segs: [...new Set(rows.map(r => r.os || '–'))].sort().map((o, i) => [o, null, PALETTE[i % PALETTE.length]]) }];
+        { id: 'os', title: t('d.platforms'), get: r => r.os || '–', segs: (large ? Object.keys((ep.deviceStats && ep.deviceStats.charts.os) || {}) : [...new Set(rows.map(r => r.os || '–'))]).sort().map((o, i) => [o, null, PALETTE[i % PALETTE.length]]) }];
       const chartOptions = [];
       charts.forEach(ch => ch.segs.forEach(([id, lk]) => chartOptions.push({ value: `${ch.id}|${id}`, label: `${ch.title}: ${lk ? t(lk) : id}` })));
       const chartTest = (r, v) => { const [cid, sid] = v.split('|'); const ch = charts.find(x => x.id === cid); return ch ? ch.get(r) === sid : true; };
+      const columns = [
+        { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
+        { title: t('d.platform'), text: r => r.os },
+        { title: t('d.mode'), cell: r => h('span', { class: `state ${r.avMode === '0' ? 'good' : r.avMode ? 'bad' : ''}` }, modeText(r)), text: modeText },
+        { title: t('d.tamper'), cell: r => checkCell(c(r, 'TamperProtection')), text: r => c(r, 'TamperProtection') },
+        { title: t('d.rtp'), cell: r => checkCell(c(r, 'RealtimeProtection')), text: r => c(r, 'RealtimeProtection') },
+        { title: t('d.cloud'), cell: r => checkCell(c(r, 'CloudProtection')), text: r => c(r, 'CloudProtection') },
+        { title: t('d.bm'), cell: r => checkCell(c(r, 'BehaviorMonitoring')), text: r => c(r, 'BehaviorMonitoring') },
+        { title: t('d.pua'), cell: r => checkCell(c(r, 'PUAProtection')), text: r => c(r, 'PUAProtection') },
+        { title: t('d.np'), cell: r => checkCell(c(r, 'NetworkProtection')), text: r => c(r, 'NetworkProtection') },
+        { title: t('d.asrBelow'), cell: r => r.asrBelowMinimum === null || r.asrBelowMinimum === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.asrBelowMinimum ? 'bad' : 'good'}` }, String(r.asrBelowMinimum)), text: r => r.asrBelowMinimum },
+        { title: t('d.local'), cell: r => r.localExclusions ? h('span', { class: `state ${r.localExclusionsHighRisk ? 'bad' : 'warn'}` }, String(r.localExclusions)) : h('span', { class: 'muted' }, '0'), text: r => r.localExclusions }];
+      const detail = r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
+        [t('d.sig'), yesNo(r.signatureUpToDate)], [t('d.plat'), yesNo(r.platformUpToDate)], [t('d.alerts'), r.exclusionAlerts],
+        [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${code('chk', k)}: ${v === 'GOOD' ? t('ok') : v === 'BAD' ? t('problem') : t('na')}`))],
+        [t('d.asr'), r.asr ? list(Object.entries(r.asr).map(([k, v]) => `${asrName[k] || k}: ${v === 'n/a' ? t('na') : code('asr', v)}`)) : null]]);
+
+      if (large) {
+        // Server-side search: the list comes from api/devices?q=..., the charts from the aggregates of the last run.
+        const st = ep.deviceStats || { charts: {}, groups: {} };
+        main.append(h('p', { class: 'muted small' }, t('d.large', num(devCount))));
+        const table = remoteDeviceTable({
+          name: 'devices', columns, detail, empty: t('d.none'),
+          filters: [
+            { key: 'chart', label: t('d.chartFilter'), options: chartOptions },
+            { key: 'os', label: t('d.platform'), options: Object.keys(st.charts.os || {}).filter(o => o !== '–').sort() },
+            { key: 'group', label: t('d.group'), options: Object.keys(st.groups || {}).sort() },
+            { key: 'issues', type: 'check', label: t('d.onlyIssues') }]
+        });
+        const select = (cid, sid) => { table.setFilter('chart', `${cid}|${sid}`); table.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+        const cards = charts.map(ch => {
+          const counts = st.charts[ch.id] || {};
+          const segments = ch.segs.map(([id, lk, color]) => ({ id, label: lk ? t(lk) : id, color, value: counts[id] || 0 }));
+          const total = devCount, on = counts.on || counts.Active || 0, na = counts.na || 0, unknown = counts.unknown || counts.Unknown || 0;
+          const base = total - na, known = total - unknown - na;
+          return donut({
+            title: ch.title, segments, centre: ch.rate || ch.id === 'mode' ? (known ? `${pct(on, base)} %` : '–') : num(total),
+            sub: !(ch.rate || ch.id === 'mode') ? t('v.devices') : !known ? t('chart.unknown') : ch.id === 'mode' ? t('mode.Active').toLowerCase() : t('chart.onShort'),
+            onSelect: x => select(ch.id, x.id)
+          });
+        });
+        main.append(h('h2', null, t('d.glance')), h('p', { class: 'muted small' }, t('d.glance.lede')), h('div', { class: 'glance' }, cards));
+        main.append(table);
+        return;
+      }
 
       const table = dataTable({
         name: 'devices', rows, sort: (a, b) => (problem(b) - problem(a)) || String(a.deviceName).localeCompare(String(b.deviceName)),
@@ -1060,22 +1232,7 @@
           { label: t('d.platform'), options: [...new Set(rows.map(r => r.os).filter(Boolean))].sort(), test: (r, v) => r.os === v },
           { label: t('d.group'), options: [...new Set(rows.map(r => r.deviceGroup).filter(Boolean))].sort(), test: (r, v) => r.deviceGroup === v },
           { type: 'check', label: t('d.onlyIssues'), test: problem }],
-        columns: [
-          { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
-          { title: t('d.platform'), text: r => r.os },
-          { title: t('d.mode'), cell: r => h('span', { class: `state ${r.avMode === '0' ? 'good' : r.avMode ? 'bad' : ''}` }, modeText(r)), text: modeText },
-          { title: t('d.tamper'), cell: r => checkCell(c(r, 'TamperProtection')), text: r => c(r, 'TamperProtection') },
-          { title: t('d.rtp'), cell: r => checkCell(c(r, 'RealtimeProtection')), text: r => c(r, 'RealtimeProtection') },
-          { title: t('d.cloud'), cell: r => checkCell(c(r, 'CloudProtection')), text: r => c(r, 'CloudProtection') },
-          { title: t('d.bm'), cell: r => checkCell(c(r, 'BehaviorMonitoring')), text: r => c(r, 'BehaviorMonitoring') },
-          { title: t('d.pua'), cell: r => checkCell(c(r, 'PUAProtection')), text: r => c(r, 'PUAProtection') },
-          { title: t('d.np'), cell: r => checkCell(c(r, 'NetworkProtection')), text: r => c(r, 'NetworkProtection') },
-          { title: t('d.asrBelow'), cell: r => r.asrBelowMinimum === null || r.asrBelowMinimum === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.asrBelowMinimum ? 'bad' : 'good'}` }, String(r.asrBelowMinimum)), text: r => r.asrBelowMinimum },
-          { title: t('d.local'), cell: r => r.localExclusions ? h('span', { class: `state ${r.localExclusionsHighRisk ? 'bad' : 'warn'}` }, String(r.localExclusions)) : h('span', { class: 'muted' }, '0'), text: r => r.localExclusions }],
-        detail: r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
-          [t('d.sig'), yesNo(r.signatureUpToDate)], [t('d.plat'), yesNo(r.platformUpToDate)], [t('d.alerts'), r.exclusionAlerts],
-          [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${code('chk', k)}: ${v === 'GOOD' ? t('ok') : v === 'BAD' ? t('problem') : t('na')}`))],
-          [t('d.asr'), r.asr ? list(Object.entries(r.asr).map(([k, v]) => `${asrName[k] || k}: ${v === 'n/a' ? t('na') : code('asr', v)}`)) : null]]),
+        columns, detail,
         empty: t('d.none')
       });
       if (rows.length) {
@@ -1106,7 +1263,7 @@
       const id = params.get('id') || '';
       main.append(h('p', null, h('a', { href: '#/devices' }, t('dv.back'))));
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
-      const d = arr(ep.devices).find(x => x.deviceId === id);
+      const d = await loadDevice(ep, id);
       if (!d) { main.append(h('h1', null, t('v.device')), h('div', { class: 'empty' }, t('dv.notfound'))); return; }
       await loadAcceptances();
       const acc = acceptedMap();
@@ -1282,6 +1439,18 @@
         main.append(h('p', { class: 'muted small' }, t('a.groups.lede')), h('div', { class: 'toolbar' }, sel), out);
         if (!groups.length) main.append(h('div', { class: 'empty' }, t('a.noGroups')));
         render();
+      } else if (active === 'devices' && ep.largeFleet) {
+        const st = ep.deviceStats || { groups: {} };
+        main.append(h('p', { class: 'muted small' }, t('d.large', num(ep.devicesPages.count))));
+        main.append(remoteDeviceTable({
+          name: 'asr-devices', fixed: { asrBelow: '1' }, empty: t('a.noWin'),
+          filters: [{ key: 'group', label: t('d.group'), options: Object.keys(st.groups || {}).sort() }],
+          columns: [
+            { title: t('d.device'), cell: d => deviceLink(d.deviceId, d.deviceName), text: d => d.deviceName },
+            { title: t('d.group'), text: d => d.deviceGroup || '–' },
+            { title: t('a.block'), text: d => d.asrBlocked ?? '–' },
+            { title: t('a.below'), cell: d => h('span', { class: `state ${d.asrBelowMinimum ? 'bad' : 'good'}` }, String(d.asrBelowMinimum)), text: d => d.asrBelowMinimum }]
+        }));
       } else if (active === 'devices') {
         const devs = arr(ep.devices).filter(d => /^Windows/.test(d.os || ''));
         main.append(dataTable({

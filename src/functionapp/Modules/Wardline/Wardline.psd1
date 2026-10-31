@@ -10,7 +10,7 @@
     FunctionsToExport = @(
         'Get-WlSetting', 'Reset-WlWarnings', 'Add-WlWarning', 'Get-WlWarnings',
         'Get-WlToken', 'Invoke-WlRest', 'Invoke-WlGraph', 'Invoke-WlGraphSafe', 'Invoke-WlGraphV1First', 'Invoke-WlHunting',
-        'Get-WlBlob', 'Get-WlBlobText', 'Set-WlBlob', 'Add-WlQueueMessage',
+        'Get-WlBlob', 'Get-WlBlobText', 'Set-WlBlob', 'Remove-WlBlob', 'Add-WlQueueMessage', 'Get-WlPage', 'Get-WlPagedMeta', 'Get-WlPagedCollection', 'Get-WlPagedIndex', 'Search-WlDevices', 'Get-WlDevice',
         'Get-WlHash', 'Get-WlSettingValues', 'Get-WlExclusionRisk', 'Get-WlIndicatorRisk',
         'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',
         'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlCollection',

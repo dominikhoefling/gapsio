@@ -526,6 +526,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
         if ($Uri -match '\.blob\.core\.windows\.net/(.+)$') {
             $k = $Matches[1]
             if ($Method -eq 'PUT') { $script:Blobs[$k] = [string]$Body; return '' }
+            if ($Method -eq 'DELETE') { if ($script:Blobs.ContainsKey($k)) { $script:Blobs.Remove($k); return '' }; throw (New-WlHttpException -Status 404 -Message "404 $k") }
             if (-not $script:Blobs.ContainsKey($k)) { throw (New-WlHttpException -Status 404 -Message "404 $k") }
             if ($Raw) { return $script:Blobs[$k] } else { return ($script:Blobs[$k] | ConvertFrom-Json) }
         }
@@ -607,8 +608,21 @@ $queue = [System.Collections.Generic.List[string]]::new()
 
 # ---------------------------------------------------------------- End-to-end
 Write-Host '== End-to-end: endpoint' -ForegroundColor Cyan
+# Device collections are stored in pages (large fleets); this reassembles the snapshot as the older inline format for the assertions.
+function Get-EpSnapshot {
+    $s = $blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64
+    foreach ($c in 'devices', 'coverage') {
+        $items = & $mod { param($n, $s) Get-WlPagedCollection -Module 'endpoint' -Name $n -Snapshot $s } $c $s
+        $s | Add-Member -NotePropertyName $c -NotePropertyValue @($items) -Force
+    }
+    $s
+}
 $r1 = Invoke-WlEndpointCollection 6>$null
-$ep = $blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64
+$ep = Get-EpSnapshot
+Assert ($null -eq ($blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64).devices -and $ep.devicesPages.count -eq 5 -and $ep.devicesPages.pages -eq 1) "Devices are paged, not inline (pages=$($ep.devicesPages.pages), count=$($ep.devicesPages.count))"
+Assert ($blobs.ContainsKey('state/endpoint-devices/0000.json') -and $blobs.ContainsKey('state/endpoint-devices.tsv') -and $blobs.ContainsKey('state/endpoint-devices-fp.json')) 'Device page, index and fingerprint blobs written'
+Assert (($blobs['state/endpoint-devices.tsv'] -split "`n")[0] -like "deviceId`tdeviceName`t*`tchecks`tpage") 'Device index header'
+Assert ($ep.deviceStats.devices -eq 5 -and $ep.deviceStats.charts.os.Windows11 -eq 2 -and $ep.deviceStats.charts.TamperProtection.on -ge 1 -and $ep.deviceStats.groups.Server -eq 2) "deviceStats aggregates (devices=$($ep.deviceStats.devices), Windows11=$($ep.deviceStats.charts.os.Windows11))"
 Assert ($ep.warnings.Count -eq 0) "Warnings in the endpoint run: $($ep.warnings -join ' | ')"
 Assert ($ep.summary.devices -eq 5) "5 devices expected, $($ep.summary.devices)"
 $pe = @($ep.policyExclusions)
@@ -843,7 +857,7 @@ Assert ($ep.localDetection -eq 'AdvancedHunting') 'Default: Advanced Hunting onl
 $env:WL_DEVICE_INVENTORY = 'true'
 $r3 = Invoke-WlEndpointCollection 6>$null
 $env:WL_DEVICE_INVENTORY = $null
-$ep3 = $blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64
+$ep3 = Get-EpSnapshot
 Assert ($ep3.warnings.Count -eq 0) "Warnings with inventory: $($ep3.warnings -join ' | ')"
 Assert ($ep3.localDetection -eq 'AdvancedHuntingAndInventory') 'Mode with inventory reported'
 Assert ($ep3.summary.devicesWithInventory -eq 2) "2 devices with inventory (AAD ID and name), is $($ep3.summary.devicesWithInventory)"
@@ -1003,6 +1017,17 @@ $userP = New-Principal -Roles @() -Oid 'u-hank'
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).isAdmin) 'api/me Admin'
 $r = Call 'endpoint' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on endpoint'
 $r = Call 'endpoint' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'endpoint') 'Admin gets endpoint'
+$r = Call 'devices' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on devices'
+$r = Call 'devices' -Principal $adminP -Query @{ page = '0' }; $pg0 = @($r.Body | ConvertFrom-Json -Depth 64); Assert ([int]$r.StatusCode -eq 200 -and $pg0.Count -eq 5 -and @($pg0 | Where-Object { $_.deviceName -eq 'WIN-01' })[0].checks.TamperProtection) "devices?page=0 returns the stored page ($($pg0.Count))"
+$r = Call 'devices' -Principal $adminP -Query @{ page = '7' }; Assert ([int]$r.StatusCode -eq 200 -and $r.Body -eq '[]') 'devices: missing page is an empty list'
+$nWin0 = @($ep.devices | Where-Object { $_.deviceName -like 'WIN-0*' }).Count
+$r = Call 'devices' -Principal $adminP -Query @{ q = 'win-0' ; size = '1' }; $sr = $r.Body | ConvertFrom-Json -Depth 64
+Assert ([int]$r.StatusCode -eq 200 -and $sr.total -eq $nWin0 -and $sr.pages -eq $nWin0 -and @($sr.rows).Count -eq 1 -and $sr.rows[0].checks.TamperProtection -and $null -eq $sr.rows[0].page) "devices search: total=$($sr.total) pages=$($sr.pages) rows=$(@($sr.rows).Count)"
+$r = Call 'devices' -Principal $adminP -Query @{ os = 'Windows11'; issues = '1' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.total -ge 1 -and @($sr.rows | Where-Object { $_.os -ne 'Windows11' }).Count -eq 0) "devices search: platform + issues filter ($($sr.total))"
+$r = Call 'devices' -Principal $adminP -Query @{ chart = 'TamperProtection|off' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.total -eq $ep.deviceStats.charts.TamperProtection.off -and @($sr.rows | Where-Object { $_.checks.TamperProtection -ne 'BAD' }).Count -eq 0) "devices search: chart segment filter ($($sr.total))"
+$r = Call 'device' -Principal $adminP -Query @{ id = 'd-win1' }; $dv = ($r.Body | ConvertFrom-Json -Depth 64).device; Assert ([int]$r.StatusCode -eq 200 -and $dv.deviceName -eq 'WIN-01' -and $dv.asr) 'device?id= returns the full device from its page'
+$r = Call 'device' -Principal $adminP -Query @{ id = 'nope' }; Assert ([int]$r.StatusCode -eq 404) 'device?id= unknown -> 404'
+$r = Call 'coverage' -Principal $adminP -Query @{ page = '0' }; Assert ([int]$r.StatusCode -eq 200 -and @($r.Body | ConvertFrom-Json -Depth 64).Count -eq $ep.coveragePages.count) 'coverage?page=0 returns the stored page'
 $r = Call 'access/me' -Principal $userP; $m = $r.Body | ConvertFrom-Json
 Assert ([int]$r.StatusCode -eq 200 -and @($m.entitlements | Where-Object { $_.state -eq 'Requestable' }).Count -ge 1 -and @($m.audiences).Count -eq 1) 'My access for Hank (requestable + open package)'
 $r = Call 'agents' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'agents') 'Admin gets agents'
@@ -1287,6 +1312,40 @@ Assert ($histBefore -ge 2 -and $histAfter -ge $histBefore) "Change history survi
     }
     finally { [Globalization.CultureInfo]::CurrentCulture = $saved }
 } ${function:Assert}
+# Findings rollup: the same per-device finding on more devices than the threshold becomes one finding
+& $mod {
+    param($A)
+    $many = @(1..250 | ForEach-Object { New-WlFinding -Severity 'High' -Category 'Device' -Title (New-WlText "Tamper Protection off on PC-$_" "Tamper Protection aus auf PC-$_") -Detail (New-WlText "PC-$_ reports BAD." "PC-$_ meldet BAD.") -Recommendation (New-WlText 'Fix' 'Beheben') -Subject 'tamper-off' -DeviceId "d$_" -DeviceName "PC-$_" })
+    $few = @(1..3 | ForEach-Object { New-WlFinding -Severity 'Medium' -Category 'Device' -Title (New-WlText "Local exclusion on PC-$_" "Lokale Exclusion auf PC-$_") -Detail (New-WlText 'x' 'x') -DeviceId "d$_" -DeviceName "PC-$_" })
+    $global = New-WlFinding -Severity 'Critical' -Category 'Policy' -Title (New-WlText 'Cloud protection off' 'Cloud-Schutz aus') -Detail (New-WlText 'x' 'x')
+    $m = @(Merge-WlDeviceFindings -Findings ($many + $few + @($global)) -Threshold 200)
+    $roll = @($m | Where-Object { $_.deviceCount })
+    & $A ($m.Count -eq 5 -and $roll.Count -eq 1 -and $roll[0].deviceCount -eq 250 -and @($roll[0].deviceSample).Count -eq 25) "Rollup: 250 + 3 + 1 findings -> 5 (rolled $($roll.Count), count $($roll[0].deviceCount))"
+    & $A ($roll[0].title.en -eq 'Tamper Protection off on 250 devices' -and $roll[0].title.de -eq 'Tamper Protection aus auf 250 Geräten' -and $roll[0].severity -eq 'High' -and -not $roll[0].deviceId) "Rollup: title with device count ($($roll[0].title.en))"
+    & $A ($roll[0].detail.en -match '250 devices are affected' -and $roll[0].detail.en -match 'and 225 more') 'Rollup: detail with sample and remainder'
+    $m2 = @(Merge-WlDeviceFindings -Findings ($many + $few + @($global)) -Threshold 300)
+    & $A ($m2.Count -eq 254 -and $m2[0].severity -eq 'Critical') 'Rollup: below the threshold findings stay per device (sorted by severity)'
+    $k1 = $roll[0].key; $m3 = @(Merge-WlDeviceFindings -Findings ($many | Select-Object -First 220) -Threshold 200); & $A ($m3[0].key -eq $k1 -and $m3[0].fp -ne $roll[0].fp) 'Rollup: stable key, fingerprint follows the count'
+} ${function:Assert}
+# Paged collections: pages of WL_PAGE_SIZE, index, fingerprints, stale pages removed
+& $mod {
+    param($A)
+    $env:WL_PAGE_SIZE = '2000'
+    $items = @(1..4500 | ForEach-Object { [pscustomobject]@{ deviceId = "x$_"; deviceName = "PC-$('{0:D5}' -f $_)"; key = "k$_"; fp = "f$_"; checks = [ordered]@{ A = 'GOOD'; B = 'BAD' }; lastSeen = [datetime]::new(2026, 1, 2, 3, 4, 5, [DateTimeKind]::Utc) } })
+    $m = Write-WlPagedCollection -Module 'unit' -Name 'devices' -Items $items -IndexColumns @('deviceId', 'deviceName', 'checks', 'lastSeen') -At 't1'
+    & $A ($m.pages -eq 3 -and $m.count -eq 4500 -and $script:Blobs.ContainsKey('state/unit-devices/0002.json') -and @($script:Blobs['state/unit-devices/0002.json'] | ConvertFrom-Json).Count -eq 500) "Paged: 4500 items -> 3 pages (pages=$($m.pages))"
+    $idx = @(Get-WlPagedIndex -Module 'unit' -Name 'devices')
+    & $A ($idx.Count -eq 4500 -and $idx[2100].page -eq '1' -and $idx[0].checks -eq 'A=GOOD;B=BAD' -and $idx[0].lastSeen -eq '2026-01-02T03:04:05.0000000Z') "Paged: index rows with page and flattened values ($($idx.Count), page=$($idx[2100].page))"
+    $one = Get-WlPagedItem -Module 'unit' -Name 'devices' -Property 'deviceId' -Value 'x4321'
+    & $A ($one.deviceName -eq 'PC-04321') 'Paged: item lookup via index'
+    & $A (@($script:Blobs['state/unit-devices-fp.json'] | ConvertFrom-Json).Count -eq 4500) 'Paged: fingerprint list'
+    $m2 = Write-WlPagedCollection -Module 'unit' -Name 'devices' -Items @($items | Select-Object -First 10) -IndexColumns @('deviceId') -At 't2'
+    & $A ($m2.pages -eq 1 -and -not $script:Blobs.ContainsKey('state/unit-devices/0001.json') -and -not $script:Blobs.ContainsKey('state/unit-devices/0002.json')) 'Paged: stale pages of the previous run removed'
+    & $A (@(Get-WlPagedIndex -Module 'unit' -Name 'devices').Count -eq 10) 'Paged: index cache refreshed by snapshot time'
+    $m3 = Write-WlPagedCollection -Module 'unit' -Name 'empty' -Items @() -At 't3'
+    & $A ($m3.pages -eq 0 -and $m3.count -eq 0 -and @(Get-WlPagedCollection -Module 'unit' -Name 'empty').Count -eq 0) 'Paged: empty collection'
+    $env:WL_PAGE_SIZE = $null
+} ${function:Assert}
 # Advanced Hunting sharding: result sets at the 100k-row limit are counted and re-run in hash shards
 & $mod {
     param($A)
@@ -1326,7 +1385,9 @@ $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without 
 
 if ($OutDir) {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-    foreach ($k in 'state/endpoint-latest.json', 'state/agents-latest.json', 'state/access-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
+    foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
+    # The demo is static: the paged device collections are written inline again
+    (Get-EpSnapshot) | ConvertTo-Json -Depth 64 -Compress | Set-Content -Path (Join-Path $OutDir 'endpoint-latest.json') -Encoding utf8
     (Call 'access/me' -Principal $userP) | Out-Null
 }
 
