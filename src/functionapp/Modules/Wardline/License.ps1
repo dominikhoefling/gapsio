@@ -6,6 +6,16 @@
 
 $script:WlLicensePublicKey = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMDPCx3t3BmrtK6vCHp3Omi0mC759TdRjV1qns93rd4vW6BiVKh/eT9hENyr2tp5SYfxqJNxkxKQ+x9geNZrjVQ=='
 $script:WlLicenseWarnDays = 30
+# Monthly keys are renewed automatically every billing period: shorter warning and grace windows,
+# otherwise a cancelled subscription would keep the full view for another month.
+$script:WlLicenseWindows = @{ Monthly = @{ warn = 7; grace = 7 } }
+
+function Get-WlLicenseWindow {
+    param([string]$Plan, [ValidateSet('warn', 'grace')][string]$Kind)
+    $w = $script:WlLicenseWindows[[string]$Plan]
+    if ($w) { return [int]$w[$Kind] }
+    if ($Kind -eq 'warn') { $script:WlLicenseWarnDays } else { $script:WlLicenseGraceDays }
+}
 
 function ConvertFrom-WlBase64Url {
     param([Parameter(Mandatory)][string]$Text)
@@ -18,7 +28,7 @@ function Test-WlLicenseKey {
     <#
     .SYNOPSIS
     Verifies a licence key: signature, tenant and expiry. Returns the licence status, never throws.
-    Status: None, Invalid, WrongTenant, Valid, ExpiringSoon (within 30 days), Expired.
+    Status: None, Invalid, WrongTenant, Valid, ExpiringSoon (within 30 days, Monthly: 7), Expired.
     #>
     param(
         [string]$Key,
@@ -55,7 +65,7 @@ function Test-WlLicenseKey {
     # Valid through the end of the expiry day (UTC)
     $end = $exp.Date.AddDays(1)
     $r.daysLeft = [int][Math]::Ceiling(($end - $Now).TotalDays)
-    $r.status = if ($Now -ge $end) { 'Expired' } elseif ($r.daysLeft -le $script:WlLicenseWarnDays) { 'ExpiringSoon' } else { 'Valid' }
+    $r.status = if ($Now -ge $end) { 'Expired' } elseif ($r.daysLeft -le (Get-WlLicenseWindow -Plan $r.plan -Kind warn)) { 'ExpiringSoon' } else { 'Valid' }
     $r
 }
 
@@ -109,7 +119,7 @@ function Get-WlCommunityRows { $script:WlCommunityRows }
 function Get-WlLicenseTier {
     <#
     .SYNOPSIS
-    'Full' with a valid licence (including the 30-day warning window and a 30-day grace period after expiry), otherwise
+    'Full' with a valid licence (including the warning window and a grace period after expiry: 30 days, Monthly 7), otherwise
     'Community': every list shows the first rows, the rest is masked before it leaves the server. Demo builds are Full.
     #>
     param($License)
@@ -117,7 +127,7 @@ function Get-WlLicenseTier {
     if (-not $License) { try { $License = Get-WlLicense } catch { return 'Community' } }
     $st = [string](Get-WlProp $License 'status')
     if ($st -in 'Valid', 'ExpiringSoon') { return 'Full' }
-    if ($st -eq 'Expired') { $dl = Get-WlProp $License 'daysLeft'; if ($null -ne $dl -and [int]$dl -ge -$script:WlLicenseGraceDays) { return 'Full' } }
+    if ($st -eq 'Expired') { $dl = Get-WlProp $License 'daysLeft'; if ($null -ne $dl -and [int]$dl -ge -(Get-WlLicenseWindow -Plan ([string](Get-WlProp $License 'plan')) -Kind grace)) { return 'Full' } }
     'Community'
 }
 
