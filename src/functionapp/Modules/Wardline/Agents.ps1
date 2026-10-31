@@ -156,19 +156,83 @@ function Get-WlAgentRegistry {
 }
 
 function Get-WlAgentsInfo {
-    # Defender XDR Advanced Hunting: AgentsInfo (Copilot Studio, Foundry, local agents on endpoints, ...).
+    <#
+    .SYNOPSIS
+    Defender XDR Advanced Hunting: AgentsInfo (Copilot Studio, Foundry, Agent 365, local agents on endpoints, ...).
+    .NOTES
+    Column names follow the documented schema (learn.microsoft.com/defender-xdr/advanced-hunting-agentsinfo-table):
+    AgentId, AgentName, Platform, AgentDescription, Version, SourceAgentId, EntraAgentId, EntraBlueprintId, PublishedStatus,
+    LifecycleStatus, Availability, CreatedDateTime, LastPublishedDateTime, LastUpdatedDateTime, InstanceCount, Model and the
+    dynamic columns Owners, SharedWith, Permissions, Guardrails, Endpoints, McpServers, ConnectedAgents, DeclaredTools,
+    DeclaredDataSources, Channels, RawAgentInfo. KQL column names are case-sensitive.
+    The inner structure of the dynamic columns is NOT documented; they are passed through as JSON text and evaluated
+    defensively in PowerShell (counts, obvious flags). RawAgentInfo.localAgentMetadata (local agents on endpoints) is
+    not documented either – treated as optional.
+    #>
     $q = @"
 AgentsInfo
 | summarize arg_max(Timestamp, *) by AgentId
 | extend m = RawAgentInfo.localAgentMetadata
-| project AgentId = tostring(AgentId), Name, Platform, Version, EntraAgentID, EntraBlueprintID, SourceAgentId, PublishedStatus, LifecycleStatus, Availability,
-          InstanceCount, Model, CreatedDateTime, LastUpdatedDateTime,
+| project AgentId = tostring(AgentId), Name = AgentName, Platform, Description = AgentDescription, Version, EntraAgentId, EntraBlueprintId, SourceAgentId,
+          PublishedStatus, LifecycleStatus, Availability, InstanceCount, Model, CreatedDateTime, LastUpdatedDateTime, LastPublishedDateTime,
+          Owners = tostring(Owners), SharedWith = tostring(SharedWith), Permissions = tostring(Permissions), Guardrails = tostring(Guardrails),
+          Endpoints = tostring(Endpoints), ConnectedAgents = tostring(ConnectedAgents), DeclaredTools = tostring(DeclaredTools),
+          DeclaredDataSources = tostring(DeclaredDataSources), Channels = tostring(Channels),
+          McpServers = tostring(McpServers), RawMcpServers = tostring(RawAgentInfo.mcpServers),
           IsLocal = isnotempty(m) or Platform has "Local",
           Vendor = tostring(m.vendor), LocalDeviceId = tostring(m.machineId), LocalDeviceName = tostring(m.deviceName), LocalOs = tostring(m.osPlatform),
           LocalUser = tostring(m.upn), AutoApprove = tostring(m.autoApprove), TrustedProcess = tostring(m.trustedProcess), Process = tostring(m.relatedProcess),
-          LocalMcps = tostring(m.localMcps), McpServers = tostring(RawAgentInfo.mcpServers)
+          LocalMcps = tostring(m.localMcps)
 "@
     @(Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting AgentsInfo' -ShardColumn 'AgentId' | Where-Object { $_ })
+}
+
+function Get-WlJsonCount {
+    <#
+    .SYNOPSIS
+    Number of entries in a dynamic AgentsInfo column passed as JSON text.
+    Returns $null when the value is unknown (null/empty text), the element count for arrays, and for objects the number
+    of keys (0 for {}), so that "explicitly empty" can be told apart from "not provided".
+    #>
+    param([string]$Text)
+    if (-not $Text -or $Text -eq 'null') { return $null }
+    $v = $null
+    try { $v = $Text | ConvertFrom-Json -Depth 10 -NoEnumerate } catch { return $null }
+    if ($null -eq $v) { return $null }
+    if ($v -is [System.Array]) { return @($v).Count }
+    if ($v -is [string]) { return $(if ($v) { 1 } else { 0 }) }
+    @($v.PSObject.Properties).Count
+}
+
+function Get-WlJsonNames {
+    # Display names from a dynamic list (strings or objects with displayName/userPrincipalName/name/id).
+    param([string]$Text)
+    $out = foreach ($e in (ConvertFrom-WlJsonSafe $Text)) {
+        if ($null -eq $e) { continue }
+        if ($e -is [string]) { $e; continue }
+        $n = [string](Get-WlProp $e 'displayName'); $u = [string](Get-WlProp $e 'userPrincipalName')
+        if ($u -and $n) { "$n ($u)" } elseif ($u) { $u } elseif ($n) { $n }
+        else { $s = [string](Get-WlProp $e 'name'); if ($s) { $s } else { [string](Get-WlProp $e 'id') } }
+    }
+    @($out | Where-Object { $_ })
+}
+
+function Get-WlAgentEndpoints {
+    # Endpoints of an agent (URL, transport, external connectivity flag). Property names inside the dynamic value are not
+    # documented, so url/transport/external are looked up by name pattern.
+    param([string]$Text)
+    $out = foreach ($e in (ConvertFrom-WlJsonSafe $Text)) {
+        if ($null -eq $e) { continue }
+        if ($e -is [string]) { [pscustomobject]@{ url = $e; transport = $null; external = $null }; continue }
+        $url = $null; $transport = $null; $external = $null
+        foreach ($p in $e.PSObject.Properties) {
+            if ($p.Name -match '^(url|uri|endpoint|address)$' -and -not $url) { $url = [string]$p.Value }
+            elseif ($p.Name -match 'transport|protocol' -and -not $transport) { $transport = [string]$p.Value }
+            elseif ($p.Name -match 'external|public|internet' -and $null -eq $external) { $external = ([string]$p.Value) -match '^(true|1|yes)$' }
+        }
+        [pscustomobject]@{ url = $url; transport = $transport; external = $external }
+    }
+    @($out)
 }
 
 function Get-WlCaPolicies {
@@ -281,9 +345,44 @@ function Get-WlLocalMcpInfo {
     }
     foreach ($m in (ConvertFrom-WlJsonSafe $McpServers)) {
         if (-not $m) { continue }
-        $out.Add([pscustomobject]@{ name = [string](Get-WlProp $m 'name'); kind = [string](Get-WlProp $m 'type'); command = $null; unpinned = $false; endpoint = [string](Get-WlProp $m 'endpoint') })
+        if ($m -is [string]) { $out.Add([pscustomobject]@{ name = $m; kind = 'remote'; command = $null; unpinned = $false; endpoint = $m }); continue }
+        # Structure of AgentsInfo.McpServers is not documented ("server URLs and credential configuration") – look up by common names.
+        $name = $null; $kind = $null; $ep = $null
+        foreach ($p in $m.PSObject.Properties) {
+            if ($p.Name -match '^(name|displayName|serverName)$' -and -not $name) { $name = [string]$p.Value }
+            elseif ($p.Name -match '^(type|transport|kind)$' -and -not $kind) { $kind = [string]$p.Value }
+            elseif ($p.Name -match '^(endpoint|url|uri|serverUrl|address)$' -and -not $ep) { $ep = [string]$p.Value }
+        }
+        if (-not $name) { $name = $ep }
+        $out.Add([pscustomobject]@{ name = $name; kind = $(if ($kind) { $kind } else { 'remote' }); command = $null; unpinned = $false; endpoint = $ep })
     }
     $out.ToArray()
+}
+
+function Add-WlAgentsInfoDetails {
+    # Copies the documented AgentsInfo properties of a matched row into an inventory entry.
+    param($Agent, $Row)
+    $Agent.defenderAgentId = [string]$Row.AgentId
+    if (-not $Agent.platform) { $Agent.platform = [string](Get-WlProp $Row 'Platform') }
+    $Agent.publishedStatus = [string](Get-WlProp $Row 'PublishedStatus'); $Agent.lifecycle = [string](Get-WlProp $Row 'LifecycleStatus')
+    if (-not $Agent.version) { $Agent.version = [string](Get-WlProp $Row 'Version') }
+    if (-not $Agent.created) { $Agent.created = [string](Get-WlProp $Row 'CreatedDateTime') }
+    $Agent.description = [string](Get-WlProp $Row 'Description')
+    $Agent.model = [string](Get-WlProp $Row 'Model')
+    $Agent.availability = [string](Get-WlProp $Row 'Availability')
+    $Agent.lastPublished = [string](Get-WlProp $Row 'LastPublishedDateTime')
+    $ic = Get-WlProp $Row 'InstanceCount'; if ($null -ne $ic -and "$ic" -ne '') { $Agent.instanceCount = [int]$ic }
+    if (-not @($Agent.owners).Count) { $Agent.owners = @(Get-WlJsonNames ([string](Get-WlProp $Row 'Owners'))) }
+    $Agent.sharedWith = Get-WlJsonCount ([string](Get-WlProp $Row 'SharedWith'))
+    $Agent.permissions = Get-WlJsonCount ([string](Get-WlProp $Row 'Permissions'))
+    $Agent.guardrails = Get-WlJsonCount ([string](Get-WlProp $Row 'Guardrails'))
+    $Agent.tools = Get-WlJsonCount ([string](Get-WlProp $Row 'DeclaredTools'))
+    $Agent.dataSources = Get-WlJsonCount ([string](Get-WlProp $Row 'DeclaredDataSources'))
+    $Agent.connectedAgents = @(Get-WlJsonNames ([string](Get-WlProp $Row 'ConnectedAgents')))
+    $Agent.channels = @(Get-WlJsonNames ([string](Get-WlProp $Row 'Channels')))
+    $Agent.endpoints = @(Get-WlAgentEndpoints ([string](Get-WlProp $Row 'Endpoints')))
+    $mcp = [string](Get-WlProp $Row 'McpServers'); if (-not $mcp -or $mcp -in 'null', '[]') { $mcp = [string](Get-WlProp $Row 'RawMcpServers') }
+    if (-not @($Agent.mcpServers).Count) { $Agent.mcpServers = @(Get-WlLocalMcpInfo -LocalMcps ([string](Get-WlProp $Row 'LocalMcps')) -McpServers $mcp) }
 }
 
 function Get-WlAgentInventory {
@@ -300,7 +399,7 @@ function Get-WlAgentInventory {
     $regByIdentity = @{}; foreach ($r in @($Registry)) { $k = ([string](Get-WlProp $r 'agentIdentityId')).ToLowerInvariant(); if ($k) { $regByIdentity[$k] = $r } }
     $regSource = { param($r) $s = [string](Get-WlProp $r 'wlSource'); if ($s) { $s } else { 'Agent365Registry' } }
     $aiByEntra = @{}
-    foreach ($a in @($AgentsInfo)) { $k = ([string](Get-WlProp $a 'EntraAgentID')).ToLowerInvariant(); if ($k) { $aiByEntra[$k] = $a } }
+    foreach ($a in @($AgentsInfo)) { $k = ([string](Get-WlProp $a 'EntraAgentId')).ToLowerInvariant(); if ($k) { $aiByEntra[$k] = $a } }
 
     $usedReg = @{}; $usedAi = @{}; $usedUsers = @{}
     $agents = [System.Collections.Generic.List[object]]::new()
@@ -315,6 +414,8 @@ function Get-WlAgentInventory {
             sponsors = @(); owners = @(); created = $null; publishedStatus = $null; lifecycle = $null; registryId = $null; defenderAgentId = $null
             publisher = $null; blocked = $null; availableTo = $null; deployedTo = $null
             vendor = $null; version = $null; device = $null; user = $null; autoApprove = $null; trustedProcess = $null; process = $null; mcpServers = @()
+            description = $null; model = $null; availability = $null; lastPublished = $null; instanceCount = $null
+            sharedWith = $null; permissions = $null; guardrails = $null; tools = $null; dataSources = $null; connectedAgents = @(); channels = @(); endpoints = @()
             caIdentity = $null; caUser = $null
         }
     }
@@ -336,7 +437,7 @@ function Get-WlAgentInventory {
         if ($r) { $usedReg[[string]$r.id] = $true; $a.sources.Add((& $regSource $r)); $a.registryId = [string]$r.id; $a.platform = [string](Get-WlProp $r 'originatingStore'); $a.owners = @(Get-WlProp $r 'ownerIds'); Add-WlPackageDetails $a $r }
         $ai = $aiByEntra[([string]$i.id).ToLowerInvariant()]
         if (-not $ai) { $ai = $aiByEntra[([string]$i.appId).ToLowerInvariant()] }
-        if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); $a.defenderAgentId = [string]$ai.AgentId; if (-not $a.platform) { $a.platform = [string]$ai.Platform }; $a.publishedStatus = [string]$ai.PublishedStatus; $a.lifecycle = [string]$ai.LifecycleStatus }
+        if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); Add-WlAgentsInfoDetails $a $ai }
         if (-not $a.platform) { $a.platform = 'Entra Agent ID' }
         $agents.Add($a)
     }
@@ -353,8 +454,8 @@ function Get-WlAgentInventory {
         $uid = [string](Get-WlProp $r 'agentUserId')
         if ($uid) { $a.agentUserId = $uid; $u = @($Directory.Users | Where-Object { $_.id -eq $uid })[0]; if ($u) { $usedUsers[$uid] = $true; $a.agentUserUpn = [string]$u.userPrincipalName; $a.agentUserEnabled = [bool](Get-WlProp $u 'accountEnabled') } }
         $rApp = [string](Get-WlProp $r 'appId')
-        $ai = @($AgentsInfo | Where-Object { $_ -and ([string]$_.AgentId -eq [string]$r.id -or ([string]$_.SourceAgentId -and [string]$_.SourceAgentId -eq [string](Get-WlProp $r 'sourceAgentId')) -or ($rApp -and [string]$_.EntraAgentID -eq $rApp)) })[0]
-        if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); $a.defenderAgentId = [string]$ai.AgentId; $a.publishedStatus = [string]$ai.PublishedStatus; $a.lifecycle = [string]$ai.LifecycleStatus }
+        $ai = @($AgentsInfo | Where-Object { $_ -and ([string]$_.AgentId -eq [string]$r.id -or ([string]$_.SourceAgentId -and [string]$_.SourceAgentId -eq [string](Get-WlProp $r 'sourceAgentId')) -or ($rApp -and [string](Get-WlProp $_ 'EntraAgentId') -eq $rApp)) })[0]
+        if ($ai) { $usedAi[[string]$ai.AgentId] = $true; $a.sources.Add('DefenderAgentsInfo'); Add-WlAgentsInfoDetails $a $ai }
         $agents.Add($a)
     }
 
@@ -363,10 +464,8 @@ function Get-WlAgentInventory {
         if (-not $ai -or $usedAi.ContainsKey([string]$ai.AgentId)) { continue }
         $isLocal = [string](Get-WlProp $ai 'IsLocal') -match '^(true|1)$'
         $a = & $newAgent ([string]$ai.Name) $(if ($isLocal) { 'Local' } else { 'Cloud' })
-        $a.sources.Add('DefenderAgentsInfo'); $a.defenderAgentId = [string]$ai.AgentId; $a.platform = [string]$ai.Platform
-        $a.publishedStatus = [string]$ai.PublishedStatus; $a.lifecycle = [string]$ai.LifecycleStatus; $a.created = [string]$ai.CreatedDateTime
-        $a.version = [string](Get-WlProp $ai 'Version')
-        if ([string]$ai.EntraBlueprintID) { $a.blueprintAppId = [string]$ai.EntraBlueprintID }
+        $a.sources.Add('DefenderAgentsInfo')
+        if ([string](Get-WlProp $ai 'EntraBlueprintId')) { $a.blueprintAppId = [string](Get-WlProp $ai 'EntraBlueprintId') }
         if ($isLocal) {
             $devId = [string](Get-WlProp $ai 'LocalDeviceId')
             $ep = if ($devId -and $EndpointDevices.ContainsKey($devId)) { $EndpointDevices[$devId] } else { $null }
@@ -376,7 +475,6 @@ function Get-WlAgentInventory {
             $tp = [string](Get-WlProp $ai 'TrustedProcess')
             $a.trustedProcess = if ($tp) { $tp -match '^(true|1)$' } else { $null }
             $a.process = [string](Get-WlProp $ai 'Process')
-            $a.mcpServers = @(Get-WlLocalMcpInfo -LocalMcps ([string](Get-WlProp $ai 'LocalMcps')) -McpServers ([string](Get-WlProp $ai 'McpServers')))
             $a.device = [ordered]@{
                 id = $devId; name = [string](Get-WlProp $ai 'LocalDeviceName'); os = [string](Get-WlProp $ai 'LocalOs')
                 group = $(if ($ep) { [string]$ep.deviceGroup } else { $null })
@@ -386,6 +484,7 @@ function Get-WlAgentInventory {
                 avMode = $(if ($ep) { [string]$ep.avModeText } else { $null })
             }
         }
+        Add-WlAgentsInfoDetails $a $ai
         $agents.Add($a)
     }
 
@@ -414,7 +513,7 @@ function Get-WlAgentInventory {
         $where = if ($a.device) { " @ $($a.device.name)" } else { '' }
         $a.label = New-WlText "$($a.agentType) agent $($a.name)$where" "$(if ($a.agentType -eq 'Local') { 'Lokaler' } else { 'Cloud-' })Agent $($a.name)$where"
         $a.state = if ($a.agentType -eq 'Local') { "autoApprove=$($a.autoApprove); mcp=$(@($a.mcpServers).Count)" } else { "agent=$($a.caIdentity.status)$(if ($a.caUser) { "; agentUser=$($a.caUser.status)" })" }
-        $a.fp = Get-WlHash "$($a.state)|$($a.agentEnabled)|$($a.agentUserEnabled)|$(@($a.sponsors) -join ',')|$($a.blueprintAppId)|$($a.version)"
+        $a.fp = Get-WlHash "$($a.state)|$($a.agentEnabled)|$($a.agentUserEnabled)|$(@($a.sponsors) -join ',')|$($a.blueprintAppId)|$($a.version)|$($a.guardrails)|$(@($a.endpoints | Where-Object { $_.external }).Count)|$(@($a.mcpServers).Count)"
         $a.sources = @($a.sources | Select-Object -Unique)
     }
     @($agents | ForEach-Object { [pscustomobject]$_ })
@@ -517,6 +616,16 @@ function Get-WlAgentFindings {
         }
         if (-not $a.agentId -and -not $a.agentUserId) {
             $f.Add((New-WlFinding -Severity 'Low' -Category 'Agent' -Title (& $T "Cloud agent without Entra Agent ID: $($a.name)" "Cloud-Agent ohne Entra Agent ID: $($a.name)") -Detail (& $T "Platform: $($a.platform). Without an agent identity neither Conditional Access nor Identity Protection applies to this agent; it uses the user's identity or its own credentials." "Plattform: $($a.platform). Ohne Agent-Identität greifen weder Conditional Access noch Identity Protection für diesen Agent; er nutzt die Identität des Benutzers oder eigene Anmeldedaten.") -Recommendation (& $T 'Check whether the agent can be moved to Entra Agent ID.' 'Prüfen, ob der Agent auf Entra Agent ID umgestellt werden kann.') -Subject "noid|$id"))
+        }
+        # Defender AgentsInfo: Guardrails is documented as "guardrails attached to the agent and their coverage" – an explicitly empty
+        # value (not null) means none are attached. Only published, active agents are rated.
+        if ($a.defenderAgentId -and $a.guardrails -eq 0 -and $a.lifecycle -ne 'Blocked' -and $a.lifecycle -ne 'Uninstalled' -and $a.lifecycle -ne 'Deleted' -and $a.publishedStatus -ne 'Draft') {
+            $f.Add((New-WlFinding -Severity 'Low' -Category 'Agent' -Title (& $T "Agent without guardrails: $($a.name)" "Agent ohne Guardrails: $($a.name)") -Detail (& $T "Defender reports no guardrails for this agent ($($a.platform)). Tools: $(if ($null -ne $a.tools) { $a.tools } else { '?' }), data sources: $(if ($null -ne $a.dataSources) { $a.dataSources } else { '?' }), MCP servers: $(@($a.mcpServers).Count)." "Defender meldet für diesen Agent ($($a.platform)) keine Guardrails. Tools: $(if ($null -ne $a.tools) { $a.tools } else { '?' }), Datenquellen: $(if ($null -ne $a.dataSources) { $a.dataSources } else { '?' }), MCP-Server: $(@($a.mcpServers).Count).") -Recommendation (& $T 'Attach guardrails (content/prompt filters, tool restrictions) on the agent platform, at least for agents with tools or external data sources.' 'Guardrails (Inhalts-/Prompt-Filter, Tool-Einschränkungen) auf der Agent-Plattform hinterlegen, mindestens für Agents mit Tools oder externen Datenquellen.') -Subject "guard|$id"))
+        }
+        $ext = @($a.endpoints | Where-Object { $_.external -eq $true })
+        if ($ext.Count) {
+            $urls = (@($ext | ForEach-Object { $_.url } | Where-Object { $_ }) -join ', ')
+            $f.Add((New-WlFinding -Severity 'Medium' -Category 'Agent' -Title (& $T "Agent endpoint reachable from outside: $($a.name)" "Agent-Endpoint von außen erreichbar: $($a.name)") -Detail (& $T "Defender flags $($ext.Count) runtime endpoint(s) of this agent as externally connected$(if ($urls) { ": $urls" }). Conditional Access: $($a.caIdentity.status)." "Defender markiert $($ext.Count) Laufzeit-Endpoint(s) dieses Agents als extern erreichbar$(if ($urls) { ": $urls" }). Conditional Access: $($a.caIdentity.status).") -Recommendation (& $T 'Verify that the endpoint requires authentication and is covered by Conditional Access; remove endpoints that are not needed.' 'Prüfen, ob der Endpoint Authentifizierung verlangt und von Conditional Access erfasst ist; nicht benötigte Endpoints entfernen.') -Subject "ext|$id"))
         }
     }
 
