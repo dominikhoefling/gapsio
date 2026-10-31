@@ -115,6 +115,35 @@ and policy reach:
 - **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
   Audit is an evaluation step, not a protection state.
 
+## Fleet findings
+
+The *Fleet* category covers exposure and operational hygiene across the device estate. Sources are the
+documented `DeviceInfo` columns (`IsInternetFacing`, `ExposureLevel`, `AssetValue`, `IsExcluded`,
+`ExclusionReason`, `DeviceManualTags`, `DeviceDynamicTags`, `RegistryDeviceTag`, `IsTransient`), the
+`DeviceEvents` action types `AntivirusTroubleshootModeEvent` and `TamperingAttempt` (30 days) and – with the
+`Response` feature – the Defender for Endpoint machines API.
+
+- **Internet-facing device with high exposure** (Medium; High when tamper protection is off or Defender runs in
+  passive mode) – reachable from the internet and rated *High* exposure at the same time.
+- **Troubleshooting mode active** (High, per device) – a troubleshooting-mode session started within the last
+  four hours. While it is active, local administrators can change policy-managed settings and switch off tamper
+  protection; policy changes are not applied.
+- **Troubleshooting mode used repeatedly** (Medium, per device) – three or more sessions in 30 days; fix the root
+  cause in policy instead of weakening the device over and over.
+- **Tampering attempts** (Medium; High for 10+ attempts or when tamper protection is off on that device) – the
+  number of `TamperingAttempt` events per device in 30 days. Typical for persistence and defence evasion, but also
+  for scripts that write Defender settings directly.
+- **Excluded from Vulnerability Management** (Low) – devices with `IsExcluded`; they vanish from exposure score,
+  recommendations and vulnerability reports.
+- **Devices without a device tag** (Low) – only when at least half of the fleet (10+ devices) carries a tag, so
+  tag-scoped device groups, indicators or automation rules have gaps.
+- **Inactive 90+ days, still in the inventory** (Low) – devices whose sensor has been *Inactive* for at least
+  90 days, from the machines API. Offboarding candidates; they keep counting against groups, reports and licences.
+
+Per-device Fleet findings are rolled up in large fleets like every other per-device finding (see
+[Operations › Large fleets](../operations.md#large-fleets)). The device page shows tags, internet exposure,
+asset value, tampering and troubleshooting counters.
+
 ## macOS and Linux
 
 The *macOS / Linux* category covers what is different on non-Windows endpoints – the places where Defender is

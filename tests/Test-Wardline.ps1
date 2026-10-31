@@ -231,11 +231,19 @@ $now = [DateTime]::UtcNow
 function T { param([int]$DaysAgo) $now.AddDays(-$DaysAgo).ToString('o') }
 $hunting = @{
     DeviceInfo = @(
-        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; ManagedBy = 'Intune'; LastSeen = (T 0) },
-        [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-WIN1'; ManagedBy = 'Intune'; LastSeen = (T 0); DeviceManualTags = '["Finance Dept","VIP"]'; IsInternetFacing = 'false' },
+        [pscustomobject]@{ DeviceId = 'd-win2'; DeviceName = 'WIN-02'; OSPlatform = 'Windows11'; OSVersion = '10.0.26100'; MachineGroup = 'Clients'; DeviceType = 'Workstation'; LastSeen = (T 0); IsExcluded = 'true'; ExclusionReason = 'Duplicate device' },
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; OSVersion = '15.6'; MachineGroup = 'Mac'; DeviceType = 'Workstation'; LastSeen = (T 0) },
-        [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) },
+        [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0); IsInternetFacing = 'true'; ExposureLevel = 'High'; AssetValue = 'High'; RegistryDeviceTag = 'DMZ' },
         [pscustomobject]@{ DeviceId = 'd-lnx1'; DeviceName = 'LNX-01'; OSPlatform = 'Linux'; OSVersion = 'Ubuntu 24.04'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) }
+    )
+    Troubleshooting = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; Starts = 4; Name = 'WIN-01'; Timestamp = (T 2); Reason = 'Troubleshooting mode ended' },
+        [pscustomobject]@{ DeviceId = 'd-win2'; Starts = 1; Name = 'WIN-02'; Timestamp = $now.AddHours(-1).ToString('o'); Reason = 'Troubleshooting mode started by admin' }
+    )
+    Tampering = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; Attempts = 3; Last = (T 1); Name = 'WIN-01' },
+        [pscustomobject]@{ DeviceId = 'd-win3'; Attempts = 12; Last = (T 1); Name = 'SRV-01' }
     )
     AsrInfo = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Asr = '{"LsassCredentialTheft":"Block","ObfuscatedScript":"Audit","OfficeChildProcess":"Warn","VulnerableSignedDriver":"Off","BlockWebshellCreation":""}' },
@@ -538,6 +546,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
             elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
+            elseif ($q -match '// WardlineFleetTroubleshooting') { $script:Hunt.Troubleshooting }
+            elseif ($q -match '// WardlineFleetTampering') { $script:Hunt.Tampering }
             elseif ($q -match '// WardlineUsage') { $script:Hunt.Usage }
             elseif ($q -match '// WardlineNetworkProtection') { $script:Hunt.NpEvents }
             elseif ($q -match 'startswith "Windows"') { $script:Hunt.TvmWin }
@@ -560,6 +570,10 @@ $queue = [System.Collections.Generic.List[string]]::new()
         if ($Uri -match 'api.securitycenter.microsoft.com/api/indicators') { return (V $script:Fx.indicators) }
         if ($Uri -match 'api.securitycenter.microsoft.com/api/machineactions') { return (V $script:Fx.machineActions) }
         if ($Uri -match 'api.securitycenter.microsoft.com/api/alerts') { return (V $script:Fx.mdeAlerts) }
+        if ($Uri -match 'api.securitycenter.microsoft.com/api/machines\?') {
+            if ($Uri -notmatch "healthStatus eq 'Inactive' and lastSeen lt ") { throw "machines filter unexpected: $Uri" }
+            return (V @([pscustomobject]@{ id = 'd-old9'; computerDnsName = 'OLD-09'; osPlatform = 'Windows10'; lastSeen = (T 120); rbacGroupName = 'Clients'; onboardingStatus = 'Onboarded'; healthStatus = 'Inactive' }))
+        }
 
         $path = ($Uri -replace '^https://graph.microsoft.com/(v1.0|beta)/', '')
         switch -Regex ($path) {
@@ -623,7 +637,7 @@ $r1 = Invoke-WlEndpointCollection 6>$null
 $ep = Get-EpSnapshot
 Assert ($null -eq ($blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64).devices -and $ep.devicesPages.count -eq 5 -and $ep.devicesPages.pages -eq 1) "Devices are paged, not inline (pages=$($ep.devicesPages.pages), count=$($ep.devicesPages.count))"
 Assert ($blobs.ContainsKey('state/endpoint-devices/0000.json') -and $blobs.ContainsKey('state/endpoint-devices.tsv') -and $blobs.ContainsKey('state/endpoint-devices-fp.json')) 'Device page, index and fingerprint blobs written'
-Assert (($blobs['state/endpoint-devices.tsv'] -split "`n")[0] -like "deviceId`tdeviceName`t*`tchecks`t_filter`t_search`tpage") 'Device index header'
+Assert (($blobs['state/endpoint-devices.tsv'] -split "`n")[0] -like "deviceId`tdeviceName`t*`tchecks`t*`ttags`t*`t_filter`t_search`tpage") 'Device index header'
 Assert ($ep.deviceStats.devices -eq 5 -and $ep.deviceStats.charts.os.Windows11 -eq 2 -and $ep.deviceStats.charts.TamperProtection.on -ge 1 -and $ep.deviceStats.groups.Server -eq 2) "deviceStats aggregates (devices=$($ep.deviceStats.devices), Windows11=$($ep.deviceStats.charts.os.Windows11))"
 Assert ($ep.warnings.Count -eq 0) "Warnings in the endpoint run: $($ep.warnings -join ' | ')"
 Assert ($ep.summary.devices -eq 5) "5 devices expected, $($ep.summary.devices)"
@@ -671,6 +685,21 @@ Assert (@($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' -and $_.manage
 Assert (@($inv | Where-Object { $_.title.en -match 'device group|Duplicate|management channel' }).Count -eq 0) 'Inventory: clean fixture -> no grouping/duplicate/unmanaged findings'
 Assert (@($inv | Where-Object { $_.title.en -match '^ASR rule in audit mode for 1\d\d\+ days' }).Count -eq 1) 'Inventory: eternal audit for pol-asr (psexec-wmi), not for the 59-day-old pol-win'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
+# Fleet (tags, internet-facing, TVM exclusion, troubleshooting mode, tampering attempts, inactive devices)
+$flt = @($f | Where-Object { $_.category -eq 'Fleet' })
+$dw1 = @($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' })[0]; $ds1 = @($ep.devices | Where-Object { $_.deviceName -eq 'SRV-01' })[0]
+Assert (@($dw1.tags) -contains 'Finance Dept' -and @($dw1.tags) -contains 'VIP' -and @($ds1.tags) -contains 'DMZ' -and $dw1.internetFacing -eq $false -and $ds1.internetFacing -eq $true) "Fleet: tags and internet-facing parsed (WIN-01: $(@($dw1.tags) -join ','))"
+Assert ($dw1.troubleshooting30d -eq 4 -and -not $dw1.troubleshootingActive -and $dw1.tampering30d -eq 3) 'Fleet: troubleshooting/tampering counters on WIN-01'
+Assert (@($flt | Where-Object { $_.title.en -eq 'Internet-facing device with high exposure' -and $_.deviceName -eq 'SRV-01' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Fleet: internet-facing + high exposure (SRV-01)'
+Assert (@($flt | Where-Object { $_.title.en -eq 'Troubleshooting mode active' -and $_.deviceName -eq 'WIN-02' -and $_.severity -eq 'High' }).Count -eq 1) 'Fleet: troubleshooting mode active (started 1h ago)'
+Assert (@($flt | Where-Object { $_.title.en -match '^Troubleshooting mode used 4 times' -and $_.deviceName -eq 'WIN-01' }).Count -eq 1) 'Fleet: repeated troubleshooting mode'
+Assert (@($flt | Where-Object { $_.title.en -eq '3 tampering attempt(s) in 30 days' -and $_.deviceName -eq 'WIN-01' -and $_.severity -eq 'High' }).Count -eq 1) 'Fleet: tampering on device with tamper protection off -> High'
+Assert (@($flt | Where-Object { $_.title.en -eq '12 tampering attempt(s) in 30 days' -and $_.deviceName -eq 'SRV-01' -and $_.severity -eq 'High' }).Count -eq 1) 'Fleet: 10+ tampering attempts -> High'
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) excluded from Vulnerability Management' -and $_.detail.en -match 'WIN-02' -and $_.detail.en -match 'Duplicate device' }).Count -eq 1) 'Fleet: TVM-excluded devices'
+Assert (@($flt | Where-Object { $_.title.en -match 'without a device tag' }).Count -eq 0) 'Fleet: tag finding suppressed for small fleets'
+Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) inactive for 90+ days still in the inventory' -and $_.detail.en -match 'OLD-09' }).Count -eq 1) 'Fleet: inactive devices from MDE API'
+Assert ($ep.summary.fleet.internetFacingHigh -eq 1 -and $ep.summary.fleet.tampering30d -eq 2 -and $ep.summary.fleet.troubleshootingActive -eq 1 -and $ep.summary.fleet.tvmExcluded -eq 1 -and $ep.summary.fleet.tagged -eq 2 -and $ep.summary.fleet.inactive90d -eq 1) "Fleet summary ($($ep.summary.fleet | ConvertTo-Json -Compress))"
+Assert (@($ep.inactiveDevices).Count -eq 1 -and $ep.inactiveDevices[0].deviceName -eq 'OLD-09') 'Fleet: inactive devices in snapshot'
 # ASR
 $asr = @{}; foreach ($x in $ep.asrRules) { $asr[$x.id] = $x }
 Assert (@($ep.asrRules).Count -eq 19) "19 ASR rules expected, $(@($ep.asrRules).Count)"
