@@ -5,8 +5,8 @@ param($Request, $TriggerMetadata)
 Import-Module Wardline
 
 function Send-Response {
-    param([int]$Status, $Body, [switch]$RawJson)
-    $text = if ($RawJson) { [string]$Body } elseif ($Body -is [string]) { ConvertTo-Json -InputObject @{ message = $Body } -Compress } else { ConvertTo-Json -InputObject $Body -Depth 32 -Compress }
+    param([int]$Status, $Body, [switch]$RawJson, [switch]$AsArray)
+    $text = if ($RawJson) { [string]$Body } elseif ($AsArray) { ConvertTo-Json -InputObject @($(if ($null -eq $Body) { @() } else { @($Body) })) -Depth 32 -Compress } elseif ($Body -is [string]) { ConvertTo-Json -InputObject @{ message = $Body } -Compress } else { ConvertTo-Json -InputObject $Body -Depth 32 -Compress }
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
             StatusCode = [HttpStatusCode]$Status
             Body        = $text
@@ -52,35 +52,53 @@ if ($routeModule -and $modules -notcontains $routeModule) {
     return
 }
 
+# Community edition (no valid licence): lists are cut to the first rows on the server, everything else is masked.
+$tier = Get-WlLicenseTier
+$community = $tier -eq 'Community'
+function Send-Snapshot {
+    param([string]$Name)
+    if ($community) {
+        $s = Get-WlBlob -Container 'state' -Name $Name
+        if ($s) { Send-Response -Status 200 -Body (Protect-WlCommunity -Snapshot $s) } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
+        return
+    }
+    $t = Get-WlBlobText -Container 'state' -Name $Name
+    if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
+}
+
 try {
     switch ($route) {
         'me' {
             Send-Response -Status 200 -Body ([ordered]@{
                     oid = $principal.oid; upn = $principal.upn; displayName = $principal.displayName
                     isAdmin = $principal.isAdmin; roles = $principal.roles; modules = @($modules)
+                    tier = $tier; communityRows = $(if ($community) { Get-WlCommunityRows } else { $null })
                     features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response') | Where-Object { Test-WlFeature -Name $_ })
                     tenantId = Get-WlSetting -Name 'WL_TENANT_ID'; version = (Get-WlVersion)
                     update = $(if ($principal.isAdmin) { try { Get-WlBlob -Container 'state' -Name 'release.json' } catch { $null } })
                     license = $(if ($principal.isAdmin) { try { $l = Get-WlLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })
                 })
         }
-        'endpoint' {
-            $t = Get-WlBlobText -Container 'state' -Name 'endpoint-latest.json'
-            if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
-        }
+        'endpoint' { Send-Snapshot -Name 'endpoint-latest.json' }
         { $_ -in 'devices', 'coverage' } {
             # Paged collections: ?page=N returns one stored page as-is; devices additionally support server-side search.
             $pageQ = [string]$Request.Query.page
             $isSearch = $route -eq 'devices' -and @('q', 'os', 'group', 'issues', 'chart', 'asrBelow', 'size') | Where-Object { $null -ne $Request.Query.$_ }
             if ($pageQ -match '^\d+$' -and -not $isSearch) {
+                if ($community) {
+                    $items = @(Get-WlPage -Module 'endpoint' -Name $route -Page ([int]$pageQ))
+                    Send-Response -Status 200 -Body (Protect-WlCommunityList -Items $items -Offset ([int]$pageQ * (Get-WlPageSize))) -AsArray; return
+                }
                 $t = Get-WlPage -Module 'endpoint' -Name $route -Page ([int]$pageQ) -Raw
                 Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson; return
             }
             if ($route -eq 'coverage') { Send-Response -Status 400 -Body 'Parameter page is required.'; return }
             $size = 200; if ([string]$Request.Query.size -match '^\d+$') { $size = [int]$Request.Query.size }
             $pg = 0; if ($pageQ -match '^\d+$') { $pg = [int]$pageQ }
-            Send-Response -Status 200 -Body (Search-WlDevices -Query ([string]$Request.Query.q) -Os ([string]$Request.Query.os) -Group ([string]$Request.Query.group) -IssuesOnly:([string]$Request.Query.issues -eq '1') `
-                    -Chart ([string]$Request.Query.chart) -AsrBelow:([string]$Request.Query.asrBelow -eq '1') -Page $pg -Size $size)
+            $res = Search-WlDevices -Query ([string]$Request.Query.q) -Os ([string]$Request.Query.os) -Group ([string]$Request.Query.group) -IssuesOnly:([string]$Request.Query.issues -eq '1') `
+                -Chart ([string]$Request.Query.chart) -AsrBelow:([string]$Request.Query.asrBelow -eq '1') -Page $pg -Size $size
+            if ($community) { $res.rows = Protect-WlCommunityList -Items @($res.rows) -Offset ($pg * [int]$res.size); $res.tier = 'Community'; $res.communityRows = Get-WlCommunityRows }
+            Send-Response -Status 200 -Body $res
         }
         'device' {
             $id = [string]$Request.Query.id
@@ -88,14 +106,8 @@ try {
             $d = Get-WlDevice -DeviceId $id
             if ($d) { Send-Response -Status 200 -Body ([ordered]@{ device = $d }) } else { Send-Response -Status 404 -Body 'Device not found.' }
         }
-        'agents' {
-            $t = Get-WlBlobText -Container 'state' -Name 'agents-latest.json'
-            if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
-        }
-        'access' {
-            $t = Get-WlBlobText -Container 'state' -Name 'access-latest.json'
-            if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
-        }
+        'agents' { Send-Snapshot -Name 'agents-latest.json' }
+        'access' { Send-Snapshot -Name 'access-latest.json' }
         'access/me' {
             $snap = Get-WlBlob -Container 'state' -Name 'access-latest.json'
             if (-not $snap) { Send-Response -Status 404 -Body 'No data yet.'; return }
@@ -119,6 +131,7 @@ try {
         'changes' {
             $m = ([string]$Request.Query.module).ToLowerInvariant()
             if ($m -notin $modules) { Send-Response -Status 400 -Body "Parameter module must be one of the enabled modules: $($modules -join ', ')."; return }
+            if ($community) { Send-Response -Status 200 -Body (Protect-WlCommunityList -Items @(Get-WlBlob -Container 'state' -Name "$m-changes.json")) -AsArray; return }
             $t = Get-WlBlobText -Container 'state' -Name "$m-changes.json"
             Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson
         }

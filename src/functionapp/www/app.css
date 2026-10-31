@@ -167,6 +167,11 @@ tr.detail td { background: var(--surface-2); padding: 16px 20px; box-shadow: ins
 .detail dd { margin: 0; }
 .detail ul { margin: 0; padding-left: 18px; }
 .count { color: var(--muted); font-size: 12.5px; margin: 8px 2px; }
+/* Community edition: rows beyond the free limit arrive masked from the server – blurred, not selectable, no detail. */
+tr.masked td { filter: blur(4px); user-select: none; pointer-events: none; opacity: .75; }
+tr.masked { cursor: not-allowed; background: color-mix(in srgb, var(--rule) 25%, transparent); }
+.community-note { margin: 6px 2px 10px; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--sev-mittel) 10%, var(--surface)); }
+.community-note a { font-weight: 600; }
 .empty { padding: 28px; color: var(--ink-2); background: var(--surface); border: 1px dashed var(--rule-strong); border-radius: var(--radius); }
 
 /* Severity & state: colour never without text */
