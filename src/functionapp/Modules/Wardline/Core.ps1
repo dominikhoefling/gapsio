@@ -433,12 +433,127 @@ function Set-WlBlob {
         [Parameter(Mandatory)][string]$Container,
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)]$Object,
-        [int]$Depth = 32
+        [int]$Depth = 32,
+        [string]$ContentType = 'application/json; charset=utf-8'
     )
     $json = if ($Object -is [string]) { $Object } else { ConvertTo-Json -InputObject $Object -Depth $Depth -Compress }
-    $headers = @{ 'x-ms-version' = $script:WlStorageVersion; 'x-ms-blob-type' = 'BlockBlob'; 'x-ms-blob-content-type' = 'application/json; charset=utf-8' }
+    $headers = @{ 'x-ms-version' = $script:WlStorageVersion; 'x-ms-blob-type' = 'BlockBlob'; 'x-ms-blob-content-type' = $ContentType }
     Invoke-WlRest -Uri (Get-WlBlobUri $Container $Name) -Method PUT -Body $json -Resource 'https://storage.azure.com/' -Headers $headers | Out-Null
 }
+
+function Remove-WlBlob {
+    param([Parameter(Mandatory)][string]$Container, [Parameter(Mandatory)][string]$Name)
+    try { Invoke-WlRest -Uri (Get-WlBlobUri $Container $Name) -Method DELETE -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:WlStorageVersion } | Out-Null }
+    catch { if ($_.Exception.Data['Status'] -ne 404) { throw } }
+}
+
+#region Paged collections (large fleets)
+# Per-device collections are not stored inside the snapshot (300,000 devices would be a JSON of several hundred MB)
+# but in pages of WL_PAGE_SIZE items (state/<module>-<name>/0000.json ...) with a small meta blob, a tab-separated
+# search index (state/<module>-<name>.tsv) for the API and a compact key/fingerprint list for drift detection.
+function Get-WlPageSize { [Math]::Max(100, [int](Get-WlSetting -Name 'WL_PAGE_SIZE' -Default '2000')) }
+
+function Get-WlPagedMeta {
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
+    try { Get-WlBlob -Container 'state' -Name "$Module-$Name.json" } catch { $null }
+}
+
+function Get-WlPage {
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][int]$Page, [switch]$Raw)
+    $blob = "$Module-$Name/$('{0:D4}' -f $Page).json"
+    if ($Raw) { Get-WlBlobText -Container 'state' -Name $blob } else { @(Get-WlBlob -Container 'state' -Name $blob | Where-Object { $_ }) }
+}
+
+function Get-WlPagedCollection {
+    # All items of a paged collection (tests, small tenants, notifications). Falls back to the inline collection of
+    # snapshots written by older versions.
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, $Snapshot)
+    $meta = Get-WlPagedMeta -Module $Module -Name $Name
+    if (-not $meta) { return @(Get-WlProp $Snapshot $Name) }
+    $out = [System.Collections.Generic.List[object]]::new()
+    for ($i = 0; $i -lt [int]$meta.pages; $i++) { foreach ($x in (Get-WlPage -Module $Module -Name $Name -Page $i)) { $out.Add($x) } }
+    $out.ToArray()
+}
+
+function ConvertTo-WlTsvValue {
+    param($Value)
+    if ($null -eq $Value) { return '' }
+    if ($Value -is [System.Collections.IDictionary]) { return (@($Value.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ';') }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime().ToString('o') }
+    if ($Value -is [pscustomobject]) { return (@($Value.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ';') }
+    ([string]$Value) -replace '[\t\r\n]', ' '
+}
+
+function Write-WlPagedCollection {
+    <#
+    .SYNOPSIS
+    Writes a collection in pages, the tab-separated index (IndexColumns + page) and the fingerprint list; removes
+    pages of the previous run that are no longer needed. Returns the meta object stored in the snapshot.
+    #>
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [AllowEmptyCollection()][object[]]$Items, [string[]]$IndexColumns = @(), [string]$At)
+    $items = @($Items | Where-Object { $_ })
+    $size = Get-WlPageSize
+    $pages = [int][Math]::Ceiling($items.Count / $size)
+    $prev = Get-WlPagedMeta -Module $Module -Name $Name
+    $tsv = [System.Text.StringBuilder]::new()
+    if ($IndexColumns.Count) { [void]$tsv.AppendLine((@($IndexColumns) + 'page') -join "`t") }
+    $fps = [System.Collections.Generic.List[object]]::new()
+    for ($p = 0; $p -lt $pages; $p++) {
+        $slice = @($items[($p * $size)..([Math]::Min($items.Count, ($p + 1) * $size) - 1)])
+        Set-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" -Object $slice -Depth 32
+        foreach ($it in $slice) {
+            if ($IndexColumns.Count) { [void]$tsv.AppendLine((@($IndexColumns | ForEach-Object { ConvertTo-WlTsvValue (Get-WlProp $it $_) }) + $p) -join "`t") }
+            $fp = [ordered]@{ key = Get-WlProp $it 'key'; fp = Get-WlProp $it 'fp'; label = Get-WlProp $it 'label'; state = Get-WlProp $it 'state' }
+            $pr = Get-WlProp $it 'present'; if ($null -ne $pr) { $fp.present = [bool]$pr }
+            $fps.Add([pscustomobject]$fp)
+        }
+    }
+    if ($prev) { for ($p = $pages; $p -lt [int]$prev.pages; $p++) { Remove-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" } }
+    if ($IndexColumns.Count) { Set-WlBlob -Container 'state' -Name "$Module-$Name.tsv" -Object $tsv.ToString() -ContentType 'text/tab-separated-values; charset=utf-8' }
+    Set-WlBlob -Container 'state' -Name "$Module-$Name-fp.json" -Object @($fps.ToArray())
+    $meta = [ordered]@{ count = $items.Count; pageSize = $size; pages = $pages; index = [bool]$IndexColumns.Count; at = $At }
+    Set-WlBlob -Container 'state' -Name "$Module-$Name.json" -Object $meta
+    $meta
+}
+
+$script:WlIndexCache = @{}
+function Get-WlPagedIndex {
+    <#
+    .SYNOPSIS
+    The tab-separated index of a paged collection as objects (one per item, string values, plus page). Cached in
+    the worker process per snapshot time so searches do not re-download the index on every request.
+    #>
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
+    $meta = Get-WlPagedMeta -Module $Module -Name $Name
+    if (-not $meta -or -not $meta.index) { return @() }
+    $ck = "$Module-$Name"
+    $c = $script:WlIndexCache[$ck]
+    if ($c -and $c.at -eq [string]$meta.at) { return $c.rows }
+    $text = Get-WlBlobText -Container 'state' -Name "$Module-$Name.tsv"
+    $rows = @()
+    if ($text) {
+        $lines = $text -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ }
+        if ($lines.Count -gt 1) {
+            $cols = $lines[0] -split "`t"
+            $rows = foreach ($l in $lines[1..($lines.Count - 1)]) {
+                $v = $l -split "`t"; $o = [ordered]@{}
+                for ($i = 0; $i -lt $cols.Count; $i++) { $o[$cols[$i]] = $(if ($i -lt $v.Count) { $v[$i] } else { '' }) }
+                [pscustomobject]$o
+            }
+        }
+    }
+    $script:WlIndexCache[$ck] = @{ at = [string]$meta.at; rows = @($rows) }
+    @($rows)
+}
+
+function Get-WlPagedItem {
+    # One item of a paged collection by a property value (uses the index to find the page).
+    param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Property, [Parameter(Mandatory)][string]$Value)
+    $hit = @(Get-WlPagedIndex -Module $Module -Name $Name | Where-Object { [string](Get-WlProp $_ $Property) -eq $Value })
+    if (-not $hit.Count) { return $null }
+    @(Get-WlPage -Module $Module -Name $Name -Page ([int]$hit[0].page) | Where-Object { [string](Get-WlProp $_ $Property) -eq $Value })[0]
+}
+#endregion
 
 function Add-WlQueueMessage {
     param([string]$Queue = 'wl-run', [Parameter(Mandatory)][string]$Text)
@@ -737,7 +852,9 @@ function Save-WlSnapshot {
         [Parameter(Mandatory)][string]$Module,
         [Parameter(Mandatory)][System.Collections.IDictionary]$Snapshot,
         [Parameter(Mandatory)][string[]]$Collections,
-        [datetime]$Started
+        [datetime]$Started,
+        [string[]]$Paged = @(),
+        [hashtable]$Index = @{}
     )
     $now = [DateTime]::UtcNow
     $at = $now.ToString('o')
@@ -746,7 +863,8 @@ function Save-WlSnapshot {
     $changes = [System.Collections.Generic.List[object]]::new()
     if ($prev) {
         foreach ($c in $Collections) {
-            foreach ($x in (Compare-WlCollection -Module $Module -Name $c -Old @(Get-WlProp $prev $c) -New @($Snapshot[$c]) -At $at)) { $changes.Add($x) }
+            $old = if ($c -in $Paged) { $fpOld = Get-WlBlob -Container 'state' -Name "$Module-$c-fp.json"; if ($null -ne $fpOld) { @($fpOld) } else { @(Get-WlProp $prev $c) } } else { @(Get-WlProp $prev $c) }
+            foreach ($x in (Compare-WlCollection -Module $Module -Name $c -Old $old -New @($Snapshot[$c]) -At $at)) { $changes.Add($x) }
         }
     }
     $Snapshot['changesSincePrevious'] = $changes.Count
@@ -755,6 +873,14 @@ function Save-WlSnapshot {
         $sent = Send-WlNotification -Module $Module -Changes $changes.ToArray() -Snapshot $Snapshot
         if ($sent) { $Snapshot['notified'] = $sent }
         $Snapshot['warnings'] = @(Get-WlWarnings)
+    }
+    $protection = Get-WlProtectionCounts -Devices @($Snapshot['devices'])
+
+    # Large per-device collections go to pages; the snapshot keeps only their meta data
+    foreach ($c in $Paged) {
+        if (-not $Snapshot.Contains($c)) { continue }
+        $Snapshot["${c}Pages"] = Write-WlPagedCollection -Module $Module -Name $c -Items @($Snapshot[$c]) -IndexColumns @($Index[$c]) -At $at
+        $Snapshot.Remove($c)
     }
 
     $snapName = "$Module/$($now.ToString('yyyy/MM/dd/HHmmssfff')).json"
@@ -786,7 +912,7 @@ function Save-WlSnapshot {
             changes     = $changes.Count
             drift       = Get-WlDriftCounts -Changes $changes.ToArray()
             findings    = Get-WlOpenFindingCounts -Findings @($Snapshot['findings'])
-            protection  = Get-WlProtectionCounts -Devices @($Snapshot['devices'])
+            protection  = $protection
             warnings    = @($Snapshot['warnings']).Count
             snapshot    = $snapName
         })

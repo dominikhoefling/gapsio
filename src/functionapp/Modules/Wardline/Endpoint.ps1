@@ -1520,6 +1520,7 @@ function New-WlFinding {
         recommendation = $Recommendation
         deviceId       = $DeviceId
         deviceName     = $DeviceName
+        subject        = $(if ($Subject) { $Subject } else { $null })
     }
 }
 
@@ -2066,6 +2067,148 @@ function Get-WlEndpointFindings {
 }
 #endregion
 
+#region Device statistics and search (large fleets)
+$script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks')
+$script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
+
+function Get-WlDeviceChartState {
+    # The same classification the portal charts use – evaluated server-side so filters work on 300,000 devices.
+    param($Device, [string]$Chart)
+    $checks = Get-WlProp $Device 'checks'
+    switch ($Chart) {
+        'sig' { $v = [string](Get-WlProp $Device 'signatureUpToDate'); if ($v -match '^(true|1)$') { 'on' } elseif ($v -match '^(false|0)$') { 'off' } else { 'unknown' } }
+        'sensor' { $v = [string](Get-WlProp $Device 'sensorHealth'); if (-not $v) { 'unknown' } elseif ($v -match '^active$') { 'on' } else { 'off' } }
+        'mode' { $m = [string](Get-WlProp $Device 'avMode'); if ($m -eq '0') { 'Active' } elseif ($m -eq '4') { 'EdrBlock' } elseif ($m -in '1', '2') { 'Passive' } else { 'Unknown' } }
+        'os' { $o = [string](Get-WlProp $Device 'os'); if ($o) { $o } else { '–' } }
+        default {
+            $v = [string](Get-WlProp $checks $Chart)
+            if ($v -eq 'GOOD') { 'on' } elseif ($v -eq 'BAD') { 'off' } elseif ($v -eq 'N/A') { 'na' } else { 'unknown' }
+        }
+    }
+}
+
+function Test-WlDeviceIssue {
+    param($Device)
+    $checks = Get-WlProp $Device 'checks'
+    $vals = if ($checks -is [System.Collections.IDictionary]) { @($checks.Values) } elseif ($checks) { @($checks.PSObject.Properties.Value) } else { @() }
+    if ($vals -contains 'BAD') { return $true }
+    $m = [string](Get-WlProp $Device 'avMode'); if ($m -and $m -ne '0') { return $true }
+    foreach ($p in 'localExclusions', 'exclusionAlerts', 'asrBelowMinimum') { $v = Get-WlProp $Device $p; if ($v -and [int]$v -gt 0) { return $true } }
+    $false
+}
+
+function Get-WlDeviceStats {
+    <#
+    .SYNOPSIS
+    Counts for the device charts (per protection feature, signatures, sensor, run mode, platform, device group,
+    devices with issues) – stored in the snapshot so the portal does not need the device list for the overview.
+    #>
+    param([AllowEmptyCollection()][object[]]$Devices)
+    $list = @($Devices | Where-Object { $_ })
+    $charts = [ordered]@{}
+    foreach ($c in @($script:WlDeviceFeatures) + @('sig', 'sensor', 'mode', 'os')) { $charts[$c] = [ordered]@{} }
+    $groups = [ordered]@{}; $issues = 0
+    foreach ($d in $list) {
+        foreach ($c in $charts.Keys) { $s = Get-WlDeviceChartState -Device $d -Chart $c; if (-not $charts[$c].Contains($s)) { $charts[$c][$s] = 0 }; $charts[$c][$s]++ }
+        $g = [string](Get-WlProp $d 'deviceGroup'); if ($g) { if (-not $groups.Contains($g)) { $groups[$g] = 0 }; $groups[$g]++ }
+        if (Test-WlDeviceIssue -Device $d) { $issues++ }
+    }
+    [ordered]@{ devices = $list.Count; issues = $issues; charts = $charts; groups = $groups }
+}
+
+function ConvertFrom-WlDeviceIndexRow {
+    # Index rows are strings; give the portal the same shapes as the full device object (numbers, checks object).
+    param($Row)
+    $o = [ordered]@{}
+    foreach ($p in $Row.PSObject.Properties) {
+        $v = [string]$p.Value
+        switch ($p.Name) {
+            'checks' { $c = [ordered]@{}; foreach ($kv in ($v -split ';')) { if ($kv -match '^([^=]+)=(.*)$') { $c[$Matches[1]] = $Matches[2] } }; $o.checks = $c }
+            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts' } { $o[$p.Name] = $(if ($v -eq '') { $null } else { [int]$v }) }
+            'localExclusionsHighRisk' { $o[$p.Name] = ($v -match '^(true|1)$') }
+            'page' { $o.page = [int]$v }
+            default { $o[$p.Name] = $(if ($v -eq '') { $null } else { $v }) }
+        }
+    }
+    [pscustomobject]$o
+}
+
+function Search-WlDevices {
+    <#
+    .SYNOPSIS
+    Server-side device list for the portal: free text (name, group, user, platform), platform, device group,
+    only devices with issues, chart segment (<chart>|<state>), ASR below minimum; paged and sorted (issues first,
+    then by name).
+    #>
+    param([string]$Query, [string]$Os, [string]$Group, [switch]$IssuesOnly, [string]$Chart, [switch]$AsrBelow, [int]$Page = 0, [int]$Size = 200)
+    $rows = @(Get-WlPagedIndex -Module 'endpoint' -Name 'devices' | ForEach-Object { ConvertFrom-WlDeviceIndexRow $_ })
+    $q = ([string]$Query).Trim().ToLowerInvariant()
+    $chartId = $null; $chartState = $null
+    if ($Chart -match '^([^|]+)\|(.+)$') { $chartId = $Matches[1]; $chartState = $Matches[2] }
+    $hits = foreach ($r in $rows) {
+        if ($Os -and [string]$r.os -ne $Os) { continue }
+        if ($Group -and [string]$r.deviceGroup -ne $Group) { continue }
+        if ($AsrBelow -and -not ($r.asrBelowMinimum -gt 0)) { continue }
+        if ($IssuesOnly -and -not (Test-WlDeviceIssue -Device $r)) { continue }
+        if ($chartId -and (Get-WlDeviceChartState -Device $r -Chart $chartId) -ne $chartState) { continue }
+        if ($q -and "$($r.deviceName) $($r.os) $($r.deviceGroup) $($r.lastUser) $($r.osVersion)".ToLowerInvariant().IndexOf($q) -lt 0) { continue }
+        $r
+    }
+    $hits = @($hits | Sort-Object { -[int](Test-WlDeviceIssue -Device $_) }, deviceName)
+    $Size = [Math]::Max(1, [Math]::Min(1000, $Size)); if ($Page -lt 0) { $Page = 0 }
+    $start = $Page * $Size
+    $slice = if ($start -lt $hits.Count) { @($hits[$start..([Math]::Min($hits.Count, $start + $Size) - 1)]) } else { @() }
+    [ordered]@{
+        total = $hits.Count; page = $Page; size = $Size; pages = [int][Math]::Ceiling($hits.Count / $Size)
+        rows  = @($slice | Select-Object -Property * -ExcludeProperty page)
+    }
+}
+
+function Get-WlDevice {
+    param([Parameter(Mandatory)][string]$DeviceId)
+    Get-WlPagedItem -Module 'endpoint' -Name 'devices' -Property 'deviceId' -Value $DeviceId
+}
+#endregion
+
+function Merge-WlDeviceFindings {
+    <#
+    .SYNOPSIS
+    Large fleets: when the same per-device finding (category, subject, severity) affects more devices than
+    WL_FINDING_ROLLUP (default 200), the individual findings are replaced by one rolled-up finding with the
+    device count and a sample of device names. Below the threshold, findings stay per device.
+    #>
+    param([AllowEmptyCollection()][object[]]$Findings, [int]$Threshold = [int](Get-WlSetting -Name 'WL_FINDING_ROLLUP' -Default '200'))
+    $out = [System.Collections.Generic.List[object]]::new()
+    $groups = [ordered]@{}
+    foreach ($f in @($Findings | Where-Object { $_ })) {
+        if (-not (Get-WlProp $f 'deviceId')) { $out.Add($f); continue }
+        $subject = [string](Get-WlProp $f 'subject')
+        $tpl = ([string](Get-WlProp $f.title 'en')) -replace [regex]::Escape([string]$f.deviceName), '*'
+        $gk = "$($f.category)|$($f.severity)|$(if ($subject) { $subject } else { $tpl })"
+        if (-not $groups.Contains($gk)) { $groups[$gk] = [System.Collections.Generic.List[object]]::new() }
+        $groups[$gk].Add($f)
+    }
+    foreach ($gk in $groups.Keys) {
+        $g = $groups[$gk]
+        if ($g.Count -le $Threshold) { foreach ($f in $g) { $out.Add($f) }; continue }
+        $first = $g[0]
+        $names = @($g | ForEach-Object { [string]$_.deviceName } | Where-Object { $_ } | Sort-Object -Unique)
+        $n = $g.Count
+        $sub = { param($text, $en) $s = [string]$text; if ($first.deviceName -and $s.Contains([string]$first.deviceName)) { $s.Replace([string]$first.deviceName, $(if ($en) { "$n devices" } else { "$n Geräten" })) } else { "$s ($(if ($en) { "$n devices" } else { "$n Geräte" }))" } }
+        $sample = @($names | Select-Object -First 25)
+        $more = $names.Count - $sample.Count
+        $title = New-WlText -En (& $sub (Get-WlProp $first.title 'en') $true) -De (& $sub (Get-WlProp $first.title 'de') $false)
+        $detail = New-WlText -En "$n devices are affected. Example from $($first.deviceName): $(Get-WlProp $first.detail 'en') Devices (sample): $($sample -join ', ')$(if ($more -gt 0) { " and $more more" }). Use the device list with the matching filter for the full set." `
+            -De "$n Geräte sind betroffen. Beispiel von $($first.deviceName): $(Get-WlProp $first.detail 'de') Geräte (Auswahl): $($sample -join ', ')$(if ($more -gt 0) { " und $more weitere" }). Die vollständige Menge zeigt die Geräteliste mit passendem Filter."
+        $r = New-WlFinding -Severity $first.severity -Category $first.category -Title $title -Detail $detail -Recommendation $first.recommendation -Subject "rollup|$gk" -StableKey
+        $r | Add-Member -NotePropertyName deviceCount -NotePropertyValue $n
+        $r | Add-Member -NotePropertyName deviceSample -NotePropertyValue $sample
+        $out.Add($r)
+    }
+    @($out | Sort-Object { $script:WlSeverityOrder[$_.severity] }, category, { Get-WlProp $_.title 'en' })
+}
+
 function Invoke-WlEndpointCollection {
     <#
     .SYNOPSIS
@@ -2098,15 +2241,16 @@ function Invoke-WlEndpointCollection {
     $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents -Policies $pol.Policies) +
         @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
         @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count)
+    $findings = @(Merge-WlDeviceFindings -Findings $findings)
 
-    $deviceList = foreach ($d in $devices.Values) {
-        $d.key = Get-WlHash "dev|$($d.deviceId)"
-        $d.label = New-WlText "Device $($d.deviceName)" "Gerät $($d.deviceName)"
-        $d.state = "Mode=$($d.avModeText); " + (@($d.checks.Keys | ForEach-Object { "$_=$($d.checks[$_])" }) -join '; ') +
-        $(if ($d.asr) { '; ASR ' + (@($d.asr.Keys | ForEach-Object { "$_=$($d.asr[$_])" }) -join ',') } else { '' })
-        $d.fp = Get-WlHash "$($d.state)|$($d.localExclusions)"
-        [pscustomobject]$d
-    }
+    $deviceList = @($(foreach ($d in $devices.Values) {
+                $d.key = Get-WlHash "dev|$($d.deviceId)"
+                $d.label = New-WlText "Device $($d.deviceName)" "Gerät $($d.deviceName)"
+                $d.state = "Mode=$($d.avModeText); " + (@($d.checks.Keys | ForEach-Object { "$_=$($d.checks[$_])" }) -join '; ') +
+                $(if ($d.asr) { '; ASR ' + (@($d.asr.Keys | ForEach-Object { "$_=$($d.asr[$_])" }) -join ',') } else { '' })
+                $d.fp = Get-WlHash "$($d.state)|$($d.localExclusions)"
+                [pscustomobject]$d
+            }) | Sort-Object deviceName, deviceId)
 
     $seen = @($pol.SettingValues | ForEach-Object { $_.definitionId } | Sort-Object -Unique)
     $sevCount = [ordered]@{}
@@ -2143,8 +2287,9 @@ function Invoke-WlEndpointCollection {
         policyExclusions     = @($pol.Exclusions)
         localExclusions      = @($local)
         indicators           = @($indicators)
+        deviceStats          = Get-WlDeviceStats -Devices $deviceList
         devices              = @($deviceList)
-        coverage             = @($coverage)
+        coverage             = @($coverage | Sort-Object status, deviceName)
         baseline             = @($baselineResults)
         asrRules             = @($asr.rules)
         asrGroups            = @($asr.groups)
@@ -2157,7 +2302,8 @@ function Invoke-WlEndpointCollection {
     }
 
     Set-WlBlob -Container 'state' -Name 'endpoint-localstate.json' -Object @($local)
-    $r = Save-WlSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'coverage', 'baseline', 'asrRules', 'asrGroups', 'findings') -Started $started
+    $r = Save-WlSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'coverage', 'baseline', 'asrRules', 'asrGroups', 'findings') -Started $started `
+        -Paged @('devices', 'coverage') -Index @{ devices = $script:WlDeviceIndexColumns; coverage = @('deviceId', 'deviceName', 'status', 'os', 'source', 'user', 'lastSeen', 'aadDeviceId', 'intuneDeviceId') }
     Write-Information "Wardline endpoint: done, $($r.changes) change(s), $($r.warnings) warning(s)." -InformationAction Continue
     $r
 }
