@@ -36,6 +36,7 @@ function New-WlDevice {
         checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
         tags = @(); internetFacing = $null; tvmExcluded = $null; tvmExclusionReason = $null; assetValue = $null; transient = $null; mitigationStatus = $null; clientVersion = $null
         troubleshooting30d = 0; troubleshootingActive = $false; troubleshootingLast = $null; tampering30d = 0; tamperingLast = $null
+        thirdPartyAv = @()
     }
 }
 
@@ -718,6 +719,23 @@ DeviceEvents
         $Devices[$id].tampering30d = [int]$r.Attempts; $Devices[$id].tamperingLast = [string]$r.Last
     }
 
+    # Third-party AV/EDR products from the software inventory (vendor/product patterns, see $script:WlThirdPartyAv).
+    $qAv = @"
+// WardlineThirdPartyAv
+DeviceTvmSoftwareInventory
+| where SoftwareVendor has_any ("crowdstrike", "sentinelone", "sentinel labs", "carbon black", "broadcom", "symantec", "sophos", "trellix", "mcafee", "fireeye", "eset", "trend micro", "palo alto", "bitdefender", "kaspersky", "cylance", "blackberry", "cybereason", "withsecure", "f-secure", "elastic", "malwarebytes", "check point", "fortinet", "g data", "avast", "avg", "webroot", "tanium", "huntress", "cisco")
+    or SoftwareName has_any ("falcon sensor", "sentinel agent", "carbon black", "cb defense", "endpoint protection", "endpoint security", "cortex xdr", "traps", "apex one", "deep security", "gravityzone", "elastic agent", "elastic endpoint", "secure endpoint", "amp for endpoints", "harmony endpoint", "forticlient", "intercept x", "huntress agent")
+| where SoftwareVendor !has "microsoft"
+| summarize Products = make_set(strcat(SoftwareVendor, " ", SoftwareName), 10) by DeviceId
+"@
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qAv -Context 'Advanced Hunting software inventory (third-party AV/EDR)')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if (-not $Devices.ContainsKey($id)) { continue }
+        $list = $r.Products; if ($list -is [string]) { try { $list = $list | ConvertFrom-Json } catch { $list = @($list) } }
+        $Devices[$id].thirdPartyAv = @(@($list) | ForEach-Object { [string]$_ } | Where-Object { $_ } | Sort-Object -Unique)
+    }
+
     $inactive = @()
     if (Test-WlFeature -Name 'response') {
         $res = 'https://api.securitycenter.microsoft.com'
@@ -781,6 +799,28 @@ function Get-WlFleetFindings {
                         -Detail (& $T "Defender recorded $($d.tampering30d) TamperingAttempt event(s) on $($d.deviceName) (last $($d.tamperingLast))$(if ($tamperOff) { ' – and tamper protection is off on this device, so such attempts succeed' }). Attempts to change protected Defender settings are typical for persistence and defence evasion, but also for misconfigured management scripts." "Defender hat auf $($d.deviceName) $($d.tampering30d) TamperingAttempt-Ereignis(se) aufgezeichnet (zuletzt $($d.tamperingLast))$(if ($tamperOff) { ' – und Tamper Protection ist auf diesem Gerät aus, solche Versuche sind also erfolgreich' }). Versuche, geschützte Defender-Einstellungen zu ändern, sind typisch für Persistenz und Defence Evasion, aber auch für fehlkonfigurierte Verwaltungsskripte.") `
                         -Recommendation (& $T 'Review the events in the device timeline (DeviceEvents, ActionType TamperingAttempt): which process, which setting? Fix scripts that write Defender settings directly; investigate anything unexplained.' 'Ereignisse in der Geräte-Timeline prüfen (DeviceEvents, ActionType TamperingAttempt): welcher Prozess, welche Einstellung? Skripte korrigieren, die Defender-Einstellungen direkt schreiben; Unerklärliches untersuchen.') -Subject "fleet|tamper|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
         }
+    }
+
+    # Third-party AV/EDR next to Defender: the interesting cases are "both active" (double scanning, exclusion mismatch,
+    # unclear which product owns an incident) and the overall footprint (licence and architecture question).
+    $thirdParty = @($all | Where-Object { @($_.thirdPartyAv).Count -gt 0 })
+    foreach ($d in $thirdParty) {
+        $products = (@($d.thirdPartyAv) -join ', ')
+        if ($d.avMode -eq '0' -and $d.os -match '^Windows') {
+            $f.Add((New-WlFinding -Severity 'Medium' -Category 'Fleet' -Title (& $T 'Third-party AV/EDR alongside active Defender Antivirus' 'Fremd-AV/EDR neben aktivem Defender Antivirus') `
+                        -Detail (& $T "$($d.deviceName) has $products installed while Defender Antivirus runs in active mode. Two real-time engines compete for files and CPU, exclusions have to be kept in sync on both sides, and detections appear in two consoles. Defender did not switch to passive mode – the third-party product may not be registered with the Windows Security Center, or it may be an EDR-only sensor." "$($d.deviceName) hat $products installiert, während Defender Antivirus im aktiven Modus läuft. Zwei Echtzeit-Engines konkurrieren um Dateien und CPU, Ausschlüsse müssen auf beiden Seiten gepflegt werden, Erkennungen erscheinen in zwei Konsolen. Defender ist nicht in den passiven Modus gewechselt – das Fremdprodukt ist möglicherweise nicht im Windows Security Center registriert oder ein reiner EDR-Sensor.") `
+                        -Recommendation (& $T 'Decide on one primary AV: either remove the third-party product (Defender for Endpoint P2 already covers EDR) or let Defender run in passive/EDR-block mode behind it. Mirror exclusions deliberately.' 'Ein primäres AV festlegen: Fremdprodukt entfernen (Defender for Endpoint P2 deckt EDR bereits ab) oder Defender dahinter im passiven/EDR-Block-Modus betreiben. Ausschlüsse bewusst spiegeln.') -Subject "fleet|3pav|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+    }
+    if ($thirdParty.Count) {
+        $vendors = @{}
+        foreach ($d in $thirdParty) { foreach ($p in @($d.thirdPartyAv)) { $v = ([string]$p -split ' ')[0]; $vendors[$v] = [int]$vendors[$v] + 1 } }
+        $vendorText = (@($vendors.GetEnumerator() | Sort-Object { -$_.Value } | ForEach-Object { "$($_.Key) ($($_.Value))" }) -join ', ')
+        $passive = @($thirdParty | Where-Object { $_.avMode -in '1', '2' }).Count
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($thirdParty.Count) onboarded device(s) with a third-party AV/EDR product" "$($thirdParty.Count) onboardete(s) Gerät(e) mit Fremd-AV/EDR-Produkt") `
+                    -Detail (& $T "Vendors: $vendorText. $passive device(s) run Defender in passive mode behind the other product. Every onboarded device is covered by the Defender for Endpoint licence of its user – a second EDR on the same device is a double spend unless it is a deliberate migration or defence-in-depth decision." "Hersteller: $vendorText. $passive Gerät(e) betreiben Defender im passiven Modus hinter dem anderen Produkt. Jedes onboardete Gerät ist durch die Defender-for-Endpoint-Lizenz seines Benutzers abgedeckt – ein zweites EDR auf demselben Gerät ist eine Doppelausgabe, sofern es nicht bewusste Migration oder Defense-in-Depth ist.") `
+                    -Recommendation (& $T 'Document the intended end state per vendor (migration to Defender, Defender passive, or removal) and track the device count in the device list (filter: third-party AV).' 'Zielzustand je Hersteller dokumentieren (Migration zu Defender, Defender passiv oder Entfernung) und die Gerätezahl in der Geräteliste verfolgen (Filter: Fremd-AV).') -Subject 'fleet|3pav' -StableKey |
+                Add-Member -NotePropertyName deviceCount -NotePropertyValue $thirdParty.Count -PassThru | Add-Member -NotePropertyName deviceSample -NotePropertyValue @($thirdParty | Select-Object -First 10 | ForEach-Object deviceName) -PassThru))
     }
 
     $excluded = @($all | Where-Object { $_.tvmExcluded -eq $true })
@@ -2239,7 +2279,7 @@ function Get-WlEndpointFindings {
 #region Device statistics and search (large fleets)
 $script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
     'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
-    'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', '_filter', '_search')
+    'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', 'thirdPartyAv', '_filter', '_search')
 $script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
 function Get-WlDeviceChartState {
@@ -2303,14 +2343,15 @@ function Get-WlDeviceFilter {
     [void]$sb.Append('asrBelow:').Append($(if ($asrBelow) { '1' } else { '0' })).Append(' ')
     $inet = & $get 'internetFacing'; [void]$sb.Append('inet:').Append($(if ($inet -eq $true -or "$inet" -match '^(true|1)$') { '1' } else { '0' })).Append(' ')
     $tp = & $get 'tampering30d'; [void]$sb.Append('tampering:').Append($(if ($tp -and [int]$tp -gt 0) { '1' } else { '0' })).Append(' ')
+    $ta = & $get 'thirdPartyAv'; [void]$sb.Append('3pav:').Append($(if ($ta -and @($ta).Count -gt 0 -and "$ta" -ne '') { '1' } else { '0' })).Append(' ')
     $ts = & $get 'troubleshooting30d'; [void]$sb.Append('troubleshooting:').Append($(if ($ts -and [int]$ts -gt 0) { '1' } else { '0' })).Append(' ')
     $sb.ToString()
 }
 
 function Get-WlDeviceSearchText {
     param([Parameter(Mandatory)]$Device)
-    if ($Device -is [System.Collections.IDictionary]) { return "$($Device['deviceName']) $($Device['os']) $($Device['osVersion']) $($Device['deviceGroup']) $($Device['lastUser']) $(@($Device['tags']) -join ' ')".ToLowerInvariant() }
-    "$($Device.deviceName) $($Device.os) $($Device.osVersion) $($Device.deviceGroup) $($Device.lastUser) $(@($Device.tags) -join ' ')".ToLowerInvariant()
+    if ($Device -is [System.Collections.IDictionary]) { return "$($Device['deviceName']) $($Device['os']) $($Device['osVersion']) $($Device['deviceGroup']) $($Device['lastUser']) $(@($Device['tags']) -join ' ') $(@($Device['thirdPartyAv']) -join ' ')".ToLowerInvariant() }
+    "$($Device.deviceName) $($Device.os) $($Device.osVersion) $($Device.deviceGroup) $($Device.lastUser) $(@($Device.tags) -join ' ') $(@($Device.thirdPartyAv) -join ' ')".ToLowerInvariant()
 }
 
 function Get-WlDeviceStats {
@@ -2321,7 +2362,7 @@ function Get-WlDeviceStats {
     Reads the pre-computed _filter tokens; devices without them (unit tests) are classified on the fly.
     #>
     param([AllowEmptyCollection()][object[]]$Devices)
-    $chartIds = @($script:WlDeviceFeatures) + @('sig', 'sensor', 'mode')
+    $chartIds = @($script:WlDeviceFeatures) + @('sig', 'sensor', 'mode', '3pav')
     $counts = @{}; foreach ($c in $chartIds + @('os')) { $counts[$c] = [System.Collections.Generic.Dictionary[string, int]]::new() }
     $groups = [System.Collections.Generic.Dictionary[string, int]]::new(); $issues = 0; $n = 0
     foreach ($d in $Devices) {
@@ -2363,7 +2404,7 @@ function ConvertFrom-WlDeviceIndexRow {
             { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts', 'tampering30d', 'troubleshooting30d' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
             'localExclusionsHighRisk' { $o[$name] = ($v -match '^(true|1)$') }
             'internetFacing' { $o[$name] = $(if ($v -eq '') { $null } else { $v -match '^(true|1)$' }) }
-            'tags' { $o[$name] = @($v.Split(';', [StringSplitOptions]::RemoveEmptyEntries)) }
+            { $_ -in 'tags', 'thirdPartyAv' } { $o[$name] = @($v.Split(';', [StringSplitOptions]::RemoveEmptyEntries)) }
             default { $o[$name] = $(if ($v -eq '') { $null } else { $v }) }
         }
     }
@@ -2535,6 +2576,7 @@ function Invoke-WlEndpointCollection {
                 troubleshootingActive = @($deviceList | Where-Object { $_.troubleshootingActive }).Count
                 troubleshooting30d    = @($deviceList | Where-Object { $_.troubleshooting30d -gt 0 }).Count
                 tampering30d          = @($deviceList | Where-Object { $_.tampering30d -gt 0 }).Count
+                thirdPartyAv          = @($deviceList | Where-Object { @($_.thirdPartyAv).Count -gt 0 }).Count
                 tvmExcluded           = @($deviceList | Where-Object { $_.tvmExcluded -eq $true }).Count
                 tagged                = @($deviceList | Where-Object { @($_.tags).Count -gt 0 }).Count
                 transient             = @($deviceList | Where-Object { $_.transient -eq $true }).Count

@@ -168,6 +168,13 @@
         "description": "Module \"Access\" (PIM, roles, access packages). Optional, off by default."
       }
     },
+    "enableLicensing": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Module \"Licensing\" (Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices). Optional, off by default."
+      }
+    },
     "updateCheck": {
       "type": "bool",
       "defaultValue": true,
@@ -216,6 +223,13 @@
         "description": "Schedule of the endpoint module (NCRONTAB, UTC)."
       }
     },
+    "scheduleLicensing": {
+      "type": "string",
+      "defaultValue": "0 17 3 * * *",
+      "metadata": {
+        "description": "Schedule of the licensing module (NCRONTAB, UTC)."
+      }
+    },
     "scheduleAccess": {
       "type": "string",
       "defaultValue": "0 47 2 * * *",
@@ -254,7 +268,7 @@
     "planName": "[if(empty(parameters('customPlanName')), format('plan-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customPlanName'))]",
     "logWorkspaceName": "[if(empty(parameters('customLogWorkspaceName')), format('log-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customLogWorkspaceName'))]",
     "appInsightsName": "[if(empty(parameters('customAppInsightsName')), format('appi-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customAppInsightsName'))]",
-    "modules": "[format('endpoint{0}{1}', if(parameters('enableAgents'), ',agents', ''), if(parameters('enableAccess'), ',access', ''))]",
+    "modules": "[format('endpoint{0}{1}{2}', if(parameters('enableAgents'), ',agents', ''), if(parameters('enableAccess'), ',access', ''), if(parameters('enableLicensing'), ',licensing', ''))]",
     "roles": {
       "storageBlobDataOwner": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
       "storageQueueDataContributor": "974c5e8b-45b9-4653-ba55-5f855dd0fb88",
@@ -572,6 +586,10 @@
             {
               "name": "WL_SCHEDULE_ACCESS",
               "value": "[parameters('scheduleAccess')]"
+            },
+            {
+              "name": "WL_SCHEDULE_LICENSING",
+              "value": "[parameters('scheduleLicensing')]"
             },
             {
               "name": "WL_CHANGE_RETENTION_DAYS",

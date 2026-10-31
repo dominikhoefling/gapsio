@@ -59,6 +59,7 @@ nav:
       - Endpoint: modules/endpoint.md
       - AI agents: modules/agents.md
       - Access (optional): modules/access.md
+      - Licensing (optional): modules/licensing.md
   - Using Wardline:
       - Portal: portal.md
       - Customising the baseline: baseline.md
@@ -67,6 +68,7 @@ nav:
       - Support: support.md
   - Reference:
       - Security review: trust.md
+      - Compliance mapping: compliance.md
       - Architecture and data protection: security.md
       - Known limitations: limitations.md
       - Testing in a test tenant: testing.md

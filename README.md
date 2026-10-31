@@ -14,6 +14,8 @@ storage keys, read-only permissions only – granted per feature.
 - **AI agents** – cloud agents (Entra Agent ID, Agent 365, Defender AgentsInfo) with blueprint, agent and agent user IDs
   and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
 - **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role, how (direct, group, PIM eligible, access package), for which data sources – and whether it was ever used
+- **Licensing** (optional) – Defender for Endpoint licence indication: plans owned vs. users entitled vs. client devices actually onboarded and who uses them; servers listed separately
+- **Third-party AV/EDR** – devices running CrowdStrike, SentinelOne & co. alongside an active Defender Antivirus
 - **History** – dated snapshots and drift between runs, accepted risks with audit log, notifications to Teams, CSV export; portal in English and German
 
 ## Quick start (Azure Cloud Shell, PowerShell)

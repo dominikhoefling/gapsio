@@ -9,6 +9,18 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 First version published on GitHub.
 
 ### Added
+- **Licensing module (optional, Defender for Endpoint only)**: compares the MDE service plans a tenant owns (`subscribedSkus`),
+  the users that hold such a plan (`assignedPlans`) and the client devices actually onboarded (Advanced Hunting, optional Intune
+  mapping) and who uses them. New portal page *Licensing (MDE)* with SKUs, client devices (Licensed/Unlicensed/No user, confidence
+  Intune/Logon), licensed users and a separate server list; findings for over-consumption, unlicensed clients, Plan-1-only devices,
+  licensed users without a device and users over the five-device limit; caveats are shown on the page. Feature `Licensing`
+  (permissions `Organization.Read.All`, `User.Read.All`), timer `CollectLicensing`, settings `WL_SCHEDULE_LICENSING`,
+  `WL_LICENSING_DAYS`, `WL_LICENSING_DEVICES_PER_USER`, `WL_LICENSING_DETAIL` (`aggregate` pseudonymises UPNs).
+- **Third-party AV/EDR**: `DeviceTvmSoftwareInventory` is queried for other AV/EDR vendors; devices show the products, a new
+  device chart and filter `3pav:1`, a Medium finding per device where a third-party product runs alongside an active Defender
+  Antivirus and an aggregated Low finding per tenant.
+- **Compliance mapping** (`docs/compliance.md`): how Wardline evidence maps to ISO 27001:2022 Annex A, NIST CSF 2.0, SOC 2 and
+  GDPR, plus an audit readiness checklist.
 - **Community edition without a licence key**: collection and storage are always complete, but without a valid licence the
   API serves every list (devices, findings, exclusions, agents, policies, entitlements, changes …) with only the first
   10 entries in clear; further entries are masked on the server (names, identifiers, users, paths and free text →

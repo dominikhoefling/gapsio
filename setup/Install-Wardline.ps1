@@ -22,6 +22,7 @@
       Coverage    default    Defender coverage gaps: Intune-managed devices not onboarded to Defender
       Agents      default    AI agents: Entra Agent ID, Agent 365 registry, Conditional Access coverage
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
+      Licensing   optional   Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices without a licensed user
       Inventory   optional   Device inventory via Intune Remediations (use -DeviceInventory, deploys a detection script)
     Show the exact permissions without installing:  ./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Agents
 
@@ -98,7 +99,7 @@ if ($DeviceInventory -and $RemoveDeviceInventory) { throw '-DeviceInventory and 
 $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-WardlineFeatures -Features $featureList
-$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' })
+$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' })
 $endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
@@ -193,7 +194,7 @@ function Deploy-Infrastructure {
     $params = @(
         "namePrefix=$NamePrefix", "retentionDays=$RetentionDays", "snapshotRetentionDays=$SnapshotRetentionDays", "changeRetentionDays=$ChangeRetentionDays", "enableImmutability=$($EnableImmutability.IsPresent.ToString().ToLower())",
         "storageSku=$StorageSku", "ssoClientId=$SsoClientId", "location=$Location", "deviceInventory=$(($featureList -contains 'Inventory').ToString().ToLower())",
-        "enableAgents=$(($modules -contains 'agents').ToString().ToLower())", "enableAccess=$(($modules -contains 'access').ToString().ToLower())",
+        "enableAgents=$(($modules -contains 'agents').ToString().ToLower())", "enableAccess=$(($modules -contains 'access').ToString().ToLower())", "enableLicensing=$(($modules -contains 'licensing').ToString().ToLower())",
         "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId", "notifyMinSeverity=$NotifyMinSeverity"
     )
     if ($NotifyWebhookUrl) { $params += "notifyWebhook=$NotifyWebhookUrl" }
@@ -420,7 +421,7 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
-        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' })
+        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' })
         foreach ($fn in $fns) {
             Invoke-RestMethod -Method Post -Uri "https://$($infra.HostName)/admin/functions/$fn" -Headers @{ 'x-functions-key' = $keys.masterKey } -ContentType 'application/json' -Body '{"input":""}' | Out-Null
         }

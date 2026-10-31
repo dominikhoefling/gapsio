@@ -100,7 +100,7 @@ $script:WlMaskText = '••••••••'
 # Property names whose string values are enumerations/codes the portal needs for filters, charts and colours – never identifiers.
 $script:WlMaskKeepNames = @('severity', 'category', 'status', 'os', 'osPlatform', 'type', 'scope', 'platform', 'mode', 'agentType', 'source', 'kind', 'level', 'via', 'state', 'present',
     'active', 'module', 'audience', 'principalType', 'dataSource', 'operator', 'assignmentType', 'operation', 'result', 'action', 'avMode', 'avModeText', 'sensorHealth', 'exposure',
-    'assetValue', 'joinType', 'deviceType', 'managedBy', 'usage', 'publishedStatus', 'lifecycle', 'networkProtectionSource', 'plan', 'tier', '_masked')
+    'assetValue', 'joinType', 'deviceType', 'managedBy', 'usage', 'publishedStatus', 'lifecycle', 'networkProtectionSource', 'plan', 'tier', 'confidence', 'isServer', 'detail', '_masked')
 # Property names whose whole subtree consists of codes (feature → GOOD/BAD, rule → mode, counts …).
 $script:WlMaskKeepParents = @('checks', 'asr', 'effective', 'targets', 'controls', 'riskLevels', 'sources', 'summary', 'charts', 'groups', 'modes', 'counts', 'dataSources', 'permissionGroups', 'sevCount')
 

@@ -194,6 +194,24 @@
           "why": "Resolve role holders of any type (users, groups, service principals)"
         }
       ]
+    },
+    {
+      "id": "Licensing",
+      "default": false,
+      "module": "licensing",
+      "name": "Licensing: Defender for Endpoint licence indication – purchased vs. assigned plans, licensed users, onboarded client devices without a licensed user (needs Hunting for the device mapping)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "Organization.Read.All",
+          "why": "Subscribed SKUs: purchased and assigned Defender for Endpoint units"
+        },
+        {
+          "resource": "graph",
+          "value": "User.Read.All",
+          "why": "Assigned service plans per user (which users hold an MDE P1/P2 or Defender for Business plan)"
+        }
+      ]
     }
   ]
 }

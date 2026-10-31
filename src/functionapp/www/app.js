@@ -41,7 +41,9 @@
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
-    'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents (beta)', 'Agents (Beta)'], 'mod.access': ['Access', 'Zugriffe'],
+    'nav.licensing': ['Licences (Defender for Endpoint)', 'Lizenzen (Defender for Endpoint)'], 'v.licensing': ['Licence indication', 'Lizenz-Indikation'],
+    'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents (beta)', 'Agents (Beta)'], 'mod.access': ['Access', 'Zugriffe'], 'mod.licensing': ['Licensing', 'Lizenzen'],
+    'cat.Licensing': ['Licensing', 'Lizenzen'], 'coll.skus': ['SKU', 'SKU'], 'coll.users': ['Licensed user', 'Lizenzierter Benutzer'],
     // severities and categories
     'sev.Critical': ['Critical', 'Kritisch'], 'sev.High': ['High', 'Hoch'], 'sev.Medium': ['Medium', 'Mittel'], 'sev.Low': ['Low', 'Niedrig'], 'sev.Info': ['Info', 'Info'],
     'cat.Combined': ['Combined', 'Kombiniert'], 'cat.Device': ['Device', 'Gerät'], 'cat.Exclusion': ['Exclusion', 'Exclusion'], 'cat.Indicator': ['Indicator', 'Indikator'],
@@ -260,6 +262,22 @@
     'dv.user': ['Last user', 'Letzter Benutzer'], 'dv.join': ['Join type', 'Join-Typ'], 'dv.sensor': ['Sensor health', 'Sensorzustand'], 'dv.exposure': ['Exposure level', 'Gefährdungsstufe'],
     'dv.tags': ['Device tags', 'Geräte-Tags'], 'dv.inet': ['Internet-facing', 'Internet-exponiert'], 'dv.assetValue': ['Asset value', 'Asset-Wert'], 'dv.tvmExcluded': ['Excluded from Vulnerability Management', 'Von Vulnerability Management ausgeschlossen'],
     'dv.tampering': ['Tampering attempts (30 d)', 'Manipulationsversuche (30 T)'], 'dv.troubleshooting': ['Troubleshooting mode (30 d)', 'Troubleshooting-Modus (30 T)'], 'dv.tsActive': ['active now', 'gerade aktiv'], 'dv.clientVersion': ['Sensor version', 'Sensorversion'],
+    'dv.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'ov.thirdParty': ['devices with a third-party AV/EDR product', 'Geräte mit Fremd-AV/EDR-Produkt'], 'd.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'chart.3pav.1': ['third-party product present', 'Fremdprodukt vorhanden'], 'chart.3pav.0': ['Defender only', 'nur Defender'],
+    // licensing (optional module, Defender for Endpoint only)
+    'li.lede': ['Indication, not an audit: which Defender for Endpoint plans are purchased and assigned, which users hold them, and which onboarded client devices were used in the last {0} days only by people without a plan. Devices are mapped to users via the Intune primary user and the Defender logon events – shared, kiosk and unattended devices need a manual look. Server licences are not visible in Microsoft 365.', 'Indikation, kein Audit: welche Defender-for-Endpoint-Pläne gekauft und zugewiesen sind, welche Benutzer sie halten und welche onboardeten Client-Geräte in den letzten {0} Tagen nur von Personen ohne Plan genutzt wurden. Geräte werden über den primären Intune-Benutzer und die Defender-Anmeldeereignisse Benutzern zugeordnet – Shared-, Kiosk- und unbeaufsichtigte Geräte brauchen einen manuellen Blick. Serverlizenzen sind in Microsoft 365 nicht sichtbar.'],
+    'li.skus': ['Purchased plans', 'Gekaufte Pläne'], 'li.sku': ['SKU', 'SKU'], 'li.tier': ['Plan', 'Plan'], 'li.enabled': ['Purchased', 'Gekauft'], 'li.consumed': ['Assigned', 'Zugewiesen'], 'li.free': ['Free', 'Frei'], 'li.over': ['over-assigned', 'überzugewiesen'],
+    'li.tier.P2': ['Plan 2', 'Plan 2'], 'li.tier.P1': ['Plan 1', 'Plan 1'], 'li.tier.MDB': ['Defender for Business', 'Defender for Business'], 'li.tier.Server': ['Servers', 'Server'],
+    'li.licensedUsers': ['users with an MDE plan', 'Benutzer mit MDE-Plan'], 'li.clients': ['onboarded clients', 'onboardete Clients'], 'li.clientsUnlicensed': ['clients used only by unlicensed users', 'Clients nur von Unlizenzierten genutzt'], 'li.clientsNoUser': ['clients without any user seen', 'Clients ohne erkannten Benutzer'],
+    'li.usersNoDevice': ['licensed users without a device', 'lizenzierte Benutzer ohne Gerät'], 'li.usersOver': ['users above {0} devices', 'Benutzer über {0} Geräten'], 'li.servers': ['onboarded servers (separate licence)', 'onboardete Server (separate Lizenz)'], 'li.p1only': ['clients covered by Plan 1 only', 'Clients nur durch Plan 1 abgedeckt'],
+    'li.devices': ['Client devices', 'Client-Geräte'], 'li.devices.lede': ['Every onboarded client with the users seen in the window and the best plan among them. “No user” means neither Intune nor the logon events named anyone.', 'Jeder onboardete Client mit den im Zeitraum gesehenen Benutzern und dem besten Plan darunter. „Kein Benutzer“ heißt: weder Intune noch die Anmeldeereignisse nennen jemanden.'],
+    'li.state': ['Licence state', 'Lizenzstatus'], 'ls.Licensed': ['Licensed', 'Lizenziert'], 'ls.Unlicensed': ['Unlicensed', 'Unlizenziert'], 'ls.NoUser': ['No user', 'Kein Benutzer'], 'ls.Server': ['Server', 'Server'],
+    'li.users': ['Users seen', 'Gesehene Benutzer'], 'li.licensedBy': ['Covered by', 'Abgedeckt durch'], 'li.confidence': ['Mapping', 'Zuordnung'], 'lc.Intune': ['Intune primary user', 'Primärer Intune-Benutzer'], 'lc.Logon': ['Logon events', 'Anmeldeereignisse'], 'lc.LoggedOn': ['Defender logged-on user', 'Angemeldeter Benutzer (Defender)'], 'lc.None': ['–', '–'],
+    'li.userTable': ['Licensed users', 'Lizenzierte Benutzer'], 'li.userTable.lede': ['Users with a Defender for Endpoint plan and the onboarded client devices they were seen on.', 'Benutzer mit Defender-for-Endpoint-Plan und die onboardeten Client-Geräte, auf denen sie gesehen wurden.'],
+    'li.user': ['User', 'Benutzer'], 'li.deviceCount': ['Devices', 'Geräte'], 'lu.InUse': ['In use', 'In Nutzung'], 'lu.NoDevice': ['No device', 'Kein Gerät'], 'lu.OverLimit': ['Above {0} devices', 'Über {0} Geräten'], 'lu.Disabled': ['Account disabled', 'Konto deaktiviert'],
+    'li.onlyUnlicensed': ['Unlicensed only', 'Nur unlizenzierte'], 'li.onlyNoDevice': ['Without device only', 'Nur ohne Gerät'],
+    'li.serversTable': ['Servers', 'Server'], 'li.servers.lede': ['Onboarded servers are licensed per server (Defender for Servers via Defender for Cloud, or Defender for Endpoint for Servers). Microsoft Graph does not show these; the count is here so you can reconcile it with Azure.', 'Onboardete Server werden pro Server lizenziert (Defender for Servers über Defender for Cloud oder Defender for Endpoint for Servers). Microsoft Graph zeigt diese nicht; die Zahl steht hier zum Abgleich mit Azure.'],
+    'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (WL_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (WL_LICENSING_DETAIL=aggregate).'],
+    'li.none': ['No data.', 'Keine Daten.'], 'li.window': ['Observation window: {0} days · device allowance per user used for the hint: {1}', 'Beobachtungszeitraum: {0} Tage · für den Hinweis verwendete Gerätegrenze pro Benutzer: {1}'],
     'dv.sigver': ['Signature version', 'Signaturversion'], 'dv.engver': ['Engine / platform', 'Engine / Plattform'], 'dv.sigtime': ['Signatures published', 'Signaturen veröffentlicht'],
     'dv.target': ['Target', 'Soll'], 'dv.effective': ['On the device', 'Auf dem Gerät'], 'dv.none': ['None.', 'Keine.'],
     'chk.AntivirusEnabled': ['Antivirus enabled', 'Virenschutz aktiv'], 'chk.RealtimeProtection': ['Real-time protection', 'Echtzeitschutz'], 'chk.BehaviorMonitoring': ['Behavior monitoring', 'Verhaltensüberwachung'],
@@ -318,7 +336,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -694,7 +712,7 @@
   function trendCharts(runs, avail) {
     const chartW = avail && avail > 760 ? (avail - 14) / 2 - 30 : Math.max(340, (avail || 700) - 30);
     const days = lastDays(30);
-    const withFindings = runs.filter(r => r.findings && (r.module === 'endpoint' || r.module === 'agents' || r.module === 'access'));
+    const withFindings = runs.filter(r => r.findings && (r.module === 'endpoint' || r.module === 'agents' || r.module === 'access' || r.module === 'licensing'));
     if (!runs.length) return null;
     // Open findings: the last run of each module per day, carried forward over days without a run
     const perModule = {};
@@ -786,6 +804,7 @@
     try { const r = await api(`device?id=${encodeURIComponent(id)}`); return (r && r.device) || null; } catch { return null; }
   }
   async function loadAccess(force) { if (!state.access || force) state.access = await api('access'); return state.access; }
+  async function loadLicensing(force) { if (!state.licensing || force) state.licensing = await api('licensing'); return state.licensing; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadAcceptances(force) {
     if (!state.acceptances || force) {
@@ -958,11 +977,12 @@
     },
 
     async overview(main) {
-      let ep = null, ac = null, ag = null, epErr = null, acErr = null, agErr = null;
+      let ep = null, ac = null, ag = null, li = null, epErr = null, acErr = null, agErr = null;
       await Promise.all([
         loadEndpoint().then(x => ep = x).catch(e => epErr = e),
         hasMod('agents') ? loadAgents().then(x => ag = x).catch(e => agErr = e) : null,
-        hasMod('access') ? loadAccess().then(x => ac = x).catch(e => acErr = e) : null]);
+        hasMod('access') ? loadAccess().then(x => ac = x).catch(e => acErr = e) : null,
+        hasMod('licensing') ? loadLicensing().then(x => li = x).catch(() => null) : null]);
       main.append(h('h1', null, t('ov.title')));
       if (!ep && !ac && !ag) { main.append(noData(epErr || agErr || acErr, 'all')); return; }
 
@@ -988,7 +1008,8 @@
           fact(num(s.edrExclusions), t('ov.edr')), fact(t('ov.of', s.asrRulesOk || 0, s.asrRulesTotal || 0), t('ov.asr')), fact(t('ov.of', s.baselineOk || 0, s.baselineTotal || 0), t('ov.baseline')),
           s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null,
           s.fleet ? fact(num(s.fleet.tampering30d), t('ov.tampering')) : null, s.fleet ? fact(num(s.fleet.internetFacingHigh), t('ov.inetHigh')) : null,
-          s.fleet && s.fleet.inactive90d !== null && s.fleet.inactive90d !== undefined ? fact(num(s.fleet.inactive90d), t('ov.inactive')) : null));
+          s.fleet && s.fleet.inactive90d !== null && s.fleet.inactive90d !== undefined ? fact(num(s.fleet.inactive90d), t('ov.inactive')) : null,
+          s.fleet && s.fleet.thirdPartyAv ? fact(num(s.fleet.thirdPartyAv), t('ov.thirdParty')) : null));
       } else {
         main.append(noData(epErr, 'endpoint'));
       }
@@ -1008,6 +1029,13 @@
           s.unusedActive !== undefined ? fact(num(s.unusedActive), t('ov.unusedAcc')) : null, s.bypassUsers !== undefined ? fact(num(s.bypassUsers), t('ov.bypass')) : null,
           s.openAudiences ? fact(num(s.openAudiences), t('ov.openPkg')) : null));
       }
+      if (li && li.summary) {
+        const s = li.summary;
+        main.append(h('h2', null, h('a', { href: '#/licensing' }, t('nav.licensing'))), h('div', { class: 'facts' },
+          fact(`${num(s.p2Consumed)} / ${num(s.p2Enabled)}`, `${t('li.tier.P2')} · ${t('li.consumed').toLowerCase()} / ${t('li.enabled').toLowerCase()}`),
+          fact(num(s.licensedUsers), t('li.licensedUsers')), fact(num(s.clients), t('li.clients')), fact(num(s.clientsUnlicensed), t('li.clientsUnlicensed')),
+          fact(num(s.usersNoDevice), t('li.usersNoDevice')), fact(num(s.servers), t('li.servers'))));
+      }
 
       const runs = await api('runs').catch(() => []);
       const trend = trendCharts(arr(runs), contentWidth());
@@ -1023,18 +1051,18 @@
             { title: t('col.duration'), text: r => r.durationSec ? `${r.durationSec} s` : '–' }]
         }));
       }
-      main.append(warningsBlock([...arr(ep && ep.warnings), ...arr(ag && ag.warnings), ...arr(ac && ac.warnings)]) || '');
+      main.append(warningsBlock([...arr(ep && ep.warnings), ...arr(ag && ag.warnings), ...arr(ac && ac.warnings), ...arr(li && li.warnings)]) || '');
     },
 
     async findings(main, params) {
       main.append(h('h1', null, t('v.findings')), h('p', { class: 'lede' }, t('f.lede')));
-      let ep = null, ag = null, ac = null, err = null;
+      let ep = null, ag = null, ac = null, li = null, err = null;
       await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null,
-        hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null]);
-      if (!ep && !ag && !ac) { main.append(noData(err, 'endpoint')); return; }
+        hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null, hasMod('licensing') ? loadLicensing().then(x => li = x).catch(() => null) : null]);
+      if (!ep && !ag && !ac && !li) { main.append(noData(err, 'endpoint')); return; }
       await loadAcceptances();
       const acc = acceptedMap(), asg = assignedMap();
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' })), ...arr(li && li.findings).map(f => ({ ...f, module: 'licensing' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
       const assignees = [...new Set(rows.filter(r => r.assigned).map(r => r.assigned.displayName))].sort();
       const table = dataTable({
@@ -1204,6 +1232,7 @@
         { id: 'sig', title: t('d.sigs'), get: sigState, segs: STATE_SEGS, rate: true },
         { id: 'sensor', title: t('d.sensorHealth'), get: sensorState, segs: [['on', 'chart.on', 'var(--sev-ok)'], ['off', 'problem', 'var(--sev-krit)'], ['unknown', 'chart.unknown', 'var(--muted)']], rate: true, label: (r) => r.sensorHealth },
         { id: 'mode', title: t('d.runmode'), get: modeClass, segs: [['Active', 'mode.Active', 'var(--sev-ok)'], ['EdrBlock', 'mode.EdrBlock', 'var(--sev-hoch)'], ['Passive', 'mode.Passive', 'var(--sev-krit)'], ['Unknown', 'mode.Unknown', 'var(--muted)']] },
+        { id: '3pav', title: t('d.thirdParty'), get: r => arr(r.thirdPartyAv).length ? '1' : '0', segs: [['1', 'chart.3pav.1', 'var(--sev-mittel)'], ['0', 'chart.3pav.0', 'var(--sev-ok)']], label: r => arr(r.thirdPartyAv).join(', ') },
         { id: 'os', title: t('d.platforms'), get: r => r.os || '–', segs: (large ? Object.keys((ep.deviceStats && ep.deviceStats.charts.os) || {}) : [...new Set(rows.map(r => r.os || '–'))]).sort().map((o, i) => [o, null, PALETTE[i % PALETTE.length]]) }];
       const chartOptions = [];
       charts.forEach(ch => ch.segs.forEach(([id, lk]) => chartOptions.push({ value: `${ch.id}|${id}`, label: `${ch.title}: ${lk ? t(lk) : id}` })));
@@ -1308,6 +1337,7 @@
         [t('dv.tags'), arr(d.tags).length ? arr(d.tags).join(', ') : null], [t('dv.inet'), d.internetFacing === true ? h('span', { class: d.exposure === 'High' ? 'state bad' : 'state warn' }, t('yes')) : (d.internetFacing === false ? t('no') : null)],
         [t('dv.assetValue'), d.assetValue || null], [t('dv.tvmExcluded'), d.tvmExcluded === true ? `${t('yes')}${d.tvmExclusionReason ? ` – ${d.tvmExclusionReason}` : ''}` : null],
         [t('dv.tampering'), d.tampering30d > 0 ? h('span', { class: 'state bad' }, `${d.tampering30d}${d.tamperingLast ? ` · ${fmtDate(d.tamperingLast)}` : ''}`) : null],
+        [t('dv.thirdParty'), arr(d.thirdPartyAv).length ? h('span', { class: d.avMode === '0' ? 'state warn' : '' }, arr(d.thirdPartyAv).join(', ')) : null],
         [t('dv.troubleshooting'), d.troubleshooting30d > 0 || d.troubleshootingActive ? h('span', { class: d.troubleshootingActive ? 'state bad' : 'state warn' }, `${d.troubleshooting30d || 0}${d.troubleshootingActive ? ` · ${t('dv.tsActive')}` : ''}${d.troubleshootingLast ? ` · ${fmtDate(d.troubleshootingLast)}` : ''}`) : null],
         [t('dv.clientVersion'), d.clientVersion || null],
         [t('d.lastSeen'), fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
@@ -1725,6 +1755,95 @@
       main.append(warningsBlock(ac.warnings) || '');
     },
 
+    async licensing(main) {
+      main.append(h('h1', null, t('nav.licensing')));
+      let li; try { li = await loadLicensing(); } catch (e) { main.append(noData(e, 'licensing')); return; }
+      const s = li.summary || {};
+      main.append(h('p', { class: 'lede' }, t('li.lede', s.observedDays || 30)));
+      main.append(h('p', { class: 'muted small' }, t('li.window', s.observedDays || 30, s.devicesPerUser || 5)));
+      if (li.detail === 'aggregate') main.append(h('p', { class: 'muted small' }, t('li.aggregate')));
+      const fact = (b, sub, cls) => h('div', { class: `fact${cls ? ` ${cls}` : ''}` }, h('b', null, b), h('span', null, sub));
+      main.append(h('div', { class: 'facts' },
+        fact(num(s.licensedUsers), t('li.licensedUsers')), fact(num(s.clients), t('li.clients')),
+        fact(num(s.clientsLicensed), code('ls', 'Licensed')), fact(num(s.clientsUnlicensed), t('li.clientsUnlicensed')), fact(num(s.clientsNoUser), t('li.clientsNoUser')),
+        fact(num(s.usersNoDevice), t('li.usersNoDevice')), fact(num(s.usersOverLimit), t('li.usersOver', s.devicesPerUser || 5)),
+        s.clientsP1Only ? fact(num(s.clientsP1Only), t('li.p1only')) : null, fact(num(s.servers), t('li.servers'))));
+
+      // Purchased plans
+      const skus = arr(li.skus);
+      main.append(h('h2', null, t('li.skus')));
+      main.append(dataTable({
+        name: 'lic-skus', rows: skus, sort: (a, b) => String(a.tier).localeCompare(String(b.tier)) || String(a.skuPartNumber).localeCompare(String(b.skuPartNumber)),
+        search: r => `${r.skuPartNumber} ${r.tier}`,
+        columns: [
+          { title: t('li.sku'), cell: r => h('span', { class: 'mono' }, r.skuPartNumber), text: r => r.skuPartNumber },
+          { title: t('li.tier'), text: r => r.isServer ? t('li.tier.Server') : code('li.tier', r.tier) },
+          { title: t('li.enabled'), text: r => num(r.enabled) },
+          { title: t('li.consumed'), cell: r => h('span', { class: r.consumed > r.enabled ? 'state bad' : '' }, `${num(r.consumed)}${r.consumed > r.enabled ? ` · ${t('li.over')}` : ''}`), text: r => num(r.consumed) },
+          { title: t('li.free'), text: r => num(Math.max(0, (r.enabled || 0) - (r.consumed || 0))) }],
+        empty: t('li.none')
+      }));
+
+      // Client devices
+      const devs = arr(li.devices);
+      const confText = d => code('lc', d.confidence || 'None');
+      const usersCell = d => arr(d.users).length ? h('span', null, arr(d.users).map((u, i) => [i ? ', ' : null, h('span', { class: u.tier ? '' : 'muted' }, u.upn || u.displayName || '–', u.tier ? ` (${code('li.tier', u.tier)})` : '')])) : h('span', { class: 'muted' }, '–');
+      main.append(h('h2', null, t('li.devices')), h('p', { class: 'lede' }, t('li.devices.lede')));
+      main.append(dataTable({
+        name: 'lic-devices', rows: devs, sort: (a, b) => (['Unlicensed', 'NoUser', 'Licensed'].indexOf(a.state) - ['Unlicensed', 'NoUser', 'Licensed'].indexOf(b.state)) || String(a.deviceName).localeCompare(String(b.deviceName)),
+        search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''} ${arr(r.users).map(u => u.upn).join(' ')} ${r.licensedBy || ''}`,
+        filters: [
+          { label: t('li.state'), options: [...new Set(devs.map(r => r.state))].sort(), optionLabel: v => code('ls', v), test: (r, v) => r.state === v },
+          { label: t('d.platform'), options: [...new Set(devs.map(r => r.os).filter(Boolean))].sort(), test: (r, v) => r.os === v },
+          { type: 'check', label: t('li.onlyUnlicensed'), test: r => r.state !== 'Licensed' }],
+        columns: [
+          { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
+          { title: t('d.platform'), text: r => r.os },
+          { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'Licensed' ? 'good' : r.state === 'Unlicensed' ? 'bad' : 'warn'}` }, code('ls', r.state)), text: r => code('ls', r.state) },
+          { title: t('li.tier'), text: r => r.tier ? code('li.tier', r.tier) : '–' },
+          { title: t('li.users'), cell: usersCell, text: r => arr(r.users).map(u => u.upn).join(', ') },
+          { title: t('li.confidence'), text: confText },
+          { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }],
+        detail: r => dl([[t('li.licensedBy'), r.licensedBy || null], [t('d.group'), r.deviceGroup || null], [t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono small' }, r.aadDeviceId) : null]]),
+        empty: t('li.none')
+      }));
+
+      // Licensed users
+      const users = arr(li.users);
+      main.append(h('h2', null, t('li.userTable')), h('p', { class: 'lede' }, t('li.userTable.lede')));
+      main.append(dataTable({
+        name: 'lic-users', rows: users, sort: (a, b) => (b.deviceCount || 0) - (a.deviceCount || 0) || String(a.upn).localeCompare(String(b.upn)),
+        search: r => `${r.upn} ${r.displayName || ''} ${r.tier} ${arr(r.devices).join(' ')}`,
+        filters: [
+          { label: t('li.tier'), options: [...new Set(users.map(r => r.tier))].sort(), optionLabel: v => code('li.tier', v), test: (r, v) => r.tier === v },
+          { label: t('li.state'), options: [...new Set(users.map(r => r.state))].sort(), optionLabel: v => v === 'OverLimit' ? t('lu.OverLimit', s.devicesPerUser || 5) : code('lu', v), test: (r, v) => r.state === v },
+          { type: 'check', label: t('li.onlyNoDevice'), test: r => r.state === 'NoDevice' }],
+        columns: [
+          { title: t('li.user'), cell: r => h('span', null, r.displayName || r.upn, r.displayName && r.upn !== r.displayName ? [h('br'), h('span', { class: 'muted small' }, r.upn)] : null), text: r => r.upn },
+          { title: t('li.tier'), text: r => code('li.tier', r.tier) },
+          { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'InUse' ? 'good' : r.state === 'OverLimit' ? 'bad' : 'warn'}` }, r.state === 'OverLimit' ? t('lu.OverLimit', s.devicesPerUser || 5) : code('lu', r.state)), text: r => code('lu', r.state) },
+          { title: t('li.deviceCount'), text: r => num(r.deviceCount || 0) }],
+        detail: r => dl([[t('li.deviceCount'), arr(r.devices).length ? list(arr(r.devices)) : null]]),
+        empty: t('li.none')
+      }));
+
+      // Servers (separate licensing)
+      const srv = arr(li.servers);
+      if (srv.length) {
+        main.append(h('h2', null, t('li.serversTable')), h('p', { class: 'lede' }, t('li.servers.lede')));
+        main.append(dataTable({
+          name: 'lic-servers', rows: srv, sort: (a, b) => String(a.deviceName).localeCompare(String(b.deviceName)), search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''}`,
+          columns: [
+            { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
+            { title: t('d.platform'), text: r => r.os }, { title: t('d.group'), text: r => r.deviceGroup || '–' }, { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }]
+        }));
+      }
+
+      const cav = arr(li.caveats);
+      if (cav.length) main.append(h('details', { class: 'warnings', open: true }, h('summary', null, t('li.caveats')), h('ul', null, cav.map(c => h('li', null, tx(c))))));
+      main.append(warningsBlock(li.warnings) || '');
+    },
+
     async whocan(main, params) {
       main.append(h('h1', null, t('v.whocan')), h('p', { class: 'lede' }, t('w.lede')));
       let ac; try { ac = await loadAccess(); } catch (e) { main.append(noData(e, 'access')); return; }
@@ -1859,11 +1978,12 @@
     { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
+    { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
     { group: 'nav.history', admin: true, items: ['changes', 'accepted'] },
     { group: 'nav.settings', admin: true, items: ['license'] }
   ];
-  const VIEW_MODULE = { agents: 'agents', agentca: 'agents', access: 'access', whocan: 'access', mine: 'access' };
+  const VIEW_MODULE = { agents: 'agents', agentca: 'agents', access: 'access', whocan: 'access', mine: 'access', licensing: 'licensing' };
   const NAV_ALIAS = { device: 'devices' };
   let navCollapsed = {};
   try { navCollapsed = JSON.parse(localStorage.getItem('wardline-nav') || '{}') || {}; } catch { navCollapsed = {}; }
@@ -1922,7 +2042,7 @@
     actions.replaceChildren(h('label', { class: 'lang-switch' }, t('language'), langSel));
     if (isAdmin) {
       actions.append(
-        h('button', { type: 'button', onclick: async () => { state.endpoint = state.agents = state.access = state.mine = null; state.changes = {}; await route(); toast(t('reloaded')); } }, t('reload')),
+        h('button', { type: 'button', onclick: async () => { state.endpoint = state.agents = state.access = state.licensing = state.mine = null; state.changes = {}; await route(); toast(t('reloaded')); } }, t('reload')),
         h('button', { type: 'button', class: 'primary', onclick: (e) => runNow('all', e.currentTarget) }, t('run.now')));
     }
   }
@@ -1939,8 +2059,8 @@
   }
 
   function updateMeta() {
-    const ep = state.endpoint, ac = state.access, mi = state.mine, ag = state.agents;
-    const ts = [ep && ep.generatedAt, ag && ag.generatedAt, ac && ac.generatedAt, mi && mi.generatedAt].filter(Boolean).sort().pop();
+    const ep = state.endpoint, ac = state.access, mi = state.mine, ag = state.agents, li = state.licensing;
+    const ts = [ep && ep.generatedAt, ag && ag.generatedAt, ac && ac.generatedAt, mi && mi.generatedAt, li && li.generatedAt].filter(Boolean).sort().pop();
     $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Wardline';
   }
 
