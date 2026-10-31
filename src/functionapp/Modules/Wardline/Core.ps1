@@ -515,6 +515,7 @@ function Write-WlPagedCollection {
                     elseif ($v -is [string]) { [void]$tsv.Append($tabRx.Replace($v, ' ')) }
                     elseif ($v -is [System.Collections.IDictionary]) { $first = $true; foreach ($e in $v.GetEnumerator()) { if (-not $first) { [void]$tsv.Append(';') }; $first = $false; [void]$tsv.Append([string]$e.Key).Append('=').Append([string]$e.Value) } }
                     elseif ($v -is [datetime]) { [void]$tsv.Append($v.ToUniversalTime().ToString('o')) }
+                    elseif ($v -is [System.Array]) { $first = $true; foreach ($e in $v) { if (-not $first) { [void]$tsv.Append(';') }; $first = $false; [void]$tsv.Append($tabRx.Replace([string]$e, ' ')) } }
                     elseif ($v -is [pscustomobject]) { $first = $true; foreach ($e in $v.PSObject.Properties) { if (-not $first) { [void]$tsv.Append(';') }; $first = $false; [void]$tsv.Append($e.Name).Append('=').Append([string]$e.Value) } }
                     else { [void]$tsv.Append($tabRx.Replace([string]$v, ' ')) }
                     [void]$tsv.Append("`t")

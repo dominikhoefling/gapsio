@@ -34,6 +34,8 @@ function New-WlDevice {
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null; agentVersion = $null
         checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
+        tags = @(); internetFacing = $null; tvmExcluded = $null; tvmExclusionReason = $null; assetValue = $null; transient = $null; mitigationStatus = $null; clientVersion = $null
+        troubleshooting30d = 0; troubleshootingActive = $false; troubleshootingLast = $null; tampering30d = 0; tamperingLast = $null
     }
 }
 
@@ -480,13 +482,18 @@ function Get-WlDeviceStates {
     $days = [int](Get-WlSetting -Name 'WL_DEVICE_LOOKBACK_DAYS' -Default '7')
     $devices = @{}
 
+    # Columns per learn.microsoft.com/defender-xdr/advanced-hunting-deviceinfo-table. ManagedBy is not part of the documented
+    # schema reference (it is shown in the portal's device inventory) – read via column_ifexists so the query cannot fail on it.
     $qInfo = @"
 DeviceInfo
 | where Timestamp > ago(${days}d)
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers, ManagedBy) by DeviceId
+| extend ManagedBy = column_ifexists("ManagedBy", "")
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, OnboardingStatus, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LoggedOnUsers, ManagedBy,
+    ClientVersion, RegistryDeviceTag, DeviceManualTags, DeviceDynamicTags, IsInternetFacing, IsExcluded, ExclusionReason, AssetValue, IsTransient, MitigationStatus) by DeviceId
 | where isempty(OnboardingStatus) or OnboardingStatus == "Onboarded"
 | extend LastUser = tostring(parse_json(LoggedOnUsers)[0].UserName)
-| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp
+| project DeviceId, DeviceName, OSPlatform, OSVersion, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp,
+    ClientVersion, RegistryDeviceTag, DeviceManualTags, DeviceDynamicTags, IsInternetFacing = tostring(IsInternetFacing), IsExcluded = tostring(IsExcluded), ExclusionReason, AssetValue, IsTransient = tostring(IsTransient), MitigationStatus
 "@
     foreach ($r in @(Invoke-WlHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')) {
         if ($null -eq $r) { continue }
@@ -495,6 +502,11 @@ DeviceInfo
         $d.lastSeen = [string]$r.LastSeen; $d.aadDeviceId = [string]$r.AadDeviceId
         $d.sensorHealth = [string](Get-WlProp $r 'SensorHealthState'); $d.exposure = [string](Get-WlProp $r 'ExposureLevel')
         $d.joinType = [string](Get-WlProp $r 'JoinType'); $d.lastUser = [string](Get-WlProp $r 'LastUser'); $d.managedBy = [string](Get-WlProp $r 'ManagedBy')
+        $d.clientVersion = [string](Get-WlProp $r 'ClientVersion'); $d.assetValue = [string](Get-WlProp $r 'AssetValue'); $d.mitigationStatus = [string](Get-WlProp $r 'MitigationStatus')
+        $d.tags = @(Get-WlDeviceTags -Manual ([string](Get-WlProp $r 'DeviceManualTags')) -Dynamic ([string](Get-WlProp $r 'DeviceDynamicTags')) -Registry ([string](Get-WlProp $r 'RegistryDeviceTag')))
+        $d.internetFacing = ConvertTo-WlBoolOrNull (Get-WlProp $r 'IsInternetFacing')
+        $d.tvmExcluded = ConvertTo-WlBoolOrNull (Get-WlProp $r 'IsExcluded'); $d.tvmExclusionReason = [string](Get-WlProp $r 'ExclusionReason')
+        $d.transient = ConvertTo-WlBoolOrNull (Get-WlProp $r 'IsTransient')
         $devices[[string]$r.DeviceId] = $d
     }
 
@@ -637,6 +649,163 @@ AlertInfo
         if ($devices.ContainsKey($id)) { $devices[$id].exclusionAlerts = [int]$r.Alerts }
     }
     $devices
+}
+
+function ConvertTo-WlBoolOrNull {
+    param($Value)
+    $s = [string]$Value
+    if ($s -match '^(true|1)$') { return $true }
+    if ($s -match '^(false|0)$') { return $false }
+    $null
+}
+
+function Get-WlDeviceTags {
+    # DeviceManualTags / DeviceDynamicTags are documented as strings (JSON array in practice); RegistryDeviceTag is a single value.
+    param([string]$Manual, [string]$Dynamic, [string]$Registry)
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($raw in @($Manual, $Dynamic)) {
+        if (-not $raw -or $raw -in 'null', '[]') { continue }
+        $vals = $null
+        if ($raw.TrimStart().StartsWith('[')) { try { $vals = @($raw | ConvertFrom-Json) } catch { $vals = $null } }
+        if ($null -eq $vals) { $vals = @($raw -split '[;,]') }
+        foreach ($v in $vals) { $t = ([string]$v).Trim(); if ($t -and -not $out.Contains($t)) { $out.Add($t) } }
+    }
+    if ($Registry) { $t = $Registry.Trim(); if ($t -and -not $out.Contains($t)) { $out.Add($t) } }
+    $out.ToArray()
+}
+
+function Get-WlFleetFacts {
+    <#
+    .SYNOPSIS
+    Fleet hygiene facts (documented sources):
+      - troubleshooting mode (DeviceEvents, ActionType AntivirusTroubleshootModeEvent, AdditionalFields.TroubleshootingStateChangeReason)
+      - tampering attempts (DeviceEvents, ActionType TamperingAttempt)
+      - devices inactive for 90+ days that are still listed in the inventory (MDE API machines, feature 'response')
+    Sets per-device counters and returns an object with the inactive machines.
+    #>
+    param([hashtable]$Devices)
+    $qTs = @"
+// WardlineFleetTroubleshooting
+DeviceEvents
+| where Timestamp > ago(30d)
+| where ActionType == "AntivirusTroubleshootModeEvent"
+| extend p = parse_json(AdditionalFields)
+| extend Reason = tostring(p.TroubleshootingStateChangeReason)
+| summarize Starts = countif(Reason contains "started"), Name = take_any(DeviceName), arg_max(Timestamp, Reason) by DeviceId
+"@
+    $now = [DateTime]::UtcNow
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qTs -Context 'Advanced Hunting troubleshooting mode events')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if (-not $Devices.ContainsKey($id)) { continue }
+        $d = $Devices[$id]
+        $d.troubleshooting30d = [int]$r.Starts; $d.troubleshootingLast = [string]$r.Timestamp
+        $last = $null; try { $last = ConvertTo-WlUtc $r.Timestamp } catch { }
+        # Troubleshooting mode switches off automatically after four hours
+        $d.troubleshootingActive = [bool](([string]$r.Reason) -match 'started' -and $last -and $last -gt $now.AddHours(-4))
+    }
+    $qTamper = @"
+// WardlineFleetTampering
+DeviceEvents
+| where Timestamp > ago(30d)
+| where ActionType == "TamperingAttempt"
+| summarize Attempts = count(), Last = max(Timestamp), Name = take_any(DeviceName) by DeviceId
+"@
+    foreach ($r in @(Invoke-WlHuntingSafe -Query $qTamper -Context 'Advanced Hunting tampering attempts')) {
+        if ($null -eq $r) { continue }
+        $id = [string]$r.DeviceId
+        if (-not $Devices.ContainsKey($id)) { continue }
+        $Devices[$id].tampering30d = [int]$r.Attempts; $Devices[$id].tamperingLast = [string]$r.Last
+    }
+
+    $inactive = @()
+    if (Test-WlFeature -Name 'response') {
+        $res = 'https://api.securitycenter.microsoft.com'
+        $base = (Get-WlSetting -Name 'WL_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+        $since = $now.AddDays(-90).ToString('yyyy-MM-ddTHH:mm:ssZ')
+        $items = [System.Collections.Generic.List[object]]::new()
+        $uri = "$base/machines?`$filter=healthStatus eq 'Inactive' and lastSeen lt $since"
+        try {
+            while ($uri) {
+                $r = Invoke-WlRest -Uri $uri -Resource $res
+                foreach ($i in @($r.value)) { if ($i) { $items.Add($i) } }
+                $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
+            }
+        }
+        catch { Add-WlWarning "MDE inactive devices (Machine.Read.All): $($_.Exception.Message)" }
+        $inactive = @($items | ForEach-Object {
+                [pscustomobject]@{ deviceId = [string]$_.id; deviceName = [string](Get-WlProp $_ 'computerDnsName'); os = [string](Get-WlProp $_ 'osPlatform'); lastSeen = [string](Get-WlProp $_ 'lastSeen')
+                    group = [string](Get-WlProp $_ 'rbacGroupName'); onboardingStatus = [string](Get-WlProp $_ 'onboardingStatus') }
+            } | Sort-Object lastSeen)
+    }
+    [pscustomobject]@{ inactive = $inactive }
+}
+
+function Get-WlFleetFindings {
+    <#
+    .SYNOPSIS
+    Fleet hygiene (category 'Fleet'):
+      - internet-facing devices with high exposure
+      - troubleshooting mode: active right now / used repeatedly in 30 days
+      - tampering attempts in 30 days (per device)
+      - devices excluded from Defender Vulnerability Management
+      - onboarded devices without a device tag while the tenant tags most devices
+      - inactive devices (90+ days) still listed in the inventory – offboarding candidates
+    #>
+    param([hashtable]$Devices, $Facts)
+    $f = [System.Collections.Generic.List[object]]::new()
+    $T = { param($en, $de) New-WlText -En $en -De $de }
+    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $all = @($Devices.Values)
+
+    foreach ($d in $all) {
+        $tamperOff = ([string]$d.checks['TamperProtection']) -eq 'BAD'
+        if ($d.internetFacing -eq $true -and $d.exposure -eq 'High') {
+            $f.Add((New-WlFinding -Severity $(if ($tamperOff -or ($d.avMode -and $d.avMode -ne '0')) { 'High' } else { 'Medium' }) -Category 'Fleet' -Title (& $T 'Internet-facing device with high exposure' 'Internet-exponiertes Gerät mit hoher Exposure') `
+                        -Detail (& $T "Defender marks $($d.deviceName) as internet-facing and rates its exposure level High$(if ($d.assetValue) { " (asset value $($d.assetValue))" }). Reachable from the internet and vulnerable at the same time." "Defender markiert $($d.deviceName) als internet-exponiert und bewertet die Exposure mit Hoch$(if ($d.assetValue) { " (Asset-Wert $($d.assetValue))" }). Aus dem Internet erreichbar und zugleich verwundbar.") `
+                        -Recommendation (& $T 'Patch the security recommendations for this device first; check whether the exposure to the internet is intended (firewall, NAT, published ports).' 'Sicherheitsempfehlungen für dieses Gerät zuerst umsetzen; prüfen, ob die Internet-Exposition beabsichtigt ist (Firewall, NAT, veröffentlichte Ports).') -Subject "fleet|inet|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+        if ($d.troubleshootingActive) {
+            $f.Add((New-WlFinding -Severity 'High' -Category 'Fleet' -Title (& $T 'Troubleshooting mode active' 'Troubleshooting-Modus aktiv') `
+                        -Detail (& $T "$($d.deviceName) is in Defender troubleshooting mode (started $($d.troubleshootingLast)). While it is active, local administrators can change policy-managed Defender settings and switch off tamper protection; policy changes are not applied." "$($d.deviceName) befindet sich im Defender-Troubleshooting-Modus (gestartet $($d.troubleshootingLast)). Solange er aktiv ist, können lokale Administratoren richtliniengesteuerte Defender-Einstellungen ändern und Tamper Protection abschalten; Richtlinienänderungen werden nicht angewendet.") `
+                        -Recommendation (& $T 'Confirm that the session is known to the team (ticket) and that the device is being watched; it ends automatically after four hours.' 'Sicherstellen, dass die Sitzung dem Team bekannt ist (Ticket) und das Gerät beobachtet wird; der Modus endet automatisch nach vier Stunden.') -Subject "fleet|tsactive|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+        elseif ($d.troubleshooting30d -ge 3) {
+            $f.Add((New-WlFinding -Severity 'Medium' -Category 'Fleet' -Title (& $T "Troubleshooting mode used $($d.troubleshooting30d) times in 30 days" "Troubleshooting-Modus $($d.troubleshooting30d)-mal in 30 Tagen genutzt") `
+                        -Detail (& $T "$($d.deviceName) was put into troubleshooting mode $($d.troubleshooting30d) times in the last 30 days (last $($d.troubleshootingLast)). Each session suspends tamper protection and policy enforcement for up to four hours." "$($d.deviceName) wurde in den letzten 30 Tagen $($d.troubleshooting30d)-mal in den Troubleshooting-Modus versetzt (zuletzt $($d.troubleshootingLast)). Jede Sitzung setzt Tamper Protection und Richtliniendurchsetzung für bis zu vier Stunden aus.") `
+                        -Recommendation (& $T 'Find the root cause (performance, false positive, incompatible software) and fix it in policy instead of repeatedly weakening the device.' 'Ursache finden (Performance, False Positive, inkompatible Software) und per Richtlinie lösen, statt das Gerät wiederholt zu schwächen.') -Subject "fleet|tsrepeat|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+        if ($d.tampering30d -gt 0) {
+            $sev = if ($tamperOff -or $d.tampering30d -ge 10) { 'High' } else { 'Medium' }
+            $f.Add((New-WlFinding -Severity $sev -Category 'Fleet' -Title (& $T "$($d.tampering30d) tampering attempt(s) in 30 days" "$($d.tampering30d) Manipulationsversuch(e) in 30 Tagen") `
+                        -Detail (& $T "Defender recorded $($d.tampering30d) TamperingAttempt event(s) on $($d.deviceName) (last $($d.tamperingLast))$(if ($tamperOff) { ' – and tamper protection is off on this device, so such attempts succeed' }). Attempts to change protected Defender settings are typical for persistence and defence evasion, but also for misconfigured management scripts." "Defender hat auf $($d.deviceName) $($d.tampering30d) TamperingAttempt-Ereignis(se) aufgezeichnet (zuletzt $($d.tamperingLast))$(if ($tamperOff) { ' – und Tamper Protection ist auf diesem Gerät aus, solche Versuche sind also erfolgreich' }). Versuche, geschützte Defender-Einstellungen zu ändern, sind typisch für Persistenz und Defence Evasion, aber auch für fehlkonfigurierte Verwaltungsskripte.") `
+                        -Recommendation (& $T 'Review the events in the device timeline (DeviceEvents, ActionType TamperingAttempt): which process, which setting? Fix scripts that write Defender settings directly; investigate anything unexplained.' 'Ereignisse in der Geräte-Timeline prüfen (DeviceEvents, ActionType TamperingAttempt): welcher Prozess, welche Einstellung? Skripte korrigieren, die Defender-Einstellungen direkt schreiben; Unerklärliches untersuchen.') -Subject "fleet|tamper|$($d.deviceId)" -DeviceId $d.deviceId -DeviceName $d.deviceName))
+        }
+    }
+
+    $excluded = @($all | Where-Object { $_.tvmExcluded -eq $true })
+    if ($excluded.Count) {
+        $reasons = (@($excluded | ForEach-Object { $_.tvmExclusionReason } | Where-Object { $_ } | Sort-Object -Unique) -join ', ')
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($excluded.Count) device(s) excluded from Vulnerability Management" "$($excluded.Count) Gerät(e) von Vulnerability Management ausgeschlossen") `
+                    -Detail (& $T "Excluded devices do not appear in exposure score, security recommendations or vulnerability reports: $(& $names $excluded)$(if ($reasons) { ". Reasons: $reasons" })." "Ausgeschlossene Geräte tauchen weder im Exposure Score noch in Sicherheitsempfehlungen oder Schwachstellenberichten auf: $(& $names $excluded)$(if ($reasons) { ". Gründe: $reasons" }).") `
+                    -Recommendation (& $T 'Review the exclusions regularly; remove them for devices that are back in service or were excluded only for a migration.' 'Ausschlüsse regelmäßig prüfen; für Geräte, die wieder im Einsatz sind oder nur für eine Migration ausgeschlossen wurden, entfernen.') -Subject 'fleet|tvmexcluded' -StableKey))
+    }
+
+    $tagged = @($all | Where-Object { @($_.tags).Count -gt 0 })
+    $untagged = @($all | Where-Object { @($_.tags).Count -eq 0 })
+    if ($all.Count -ge 10 -and $tagged.Count -ge ($all.Count / 2) -and $untagged.Count -gt 0) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($untagged.Count) onboarded device(s) without a device tag" "$($untagged.Count) onboardete(s) Gerät(e) ohne Geräte-Tag") `
+                    -Detail (& $T "$($tagged.Count) of $($all.Count) devices carry a tag, these do not: $(& $names $untagged). If device groups, indicators or automation rules are scoped by tag, untagged devices fall through." "$($tagged.Count) von $($all.Count) Geräten tragen ein Tag, diese nicht: $(& $names $untagged). Wenn Gerätegruppen, Indikatoren oder Automatisierungsregeln per Tag gescopet sind, fallen ungetaggte Geräte durch.") `
+                    -Recommendation (& $T 'Tag devices by dynamic tagging rules (Defender settings › Asset rule management) or via the onboarding package instead of by hand.' 'Geräte über dynamische Tagging-Regeln (Defender-Einstellungen › Asset-Regelverwaltung) oder das Onboarding-Paket taggen statt von Hand.') -Subject 'fleet|untagged' -StableKey))
+    }
+
+    $inactive = @(Get-WlProp $Facts 'inactive')
+    if ($inactive.Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($inactive.Count) device(s) inactive for 90+ days still in the inventory" "$($inactive.Count) Gerät(e) seit 90+ Tagen inaktiv, aber noch im Inventar") `
+                    -Detail (& $T "These onboarded devices have not reported to Defender for at least 90 days: $(& $names $inactive). They keep counting against device groups, reports and licences, and a stale record can mask a re-imaged device with the same name." "Diese onboardeten Geräte haben sich seit mindestens 90 Tagen nicht bei Defender gemeldet: $(& $names $inactive). Sie zählen weiter in Gerätegruppen, Berichten und Lizenzen, und ein veralteter Datensatz kann ein neu installiertes Gerät gleichen Namens verdecken.") `
+                    -Recommendation (& $T 'Offboard retired devices (offboarding package or API) and remove them from Intune/Entra; keep an offboarding step in the decommissioning process.' 'Ausgemusterte Geräte offboarden (Offboarding-Paket oder API) und aus Intune/Entra entfernen; einen Offboarding-Schritt in den Außerbetriebnahme-Prozess aufnehmen.') -Subject 'fleet|inactive90' -StableKey))
+    }
+    @($f.ToArray())
 }
 #endregion
 
@@ -2069,7 +2238,8 @@ function Get-WlEndpointFindings {
 
 #region Device statistics and search (large fleets)
 $script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
-    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks', '_filter', '_search')
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
+    'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', '_filter', '_search')
 $script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
 function Get-WlDeviceChartState {
@@ -2131,13 +2301,16 @@ function Get-WlDeviceFilter {
     if (-not $issue) { $issue = $asrBelow; if (-not $issue) { foreach ($n in 'localExclusions', 'exclusionAlerts') { $x = & $get $n; if ($x -and [int]$x -gt 0) { $issue = $true; break } } } }
     [void]$sb.Append('issue:').Append($(if ($issue) { '1' } else { '0' })).Append(' ')
     [void]$sb.Append('asrBelow:').Append($(if ($asrBelow) { '1' } else { '0' })).Append(' ')
+    $inet = & $get 'internetFacing'; [void]$sb.Append('inet:').Append($(if ($inet -eq $true -or "$inet" -match '^(true|1)$') { '1' } else { '0' })).Append(' ')
+    $tp = & $get 'tampering30d'; [void]$sb.Append('tampering:').Append($(if ($tp -and [int]$tp -gt 0) { '1' } else { '0' })).Append(' ')
+    $ts = & $get 'troubleshooting30d'; [void]$sb.Append('troubleshooting:').Append($(if ($ts -and [int]$ts -gt 0) { '1' } else { '0' })).Append(' ')
     $sb.ToString()
 }
 
 function Get-WlDeviceSearchText {
     param([Parameter(Mandatory)]$Device)
-    if ($Device -is [System.Collections.IDictionary]) { return "$($Device['deviceName']) $($Device['os']) $($Device['osVersion']) $($Device['deviceGroup']) $($Device['lastUser'])".ToLowerInvariant() }
-    "$($Device.deviceName) $($Device.os) $($Device.osVersion) $($Device.deviceGroup) $($Device.lastUser)".ToLowerInvariant()
+    if ($Device -is [System.Collections.IDictionary]) { return "$($Device['deviceName']) $($Device['os']) $($Device['osVersion']) $($Device['deviceGroup']) $($Device['lastUser']) $(@($Device['tags']) -join ' ')".ToLowerInvariant() }
+    "$($Device.deviceName) $($Device.os) $($Device.osVersion) $($Device.deviceGroup) $($Device.lastUser) $(@($Device.tags) -join ' ')".ToLowerInvariant()
 }
 
 function Get-WlDeviceStats {
@@ -2187,8 +2360,10 @@ function ConvertFrom-WlDeviceIndexRow {
         $v = if ($i -lt $Row.Count) { $Row[$i] } else { '' }
         switch ($name) {
             'checks' { $c = [ordered]@{}; foreach ($kv in $v.Split(';')) { $e = $kv.IndexOf('='); if ($e -gt 0) { $c[$kv.Substring(0, $e)] = $kv.Substring($e + 1) } }; $o.checks = $c }
-            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
+            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts', 'tampering30d', 'troubleshooting30d' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
             'localExclusionsHighRisk' { $o[$name] = ($v -match '^(true|1)$') }
+            'internetFacing' { $o[$name] = $(if ($v -eq '') { $null } else { $v -match '^(true|1)$' }) }
+            'tags' { $o[$name] = @($v.Split(';', [StringSplitOptions]::RemoveEmptyEntries)) }
             default { $o[$name] = $(if ($v -eq '') { $null } else { $v }) }
         }
     }
@@ -2304,12 +2479,14 @@ function Invoke-WlEndpointCollection {
     $linuxEvents = Get-WlLinuxConfigEvents
 
     $coverage = Get-WlCoverage -Devices $devices
+    $fleet = Get-WlFleetFacts -Devices $devices
     Add-WlExclusionUsage -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))
 
     $baselineResults = Test-WlBaseline -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $findings = @(Get-WlEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents -Policies $pol.Policies) +
         @(Get-WlCoverageFindings -Coverage $coverage) + @(Get-WlUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
-        @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count)
+        @(Get-WlResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count) +
+        @(Get-WlFleetFindings -Devices $devices -Facts $fleet)
     $findings = @(Merge-WlDeviceFindings -Findings $findings)
 
     $deviceList = @($(foreach ($d in $devices.Values) {
@@ -2353,6 +2530,16 @@ function Invoke-WlEndpointCollection {
             baselineTotal          = @($baselineResults).Count
             responseActions90d     = $(if ($response) { @($response.actions).Count } else { $null })
             alertsPendingApproval  = $(if ($response) { @($response.alerts | Where-Object { $_.investigationState -eq 'PendingApproval' }).Count } else { $null })
+            fleet                  = [ordered]@{
+                internetFacingHigh    = @($deviceList | Where-Object { $_.internetFacing -eq $true -and $_.exposure -eq 'High' }).Count
+                troubleshootingActive = @($deviceList | Where-Object { $_.troubleshootingActive }).Count
+                troubleshooting30d    = @($deviceList | Where-Object { $_.troubleshooting30d -gt 0 }).Count
+                tampering30d          = @($deviceList | Where-Object { $_.tampering30d -gt 0 }).Count
+                tvmExcluded           = @($deviceList | Where-Object { $_.tvmExcluded -eq $true }).Count
+                tagged                = @($deviceList | Where-Object { @($_.tags).Count -gt 0 }).Count
+                transient             = @($deviceList | Where-Object { $_.transient -eq $true }).Count
+                inactive90d           = $(if (Test-WlFeature -Name 'response') { @($fleet.inactive).Count } else { $null })
+            }
         }
         policies             = @($pol.Policies)
         policyExclusions     = @($pol.Exclusions)
@@ -2367,6 +2554,7 @@ function Invoke-WlEndpointCollection {
         asrCatalog           = @($asr.catalog)
         localConfigEvents    = @($linuxEvents | Select-Object -Last 500)
         responseActions      = @($(if ($response) { $response.actions } else { @() }))
+        inactiveDevices      = @($fleet.inactive | Select-Object -First 1000)
         findings             = @($findings)
         seenDefenderSettings = $seen
         warnings             = @(Get-WlWarnings)

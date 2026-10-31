@@ -227,7 +227,7 @@
     'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.bypass': ['Entra bypass role', 'Entra-Bypass-Rolle'], 'coll.agents': ['Agent', 'Agent'],
     'coll.blueprints': ['Blueprint', 'Blueprint'], 'coll.policies': ['CA policy', 'CA-Richtlinie'], 'coll.coverage': ['Coverage', 'Abdeckung'],
     // categories, coverage, usage
-    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'], 'cat.LeastPrivilege': ['Least privilege', 'Least Privilege'], 'cat.Response': ['Response', 'Response'], 'cat.Platform': ['macOS / Linux', 'macOS / Linux'],
+    'cat.Coverage': ['Coverage', 'Abdeckung'], 'cat.Hygiene': ['Hygiene', 'Hygiene'], 'cat.Dependency': ['Dependency', 'Abhängigkeit'], 'cat.Updates': ['Updates', 'Updates'], 'cat.Inventory': ['Inventory', 'Inventar'], 'cat.Fleet': ['Fleet', 'Flotte'], 'cat.LeastPrivilege': ['Least privilege', 'Least Privilege'], 'cat.Response': ['Response', 'Response'], 'cat.Platform': ['macOS / Linux', 'macOS / Linux'],
     'cov.NotOnboarded': ['Not onboarded (Intune device)', 'Nicht onboarded (Intune-Gerät)'], 'cov.CanBeOnboarded': ['Discovered, can be onboarded', 'Erkannt, kann onboarded werden'],
     'cov.SensorInactive': ['Sensor inactive', 'Sensor inaktiv'], 'cov.Misconfigured': ['Sensor misconfigured', 'Sensor falsch konfiguriert'],
     'cov.ImpairedCommunications': ['Impaired communications', 'Eingeschränkte Kommunikation'], 'cov.NoSensorData': ['No sensor data', 'Keine Sensordaten'], 'cov.SensorIssue': ['Sensor problem', 'Sensorproblem'],
@@ -236,6 +236,7 @@
     'x.usage': ['Activity', 'Aktivität'], 'x.onlyUnused': ['No activity only', 'Nur ohne Aktivität'], 'x.usageHits': ['{0} events, last {1}', '{0} Ereignisse, zuletzt {1}'],
     'x.usage.help': ['Process and file events on any device in the last 30 days (Advanced Hunting). Wildcards and variables are not checked.', 'Prozess- und Dateiereignisse auf allen Geräten in den letzten 30 Tagen (Advanced Hunting). Platzhalter und Variablen werden nicht geprüft.'],
     'ov.coverage': ['devices without full Defender coverage', 'Geräte ohne vollständige Defender-Abdeckung'], 'ov.unused': ['exclusions without activity (30 days)', 'Exclusions ohne Aktivität (30 Tage)'],
+    'ov.tampering': ['devices with tampering attempts (30 days)', 'Geräte mit Manipulationsversuchen (30 Tage)'], 'ov.inetHigh': ['internet-facing devices with high exposure', 'internet-exponierte Geräte mit hoher Exposure'], 'ov.inactive': ['devices inactive 90+ days still in inventory', 'Geräte seit 90+ Tagen inaktiv, noch im Inventar'],
     // devices
     'd.tab.devices': ['Devices ({0})', 'Geräte ({0})'], 'd.tab.coverage': ['Coverage gaps ({0})', 'Abdeckungslücken ({0})'],
     'd.np': ['Network prot.', 'Netzwerkschutz'], 'd.open': ['Open device page', 'Geräteseite öffnen'],
@@ -253,6 +254,8 @@
     'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
     'dv.links': ['Open in', 'Öffnen in'], 'dv.defender': ['Defender portal', 'Defender-Portal'], 'dv.intune': ['Intune', 'Intune'],
     'dv.user': ['Last user', 'Letzter Benutzer'], 'dv.join': ['Join type', 'Join-Typ'], 'dv.sensor': ['Sensor health', 'Sensorzustand'], 'dv.exposure': ['Exposure level', 'Gefährdungsstufe'],
+    'dv.tags': ['Device tags', 'Geräte-Tags'], 'dv.inet': ['Internet-facing', 'Internet-exponiert'], 'dv.assetValue': ['Asset value', 'Asset-Wert'], 'dv.tvmExcluded': ['Excluded from Vulnerability Management', 'Von Vulnerability Management ausgeschlossen'],
+    'dv.tampering': ['Tampering attempts (30 d)', 'Manipulationsversuche (30 T)'], 'dv.troubleshooting': ['Troubleshooting mode (30 d)', 'Troubleshooting-Modus (30 T)'], 'dv.tsActive': ['active now', 'gerade aktiv'], 'dv.clientVersion': ['Sensor version', 'Sensorversion'],
     'dv.sigver': ['Signature version', 'Signaturversion'], 'dv.engver': ['Engine / platform', 'Engine / Plattform'], 'dv.sigtime': ['Signatures published', 'Signaturen veröffentlicht'],
     'dv.target': ['Target', 'Soll'], 'dv.effective': ['On the device', 'Auf dem Gerät'], 'dv.none': ['None.', 'Keine.'],
     'chk.AntivirusEnabled': ['Antivirus enabled', 'Virenschutz aktiv'], 'chk.RealtimeProtection': ['Real-time protection', 'Echtzeitschutz'], 'chk.BehaviorMonitoring': ['Behavior monitoring', 'Verhaltensüberwachung'],
@@ -960,7 +963,9 @@
         main.append(h('h2', null, t('nav.endpoint')), h('div', { class: 'facts' },
           fact(num(s.devices), t('ov.devices')), fact(num(s.policyExclusions), t('ov.policyExcl')), fact(num(s.localExclusionsPresent), t('ov.localExcl')),
           fact(num(s.edrExclusions), t('ov.edr')), fact(t('ov.of', s.asrRulesOk || 0, s.asrRulesTotal || 0), t('ov.asr')), fact(t('ov.of', s.baselineOk || 0, s.baselineTotal || 0), t('ov.baseline')),
-          s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null));
+          s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null,
+          s.fleet ? fact(num(s.fleet.tampering30d), t('ov.tampering')) : null, s.fleet ? fact(num(s.fleet.internetFacingHigh), t('ov.inetHigh')) : null,
+          s.fleet && s.fleet.inactive90d !== null && s.fleet.inactive90d !== undefined ? fact(num(s.fleet.inactive90d), t('ov.inactive')) : null));
       } else {
         main.append(noData(epErr, 'endpoint'));
       }
@@ -1277,6 +1282,11 @@
       main.append(h('div', { class: 'detail card' }, dl([
         [t('d.mode'), h('span', { class: `state ${d.avMode === '0' ? 'good' : d.avMode ? 'bad' : ''}` }, modeText)],
         [t('dv.sensor'), d.sensorHealth || '–'], [t('dv.exposure'), d.exposure || null], [t('dv.user'), d.lastUser || null], [t('dv.join'), d.joinType || null],
+        [t('dv.tags'), arr(d.tags).length ? arr(d.tags).join(', ') : null], [t('dv.inet'), d.internetFacing === true ? h('span', { class: d.exposure === 'High' ? 'state bad' : 'state warn' }, t('yes')) : (d.internetFacing === false ? t('no') : null)],
+        [t('dv.assetValue'), d.assetValue || null], [t('dv.tvmExcluded'), d.tvmExcluded === true ? `${t('yes')}${d.tvmExclusionReason ? ` – ${d.tvmExclusionReason}` : ''}` : null],
+        [t('dv.tampering'), d.tampering30d > 0 ? h('span', { class: 'state bad' }, `${d.tampering30d}${d.tamperingLast ? ` · ${fmtDate(d.tamperingLast)}` : ''}`) : null],
+        [t('dv.troubleshooting'), d.troubleshooting30d > 0 || d.troubleshootingActive ? h('span', { class: d.troubleshootingActive ? 'state bad' : 'state warn' }, `${d.troubleshooting30d || 0}${d.troubleshootingActive ? ` · ${t('dv.tsActive')}` : ''}${d.troubleshootingLast ? ` · ${fmtDate(d.troubleshootingLast)}` : ''}`) : null],
+        [t('dv.clientVersion'), d.clientVersion || null],
         [t('d.lastSeen'), fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
         [t('dv.sigtime'), d.avSignatureTime ? fmtDate(d.avSignatureTime) : null], [t('d.sig'), yesNo(d.signatureUpToDate)], [t('d.plat'), yesNo(d.platformUpToDate)],
         [t('d.aad'), d.aadDeviceId ? h('span', { class: 'mono small' }, d.aadDeviceId) : null], [t('dv.links'), h('span', null, links)]])));
