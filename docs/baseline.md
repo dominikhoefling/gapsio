@@ -13,7 +13,8 @@ storage account. It then takes precedence over the shipped one – also after up
 | `platform` | `Windows`, `macOS` or `Linux` |
 | `definitionId` | Exact Settings Catalog setting ID |
 | `definitionIdPattern` | Regex as an alternative or fallback to the exact ID (Linux checks carry both) |
-| `expect` | `{ "op": "eq" \| "in" \| "gte" \| "lte" \| "range" \| "match" \| "display", … }` |
+| `expect` | `{ "op": "eq" \| "ne" \| "in" \| "gte" \| "lte" \| "range" \| "match" \| "notmatch" \| "display", … }` |
+| `weakeningOnly` | `true` for settings whose product default is already safe: *not configured* counts as status `Default` (no finding); only a configured weakening value is reported |
 | `effective` | Effective check on the device: a TVM `scid-…`, a check name such as `TamperProtection`, or `avmode` |
 | `severity` | `Critical`, `High`, `Medium`, `Low` |
 | `title`, `expectText`, `rationale`, `remediation`, `category` | Plain string or `{ "en": "…", "de": "…" }` |

@@ -21,6 +21,52 @@ $script:WlMdeTierRank = @{ 'P2' = 3; 'MDB' = 2; 'P1' = 1 }
 # Both values can be tuned per installation (WL_LICENSING_DEVICES_PER_USER, WL_LICENSING_DAYS).
 $script:WlMdeDevicesPerUser = 5
 $script:WlLicensingDays = 30
+# Display names for the SKUs that carry a Defender for Endpoint plan (skuPartNumber -> product name as people say it).
+# Unknown part numbers fall back to the tier of the contained MDE plan, so the portal never shows a bare code.
+$script:WlSkuNames = @{
+    'DEFENDER_ENDPOINT_P1'          = 'Defender for Endpoint P1'
+    'DEFENDER_ENDPOINT_P1_EDU'      = 'Defender for Endpoint P1 (Education)'
+    'WIN_DEF_ATP'                   = 'Defender for Endpoint P2'
+    'MDATP_XPLAT'                   = 'Defender for Endpoint P2 (cross-platform)'
+    'MDATP_SERVER'                  = 'Defender for Endpoint for Servers'
+    'MDE_SMB'                       = 'Defender for Business'
+    'MICROSOFT_DEFENDER_FOR_BUSINESS' = 'Defender for Business'
+    'SPE_E5'                        = 'Microsoft 365 E5'
+    'SPE_E5_NOPSTNCONF'             = 'Microsoft 365 E5 (without Audio Conferencing)'
+    'MICROSOFT_365_E5_(NO_TEAMS)'   = 'Microsoft 365 E5 (no Teams)'
+    'SPE_E5_USGOV_GCCHIGH'          = 'Microsoft 365 E5 (GCC High)'
+    'SPE_E3'                        = 'Microsoft 365 E3'
+    'MICROSOFT_365_E3_(NO_TEAMS)'   = 'Microsoft 365 E3 (no Teams)'
+    'SPE_A5'                        = 'Microsoft 365 A5'
+    'M365EDU_A5_FACULTY'            = 'Microsoft 365 A5 (faculty)'
+    'M365EDU_A5_STUDENT'            = 'Microsoft 365 A5 (students)'
+    'M365EDU_A3_FACULTY'            = 'Microsoft 365 A3 (faculty)'
+    'M365EDU_A3_STUDENT'            = 'Microsoft 365 A3 (students)'
+    'IDENTITY_THREAT_PROTECTION'    = 'Microsoft 365 E5 Security'
+    'IDENTITY_THREAT_PROTECTION_FOR_EMS_E5' = 'Microsoft 365 E5 Security (for EMS E5)'
+    'SPE_F5_SEC'                    = 'Microsoft 365 F5 Security'
+    'SPE_F5_SECCOMP'                = 'Microsoft 365 F5 Security + Compliance'
+    'SPB'                           = 'Microsoft 365 Business Premium'
+    'WIN10_VDA_E5'                  = 'Windows Enterprise E5'
+    'WIN_ENT_E5'                    = 'Windows Enterprise E5'
+    'DEVELOPERPACK_E5'              = 'Microsoft 365 E5 Developer'
+}
+$script:WlTierNames = @{ 'P2' = 'Defender for Endpoint P2'; 'P1' = 'Defender for Endpoint P1'; 'MDB' = 'Defender for Business' }
+
+function Get-WlSkuDisplayName {
+    <#
+    .SYNOPSIS
+    Product name for a subscribed SKU, e.g. WIN_DEF_ATP -> "Defender for Endpoint P2". Unknown suites:
+    "<tier name> (in <part number>)", so the plan stays recognisable.
+    #>
+    param([string]$PartNumber, [string]$Tier, [bool]$IsServer)
+    $k = ([string]$PartNumber).ToUpperInvariant()
+    if ($script:WlSkuNames.ContainsKey($k)) { return $script:WlSkuNames[$k] }
+    if ($IsServer) { return 'Defender for Endpoint for Servers' }
+    if ($Tier -and $script:WlTierNames.ContainsKey($Tier)) { return "$($script:WlTierNames[$Tier]) (in $PartNumber)" }
+    $PartNumber
+}
+
 function Get-WlLicensingSettings {
     $d = [string](Get-WlSetting 'WL_LICENSING_DAYS' ''); if ($d -match '^\d+$' -and [int]$d -ge 7 -and [int]$d -le 90) { $script:WlLicensingDays = [int]$d }
     $p = [string](Get-WlSetting 'WL_LICENSING_DEVICES_PER_USER' ''); if ($p -match '^\d+$' -and [int]$p -ge 1) { $script:WlMdeDevicesPerUser = [int]$p }
@@ -62,10 +108,11 @@ function Get-WlLicenseSkus {
         $enabled = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'enabled'); $consumed = [int](Get-WlProp $s 'consumedUnits')
         $tier = Get-WlBestTier @($mde | ForEach-Object tier)
         $isServer = $part -match 'SERVER' -or $part -match 'MDATP_Server'
+        $display = Get-WlSkuDisplayName -PartNumber $part -Tier $tier -IsServer ([bool]$isServer)
         $out.Add([pscustomobject]@{
                 key = Get-WlHash "sku|$($s.skuId)"; fp = Get-WlHash "$enabled|$consumed|$tier|$([string](Get-WlProp $s 'capabilityStatus'))"
-                label = "$part ($consumed/$enabled)"; state = [string](Get-WlProp $s 'capabilityStatus')
-                skuId = [string]$s.skuId; skuPartNumber = $part; tier = $tier; isServer = [bool]$isServer
+                label = "$display ($consumed/$enabled)"; state = [string](Get-WlProp $s 'capabilityStatus')
+                skuId = [string]$s.skuId; skuPartNumber = $part; skuName = $display; tier = $tier; isServer = [bool]$isServer
                 enabled = $enabled; consumed = $consumed; suspended = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'suspended'); warning = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'warning')
                 appliesTo = [string](Get-WlProp $s 'appliesTo'); plans = $mde
             })
@@ -257,7 +304,7 @@ function Get-WlLicensingModel {
     foreach ($s in $userSkus) {
         if ($s.consumed -gt $s.enabled -and $s.enabled -ge 0) {
             $f.Add((New-WlFinding -Severity 'High' -Category 'Licensing' -Subject $s.skuId -StableKey `
-                        -Title (& $T "More licences assigned than purchased: $($s.skuPartNumber)" "Mehr Lizenzen zugewiesen als gekauft: $($s.skuPartNumber)") `
+                        -Title (& $T "More licences assigned than purchased: $($s.skuName)" "Mehr Lizenzen zugewiesen als gekauft: $($s.skuName)") `
                         -Detail (& $T "$($s.consumed) of $($s.enabled) units are assigned. Microsoft 365 allows this temporarily; the overage is billed or blocked at the next true-up." "$($s.consumed) von $($s.enabled) Einheiten sind zugewiesen. Microsoft 365 erlaubt das vorübergehend; der Überhang wird beim nächsten True-up berechnet oder gesperrt.") `
                         -Recommendation (& $T 'Buy additional units or remove the plan from users who do not need it.' 'Zusätzliche Einheiten kaufen oder den Plan bei Benutzern entfernen, die ihn nicht benötigen.')))
         }

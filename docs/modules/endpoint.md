@@ -58,6 +58,12 @@ Windows, macOS and Linux checks on three levels: target · configured in Intune 
 protection, running mode, real-time, cloud, behaviour and PUA protection, sensor communication). Linux: local weakening
 via `mdatp config …` and changes to `mdatp_managed.json` outside of Defender. See [customising the baseline](../baseline.md).
 
+### ASR telemetry
+
+`DeviceEvents` action types `Asr…Audited` / `Asr…Blocked` (30 days) are counted per rule with the top five
+triggering processes. A rule that is still in audit mode and produced **no audit event** is reported as
+*ASR rule ready for block mode*; otherwise the finding lists the processes to review before switching.
+
 ## Combined findings
 
 Findings that only appear when several signals meet, for example:
@@ -139,6 +145,33 @@ documented `DeviceInfo` columns (`IsInternetFacing`, `ExposureLevel`, `AssetValu
   tag-scoped device groups, indicators or automation rules have gaps.
 - **Inactive 90+ days, still in the inventory** (Low) – devices whose sensor has been *Inactive* for at least
   90 days, from the machines API. Offboarding candidates; they keep counting against groups, reports and licences.
+
+- **Operating system out of support** (Medium; High for Windows 7/8 and Server 2008; Low while the end date is still
+  ahead) – one finding per OS: Windows 10 (except LTSC 2019/2021 builds), Windows 11 21H2/22H2/23H2, Windows Server
+  2008 R2/2012/2012 R2/2016, and macOS older than the three releases Defender supports (n-2, counted by release so
+  15 → 26 is one step). ESU is mentioned where Microsoft offers it.
+- **No quick scan in 14 days / never a full scan** (Low) – from `AvScanResults` in `DeviceTvmInfoGathering`, Windows
+  devices in active or EDR-block mode only.
+- **Standard connectivity** (Low) – devices whose `DeviceInfo.ConnectivityType` is still *Standard* while others use
+  streamlined connectivity.
+- **WSL without the Defender plug-in** (Medium) – Windows Subsystem for Linux in the software inventory without the
+  Defender for Endpoint plug-in for WSL.
+- **PsExec/WMI ASR rule blocks on ConfigMgr clients** (Medium, ASR) – Microsoft documents the rule as incompatible with
+  Configuration Manager.
+- **Detected threats are allowed to run** (High, per device) – `ThreatIdDefaultAction` / `ThreatSeverityDefaultAction`
+  registry values set to *Allow* (6) or *NoAction* (9) in the last 30 days (`DeviceRegistryEvents`).
+- The **passive-mode** finding now says whether a third-party AV is visible at all (no product → likely a leftover
+  `ForceDefenderPassiveMode` or a fake security-center registration) and whether EDR in block mode backs it up.
+
+### Intune integration (feature `Coverage`)
+
+- **Intune connection to Defender for Endpoint not enabled** (High) – the Defender connector is missing or not
+  *enabled*; device risk never reaches compliance.
+- **Defender connector off for platforms in use** (Medium) – Windows/macOS/iOS/Android toggle off while onboarded
+  devices of that platform exist; **no heartbeat for 2+ days** (Medium).
+- **Device risk not part of compliance** (Medium) – no assigned compliance policy with *Require the device to be at or
+  under the machine risk score* for a platform in use; **policies tolerating medium/high risk** (Low).
+- **No Conditional Access policy requires a compliant device** (Medium).
 
 Per-device Fleet findings are rolled up in large fleets like every other per-device finding (see
 [Operations › Large fleets](../operations.md#large-fleets)). The device page shows tags, internet exposure,

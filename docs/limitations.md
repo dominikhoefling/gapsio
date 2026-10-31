@@ -19,6 +19,11 @@
   (`agentRegistry/agentInstances`, retired from May 2026) is only a fallback. Without either, agents from Entra Agent ID
   and Defender are still shown. Policies with attribute filters (custom security attributes) are rated "unclear"
   because Wardline does not read the attributes.
+- **Field names in `DeviceTvmInfoGathering.AdditionalFields`** (`AvScanResults`, `AvPlatformRing` …) and
+  `DeviceInfo.ConnectivityType` are not part of the documented schema reference; Wardline reads them tolerantly and
+  skips the related findings when they are absent.
+- **GPO-only settings** (e.g. *Turn off Microsoft Defender Antivirus*, `ThreatIdDefaultAction`) are only visible when
+  they are delivered through Intune ADMX or show up as registry changes in the last 30 days.
 - **Effective settings in the Defender portal** (per device): no public API; Wardline uses Advanced Hunting instead.
 - **macOS with third-party MDM** (e.g. Jamf): profiles deployed there are not visible via Graph; local `mdatp` changes are.
 - **Origin of local exclusions** (Windows): entries under `…\Policies\…` count as GPO, all others under

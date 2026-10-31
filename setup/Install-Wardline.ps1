@@ -100,7 +100,7 @@ $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-WardlineFeatures -Features $featureList
 $modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' })
-$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response' } | ForEach-Object { $_.ToLowerInvariant() })
+$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
     Write-Host "`nWardline features: $($featureList -join ', ')" -ForegroundColor Cyan

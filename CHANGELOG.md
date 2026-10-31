@@ -9,6 +9,29 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 First version published on GitHub.
 
 ### Added
+- **Baseline 2026.10.31** – 21 new Windows checks: threat default actions never *Allow*, no `ThreatIdDefaultAction`
+  overrides, brute-force protection and remote encryption protection in block mode, network protection protocol parsing
+  (`Disable…Parsing`), inbound filtering, UDP inspection and DNS sinkhole, on-access protection, archive scanning, real-time
+  scan direction, block at first sight, *Turn off Microsoft Defender Antivirus*, automatic server-role exclusions, scheduled
+  scan never, signature check before scan, controlled folder access in block mode, SmartScreen for Windows and Edge (incl.
+  no override). New check flag `weakeningOnly` (status *Default*): such settings are only reported when a policy actually
+  weakens them.
+- **Device hygiene findings**: OS end of support (Windows, Windows Server, macOS n-2), no quick scan in 14 days / never a
+  full scan (`AvScanResults`), standard vs. streamlined connectivity, WSL without the Defender plug-in, PsExec/WMI ASR rule
+  blocking on ConfigMgr clients, threat default actions *Allow/NoAction* in the registry. The passive-mode finding explains
+  missing third-party AV and missing EDR in block mode.
+- **ASR telemetry**: audit/block events per rule (30 days) with top processes; rules without audit hits are reported as
+  *ready for block mode*.
+- **Intune integration** (feature `Coverage`, new permissions `DeviceManagementServiceConfig.Read.All`, `Policy.Read.All`):
+  Defender connector state, platform toggles and heartbeat, device risk in compliance policies, Conditional Access requiring
+  compliant devices.
+- **Access module**: API apps with application permissions on the Defender for Endpoint API, the Defender XDR API and the
+  Defender part of Microsoft Graph (credential type and lifetime, owners, external apps); Defender role groups without access
+  review; PIM for Groups activation rules (new permissions `AccessReview.Read.All`, `RoleManagementPolicy.Read.AzureADGroup`).
+- **Feature `Audit`** (optional, `AuditLogsQuery.Read.All`): Defender for Endpoint activity from the Purview unified audit log
+  – offboarding package downloads, live response, portal setting changes.
+- **Licensing**: SKUs are shown by product name (*Defender for Endpoint P1/P2*, *Microsoft 365 E5* …) with the part number
+  as secondary text.
 - **Licensing module (optional, Defender for Endpoint only)**: compares the MDE service plans a tenant owns (`subscribedSkus`),
   the users that hold such a plan (`assignedPlans`) and the client devices actually onboarded (Advanced Hunting, optional Intune
   mapping) and who uses them. New portal page *Licensing (MDE)* with SKUs, client devices (Licensed/Unlicensed/No user, confidence

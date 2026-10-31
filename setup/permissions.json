@@ -82,12 +82,22 @@
       "id": "Coverage",
       "default": true,
       "module": "endpoint",
-      "name": "Endpoint: Defender coverage gaps – Intune-managed devices that are not onboarded to Defender for Endpoint",
+      "name": "Endpoint: Defender coverage gaps – Intune-managed devices that are not onboarded to Defender for Endpoint; Intune connector, device risk in compliance and Conditional Access",
       "permissions": [
         {
           "resource": "graph",
           "value": "DeviceManagementManagedDevices.Read.All",
           "why": "Compare Intune-managed devices with Defender devices (name, OS, Entra device ID, last sync)"
+        },
+        {
+          "resource": "graph",
+          "value": "DeviceManagementServiceConfig.Read.All",
+          "why": "Intune connector for Defender for Endpoint (state, platforms, heartbeat)"
+        },
+        {
+          "resource": "graph",
+          "value": "Policy.Read.All",
+          "why": "Conditional Access policies that require a compliant device (device risk enforcement)"
         }
       ]
     },
@@ -156,7 +166,7 @@
       "id": "Access",
       "default": false,
       "module": "access",
-      "name": "Access: Defender XDR unified RBAC – who holds which role (direct, group, PIM eligible, access package), for which data sources, and whether it was ever used",
+      "name": "Access: Defender XDR unified RBAC – who holds which role (direct, group, PIM eligible, access package), for which data sources, and whether it was ever used; API apps with Defender permissions (credentials, owners), access reviews, PIM activation rules",
       "permissions": [
         {
           "resource": "graph",
@@ -192,6 +202,29 @@
           "resource": "graph",
           "value": "Directory.Read.All",
           "why": "Resolve role holders of any type (users, groups, service principals)"
+        },
+        {
+          "resource": "graph",
+          "value": "AccessReview.Read.All",
+          "why": "Which Defender role groups are covered by an access review"
+        },
+        {
+          "resource": "graph",
+          "value": "RoleManagementPolicy.Read.AzureADGroup",
+          "why": "PIM for Groups activation rules (MFA, justification, approval, duration) of Defender role groups"
+        }
+      ]
+    },
+    {
+      "id": "Audit",
+      "default": false,
+      "module": "access",
+      "name": "Access: Defender for Endpoint portal activity from the Purview unified audit log (offboarding package downloads, live response, setting changes)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "AuditLogsQuery.Read.All",
+          "why": "Audit log query API (record type mdatpAudit), last 30 days"
         }
       ]
     },
