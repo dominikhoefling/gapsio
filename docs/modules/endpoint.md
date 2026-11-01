@@ -160,6 +160,10 @@ documented `DeviceInfo` columns (`IsInternetFacing`, `ExposureLevel`, `AssetValu
   Configuration Manager.
 - **Detected threats are allowed to run** (High, per device) – `ThreatIdDefaultAction` / `ThreatSeverityDefaultAction`
   registry values set to *Allow* (6) or *NoAction* (9) in the last 30 days (`DeviceRegistryEvents`).
+- **High-risk browser extension** (Medium; High for *Critical*) – one finding per extension that Vulnerability
+  Management rates *High* or *Critical* (`DeviceTvmBrowserExtensions`, active installations only), with the browsers,
+  device count and a device sample. Extensions run with the user's sessions and cookies outside the reach of ASR,
+  SmartScreen and AV scanning; block them with `ExtensionInstallBlocklist` or move to an allowlist.
 - The **passive-mode** finding now says whether a third-party AV is visible at all (no product → likely a leftover
   `ForceDefenderPassiveMode` or a fake security-center registration) and whether EDR in block mode backs it up.
 
