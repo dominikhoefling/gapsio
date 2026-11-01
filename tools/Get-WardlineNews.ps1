@@ -12,12 +12,12 @@
       - Microsoft Learn "What's new" for Microsoft Agent 365 (if the page exists)
 
 .EXAMPLE
-    ./tools/Get-WardlineNews.ps1                         # digest of items not seen before, state in .github/news-state.json
+    ./tools/Get-WardlineNews.ps1                         # digest of items not seen before, state in the temp folder (workflow: branch news-state)
     ./tools/Get-WardlineNews.ps1 -Days 14 -NoState       # everything from the last 14 days, do not touch the state
     ./tools/Get-WardlineNews.ps1 -Output /tmp/news.md    # write the digest to a file (used by the workflow)
 #>
 param(
-    [string]$StatePath = (Join-Path $PSScriptRoot '..' '.github' 'news-state.json'),
+    [string]$StatePath = (Join-Path ([IO.Path]::GetTempPath()) 'wardline-news-state.json'),
     [string]$Output,
     [int]$Days = 45,
     [switch]$NoState
