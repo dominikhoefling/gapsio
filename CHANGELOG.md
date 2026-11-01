@@ -4,7 +4,7 @@ All notable changes to Wardline are documented here. The format follows [Keep a 
 and Wardline uses [Semantic Versioning](https://semver.org/): a new **minor** version can add features and permissions,
 a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -ResourceGroup <resource group>`.
 
-## [0.4.0] – unreleased
+## [0.4.0] – 2026-11-02
 
 First version published on GitHub.
 
@@ -19,6 +19,8 @@ First version published on GitHub.
   scan never, signature check before scan, controlled folder access in block mode, SmartScreen for Windows and Edge (incl.
   no override). New check flag `weakeningOnly` (status *Default*): such settings are only reported when a policy actually
   weakens them.
+- **Browser extensions**: one *Fleet* finding per extension that Vulnerability Management rates High/Critical
+  (`DeviceTvmBrowserExtensions`, active installations), aggregated across devices with browsers and a device sample.
 - **Device hygiene findings**: OS end of support (Windows, Windows Server, macOS n-2), no quick scan in 14 days / never a
   full scan (`AvScanResults`), standard vs. streamlined connectivity, WSL without the Defender plug-in, PsExec/WMI ASR rule
   blocking on ConfigMgr clients, threat default actions *Allow/NoAction* in the registry. The passive-mode finding explains

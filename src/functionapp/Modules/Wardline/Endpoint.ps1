@@ -1022,7 +1022,26 @@ DeviceRegistryEvents
         [pscustomobject]@{ deviceId = $id; deviceName = $(if ($Devices.ContainsKey($id)) { $Devices[$id].deviceName } else { [string]$row.Name }); kind = $kind
             value = [string]$row.RegistryValueName; action = $(if ([string]$row.RegistryValueData -eq '6') { 'Allow' } else { 'NoAction' }); at = [string]$row.Timestamp; process = [string]$row.InitiatingProcessFileName }
     }
-    [pscustomobject]@{ asr = $asr; threatActions = @($threat) }
+    # Browser extensions rated High/Critical by Vulnerability Management (DeviceTvmBrowserExtensions, documented columns;
+    # ExtensionRisk is tolerant via column_ifexists). Aggregated per extension so a popular extension is one finding.
+    $qExt = @"
+// WardlineBrowserExtensions
+DeviceTvmBrowserExtensions
+| extend Risk = tostring(column_ifexists("ExtensionRisk", "")), Active = tostring(column_ifexists("IsActivated", ""))
+| where Risk in~ ("High", "Critical")
+| where Active !in~ ("false", "0")
+| summarize Devices = dcount(DeviceId), Names = make_set(DeviceName, 10), Browsers = make_set(BrowserName, 5), Vendor = take_any(tostring(column_ifexists("ExtensionVendor", ""))) by ExtensionId, ExtensionName, Risk
+| order by Devices desc
+| take 50
+"@
+    $ext = foreach ($row in @(Invoke-WlHuntingSafe -Query $qExt -Context 'Advanced Hunting browser extensions (high risk)' -NoShard)) {
+        if ($null -eq $row) { continue }
+        $n = $row.Names; if ($n -is [string]) { try { $n = $n | ConvertFrom-Json } catch { $n = @($n) } }
+        $b = $row.Browsers; if ($b -is [string]) { try { $b = $b | ConvertFrom-Json } catch { $b = @($b) } }
+        [pscustomobject]@{ id = [string]$row.ExtensionId; name = [string]$row.ExtensionName; risk = [string]$row.Risk; vendor = [string]$row.Vendor
+            devices = [int]$row.Devices; names = @($n | ForEach-Object { [string]$_ }); browsers = @($b | ForEach-Object { [string]$_ } | Sort-Object -Unique) }
+    }
+    [pscustomobject]@{ asr = $asr; threatActions = @($threat); browserExtensions = @($ext) }
 }
 
 function Get-WlScanAge {
@@ -1052,6 +1071,7 @@ function Get-WlHygieneFindings {
       - WSL without the Defender plug-in for WSL
       - PsExec/WMI ASR rule blocking on ConfigMgr-managed devices (breaks the ConfigMgr client)
       - threat default actions set to Allow / NoAction locally
+      - browser extensions rated High/Critical by Vulnerability Management (one finding per extension)
     #>
     param([hashtable]$Devices, $Facts, $Asr)
     $f = [System.Collections.Generic.List[object]]::new()
@@ -1128,6 +1148,18 @@ function Get-WlHygieneFindings {
         $f.Add((New-WlFinding -Severity 'High' -Category 'Device' -Title (& $T 'Detected threats are allowed to run' 'Erkannte Bedrohungen dürfen laufen') `
                     -Detail (& $T "On $($e.deviceName) Defender's threat default actions were set to allow detected threats: $vals (last change $($e.at), process $($e.process)). Each entry is an exclusion that does not appear in any exclusion list." "Auf $($e.deviceName) wurden die Standardaktionen von Defender so gesetzt, dass erkannte Bedrohungen laufen dürfen: $valsDe (letzte Änderung $($e.at), Prozess $($e.process)). Jeder Eintrag ist ein Ausschluss, der in keiner Ausschlussliste auftaucht.") `
                     -Recommendation (& $T 'Remove the ThreatIdDefaultAction / ThreatSeverityDefaultAction values (GPO or registry) and handle a false positive with a narrow indicator or a submission to Microsoft instead.' 'Die Werte ThreatIdDefaultAction / ThreatSeverityDefaultAction entfernen (GPO oder Registry) und einen False Positive stattdessen mit einem engen Indikator oder einer Einsendung an Microsoft behandeln.') -Subject 'hyg|threataction' -DeviceId $e.deviceId -DeviceName $e.deviceName))
+    }
+
+    # 7) Browser extensions rated High/Critical by Vulnerability Management – one finding per extension
+    foreach ($x in @(@(Get-WlProp $Facts 'browserExtensions') | Where-Object { $_ -and $_.devices -gt 0 })) {
+        $sev = if ($x.risk -match '^Critical$') { 'High' } else { 'Medium' }
+        $sample = (@($x.names | Select-Object -First 10) -join ', ') + $(if ($x.devices -gt 10) { ', …' } else { '' })
+        $browsers = if ($x.browsers.Count) { $x.browsers -join '/' } else { 'browser' }
+        $vendorEn = if ($x.vendor) { " by $($x.vendor)" } else { '' }; $vendorDe = if ($x.vendor) { " von $($x.vendor)" } else { '' }
+        $f.Add((New-WlFinding -Severity $sev -Category 'Fleet' -Title (& $T "$($x.risk)-risk browser extension '$($x.name)' on $($x.devices) device(s)" "Browser-Erweiterung '$($x.name)' mit Risiko $($x.risk) auf $($x.devices) Gerät(en)") `
+                    -Detail (& $T "Vulnerability Management rates the $browsers extension '$($x.name)'$vendorEn (ID $($x.id)) as $($x.risk) risk because of the permissions it requests; it is active on: $sample. Extensions run inside the browser with the user's sessions and cookies – outside the scope of ASR rules, SmartScreen and most AV scanning – and are a common path for data theft and session hijacking." "Vulnerability Management stuft die $browsers-Erweiterung '$($x.name)'$vendorDe (ID $($x.id)) wegen der angeforderten Berechtigungen als Risiko $($x.risk) ein; sie ist aktiv auf: $sample. Erweiterungen laufen im Browser mit den Sitzungen und Cookies des Benutzers – außerhalb von ASR-Regeln, SmartScreen und dem meisten AV-Scanning – und sind ein häufiger Weg für Datendiebstahl und Session-Hijacking.") `
+                    -Recommendation (& $T 'Review the extension in Vulnerability Management › Browser extensions; block it with an Edge/Chrome extension blocklist policy (ExtensionInstallBlocklist) if it has no business need, or move to an allowlist of approved extensions.' 'Die Erweiterung unter Vulnerability Management › Browsererweiterungen prüfen; ohne geschäftlichen Bedarf per Edge/Chrome-Blockliste (ExtensionInstallBlocklist) sperren oder auf eine Allowlist genehmigter Erweiterungen umstellen.') -Subject "hyg|ext|$($x.id)" -StableKey |
+            Add-Member -NotePropertyName deviceCount -NotePropertyValue $x.devices -PassThru | Add-Member -NotePropertyName deviceSample -NotePropertyValue @($x.names | Select-Object -First 10) -PassThru))
     }
     @($f.ToArray())
 }

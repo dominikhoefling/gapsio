@@ -254,6 +254,7 @@ $hunting = @{
         [pscustomobject]@{ Rule = 'ObfuscatedScript'; Kind = 'Audited'; Events = 4; Devices = 1; Top = '["powershell.exe (4)"]' }
     )
     Wsl = @([pscustomobject]@{ DeviceId = 'd-win1'; Wsl = 1; Plugin = 0 })
+    BrowserExtensions = @([pscustomobject]@{ ExtensionId = 'abcdefghijklmnop'; ExtensionName = 'Free VPN Unlimited'; Risk = 'High'; Devices = 2; Names = '["WIN-01","WIN-02"]'; Browsers = '["Edge","Chrome"]'; Vendor = 'Unknown Vendor' })
     ThreatActions = @([pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; RegistryKey = 'HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender\Threats\ThreatIdDefaultAction'; RegistryValueName = '2147519003'; RegistryValueData = '6'; Timestamp = (T 2); InitiatingProcessFileName = 'reg.exe' })
     ThirdPartyAv = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Products = '["CrowdStrike Falcon Sensor"]' },
@@ -572,6 +573,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
             elseif ($q -match '// WardlineAsrTelemetry') { $script:Hunt.AsrTelemetry }
             elseif ($q -match '// WardlineWsl') { $script:Hunt.Wsl }
+            elseif ($q -match '// WardlineBrowserExtensions') { $script:Hunt.BrowserExtensions }
             elseif ($q -match '// WardlineThreatActions') { $script:Hunt.ThreatActions }
             elseif ($q -match '// WardlineCoverage') { $script:Hunt.Coverage }
             elseif ($q -match '// WardlineFleetTroubleshooting') { $script:Hunt.Troubleshooting }
@@ -774,6 +776,7 @@ Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) never completed a f
 Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) still on standard connectivity' -and $_.detail.en -match 'SRV-01' }).Count -eq 1) 'Hygiene: standard connectivity (SRV-01)'
 Assert (@($flt | Where-Object { $_.title.en -eq '1 device(s) run WSL without the Defender plug-in' -and $_.detail.en -match 'WIN-01' }).Count -eq 1) 'Hygiene: WSL without plug-in'
 Assert (@($ep.findings | Where-Object { $_.title.en -eq 'Detected threats are allowed to run' -and $_.deviceName -eq 'WIN-01' -and $_.severity -eq 'High' }).Count -eq 1) 'Hygiene: ThreatIdDefaultAction = Allow (registry)'
+Assert (@($flt | Where-Object { $_.title.en -eq "High-risk browser extension 'Free VPN Unlimited' on 2 device(s)" -and $_.severity -eq 'Medium' -and $_.detail.en -match 'Chrome/Edge' -and $_.detail.en -match 'WIN-01, WIN-02' -and $_.deviceCount -eq 2 }).Count -eq 1) 'Hygiene: high-risk browser extension aggregated per extension'
 $obf = @($ep.asrRules | Where-Object { $_.id -eq 'obfuscated' })[0]
 Assert ($obf.telemetry.audited -eq 4 -and @($obf.telemetry.topAudited) -contains 'powershell.exe (4)') 'ASR telemetry attached to rule (obfuscated: 4 audit events)'
 $eos = & $mod {
