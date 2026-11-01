@@ -7,9 +7,8 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 ## [Unreleased]
 
 ### Added
-- **News agent**: `tools/Get-WardlineNews.ps1` and the weekly `news.yml` workflow collect new Defender for Endpoint /
-  Agent 365 items (Microsoft Learn, Tech Community, Microsoft 365 roadmap) into a `news` issue for the maintainer to
-  confirm; implementation rules for confirmed items in `AGENTS.md`.
+- **News agent**: `tools/Get-WardlineNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn,
+  Tech Community, Microsoft 365 roadmap) into a Markdown digest; implementation rules for confirmed items in `AGENTS.md`.
 - GitHub social preview source (`.github/social-preview.html/.png`).
 
 ### Removed
