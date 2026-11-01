@@ -33,7 +33,7 @@ function New-WlDevice {
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null; agentVersion = $null
-        checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
+        checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; policyExclusions = $null; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
         tags = @(); internetFacing = $null; tvmExcluded = $null; tvmExclusionReason = $null; assetValue = $null; transient = $null; mitigationStatus = $null; clientVersion = $null
         troubleshooting30d = 0; troubleshootingActive = $false; troubleshootingLast = $null; tampering30d = 0; tamperingLast = $null
         thirdPartyAv = @(); osBuild = $null; connectivityType = $null; wsl = $null; wslPlugin = $null
@@ -218,6 +218,61 @@ function Get-WlExclusionTypeFromDefinition {
     'Path'
 }
 
+function Get-WlGroupMemberKeys {
+    <#
+    .SYNOPSIS
+    Transitive members of a group as match keys: "dev:<Entra deviceId>" and "upn:<upn>" (cached per run).
+    #>
+    param([string]$GroupId, [hashtable]$Cache)
+    if ($Cache.ContainsKey($GroupId)) { return $Cache[$GroupId] }
+    $keys = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($m in @(Invoke-WlGraphSafe -All -Context "Members of group $GroupId" -Path "groups/$GroupId/transitiveMembers?`$select=id,deviceId,userPrincipalName")) {
+        if (-not $m) { continue }
+        $did = [string](Get-WlProp $m 'deviceId'); $upn = [string](Get-WlProp $m 'userPrincipalName')
+        if ($did) { [void]$keys.Add("dev:$did") }
+        if ($upn) { [void]$keys.Add("upn:$upn"); [void]$keys.Add("usr:$(($upn -split '@')[0])") }
+    }
+    $Cache[$GroupId] = $keys
+    $keys
+}
+
+function Set-WlDevicePolicyExclusions {
+    <#
+    .SYNOPSIS
+    Counts the Intune policy exclusions that apply to each device (policy platform = device OS, assignment
+    targets all devices / all users / a group the device or its last user is in, minus exclusion groups).
+    Devices without an Entra device ID can only be matched by "all devices/users" assignments.
+    #>
+    param([hashtable]$Devices, [object[]]$Exclusions, [hashtable]$Targets)
+    if (-not $Devices -or -not $Targets) { return }
+    $cache = @{}
+    $byPolicy = @{}
+    foreach ($x in @($Exclusions)) { if ($x -and $x.assigned) { if (-not $byPolicy.ContainsKey($x.policyId)) { $byPolicy[$x.policyId] = [System.Collections.Generic.List[object]]::new() }; $byPolicy[$x.policyId].Add($x) } }
+    foreach ($d in $Devices.Values) {
+        $keys = @()
+        if ($d.aadDeviceId) { $keys += "dev:$($d.aadDeviceId)" }
+        if ($d.lastUser) { $u = [string]$d.lastUser; $keys += "upn:$u"; $keys += "usr:$((($u -split '\\')[-1] -split '@')[0])" }
+        $count = 0
+        foreach ($polId in $byPolicy.Keys) {
+            $xs = $byPolicy[$polId]
+            if ($xs[0].platform -and $d.os -and $xs[0].platform -ne $d.os) { continue }
+            $in = $false; $out = $false
+            foreach ($a in @($Targets[$polId])) {
+                $t = Get-WlProp $a 'target'; $type = [string](Get-WlProp $t '@odata.type'); $gid = [string](Get-WlProp $t 'groupId')
+                $member = { param($g) $m = Get-WlGroupMemberKeys -GroupId $g -Cache $cache; @($keys | Where-Object { $m.Contains($_) }).Count -gt 0 }
+                switch -Wildcard ($type) {
+                    '*allDevicesAssignmentTarget' { $in = $true }
+                    '*allLicensedUsersAssignmentTarget' { $in = $true }
+                    '*exclusionGroupAssignmentTarget' { if ($gid -and (& $member $gid)) { $out = $true } }
+                    '*groupAssignmentTarget' { if ($gid -and -not $in -and (& $member $gid)) { $in = $true } }
+                }
+            }
+            if ($in -and -not $out) { $count += $xs.Count }
+        }
+        $d.policyExclusions = $count
+    }
+}
+
 function Get-WlPlatformText {
     param([string]$Platforms)
     $p = $Platforms.ToLowerInvariant()
@@ -296,6 +351,7 @@ function Get-WlEndpointPolicies {
     templates, legacy device configuration) and extracts exclusions and setting values.
     #>
     $groupNames = @{}
+    $targets = @{}   # policyId -> raw Intune assignments (for per-device exclusion counts)
     $exclusions = [System.Collections.Generic.List[object]]::new()
     $settingValues = [System.Collections.Generic.List[object]]::new()
     $policies = [System.Collections.Generic.List[object]]::new()
@@ -324,6 +380,7 @@ function Get-WlEndpointPolicies {
         if ($values.Count -eq 0) { continue }
 
         $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of policy '$($cp.name)'" -Path "deviceManagement/configurationPolicies('$($cp.id)')/assignments"
+        $targets[[string]$cp.id] = @($assign)
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $tmpl = Get-WlProp $cp 'templateReference'
         $platform = Get-WlPlatformText ([string]$cp.platforms)
@@ -377,6 +434,7 @@ function Get-WlEndpointPolicies {
         $hits = @($isettings | Where-Object { $_ -and ([string](Get-WlProp $_ 'definitionId')) -match 'exclu|allowedapp|guardedfoldersallowed' })
         if ($hits.Count -eq 0) { continue }
         $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of template '$($it.displayName)'" -Path "deviceManagement/intents/$($it.id)/assignments"
+        $targets[[string]$it.id] = @($assign)
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $policies.Add([pscustomobject]@{ id = $it.id; name = $it.displayName; kind = 'EndpointSecurityTemplate'; platforms = 'Windows'; template = $it.templateId; lastModified = [string]$it.lastModifiedDateTime; assignments = $assignText })
         foreach ($h in $hits) {
@@ -407,6 +465,7 @@ function Get-WlEndpointPolicies {
         foreach ($prop in $legacyMap.Keys) { $vals = @(Get-WlProp $dc $prop) | Where-Object { $_ }; if ($vals) { $found += , @($prop, $vals) } }
         if ($found.Count -eq 0) { continue }
         $assign = Invoke-WlGraphSafe -Beta -All -Context "Assignments of '$($dc.displayName)'" -Path "deviceManagement/deviceConfigurations/$($dc.id)/assignments"
+        $targets[[string]$dc.id] = @($assign)
         $assignText = Get-WlAssignmentText -Assignments @($assign) -GroupNames $groupNames
         $policies.Add([pscustomobject]@{ id = $dc.id; name = $dc.displayName; kind = 'LegacyConfiguration'; platforms = 'Windows'; template = [string]$dc.'@odata.type'; lastModified = [string]$dc.lastModifiedDateTime; assignments = $assignText })
         foreach ($f in $found) {
@@ -419,7 +478,7 @@ function Get-WlEndpointPolicies {
         }
     }
 
-    [pscustomobject]@{ Exclusions = $exclusions.ToArray(); SettingValues = $settingValues.ToArray(); Policies = $policies.ToArray() }
+    [pscustomobject]@{ Exclusions = $exclusions.ToArray(); SettingValues = $settingValues.ToArray(); Policies = $policies.ToArray(); Targets = $targets }
 }
 #endregion
 
@@ -2613,7 +2672,7 @@ function Get-WlEndpointFindings {
 
 #region Device statistics and search (large fleets)
 $script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
-    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'policyExclusions', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
     'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', 'thirdPartyAv', '_filter', '_search')
 $script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
@@ -2736,7 +2795,7 @@ function ConvertFrom-WlDeviceIndexRow {
         $v = if ($i -lt $Row.Count) { $Row[$i] } else { '' }
         switch ($name) {
             'checks' { $c = [ordered]@{}; foreach ($kv in $v.Split(';')) { $e = $kv.IndexOf('='); if ($e -gt 0) { $c[$kv.Substring(0, $e)] = $kv.Substring($e + 1) } }; $o.checks = $c }
-            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'exclusionAlerts', 'tampering30d', 'troubleshooting30d' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
+            { $_ -in 'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'policyExclusions', 'exclusionAlerts', 'tampering30d', 'troubleshooting30d' } { $o[$name] = $(if ($v -eq '') { $null } else { [int]$v }) }
             'localExclusionsHighRisk' { $o[$name] = ($v -match '^(true|1)$') }
             'internetFacing' { $o[$name] = $(if ($v -eq '') { $null } else { $v -match '^(true|1)$' }) }
             { $_ -in 'tags', 'thirdPartyAv' } { $o[$name] = @($v.Split(';', [StringSplitOptions]::RemoveEmptyEntries)) }
@@ -2850,6 +2909,7 @@ function Invoke-WlEndpointCollection {
     $inventory = Resolve-WlInventoryDevices -Inventory @(Get-WlDeviceInventory) -Devices $devices
     $local = Update-WlLocalExclusionState -Events $events -Previous $prevLocal -Inventory $inventory
 
+    Set-WlDevicePolicyExclusions -Devices $devices -Exclusions $pol.Exclusions -Targets $pol.Targets
     Get-WlAsrDeviceStates -Devices $devices
     $asr = Get-WlAsrOverview -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $linuxEvents = Get-WlLinuxConfigEvents
