@@ -97,7 +97,7 @@
     'd.lede': ['The actual state on the devices – regardless of what the policies say.', 'Der tatsächliche Zustand auf den Geräten – unabhängig davon, was in den Richtlinien steht.'],
     'd.device': ['Device', 'Gerät'], 'd.platform': ['Platform', 'Plattform'], 'd.group': ['Device group', 'Gerätegruppe'], 'd.onlyIssues': ['Devices with issues only', 'Nur Geräte mit Auffälligkeiten'],
     'd.mode': ['Mode', 'Modus'], 'd.tamper': ['Tamper', 'Tamper'], 'd.rtp': ['Real-time', 'Echtzeit'], 'd.cloud': ['Cloud', 'Cloud'], 'd.bm': ['Behavior', 'Verhalten'], 'd.pua': ['PUA', 'PUA'],
-    'd.asrBelow': ['ASR below target', 'ASR unter Soll'], 'd.local': ['Local exclusions', 'Lokale Exclusions'], 'd.os': ['Operating system', 'Betriebssystem'], 'd.lastSeen': ['Last seen', 'Zuletzt gesehen'],
+    'd.asrBelow': ['ASR below target', 'ASR unter Soll'], 'd.local': ['Local exclusions', 'Lokale Exclusions'], 'd.policyExcl': ['Intune exclusions', 'Intune-Exclusions'], 'd.os': ['Operating system', 'Betriebssystem'], 'd.lastSeen': ['Last seen', 'Zuletzt gesehen'],
     'd.sig': ['Signatures up to date', 'Signaturen aktuell'], 'd.plat': ['Platform up to date', 'Plattform aktuell'], 'd.alerts': ['Exclusion alerts (30 days)', 'Exclusion-Alerts (30 Tage)'],
     'd.checks': ['All checks', 'Alle Prüfungen'], 'd.asr': ['ASR rules', 'ASR-Regeln'], 'd.none': ['No devices found. Is Defender for Endpoint with Advanced Hunting active?', 'Keine Geräte gefunden. Ist Defender for Endpoint mit Advanced Hunting aktiv?'],
     'mode.Active': ['Active', 'Aktiv'], 'mode.Passive': ['Passive', 'Passiv'], 'mode.SxSPassive': ['SxS passive', 'SxS passiv'], 'mode.EdrBlock': ['EDR in block mode', 'EDR im Blockmodus'], 'mode.Unknown': ['Unknown', 'Unbekannt'],
@@ -181,8 +181,12 @@
     'r.package': ['Access package', 'Access Package'], 'r.policy': ['Policy', 'Richtlinie'], 'r.who': ['Who can request', 'Wer darf beantragen'], 'r.grants': ['Grants', 'Vermittelt'],
     'aud.allMemberUsers': ['all members', 'alle Mitglieder'], 'aud.allDirectoryUsers': ['all users incl. guests', 'alle Benutzer inkl. Gäste'], 'aud.allExternalUsers': ['all external users', 'alle externen Benutzer'], 'aud.allConfiguredConnectedOrganizationUsers': ['connected organisations', 'verbundene Organisationen'],
     'rs.Active': ['Active', 'Aktiv'], 'rs.Activated': ['Active (activated via PIM)', 'Aktiv (per PIM aktiviert)'], 'rs.Eligible': ['Eligible', 'Eligible'], 'rs.Requestable': ['Requestable', 'Beantragbar'],
-    'w.lede': ['Search for a Defender role or permission, e.g. “response”, “liveresponse” or “microsoft.xdr/configuration/security/manage”. Shows everyone who can do it – actively, via PIM or by request.', 'Suchen Sie nach einer Defender-Rolle oder Berechtigung, zum Beispiel „response“, „liveresponse“ oder „microsoft.xdr/configuration/security/manage“. Gezeigt werden alle Personen, die das aktiv, per PIM oder per Antrag können.'],
-    'w.input': ['Role or permission …', 'Rolle oder Berechtigung …'], 'w.min': ['Enter at least three characters.', 'Mindestens drei Zeichen eingeben.'], 'w.noRole': ['No role matches this search.', 'Keine Rolle passt zu dieser Suche.'],
+    'w.lede': ['Pick Defender XDR unified RBAC roles (multiple selection) or search for a person. Shows everyone who has them – directly, via a group, eligible through PIM or requestable via an access package – plus Entra roles that bypass unified RBAC. Free text also matches permissions, e.g. “liveresponse”.', 'Wählen Sie Defender-XDR-Unified-RBAC-Rollen (Mehrfachauswahl) oder suchen Sie eine Person. Gezeigt werden alle, die sie haben – direkt, über Gruppe, eligible per PIM oder über ein Access Package beantragbar –, dazu Entra-Rollen, die Unified RBAC umgehen. Freitext findet auch Berechtigungen, z. B. „liveresponse“.'],
+    'w.input': ['Person, group or permission …', 'Person, Gruppe oder Berechtigung …'], 'w.min': ['Enter at least three characters.', 'Mindestens drei Zeichen eingeben.'], 'w.noRole': ['No role or person matches this search.', 'Keine Rolle und keine Person passt zu dieser Suche.'],
+    'w.start': ['Pick one or more roles or search for a person.', 'Wählen Sie eine oder mehrere Rollen oder suchen Sie eine Person.'],
+    'w.pickRoles': ['Roles (multiple selection)', 'Rollen (Mehrfachauswahl)'], 'w.clear': ['Clear selection', 'Auswahl aufheben'],
+    'w.kind': ['Type', 'Art'], 'w.group': ['Group', 'Gruppe'], 'w.user': ['User', 'Benutzer'], 'w.direct': ['Direct', 'Direkt'], 'w.permanent': ['permanent', 'dauerhaft'],
+    'w.bypass': ['Includes Entra roles (e.g. Global/Security Administrator) that have every Defender permission regardless of unified RBAC.', 'Enthält Entra-Rollen (z. B. Global/Security Administrator), die unabhängig von Unified RBAC jede Defender-Berechtigung haben.'],
     'w.roles': ['Matching roles: {0}', 'Passende Rollen: {0}'], 'w.nobody': ['Nobody has any of these roles.', 'Niemand hat eine dieser Rollen.'],
     'm.lede': ['Which Defender roles you have now, which you can activate yourself and which you can request.', 'Welche Defender-Rollen Sie jetzt haben, welche Sie selbst aktivieren und welche Sie beantragen können.'],
     'm.active': ['Active', 'Aktiv'], 'm.active.i': ['You have these permissions right now.', 'Diese Rechte haben Sie in diesem Moment.'], 'm.pim': ['Activatable via PIM', 'Per PIM aktivierbar'],
@@ -1248,6 +1252,7 @@
         { title: t('d.pua'), cell: r => checkCell(c(r, 'PUAProtection')), text: r => c(r, 'PUAProtection') },
         { title: t('d.np'), cell: r => checkCell(c(r, 'NetworkProtection')), text: r => c(r, 'NetworkProtection') },
         { title: t('d.asrBelow'), cell: r => r.asrBelowMinimum === null || r.asrBelowMinimum === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.asrBelowMinimum ? 'bad' : 'good'}` }, String(r.asrBelowMinimum)), text: r => r.asrBelowMinimum },
+        { title: t('d.policyExcl'), cell: r => r.policyExclusions === null || r.policyExclusions === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: r.policyExclusions ? 'state warn' : 'muted' }, String(r.policyExclusions)), text: r => r.policyExclusions },
         { title: t('d.local'), cell: r => r.localExclusions ? h('span', { class: `state ${r.localExclusionsHighRisk ? 'bad' : 'warn'}` }, String(r.localExclusions)) : h('span', { class: 'muted' }, '0'), text: r => r.localExclusions }];
       const detail = r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
         [t('d.sig'), yesNo(r.signatureUpToDate)], [t('d.plat'), yesNo(r.platformUpToDate)], [t('d.alerts'), r.exclusionAlerts],
@@ -1849,35 +1854,91 @@
       let ac; try { ac = await loadAccess(); } catch (e) { main.append(noData(e, 'access')); return; }
       const input = h('input', { type: 'search', placeholder: t('w.input'), 'aria-label': t('w.input'), value: params.get('q') || '' });
       const out = h('div');
-      main.append(h('div', { class: 'toolbar' }, input), out);
       const covers = (action, q) => {
         const a = action.toLowerCase();
         if (a.includes(q)) return true;
         const base = a.replace(/\/(allproperties\/)?alltasks$/, '/');
         return q.startsWith('microsoft.') && base.endsWith('/') && q.startsWith(base);
       };
+      // All rows: unified RBAC entitlements + Entra roles that bypass unified RBAC (role id "entra:<name>")
+      const all = [...arr(ac.entitlements),
+        ...arr(ac.bypass).map(b => ({ ...b, roleId: `entra:${b.role}`, role: `${b.role} (Entra)`, entra: true }))];
+      // Role list for multi-select: every unified RBAC role (also unassigned ones) + Entra bypass roles in use
+      const roleList = [...arr(ac.roles).map(r => ({ id: r.id, name: r.name, actions: arr(r.actions), entra: false })),
+        // all Entra roles that bypass unified RBAC – also unassigned ones (older snapshots: only the ones in use)
+        ...[...new Set([...arr(ac.bypassRoles).map(b => `entra:${b.name}`), ...all.filter(r => r.entra).map(r => r.roleId)])]
+          .map(id => ({ id, name: `${id.slice(6)} (Entra)`, actions: [], entra: true }))]
+        .sort((a, b) => (a.entra - b.entra) || a.name.localeCompare(b.name));
+      const count = id => new Set(all.filter(r => r.roleId === id).map(r => r.principalId)).size;
+      const selected = new Set((params.get('roles') || '').split(',').filter(Boolean));
+      let personSel = null;
+
+      // People picker with autocomplete (users and groups behind the assignments)
+      const people = new Map();
+      for (const r of all) if (r.principalId && !people.has(r.principalId)) people.set(r.principalId, { id: r.principalId, name: r.displayName || r.upn || r.principalId, upn: r.upn || '', type: r.principalType || 'user' });
+      const sugg = h('div', { class: 'ac-list', role: 'listbox' });
+      const pick = p => { personSel = p; input.value = p.name; sugg.replaceChildren(); run(); };
+      input.setAttribute('autocomplete', 'off');
+      input.addEventListener('input', () => {
+        personSel = null;
+        const q = input.value.trim().toLowerCase();
+        sugg.replaceChildren();
+        if (q.length >= 1) {
+          const hits = [...people.values()].filter(p => `${p.name} ${p.upn}`.toLowerCase().includes(q)).slice(0, 8);
+          for (const p of hits) sugg.append(h('button', { type: 'button', class: 'ac-item', role: 'option', onclick: () => pick(p) },
+            h('span', { class: `chip-type chip-${p.type}` }, p.type === 'group' ? t('w.group') : t('w.user')), ' ', h('strong', null, p.name), p.upn ? h('span', { class: 'muted small' }, ` ${p.upn}`) : null));
+        }
+        clearTimeout(run._t); run._t = setTimeout(run, 200);
+      });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { const f = sugg.querySelector('.ac-item'); if (f) { e.preventDefault(); f.click(); } } if (e.key === 'Escape') sugg.replaceChildren(); });
+
+      // Role chips (multi-select)
+      const chips = h('div', { class: 'role-chips' });
+      const drawChips = () => chips.replaceChildren(
+        ...roleList.map(r => h('button', {
+          type: 'button', class: `role-chip${selected.has(r.id) ? ' on' : ''}${r.entra ? ' entra' : ''}`, 'aria-pressed': String(selected.has(r.id)),
+          title: r.actions.slice(0, 12).join('\n'),
+          onclick: () => { selected.has(r.id) ? selected.delete(r.id) : selected.add(r.id); drawChips(); run(); }
+        }, r.name, h('span', { class: 'role-chip-n' }, String(count(r.id))))),
+        selected.size ? h('button', { type: 'button', class: 'link', onclick: () => { selected.clear(); drawChips(); run(); } }, t('w.clear')) : null);
+      drawChips();
+
+      main.append(h('div', { class: 'toolbar ac' }, input, sugg), h('h3', null, t('w.pickRoles')), chips, out);
+
       function run() {
         const q = input.value.trim().toLowerCase();
         out.replaceChildren();
-        if (q.length < 3) { out.append(h('p', { class: 'muted' }, t('w.min'))); return; }
-        const roles = arr(ac.roles).filter(r => String(r.name).toLowerCase().includes(q) || arr(r.actions).some(a => covers(a, q)));
-        if (!roles.length) { out.append(h('div', { class: 'empty' }, t('w.noRole'))); return; }
-        const ids = new Set(roles.map(r => r.id));
-        out.append(h('p', null, t('w.roles', roles.map(r => r.name).join(', '))));
-        const rows = arr(ac.entitlements).filter(e => ids.has(e.roleId));
+        // Free text that is not a person: match role names / permissions (e.g. "liveresponse", "microsoft.xdr/...")
+        const textRoles = !personSel && q.length >= 3 ? roleList.filter(r => r.name.toLowerCase().includes(q) || r.actions.some(a => covers(a, q)) || (r.entra && q.startsWith('microsoft.'))) : [];
+        const textPeople = !personSel && q.length >= 2 ? new Set([...people.values()].filter(p => `${p.name} ${p.upn}`.toLowerCase().includes(q)).map(p => p.id)) : new Set();
+        const roleIds = new Set([...selected, ...textRoles.map(r => r.id)]);
+        if (!roleIds.size && !personSel && !textPeople.size) {
+          out.append(h('div', { class: 'empty' }, q.length ? t('w.noRole') : t('w.start'))); return;
+        }
+        const rows = all.filter(r => {
+          const roleOk = !roleIds.size || roleIds.has(r.roleId);
+          const personOk = personSel ? r.principalId === personSel.id : (textPeople.size && !selected.size && !textRoles.length ? textPeople.has(r.principalId) : true);
+          return roleOk && personOk;
+        });
+        if (textRoles.length && !selected.size) out.append(h('p', null, t('w.roles', textRoles.map(r => r.name).join(', '))));
+        if (rows.some(r => r.entra)) out.append(h('p', { class: 'muted' }, t('w.bypass')));
+        const kinds = r => r.entra ? 'Entra' : /PIM/i.test(r.via || '') || r.state === 'Eligible' ? 'PIM' : /Access package/i.test(r.via || '') ? 'Access package' : /^Group/i.test(r.via || '') ? t('w.group') : t('w.direct');
         out.append(dataTable({
-          name: 'who-can', rows, sort: (a, b) => String(a.state).localeCompare(String(b.state)),
+          name: 'who-can', rows, sort: (a, b) => String(a.displayName).localeCompare(String(b.displayName)) || String(a.role).localeCompare(String(b.role)),
           search: r => `${r.displayName} ${r.upn} ${r.role} ${r.via}`,
-          filters: [{ label: t('r.state'), options: [...new Set(rows.map(r => r.state))].sort(), optionLabel: s => code('rs', s), test: (r, v) => r.state === v }],
+          filters: [
+            { label: t('r.state'), options: [...new Set(rows.map(r => r.state))].sort(), optionLabel: s => code('rs', s), test: (r, v) => r.state === v },
+            { label: t('w.kind'), options: [...new Set(rows.map(kinds))].sort(), test: (r, v) => kinds(r) === v }],
           columns: [
-            { title: t('r.person'), text: r => r.upn || r.displayName },
+            { title: t('r.person'), cell: r => h('span', null, r.displayName || r.principalId, h('br'), h('span', { class: 'muted small' }, r.upn || r.principalType)), text: r => r.upn || r.displayName },
             { title: t('r.role'), text: r => r.role },
             { title: t('r.state'), text: r => code('rs', r.state) },
-            { title: t('r.path'), text: r => assignText(r.via) }],
+            { title: t('w.kind'), text: kinds },
+            { title: t('r.path'), cell: r => h('span', null, assignText(r.via), r.assignment ? [h('br'), h('span', { class: 'muted small' }, r.assignment)] : null), text: r => assignText(r.via) },
+            { title: t('r.ends'), text: r => r.end ? fmtDate(r.end) : (r.state === 'Active' ? t('w.permanent') : '–') }],
           empty: t('w.nobody')
         }));
       }
-      input.addEventListener('input', () => { clearTimeout(run._t); run._t = setTimeout(run, 250); });
       run();
     },
 

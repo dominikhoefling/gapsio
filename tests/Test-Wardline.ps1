@@ -635,7 +635,11 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^groups/([^/]+)/transitiveMembers' { return (V $script:Acc.members[$Matches[1]]) }
             '^roleManagement/defender/roleDefinitions' { return (V $script:Acc.roleDefs) }
             '^roleManagement/defender/roleAssignments' { return (V $script:Acc.assignments) }
-            '^roleManagement/directory/roleAssignments\?' { return (V $script:Acc.entraBypass) }
+            '^roleManagement/directory/roleAssignments\?' {
+                if ($Path -match ' in \(') { throw 'HTTP 400 Multiple roleDefinitionId in filter not supported.' }
+                if ($Path -match "roleDefinitionId eq '([^']+)'") { $rid = $Matches[1]; return (V @($script:Acc.entraBypass | Where-Object { $_.roleDefinitionId -eq $rid })) }
+                return (V $script:Acc.entraBypass)
+            }
             "^identityGovernance/privilegedAccess/group/eligibilityScheduleInstances\?\`$filter=groupId eq '([^']+)'" { return (V $script:Acc.pimGroups[$Matches[1]]) }
             "^identityGovernance/privilegedAccess/group/assignmentScheduleRequests\?\`$filter=groupId eq '([^']+)'" { return (V $script:Acc.pimActivations[$Matches[1]]) }
             '^auditLogs/signIns\?' { if ($Uri -notmatch '80ccca67-54bd-44ab-8625-4b79c4dc7775') { throw 'sign-in filter without Defender portal appId' }; return (V $script:Acc.signIns) }

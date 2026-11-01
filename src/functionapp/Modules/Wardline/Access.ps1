@@ -674,8 +674,10 @@ function Invoke-WlAccessCollection {
 
     #region Entra roles that bypass unified RBAC
     $bypass = [System.Collections.Generic.List[object]]::new()
-    $ids = "'" + (($script:WlEntraBypassRoles.Keys | Sort-Object) -join "','") + "'"
-    $entra = Invoke-WlGraphSafe -All -Context 'Entra role assignments (RoleManagement.Read.Directory)' -Path "roleManagement/directory/roleAssignments?`$filter=roleDefinitionId in ($ids)&`$expand=principal"
+    # Graph rejects 'roleDefinitionId in (...)' with several IDs – query each role separately
+    $entra = @(foreach ($rid in ($script:WlEntraBypassRoles.Keys | Sort-Object)) {
+            Invoke-WlGraphSafe -All -Context 'Entra role assignments (RoleManagement.Read.Directory)' -Path "roleManagement/directory/roleAssignments?`$filter=roleDefinitionId eq '$rid'&`$expand=principal"
+        })
     foreach ($a in @($entra)) {
         if (-not $a -or -not $script:WlEntraBypassRoles.ContainsKey([string]$a.roleDefinitionId)) { continue }
         $info = $script:WlEntraBypassRoles[[string]$a.roleDefinitionId]
@@ -757,6 +759,7 @@ function Invoke-WlAccessCollection {
         usageObservedSince = $observedSince.ToString('o')
         principalUsage     = [ordered]@{}
         roles              = @($roles)
+        bypassRoles        = @($script:WlEntraBypassRoles.Keys | Sort-Object | ForEach-Object { [pscustomobject]@{ id = $_; name = $script:WlEntraBypassRoles[$_].name; level = $script:WlEntraBypassRoles[$_].level } })
         entitlements       = $ents
         bypass             = @($bypass)
         audiences          = @($audiences)
