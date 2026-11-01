@@ -45,7 +45,7 @@ Every push and pull request runs the tests, parses every PowerShell file, checks
 unauthenticated sources – the Microsoft Learn *What's new* pages (Windows, macOS, Linux, Defender XDR), the Tech
 Community blogs (RSS) and the Microsoft 365 roadmap API – and writes a Markdown digest. The workflow `news.yml` runs
 it every Monday (or on demand via *Run workflow*) and opens an issue labelled `news` with one checkbox per item;
-`.github/news-state.json` remembers what has already been reported.
+the branch `news-state` (file `news-state.json`) remembers what has already been reported.
 
 Nothing is implemented automatically. The maintainer ticks the items that should become a check, a baseline
 setting or documentation; an AI coding agent (rules in `AGENTS.md` › *News digest*) or a contributor then opens one

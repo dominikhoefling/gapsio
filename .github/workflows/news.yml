@@ -3,7 +3,7 @@ name: News
 # Weekly news agent: collects new items about Defender for Endpoint and Agent 365 (Microsoft Learn "What's new",
 # Tech Community RSS, Microsoft 365 roadmap) and opens one issue per run with a checklist. Nothing is implemented
 # automatically – the maintainer ticks items / comments "einbauen", then an AI agent or a human implements them
-# (see AGENTS.md › News digest). The list of already reported items lives in .github/news-state.json.
+# (see AGENTS.md › News digest). The list of already reported items lives on the branch `news-state`.
 
 on:
   schedule:
@@ -24,10 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The list of already reported items lives on the unprotected branch `news-state` (file news-state.json),
+      # so the bot never needs to push to main.
+      - name: Load state
+        run: |
+          git fetch origin news-state:news-state 2>/dev/null && git show news-state:news-state.json > "$RUNNER_TEMP/news-state.json" || echo '{"seen":[]}' > "$RUNNER_TEMP/news-state.json"
+
       - name: Collect news
         id: news
         shell: pwsh
-        run: ./tools/Get-WardlineNews.ps1 -Days ([int]('${{ github.event.inputs.days || 45 }}')) -Output "$env:RUNNER_TEMP/news.md"
+        run: ./tools/Get-WardlineNews.ps1 -Days ([int]('${{ github.event.inputs.days || 45 }}')) -StatePath "$env:RUNNER_TEMP/news-state.json" -Output "$env:RUNNER_TEMP/news.md"
 
       - name: Open issue with the digest
         if: steps.news.outputs.count != '0'
@@ -41,6 +47,8 @@ jobs:
         run: |
           git config user.name "wardline-news[bot]"
           git config user.email "news@wardline.cloud"
-          git add .github/news-state.json
-          git diff --cached --quiet || git commit -s -m "News agent: state $(date -u +%Y-%m-%d)"
-          git push
+          if git rev-parse --verify news-state >/dev/null 2>&1; then git checkout -q news-state; else git checkout -q --orphan news-state && git rm -rfq . ; fi
+          cp "$RUNNER_TEMP/news-state.json" news-state.json
+          git add news-state.json
+          git diff --cached --quiet || git commit -q -s -m "News agent: state $(date -u +%Y-%m-%d)"
+          git push -q origin news-state
