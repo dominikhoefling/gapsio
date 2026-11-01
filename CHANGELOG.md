@@ -4,13 +4,24 @@ All notable changes to Wardline are documented here. The format follows [Keep a 
 and Wardline uses [Semantic Versioning](https://semver.org/): a new **minor** version can add features and permissions,
 a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -ResourceGroup <resource group>`.
 
+## [Unreleased]
+
+### Added
+- **News agent**: `tools/Get-WardlineNews.ps1` and the weekly `news.yml` workflow collect new Defender for Endpoint /
+  Agent 365 items (Microsoft Learn, Tech Community, Microsoft 365 roadmap) into a `news` issue for the maintainer to
+  confirm; implementation rules for confirmed items in `AGENTS.md`.
+- GitHub social preview source (`.github/social-preview.html/.png`).
+
+### Removed
+- Sponsor links (`FUNDING.yml`).
+
 ## [0.4.0] – 2026-11-02
 
 First version published on GitHub.
 
 ### Added
 - **Open-source release**: MIT `LICENSE` with trademark notice, `CONTRIBUTING.md` (DCO), `CODE_OF_CONDUCT.md`,
-  `AGENTS.md` for AI coding agents, issue and pull-request templates, `CODEOWNERS`, sponsor links and the
+  `AGENTS.md` for AI coding agents, issue and pull-request templates, `CODEOWNERS` and the
   open-core promise (`docs/manifesto.md`) that documents what stays free.
 - **Baseline 2026.10.31** – 21 new Windows checks: threat default actions never *Allow*, no `ThreatIdDefaultAction`
   overrides, brute-force protection and remote encryption protection in block mode, network protection protocol parsing

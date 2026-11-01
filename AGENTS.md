@@ -48,6 +48,21 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 - Commits: imperative, one topic, `-s` sign-off (DCO). Add a CHANGELOG line.
 - Before finishing: run the tests, parse all `.ps1` files, and if Bicep changed, regenerate `azuredeploy.json`.
 
+## News digest (issues labelled `news`)
+
+`.github/workflows/news.yml` runs `tools/Get-WardlineNews.ps1` weekly and opens an issue with a checklist of new
+Defender for Endpoint / Agent 365 items (Microsoft Learn "What's new", Tech Community, Microsoft 365 roadmap).
+Rules for working on such an issue:
+
+- Implement **only** items the maintainer has ticked or answered with *einbauen* / *implement*. Never act on the
+  rest; never implement an item from the digest without that confirmation.
+- Per confirmed item, first state in a comment what it becomes (new check, baseline setting, agent/access rule,
+  docs only) and which documented data source backs it. If there is no documented, stable source (Graph v1.0,
+  Defender API, documented Advanced Hunting column), propose *docs only* instead of a guessed check.
+- Then: code + test in `tests/Test-Wardline.ps1` + docs page + CHANGELOG line, one pull request per item,
+  referencing the issue. Bump `ModuleVersion` only when a release is cut.
+- Baseline changes go into `src/functionapp/config/mdav-baseline.json` with a new baseline date and a `rationale`.
+
 ## Do not
 
 - Do not "clean up" the display limit, licence check or notices about the Community edition.
