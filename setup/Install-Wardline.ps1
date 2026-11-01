@@ -47,6 +47,14 @@
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Response,Agents,Access -EnableImmutability -SnapshotRetentionDays 730 -ChangeRetentionDays 365
 
 .EXAMPLE
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Name contoso
+    Readable address: https://wardline-contoso.azurewebsites.net (a short suffix is added if the name is taken).
+
+.EXAMPLE
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Name contoso -CustomDomain wardline.contoso.com
+    Own domain with a free managed certificate. The script prints the two DNS records (CNAME + TXT asuid) and waits for them.
+
+.EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -PortalAppId <appId> -DataAppId <appId>
 
 .EXAMPLE
@@ -62,6 +70,8 @@ param(
     [string]$SubscriptionId,
     [ValidateSet('Default', 'Customized')][string]$NamingMode = 'Default',
     [ValidatePattern('^[a-z0-9]{3,10}$')][string]$NamePrefix = 'wardline',
+    [ValidatePattern('^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$')][string]$Name,
+    [ValidatePattern('^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$')][string]$CustomDomain,
     [string]$FunctionAppName,
     [ValidatePattern('^[a-z0-9]{3,24}$')][string]$StorageAccountName,
     [string]$RunnerIdentityName,
@@ -169,6 +179,34 @@ foreach ($c in $adopt.Keys) {
 }
 if ($adopted.Count) { $NamingMode = 'Customized'; Write-Ok "Existing names: $($adopted -join ', ')" }
 
+# -Name: readable Function App name "wardline-<name>" (globally unique; a short suffix is added if taken)
+if ($Name) {
+    if ($existing.ContainsKey('functionapp')) {
+        if ($existing['functionapp'] -notlike "wardline-$Name*") {
+            throw "This resource group already contains the Function App '$($existing['functionapp'])'. Azure cannot rename it. Delete only the Function App (az functionapp delete -g $ResourceGroup -n $($existing['functionapp'])) – storage, data and identities stay – and run the installer again with -Name."
+        }
+    }
+    elseif (-not $FunctionAppName) {
+        $sub = (Invoke-Az -Arguments @('account', 'show', '--query', 'id', '-o', 'tsv')).Trim()
+        $candidate = "wardline-$Name"
+        for ($i = 0; $i -lt 5; $i++) {
+            $chk = Invoke-Az -Arguments @('rest', '--method', 'post', '--url', "https://management.azure.com/subscriptions/$sub/providers/Microsoft.Web/checknameavailability?api-version=2022-03-01", '--body', (@{ name = $candidate; type = 'Microsoft.Web/sites' } | ConvertTo-Json -Compress), '-o', 'json') -AllowFailure
+            if ($chk -and ($chk | ConvertFrom-Json).nameAvailable) { break }
+            $candidate = "wardline-$Name-$(-join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ }))"
+        }
+        $FunctionAppName = $candidate
+        $NamingMode = 'Customized'
+        Write-Ok "Portal name:  $FunctionAppName"
+    }
+}
+
+# Custom domain: keep an existing binding on re-runs
+if (-not $CustomDomain -and $existing.ContainsKey('functionapp')) {
+    $hn = Invoke-Az -Arguments @('functionapp', 'show', '-g', $ResourceGroup, '-n', $existing['functionapp'], '--query', 'hostNames', '-o', 'json') -AllowFailure
+    if ($hn) { $CustomDomain = @($hn | ConvertFrom-Json | Where-Object { $_ -notlike '*.azurewebsites.net' }) | Select-Object -First 1 }
+    if ($CustomDomain) { Write-Ok "Custom domain: $CustomDomain (kept)" }
+}
+
 # Re-runs: keep the notification and retention settings unless they are passed explicitly (app settings are rewritten by the template)
 if ($existing.ContainsKey('functionapp')) {
     $cur = Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'list', '-g', $ResourceGroup, '-n', $existing['functionapp'], '-o', 'json') -AllowFailure
@@ -199,6 +237,7 @@ function Deploy-Infrastructure {
     )
     if ($NotifyWebhookUrl) { $params += "notifyWebhook=$NotifyWebhookUrl" }
     if ($LicenseKey) { $params += "licenseKey=$LicenseKey" }
+    if ($CustomDomain) { $params += "customDomain=$CustomDomain" }
     if ($NamingMode -eq 'Customized') {
         if ($FunctionAppName) { $params += "customFunctionAppName=$FunctionAppName" }
         if ($StorageAccountName) { $params += "customStorageAccountName=$StorageAccountName" }
@@ -228,6 +267,11 @@ Write-Step 'Deploying Azure resources (storage, Function App, monitoring, manage
 $infra = Deploy-Infrastructure
 Write-Ok "Function App: $($infra.FunctionAppName)"
 Write-Ok "Storage:      $($infra.StorageAccount) (Entra authentication only, no keys)"
+if ($CustomDomain) {
+    Write-Step "Custom domain $CustomDomain"
+    Add-WardlineCustomDomain -ResourceGroup $ResourceGroup -FunctionAppName $infra.FunctionAppName -DefaultHostName $infra.HostName -Domain $CustomDomain
+    $infra.PortalUrl = "https://$CustomDomain"
+}
 $redirect = "https://$($infra.HostName)/.auth/login/aad/callback"
 
 # ---------------------------------------------------------------- 2. Portal app registration
@@ -288,6 +332,17 @@ else {
         Start-Sleep -Seconds 5
         $sp = Invoke-Graph -Method POST -Uri 'https://graph.microsoft.com/v1.0/servicePrincipals' -Body @{ appId = $PortalAppId; tags = @('WindowsAzureActiveDirectoryIntegratedApp') }
     }
+}
+
+# Sign-in via the custom domain needs its own redirect URI
+if ($CustomDomain) {
+    $customRedirect = "https://$CustomDomain/.auth/login/aad/callback"
+    $appObj = @((Invoke-Graph -Uri "https://graph.microsoft.com/v1.0/applications?`$filter=appId eq '$PortalAppId'&`$select=id,web" -AllowFailure).value) | Select-Object -First 1
+    if ($appObj -and @($appObj.web.redirectUris) -notcontains $customRedirect) {
+        $ok = Invoke-Graph -Method PATCH -Uri "https://graph.microsoft.com/v1.0/applications/$($appObj.id)" -Body @{ web = @{ redirectUris = @(@($appObj.web.redirectUris) + $customRedirect | Select-Object -Unique); implicitGrantSettings = @{ enableIdTokenIssuance = $true; enableAccessTokenIssuance = $false } } } -AllowFailure
+        if ($ok -ne $false) { Write-Ok "Redirect URI added: $customRedirect" } else { Write-Note "Ask the identity team to add the redirect URI: $customRedirect" }
+    }
+    elseif (-not $appObj) { Write-Note "Make sure the portal app registration has the redirect URI: $customRedirect" }
 }
 
 if ($sp) {

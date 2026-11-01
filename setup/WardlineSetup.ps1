@@ -191,6 +191,66 @@ function Get-WardlinePackageVersion {
     finally { $zip.Dispose() }
 }
 
+function Resolve-WardlineDns {
+    # DNS lookup via DNS-over-HTTPS – works the same on Windows, macOS, Linux and Cloud Shell
+    param([string]$Name, [ValidateSet('TXT', 'CNAME')][string]$Type)
+    try {
+        $r = Invoke-RestMethod -Uri "https://dns.google/resolve?name=$([uri]::EscapeDataString($Name))&type=$Type" -TimeoutSec 10
+        @($r.Answer | Where-Object { $_.type -eq $(if ($Type -eq 'TXT') { 16 } else { 5 }) } | ForEach-Object { ([string]$_.data).Trim('"').TrimEnd('.') })
+    }
+    catch { @() }
+}
+
+function Add-WardlineCustomDomain {
+    <#
+    .SYNOPSIS
+    Binds a custom domain to the portal: checks the DNS records (CNAME + TXT asuid), adds the hostname, creates a free
+    managed certificate and binds it (SNI). Idempotent.
+    #>
+    param([Parameter(Mandatory)][string]$ResourceGroup, [Parameter(Mandatory)][string]$FunctionAppName,
+        [Parameter(Mandatory)][string]$DefaultHostName, [Parameter(Mandatory)][string]$Domain, [int]$WaitMinutes = 30)
+    $site = Invoke-Az -Arguments @('functionapp', 'show', '-g', $ResourceGroup, '-n', $FunctionAppName, '--query', '{v:customDomainVerificationId, h:hostNames, s:hostNameSslStates}', '-o', 'json') | ConvertFrom-Json
+    $verifyId = [string]$site.v
+    $bound = @($site.h) -contains $Domain
+    $sslOk = @($site.s | Where-Object { $_.name -eq $Domain -and $_.sslState -eq 'SniEnabled' }).Count -gt 0
+    if ($bound -and $sslOk) { Write-Ok "Custom domain bound with certificate: https://$Domain"; return }
+
+    $test = {
+        $cn = Resolve-WardlineDns -Name $Domain -Type CNAME
+        $tx = Resolve-WardlineDns -Name "asuid.$Domain" -Type TXT
+        [pscustomobject]@{ cname = ($cn -contains $DefaultHostName); txt = ($tx -contains $verifyId) }
+    }
+    $dns = & $test
+    if (-not ($dns.cname -and $dns.txt)) {
+        Write-Note 'Please create these DNS records at your DNS provider:'
+        Write-Host ''
+        Write-Host "     Type   Name                              Value" -ForegroundColor DarkGray
+        Write-Host ("     CNAME  {0,-33} {1}" -f $Domain, $DefaultHostName)
+        Write-Host ("     TXT    {0,-33} {1}" -f "asuid.$Domain", $verifyId)
+        Write-Host ''
+        Write-Note "Waiting up to $WaitMinutes minutes for the records (Ctrl+C to stop – the installer can be re-run any time) ..."
+        $until = (Get-Date).AddMinutes($WaitMinutes)
+        while (-not ($dns.cname -and $dns.txt) -and (Get-Date) -lt $until) { Start-Sleep -Seconds 20; $dns = & $test }
+        if (-not ($dns.cname -and $dns.txt)) {
+            Write-Note "DNS records not found yet (CNAME: $($dns.cname), TXT: $($dns.txt)). The portal stays reachable at https://$DefaultHostName – re-run the installer with -CustomDomain $Domain once DNS is in place."
+            return
+        }
+    }
+    Write-Ok 'DNS records found (CNAME + TXT asuid)'
+    if (-not $bound) {
+        Invoke-Az -Arguments @('functionapp', 'config', 'hostname', 'add', '-g', $ResourceGroup, '--webapp-name', $FunctionAppName, '--hostname', $Domain, '-o', 'none') | Out-Null
+        Write-Ok "Hostname added: $Domain"
+    }
+    $thumb = $null
+    for ($i = 0; $i -lt 3 -and -not $thumb; $i++) {
+        $cert = Invoke-Az -Arguments @('functionapp', 'config', 'ssl', 'create', '-g', $ResourceGroup, '-n', $FunctionAppName, '--hostname', $Domain, '-o', 'json') -AllowFailure
+        if ($cert) { $thumb = ($cert | ConvertFrom-Json).thumbprint } else { Start-Sleep -Seconds 30 }
+    }
+    if (-not $thumb) { Write-Note "The managed certificate could not be created yet. Re-run the installer in a few minutes (domain: $Domain)."; return }
+    Invoke-Az -Arguments @('functionapp', 'config', 'ssl', 'bind', '-g', $ResourceGroup, '-n', $FunctionAppName, '--certificate-thumbprint', $thumb, '--ssl-type', 'SNI', '-o', 'none') | Out-Null
+    Write-Ok "Managed certificate bound (renews automatically): https://$Domain"
+}
+
 function Set-WardlineVersionTags {
     <#
     .SYNOPSIS
