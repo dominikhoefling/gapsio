@@ -39,6 +39,19 @@ mkdocs serve        # http://127.0.0.1:8000
 Every push and pull request runs the tests, parses every PowerShell file, checks that `azuredeploy.json` matches
 `main.bicep`, builds the release assets and builds the documentation with `--strict`.
 
+## News agent
+
+`tools/Get-WardlineNews.ps1` collects what is new around Defender for Endpoint and Microsoft Agent 365 from public,
+unauthenticated sources – the Microsoft Learn *What's new* pages (Windows, macOS, Linux, Defender XDR), the Tech
+Community blogs (RSS) and the Microsoft 365 roadmap API – and writes a Markdown digest. The workflow `news.yml` runs
+it every Monday (or on demand via *Run workflow*) and opens an issue labelled `news` with one checkbox per item;
+`.github/news-state.json` remembers what has already been reported.
+
+Nothing is implemented automatically. The maintainer ticks the items that should become a check, a baseline
+setting or documentation; an AI coding agent (rules in `AGENTS.md` › *News digest*) or a contributor then opens one
+pull request per confirmed item. Locally: `./tools/Get-WardlineNews.ps1 -NoState -Days 14` prints the digest
+without touching the state.
+
 ## Publishing a release
 
 1. Set `ModuleVersion` in `src/functionapp/Modules/Wardline/Wardline.psd1` (the single source of the version).
