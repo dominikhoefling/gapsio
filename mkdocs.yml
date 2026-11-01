@@ -65,6 +65,7 @@ nav:
       - Customising the baseline: baseline.md
       - Operations and settings: operations.md
       - Licence: licensing.md
+      - The open-core promise: manifesto.md
       - Support: support.md
   - Reference:
       - Security review: trust.md
