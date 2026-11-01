@@ -13,6 +13,9 @@ param namePrefix string = 'wardline'
 @description('Optional custom Function App name (instead of <namePrefix>-<suffix>).')
 param customFunctionAppName string = ''
 
+@description('Optional custom domain of the portal (e.g. wardline.contoso.com). Hostname binding and certificate are set up by setup/Install-Wardline.ps1 -CustomDomain.')
+param customDomain string = ''
+
 @description('Optional custom storage account name (3–24 lowercase letters/digits, globally unique).')
 param customStorageAccountName string = ''
 
@@ -340,9 +343,11 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       // Browsers send an Origin header with POST requests (e.g. "Collect now") – also to the own site.
       // Without the own address in the list the platform rejects these requests with 403.
       cors: {
-        allowedOrigins: [
+        allowedOrigins: concat([
           'https://${functionAppName}.azurewebsites.net'
-        ]
+        ], empty(customDomain) ? [] : [
+          'https://${customDomain}'
+        ])
         supportCredentials: true
       }
       appSettings: [

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "8028181881467057607"
+      "templateHash": "9698757701485130357"
     }
   },
   "parameters": {
@@ -30,6 +30,13 @@
       "defaultValue": "",
       "metadata": {
         "description": "Optional custom Function App name (instead of <namePrefix>-<suffix>)."
+      }
+    },
+    "customDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom domain of the portal (e.g. wardline.contoso.com). Hostname binding and certificate are set up by setup/Install-Wardline.ps1 -CustomDomain."
       }
     },
     "customStorageAccountName": {
@@ -223,18 +230,18 @@
         "description": "Schedule of the endpoint module (NCRONTAB, UTC)."
       }
     },
-    "scheduleLicensing": {
-      "type": "string",
-      "defaultValue": "0 17 3 * * *",
-      "metadata": {
-        "description": "Schedule of the licensing module (NCRONTAB, UTC)."
-      }
-    },
     "scheduleAccess": {
       "type": "string",
       "defaultValue": "0 47 2 * * *",
       "metadata": {
         "description": "Schedule of the access module (NCRONTAB, UTC)."
+      }
+    },
+    "scheduleLicensing": {
+      "type": "string",
+      "defaultValue": "0 17 3 * * *",
+      "metadata": {
+        "description": "Schedule of the licensing module (NCRONTAB, UTC)."
       }
     },
     "storageSku": {
@@ -533,9 +540,7 @@
           "ftpsState": "Disabled",
           "http20Enabled": true,
           "cors": {
-            "allowedOrigins": [
-              "[format('https://{0}.azurewebsites.net', variables('functionAppName'))]"
-            ],
+            "allowedOrigins": "[concat(createArray(format('https://{0}.azurewebsites.net', variables('functionAppName'))), if(empty(parameters('customDomain')), createArray(), createArray(format('https://{0}', parameters('customDomain')))))]",
             "supportCredentials": true
           },
           "appSettings": [
