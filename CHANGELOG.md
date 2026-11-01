@@ -11,7 +11,7 @@ First version published on GitHub.
 ### Added
 - **Open-source release**: MIT `LICENSE` with trademark notice, `CONTRIBUTING.md` (DCO), `CODE_OF_CONDUCT.md`,
   `AGENTS.md` for AI coding agents, issue and pull-request templates, `CODEOWNERS`, sponsor links and the
-  [open-core promise](docs/manifesto.md) that documents what stays free.
+  open-core promise (`docs/manifesto.md`) that documents what stays free.
 - **Baseline 2026.10.31** – 21 new Windows checks: threat default actions never *Allow*, no `ThreatIdDefaultAction`
   overrides, brute-force protection and remote encryption protection in block mode, network protection protocol parsing
   (`Disable…Parsing`), inbound filtering, UDP inspection and DNS sinkhole, on-access protection, archive scanning, real-time
