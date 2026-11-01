@@ -48,11 +48,11 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 - Commits: imperative, one topic, `-s` sign-off (DCO). Add a CHANGELOG line.
 - Before finishing: run the tests, parse all `.ps1` files, and if Bicep changed, regenerate `azuredeploy.json`.
 
-## News digest (issues labelled `news`)
+## News digest
 
-`.github/workflows/news.yml` runs `tools/Get-WardlineNews.ps1` weekly and opens an issue with a checklist of new
-Defender for Endpoint / Agent 365 items (Microsoft Learn "What's new", Tech Community, Microsoft 365 roadmap).
-Rules for working on such an issue:
+`tools/Get-WardlineNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn "What's new",
+Tech Community, Microsoft 365 roadmap). A weekly workflow in the maintainer's private tracker opens an issue with a
+checklist from it. Rules for working on such a digest:
 
 - Implement **only** items the maintainer has ticked or answered with *einbauen* / *implement*. Never act on the
   rest; never implement an item from the digest without that confirmation.
