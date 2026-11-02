@@ -21,6 +21,12 @@ $script:WlMdeTierRank = @{ 'P2' = 3; 'MDB' = 2; 'P1' = 1 }
 # Both values can be tuned per installation (WL_LICENSING_DEVICES_PER_USER, WL_LICENSING_DAYS).
 $script:WlMdeDevicesPerUser = 5
 $script:WlLicensingDays = 30
+# Usage classification: a client used by at least this many distinct people in the window counts as "shared" (WL_LICENSING_SHARED_MIN_USERS).
+# Account names matching the service pattern (WL_LICENSING_SERVICE_PATTERN, regex) are treated as service/admin accounts and do not count as users.
+$script:WlLicensingSharedMinUsers = 4
+$script:WlLicensingServicePattern = '^(svc|srv|service|sa[_.-]|adm[_.-]|admin|administrator|kiosk|kiosque|scan|print|autologon|autopilot|defaultuser|wdagutilityaccount|test[_.-]?user|lab[_.-]|guest)'
+$script:WlLicensingKioskPattern = '(kiosk|kiosque|shared|hotdesk|hot-desk|conference|meeting|lobby|reception|infopoint|signage|scanner|warehouse|terminal|pos[_-]|cashdesk|training|classroom|loaner)'
+$script:WlLicensingVdiPattern = '(virtual machine|vmware|citrix|hyper-v|parallels|virtualbox|qemu|kvm|xen|nutanix ahv|azure virtual desktop|avd|wvd|vdi|w365|cloudpc|cloud pc)'
 # Display names for the SKUs that carry a Defender for Endpoint plan (skuPartNumber -> product name as people say it).
 # Unknown part numbers fall back to the tier of the contained MDE plan, so the portal never shows a bare code.
 $script:WlSkuNames = @{
@@ -70,6 +76,50 @@ function Get-WlSkuDisplayName {
 function Get-WlLicensingSettings {
     $d = [string](Get-WlSetting 'WL_LICENSING_DAYS' ''); if ($d -match '^\d+$' -and [int]$d -ge 7 -and [int]$d -le 90) { $script:WlLicensingDays = [int]$d }
     $p = [string](Get-WlSetting 'WL_LICENSING_DEVICES_PER_USER' ''); if ($p -match '^\d+$' -and [int]$p -ge 1) { $script:WlMdeDevicesPerUser = [int]$p }
+    $s = [string](Get-WlSetting 'WL_LICENSING_SHARED_MIN_USERS' ''); if ($s -match '^\d+$' -and [int]$s -ge 2) { $script:WlLicensingSharedMinUsers = [int]$s }
+    $r = [string](Get-WlSetting 'WL_LICENSING_SERVICE_PATTERN' ''); if ($r) { try { $null = [regex]::new($r); $script:WlLicensingServicePattern = $r } catch { Add-WlWarning "WL_LICENSING_SERVICE_PATTERN is not a valid regex and was ignored: $r" } }
+}
+
+function Test-WlServiceAccountName {
+    <#
+    .SYNOPSIS
+    True for account names that look like service, admin, kiosk auto-logon or built-in accounts – they are not people and must not count as licence users.
+    #>
+    param([string]$Name)
+    if (-not $Name) { return $false }
+    $n = $Name.ToLowerInvariant()
+    $n -match $script:WlLicensingServicePattern -or $n -in @('system', 'local service', 'network service', 'defaultaccount', 'administrator', 'administrateur', 'root', 'kiosk', 'kioskuser0')
+}
+
+function Get-WlDeviceUsage {
+    <#
+    .SYNOPSIS
+    Classifies how a client device is used: Personal, Shared (many distinct people), Kiosk (self-deploying / shared-PC enrolment or kiosk-style name) or VDI (virtual desktop).
+    Returns @{ usage = …; reasons = @(…) } so the portal can show why.
+    #>
+    param($Row, $Intune, [int]$DistinctUsers)
+    $reasons = [System.Collections.Generic.List[string]]::new()
+    $name = [string](Get-WlProp $Row 'DeviceName'); $os = [string](Get-WlProp $Row 'OSPlatform')
+    $model = ([string](Get-WlProp $Row 'Model') + ' ' + [string](Get-WlProp $Row 'Vendor') + ' ' + [string](Get-WlProp $Intune 'model') + ' ' + [string](Get-WlProp $Intune 'manufacturer')).Trim()
+    $enrol = [string](Get-WlProp $Intune 'deviceEnrollmentType'); $profile = [string](Get-WlProp $Intune 'enrollmentProfileName')
+    $usage = 'Personal'
+    if ($os -match 'WVD$' -or $os -match 'AVD' -or $enrol -eq 'azureAdJoinUsingAzureVmExtension' -or $model -match $script:WlLicensingVdiPattern -or $name -match '^(avd|wvd|vdi|cpc)-') {
+        $usage = 'VDI'
+        if ($os -match 'WVD$') { $reasons.Add("OS platform $os (multi-session)") }
+        if ($enrol -eq 'azureAdJoinUsingAzureVmExtension') { $reasons.Add('Intune: joined via Azure VM extension') }
+        if ($model -match $script:WlLicensingVdiPattern) { $reasons.Add("Model/vendor: $model") }
+    }
+    elseif ($enrol -eq 'windowsAzureADJoinUsingDeviceAuth' -or $profile -match $script:WlLicensingKioskPattern -or $name -match $script:WlLicensingKioskPattern) {
+        $usage = 'Kiosk'
+        if ($enrol -eq 'windowsAzureADJoinUsingDeviceAuth') { $reasons.Add('Intune: self-deploying / shared-PC enrolment (device authentication)') }
+        if ($profile -match $script:WlLicensingKioskPattern) { $reasons.Add("Enrolment profile: $profile") }
+        if ($name -match $script:WlLicensingKioskPattern) { $reasons.Add("Device name: $name") }
+    }
+    if ($DistinctUsers -ge $script:WlLicensingSharedMinUsers) {
+        if ($usage -eq 'Personal') { $usage = 'Shared' }
+        $reasons.Add("$DistinctUsers distinct people signed in within the window (threshold $($script:WlLicensingSharedMinUsers))")
+    }
+    @{ usage = $usage; reasons = @($reasons) }
 }
 
 function Get-WlMdePlanTier {
@@ -156,8 +206,8 @@ function Get-WlLicensingDevices {
 DeviceInfo
 | where Timestamp > ago(${days}d)
 | where OnboardingStatus == "Onboarded"
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers) by DeviceId
-| project DeviceId, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers, LastSeen = Timestamp
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers, Model, Vendor) by DeviceId
+| project DeviceId, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers, Model, Vendor, LastSeen = Timestamp
 "@
     if ($null -eq $devices) { return $null }
     $logons = Invoke-WlHuntingSafe -NoShard -Context 'Interactive logons (ThreatHunting.Read.All)' -Query @"
@@ -172,7 +222,7 @@ DeviceLogonEvents
 "@
     $intune = $null
     if (Test-WlFeature 'coverage') {
-        $intune = Invoke-WlGraphSafe -All -Path 'deviceManagement/managedDevices?$select=id,azureADDeviceId,userPrincipalName,userId,operatingSystem,deviceName&$top=1000' -Context 'Intune devices and their users (DeviceManagementManagedDevices.Read.All)'
+        $intune = Invoke-WlGraphSafe -All -Path 'deviceManagement/managedDevices?$select=id,azureADDeviceId,userPrincipalName,userId,operatingSystem,deviceName,deviceEnrollmentType,enrollmentProfileName,model,manufacturer&$top=1000' -Context 'Intune devices and their users (DeviceManagementManagedDevices.Read.All)'
     }
     @{ devices = @($devices); logons = @($logons); intune = @($intune) }
 }
@@ -194,11 +244,12 @@ function Get-WlLicensingModel {
     foreach ($u in @($Users)) { $byId[$u.id] = $u; foreach ($n in $u.names) { if (-not $byName.ContainsKey($n)) { $byName[$n] = [System.Collections.Generic.List[object]]::new() }; $byName[$n].Add($u) } }
     $byUpn = @{}; foreach ($u in @($Users)) { if ($u.upn) { $byUpn[$u.upn.ToLowerInvariant()] = $u } }
 
-    # Intune: Entra device ID -> users (exact)
-    $intuneUsers = @{}
+    # Intune: Entra device ID -> users (exact) and -> managed device record (enrolment type, model)
+    $intuneUsers = @{}; $intuneByAad = @{}
     foreach ($m in @($Data.intune)) {
         $aad = [string](Get-WlProp $m 'azureADDeviceId'); if (-not $aad) { continue }
         $aad = $aad.ToLowerInvariant()
+        if (-not $intuneByAad.ContainsKey($aad)) { $intuneByAad[$aad] = $m }
         if (-not $intuneUsers.ContainsKey($aad)) { $intuneUsers[$aad] = [System.Collections.Generic.HashSet[string]]::new() }
         $upn = [string](Get-WlProp $m 'userPrincipalName'); if ($upn) { $null = $intuneUsers[$aad].Add("upn:$($upn.ToLowerInvariant())") }
         $uid = [string](Get-WlProp $m 'userId'); if ($uid) { $null = $intuneUsers[$aad].Add("id:$uid") }
@@ -210,7 +261,9 @@ function Get-WlLicensingModel {
         $null = $logonNames[$d].Add(([string]$l.AccountName).ToLowerInvariant())
     }
 
-    $userDevices = @{}   # user id -> HashSet deviceId (clients only)
+    $userDevices = @{}   # user id -> HashSet deviceId (personal clients only)
+    $userSharedDevices = @{}   # user id -> HashSet deviceId (shared / kiosk / VDI clients – do not count against the per-user limit)
+    $serviceAccountNames = [System.Collections.Generic.HashSet[string]]::new()
     $devices = [System.Collections.Generic.List[object]]::new()
     $servers = [System.Collections.Generic.List[object]]::new()
     foreach ($row in @($Data.devices)) {
@@ -220,6 +273,7 @@ function Get-WlLicensingModel {
         $rec = [ordered]@{
             key = Get-WlHash "licdev|$id"; deviceId = $id; deviceName = [string]$row.DeviceName; os = [string]$row.OSPlatform; deviceType = [string]$row.DeviceType
             machineGroup = [string]$row.MachineGroup; lastSeen = ConvertTo-WlUtc $row.LastSeen; users = @(); licensedBy = $null; tier = $null; confidence = $null; state = $null
+            usage = 'Personal'; usageReasons = @(); distinctUsers = 0; serviceAccounts = @()
         }
         if ($isServer) { $rec.state = 'Server'; $rec.fp = Get-WlHash 'server'; $rec.label = "$($rec.deviceName): server"; $servers.Add([pscustomobject]$rec); continue }
 
@@ -235,6 +289,10 @@ function Get-WlLicensingModel {
         if ($logonNames.ContainsKey($id)) { foreach ($n in $logonNames[$id]) { $null = $names.Add($n) } }
         $lou = [string](Get-WlProp $row 'LoggedOnUsers')
         if ($lou) { try { foreach ($x in @($lou | ConvertFrom-Json)) { $n = [string](Get-WlProp $x 'UserName'); if ($n -and $n -notmatch '\$$') { $null = $names.Add($n.ToLowerInvariant()) } } } catch { } }
+        # Service / admin / kiosk auto-logon accounts are not people: record them, but do not map them to licences.
+        $svc = @(foreach ($n in @($names)) { if (Test-WlServiceAccountName $n) { $n } })
+        foreach ($n in $svc) { $null = $names.Remove($n); $null = $serviceAccountNames.Add($n) }
+        $rec.serviceAccounts = @($svc | Sort-Object)
         foreach ($n in $names) {
             if ($byName.ContainsKey($n)) { foreach ($u in $byName[$n]) { if (-not $found.Contains($u.id)) { $found[$u.id] = 'Logon' } } }
             elseif (-not $found.Contains("name:$n")) { $found["name:$n"] = 'Logon' }
@@ -245,28 +303,34 @@ function Get-WlLicensingModel {
                 if ($byId.ContainsKey($k)) { [pscustomobject]@{ upn = $byId[$k].upn; tier = $byId[$k].tier; confidence = $found[$k] } }
                 else { [pscustomobject]@{ upn = ($k -replace '^(upn|name):', ''); tier = $null; confidence = $found[$k] } }
             })
-        foreach ($u in $licensedUsers) { if (-not $userDevices.ContainsKey($u.id)) { $userDevices[$u.id] = [System.Collections.Generic.HashSet[string]]::new() }; $null = $userDevices[$u.id].Add($id) }
+        $rec.distinctUsers = $found.Count
+        $cls = Get-WlDeviceUsage -Row $row -Intune $(if ($aad -and $intuneByAad.ContainsKey($aad)) { $intuneByAad[$aad] } else { $null }) -DistinctUsers $found.Count
+        $rec.usage = $cls.usage; $rec.usageReasons = @($cls.reasons)
+        $bucket = if ($rec.usage -eq 'Personal') { $userDevices } else { $userSharedDevices }
+        foreach ($u in $licensedUsers) { if (-not $bucket.ContainsKey($u.id)) { $bucket[$u.id] = [System.Collections.Generic.HashSet[string]]::new() }; $null = $bucket[$u.id].Add($id) }
         if ($licensedUsers.Count) {
             $best = $licensedUsers | Sort-Object { -$script:WlMdeTierRank[$_.tier] } | Select-Object -First 1
             $rec.state = 'Licensed'; $rec.licensedBy = $best.upn; $rec.tier = $best.tier; $rec.confidence = $found[$best.id]
         }
         elseif ($anyUser) { $rec.state = 'Unlicensed'; $rec.confidence = $(if ($found.Values -contains 'Intune') { 'Intune' } else { 'Logon' }) }
         else { $rec.state = 'NoUser' }
-        $rec.fp = Get-WlHash "$($rec.state)|$($rec.tier)|$($rec.licensedBy)"
-        $rec.label = "$($rec.deviceName): $($rec.state)"
+        $rec.fp = Get-WlHash "$($rec.state)|$($rec.tier)|$($rec.licensedBy)|$($rec.usage)"
+        $rec.label = "$($rec.deviceName): $($rec.state)$(if ($rec.usage -ne 'Personal') { " ($($rec.usage))" })"
         $devices.Add([pscustomobject]$rec)
     }
 
     $userRows = [System.Collections.Generic.List[object]]::new()
     foreach ($u in @($Users)) {
         $n = if ($userDevices.ContainsKey($u.id)) { $userDevices[$u.id].Count } else { 0 }
-        $state = if ($n -gt $script:WlMdeDevicesPerUser) { 'OverLimit' } elseif ($n -eq 0) { 'NoDevice' } else { 'InUse' }
+        $nShared = if ($userSharedDevices.ContainsKey($u.id)) { $userSharedDevices[$u.id].Count } else { 0 }
+        $state = if ($n -gt $script:WlMdeDevicesPerUser) { 'OverLimit' } elseif ($n -eq 0 -and $nShared -eq 0) { 'NoDevice' } else { 'InUse' }
         $upn = if ($Detail -eq 'aggregate') { "user-$((Get-WlHash $u.id).Substring(0, 10))" } else { $u.upn }
         $name = if ($Detail -eq 'aggregate') { $null } else { $u.displayName }
         $userRows.Add([pscustomobject]@{
                 key = Get-WlHash "licuser|$($u.id)"; fp = Get-WlHash "$($u.tier)|$n|$($u.accountEnabled)"; label = "$upn ($($u.tier)): $n device(s)"; state = $state
-                upn = $upn; displayName = $name; tier = $u.tier; accountEnabled = $u.accountEnabled; userType = $u.userType; deviceCount = $n
+                upn = $upn; displayName = $name; tier = $u.tier; accountEnabled = $u.accountEnabled; userType = $u.userType; deviceCount = $n; sharedDeviceCount = $nShared
                 devices = @($(if ($userDevices.ContainsKey($u.id)) { $userDevices[$u.id] } else { @() }) | ForEach-Object { $d = $_; $dev = $devices | Where-Object { $_.deviceId -eq $d } | Select-Object -First 1; if ($dev) { $dev.deviceName } else { $d } })
+                sharedDevices = @($(if ($userSharedDevices.ContainsKey($u.id)) { $userSharedDevices[$u.id] } else { @() }) | ForEach-Object { $d = $_; $dev = $devices | Where-Object { $_.deviceId -eq $d } | Select-Object -First 1; if ($dev) { "$($dev.deviceName) ($($dev.usage))" } else { $d } })
             })
     }
 
@@ -295,6 +359,12 @@ function Get-WlLicensingModel {
         clientsUnlicensed   = @($clients | Where-Object state -eq 'Unlicensed').Count
         clientsNoUser       = @($clients | Where-Object state -eq 'NoUser').Count
         clientsP1Only       = @($clients | Where-Object { $_.state -eq 'Licensed' -and $_.tier -eq 'P1' }).Count
+        clientsShared       = @($clients | Where-Object usage -eq 'Shared').Count
+        clientsKiosk        = @($clients | Where-Object usage -eq 'Kiosk').Count
+        clientsVdi          = @($clients | Where-Object usage -eq 'VDI').Count
+        clientsNoUserPersonal = @($clients | Where-Object { $_.state -eq 'NoUser' -and $_.usage -eq 'Personal' }).Count
+        serviceAccounts     = $serviceAccountNames.Count
+        sharedMinUsers      = $script:WlLicensingSharedMinUsers
         servers             = $servers.Count
         intuneMapping       = [bool](@($Data.intune).Count)
     }
@@ -321,7 +391,7 @@ function Get-WlLicensingModel {
     if ($over.Count) {
         $f.Add((New-WlFinding -Severity 'Low' -Category 'Licensing' -Subject 'users-overlimit' -StableKey `
                     -Title (& $T "$($over.Count) user(s) use more than $($script:WlMdeDevicesPerUser) client devices" "$($over.Count) Benutzer nutzen mehr als $($script:WlMdeDevicesPerUser) Client-Geräte") `
-                    -Detail (& $T "A user licence covers up to $($script:WlMdeDevicesPerUser) devices. Shared devices, admin accounts and hot-desking inflate this number – check before acting." "Eine Benutzerlizenz deckt bis zu $($script:WlMdeDevicesPerUser) Geräte ab. Geteilte Geräte, Admin-Konten und Hot-Desking erhöhen diese Zahl – vor Maßnahmen prüfen.") `
+                    -Detail (& $T "A user licence covers up to $($script:WlMdeDevicesPerUser) devices. Devices recognised as shared, kiosk or VDI and service/admin accounts are already excluded from this count – what remains looks like genuine personal use." "Eine Benutzerlizenz deckt bis zu $($script:WlMdeDevicesPerUser) Geräte ab. Als geteilt, Kiosk oder VDI erkannte Geräte sowie Dienst-/Admin-Konten sind aus dieser Zahl bereits herausgerechnet – der Rest sieht nach echter persönlicher Nutzung aus.") `
                     -Recommendation (& $T 'Check whether the extra devices are shared devices (device licence) or whether the user really uses more than five devices.' 'Prüfen, ob die zusätzlichen Geräte geteilte Geräte sind (Gerätelizenz) oder der Benutzer tatsächlich mehr als fünf Geräte nutzt.')))
     }
     $noDev = @($userRows | Where-Object { $_.state -eq 'NoDevice' -and $_.accountEnabled })
@@ -338,6 +408,15 @@ function Get-WlLicensingModel {
                     -Detail (& $T 'Plan 1 covers next-generation protection, ASR and manual response. EDR, Advanced Hunting, automated investigation and vulnerability management are Plan 2 features and apply to every onboarded device.' 'Plan 1 umfasst Next-Generation Protection, ASR und manuelle Reaktion. EDR, Advanced Hunting, automatische Untersuchung und Schwachstellenmanagement sind Plan-2-Funktionen und wirken auf jedes onboardete Gerät.') `
                     -Recommendation (& $T 'Either licence these users with Plan 2 or document why Plan 1 is sufficient for them (mixed licensing requires the P2 features to be unused for those devices).' 'Diese Benutzer entweder mit Plan 2 lizenzieren oder dokumentieren, warum Plan 1 für sie ausreicht (Mischlizenzierung setzt voraus, dass die P2-Funktionen für diese Geräte nicht genutzt werden).')))
     }
+    $sharedLike = @($clients | Where-Object { $_.usage -ne 'Personal' })
+    if ($sharedLike.Count) {
+        $byUsage = ($sharedLike | Group-Object usage | ForEach-Object { "$($_.Count) $($_.Name)" }) -join ', '
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Licensing' -Subject 'clients-shared' -StableKey `
+                    -Title (& $T "$($sharedLike.Count) client(s) look like shared, kiosk or virtual desktops ($byUsage)" "$($sharedLike.Count) Client(s) sehen nach geteilten Geräten, Kiosks oder virtuellen Desktops aus ($byUsage)") `
+                    -Detail (& $T "Recognised from the number of distinct people signing in (≥ $($script:WlLicensingSharedMinUsers)), the Intune enrolment type (self-deploying / shared PC, Azure VM extension), the hardware model and naming patterns. Microsoft licenses these per user as well: every person who uses them needs a plan, but the devices do not count against the five-device limit here." "Erkannt an der Zahl unterschiedlicher Personen, die sich anmelden (≥ $($script:WlLicensingSharedMinUsers)), am Intune-Registrierungstyp (Self-Deploying / Shared PC, Azure-VM-Erweiterung), am Hardwaremodell und an Namensmustern. Microsoft lizenziert auch diese pro Benutzer: Jede Person, die sie nutzt, braucht einen Plan – die Geräte zählen hier aber nicht gegen das Fünf-Geräte-Limit.") `
+                    -Recommendation (& $T 'Check the usage column in the device table. If a device is misclassified, tune WL_LICENSING_SHARED_MIN_USERS or WL_LICENSING_SERVICE_PATTERN.' 'Die Spalte „Nutzung“ in der Gerätetabelle prüfen. Bei Fehlklassifizierung WL_LICENSING_SHARED_MIN_USERS oder WL_LICENSING_SERVICE_PATTERN anpassen.') |
+                Add-Member -NotePropertyName deviceCount -NotePropertyValue $sharedLike.Count -PassThru | Add-Member -NotePropertyName deviceSample -NotePropertyValue @($sharedLike | Select-Object -First 10 | ForEach-Object { "$($_.deviceName) ($($_.usage))" }) -PassThru))
+    }
     if ($servers.Count -and -not $serverSkus.Count) {
         $f.Add((New-WlFinding -Severity 'Low' -Category 'Licensing' -Subject 'servers' -StableKey `
                     -Title (& $T "$($servers.Count) onboarded server(s) – no server licence visible in Microsoft 365" "$($servers.Count) onboardete(r) Server – keine Serverlizenz in Microsoft 365 sichtbar") `
@@ -348,7 +427,7 @@ function Get-WlLicensingModel {
 
     $caveats = @(
         (& $T 'Indication, not an audit: Microsoft licenses Defender for Endpoint per user (up to five devices each); Wardline derives the device-to-user mapping from Intune and interactive logons of the last 30 days.' 'Hinweis, kein Audit: Microsoft lizenziert Defender for Endpoint pro Benutzer (bis zu fünf Geräte); Wardline leitet die Zuordnung Gerät → Benutzer aus Intune und interaktiven Anmeldungen der letzten 30 Tage ab.'),
-        (& $T 'Shared devices, kiosks, VDI and service accounts produce "no user" or inflate per-user device counts.' 'Geteilte Geräte, Kiosks, VDI und Dienstkonten führen zu „kein Benutzer“ oder erhöhen die Gerätezahl pro Benutzer.'),
+        (& $T "Shared devices, kiosks and VDI are recognised heuristically (≥ $($script:WlLicensingSharedMinUsers) distinct people, Intune enrolment type, hardware model, naming) and do not count against the per-user device limit; service and admin account names are ignored as users. Both can be tuned (WL_LICENSING_SHARED_MIN_USERS, WL_LICENSING_SERVICE_PATTERN)." "Geteilte Geräte, Kiosks und VDI werden heuristisch erkannt (≥ $($script:WlLicensingSharedMinUsers) unterschiedliche Personen, Intune-Registrierungstyp, Hardwaremodell, Namensmuster) und zählen nicht gegen das Gerätelimit pro Benutzer; Dienst- und Admin-Kontonamen werden nicht als Benutzer gewertet. Beides ist einstellbar (WL_LICENSING_SHARED_MIN_USERS, WL_LICENSING_SERVICE_PATTERN)."),
         (& $T 'Server licences (Defender for Servers via Azure) are not visible in Microsoft Graph; servers are listed separately.' 'Serverlizenzen (Defender for Servers über Azure) sind in Microsoft Graph nicht sichtbar; Server werden separat gezählt.'),
         (& $T 'Confidence "Intune" = exact match by Entra device ID; "Logon" = account name matched to UPN / SAM account name.' 'Konfidenz „Intune“ = exakte Zuordnung über Entra-Geräte-ID; „Logon“ = Kontoname mit UPN / SAM-Kontoname abgeglichen.')
     )
