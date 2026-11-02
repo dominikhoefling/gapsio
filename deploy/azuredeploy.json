@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "16348826317010162568"
+      "templateHash": "13784775598516772615"
     }
   },
   "parameters": {
@@ -289,6 +289,21 @@
       "metadata": {
         "description": "Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant."
       }
+    },
+    "assistantEmbeddingDeployment": {
+      "type": "string",
+      "defaultValue": "text-embedding-3-small",
+      "metadata": {
+        "description": "Embedding model deployment used for semantic search in the Wardline docs / baseline rationale. Empty = keyword search only."
+      }
+    },
+    "assistantEmbeddingModel": {
+      "type": "string",
+      "defaultValue": "text-embedding-3-small"
+    },
+    "assistantEmbeddingModelVersion": {
+      "type": "string",
+      "defaultValue": "1"
     },
     "storageSku": {
       "type": "string",
@@ -594,6 +609,27 @@
       ]
     },
     {
+      "condition": "[and(variables('createAi'), not(empty(parameters('assistantEmbeddingDeployment'))))]",
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('aiName'), parameters('assistantEmbeddingDeployment'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": "[parameters('assistantCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('assistantEmbeddingModel')]",
+          "version": "[parameters('assistantEmbeddingModelVersion')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('aiName'), parameters('assistantDeployment'))]"
+      ]
+    },
+    {
       "condition": "[variables('createAi')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
@@ -756,6 +792,10 @@
             {
               "name": "WL_AI_DEPLOYMENT",
               "value": "[if(parameters('enableAssistant'), parameters('assistantDeployment'), '')]"
+            },
+            {
+              "name": "WL_AI_EMBEDDING_DEPLOYMENT",
+              "value": "[if(parameters('enableAssistant'), parameters('assistantEmbeddingDeployment'), '')]"
             }
           ]
         },

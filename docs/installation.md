@@ -35,17 +35,18 @@ Re-runs and updates find an existing installation by the tag `wardline-component
 | `-SkipPermissionGrant` | Deploy everything but print the grant command for the identity team |
 | `-ShowPermissions` | Only show the permissions of the selected features, change nothing |
 | `-DeviceInventory`, `-DeviceInventoryGroupId`, `-RemoveDeviceInventory` | Optional device inventory, see below |
-| `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantLocation` | Optional portal assistant (Azure OpenAI in your subscription), see below |
+| `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantEmbeddingDeployment`, `-AssistantLocation` | Optional portal assistant (Azure OpenAI in your subscription), see below |
 | `-SubscriptionId` | Subscription, if not the current one of `az` |
 
 ## Optional: portal assistant
 
 `-Assistant` adds a chat helper to the portal (admins only). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
 
-- **Where it runs:** an Azure OpenAI resource and a `gpt-4.1-mini` deployment **in your own subscription**, created by the installer (`-AssistantLocation` picks the region, default = installation region; `swedencentral` has the broadest model availability). Or point to an existing resource with `-AssistantEndpoint https://<name>.openai.azure.com/` and grant Wardline's runner identity the role *Cognitive Services OpenAI User* on it.
+- **Where it runs:** an Azure OpenAI resource with a `gpt-4.1-mini` chat deployment and a `text-embedding-3-small` embedding deployment **in your own subscription**, created by the installer (`-AssistantLocation` picks the region, default = installation region; `swedencentral` has the broadest model availability). Or point to an existing resource with `-AssistantEndpoint https://<name>.openai.azure.com/` and grant Wardline's runner identity the role *Cognitive Services OpenAI User* on it (`-AssistantEmbeddingDeployment ''` if that resource has no embedding model – doc search then falls back to keywords).
 - **Authentication:** managed identity only; key-based access on the created resource is disabled.
-- **What the model sees:** a compact summary built on the server – enabled modules, the view list, per-module summary counts, the top 40 findings and, if you name a device, up to five matching device rows. Never full lists, never tokens or settings. Azure OpenAI does not use your prompts for training.
-- **Cost:** pay-as-you-go tokens on the deployment; a typical question is 3–5k tokens (fractions of a cent).
+- **How it answers:** the model gets a compact server-built summary (enabled modules, view list, per-module counts, top 40 findings) and a set of **read-only tools** it can call: search the stored findings and devices of the last run, fetch one device record, query **Microsoft Defender Advanced Hunting live** (last seen, sensor health, alerts of the last 7 days, failed secure-configuration checks – only if the *hunting* feature is enabled), and a semantic search over the Wardline documentation and the MDAV baseline rationale. Answers show which tools were used and which doc sections were cited. Never full lists, never tokens or settings; Azure OpenAI does not use your prompts for training. Abuse monitoring can be switched off per subscription via Microsoft's *Modified Abuse Monitoring* form (https://aka.ms/oai/modifiedabusemonitoring).
+- **Knowledge index:** built on first use from `config/knowledge/*.md` and `mdav-baseline.json` and stored as `state/assistant-index.json`; rebuilt automatically when the docs or the embedding deployment change.
+- **Cost:** pay-as-you-go tokens; a typical question with one or two tool calls is 6–12k tokens (around a cent). Advanced Hunting calls count against the tenant's API quota like the collectors.
 - **Turn off:** re-run the installer with `-Assistant:$false` and delete the `oai-*` resource if it was created for you.
 
 ## Local exclusions: Advanced Hunting only, or device inventory as well
