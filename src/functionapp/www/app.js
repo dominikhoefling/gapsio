@@ -49,6 +49,9 @@
     'li.mdoUsers': ['users with an MDO plan', 'Benutzer mit MDO-Plan'], 'li.mdoUsersP2': ['on Plan 2', 'mit Plan 2'], 'li.mdoUsersP1': ['on Plan 1', 'mit Plan 1'], 'li.mdoDisabled': ['disabled accounts with a plan', 'deaktivierte Konten mit Plan'],
     'li.mdoWithoutMde': ['MDO users without an MDE plan', 'MDO-Benutzer ohne MDE-Plan'], 'li.mdeWithoutMdo': ['MDE users without an MDO plan', 'MDE-Benutzer ohne MDO-Plan'],
     'li.mdoUserTable': ['Users with a Defender for Office 365 plan', 'Benutzer mit Defender-for-Office-365-Plan'], 'li.mdeTier': ['MDE plan', 'MDE-Plan'],
+    'li.tab.overview': ['Overview', 'Übersicht'], 'li.skus.lede': ['Every subscription that contains a Defender plan, with purchased and assigned units. Suites such as Microsoft 365 E5 appear once per product.', 'Jedes Abonnement mit einem Defender-Plan, mit gekauften und zugewiesenen Einheiten. Suiten wie Microsoft 365 E5 erscheinen einmal pro Produkt.'],
+    'li.ov.mde.note': ['Per user, up to five devices each. Devices are mapped to users – open for details.', 'Pro Benutzer, bis zu fünf Geräte. Geräte werden Benutzern zugeordnet – für Details öffnen.'],
+    'li.ov.mdo.note': ['Per user (mailbox). Plan holders and plan mix – open for details.', 'Pro Benutzer (Postfach). Planinhaber und Plan-Mix – für Details öffnen.'],
     'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents (beta)', 'Agents (Beta)'], 'mod.access': ['Access', 'Zugriffe'], 'mod.licensing': ['Licensing', 'Lizenzen'],
     'cat.Licensing': ['Licensing', 'Lizenzen'], 'coll.skus': ['SKU', 'SKU'], 'coll.users': ['Licensed user', 'Lizenzierter Benutzer'],
     // severities and categories
@@ -1783,29 +1786,103 @@
       main.append(warningsBlock(ac.warnings) || '');
     },
 
-    async licensing(main) {
-      main.append(h('h1', null, t('nav.licensing')));
+    async licensing(main, params) {
+      main.append(h('h1', null, t('v.licensing')));
       let li; try { li = await loadLicensing(); } catch (e) { main.append(noData(e, 'licensing')); return; }
       const s = li.summary || {};
       main.append(h('p', { class: 'lede' }, t('li.lede', s.observedDays || 30)));
-      main.append(h('p', { class: 'muted small' }, t('li.window', s.observedDays || 30, s.devicesPerUser || 5)));
       if (li.detail === 'aggregate') main.append(h('p', { class: 'muted small' }, t('li.aggregate')));
+      const active = params.get('tab') || 'overview';
+      main.append(tabs('licensing', [['overview', t('li.tab.overview')], ['mde', t('li.sec.mde')], ['mdo', t('li.sec.mdo')]], active));
       const fact = (b, sub, cls) => h('div', { class: `fact${cls ? ` ${cls}` : ''}` }, h('b', null, b), h('span', null, sub));
       const skus = arr(li.skus);
-      const skuTable = (rows, name) => dataTable({
-        name, rows, sort: (a, b) => String(a.tier).localeCompare(String(b.tier)) || String(a.skuName || a.skuPartNumber).localeCompare(String(b.skuName || b.skuPartNumber)),
-        search: r => `${r.skuName || ''} ${r.skuPartNumber} ${r.tier}`,
+      const mdeSkus = skus.filter(r => !r.product || r.product === 'MDE');
+      const mdoSkus = skus.filter(r => r.product === 'MDO');
+      const mdoUsers = arr(li.mdoUsers);
+      const skuTable = (rows, name, withProduct) => dataTable({
+        name, rows, sort: (a, b) => String(a.product || 'MDE').localeCompare(String(b.product || 'MDE')) || String(a.tier).localeCompare(String(b.tier)) || String(a.skuName || a.skuPartNumber).localeCompare(String(b.skuName || b.skuPartNumber)),
+        search: r => `${r.skuName || ''} ${r.skuPartNumber} ${r.tier} ${r.product || ''}`,
         columns: [
+          withProduct ? { title: t('li.product'), text: r => code('lp', r.product || 'MDE') } : null,
           { title: t('li.sku'), cell: r => h('span', { title: r.skuPartNumber }, r.skuName || r.skuPartNumber, r.skuName && r.skuName !== r.skuPartNumber ? h('div', { class: 'muted mono small' }, r.skuPartNumber) : null), text: r => r.skuName || r.skuPartNumber },
           { title: t('li.tier'), text: r => r.isServer ? t('li.tier.Server') : code('li.tier', r.tier) },
           { title: t('li.enabled'), text: r => num(r.enabled) },
           { title: t('li.consumed'), cell: r => h('span', { class: r.consumed > r.enabled ? 'state bad' : '' }, `${num(r.consumed)}${r.consumed > r.enabled ? ` · ${t('li.over')}` : ''}`), text: r => num(r.consumed) },
-          { title: t('li.free'), text: r => num(Math.max(0, (r.enabled || 0) - (r.consumed || 0))) }],
+          { title: t('li.free'), text: r => num(Math.max(0, (r.enabled || 0) - (r.consumed || 0))) }].filter(Boolean),
         empty: t('li.none')
       });
+      const findings = arr(li.findings);
+      const caveatsBlock = () => { const cav = arr(li.caveats); return cav.length ? h('details', { class: 'warnings' }, h('summary', null, t('li.caveats')), h('ul', null, cav.map(c => h('li', null, tx(c))))) : null; };
+
+      if (active === 'overview') {
+        // One card per product: what is bought, what is assigned, who holds it.
+        const card = (title, href, rows, note) => h('a', { class: 'lic-card', href }, h('h3', null, title),
+          h('div', { class: 'lic-rows' }, rows.filter(Boolean).map(([k, v, cls]) => h('div', { class: 'lic-row' }, h('span', null, k), h('b', { class: cls || '' }, v)))),
+          note ? h('p', { class: 'muted small' }, note) : null);
+        const pct = (c, e) => e ? ` (${Math.round(c / e * 100)} %)` : '';
+        main.append(h('div', { class: 'lic-cards' },
+          card(t('li.sec.mde'), '#/licensing?tab=mde', [
+            s.p2Enabled || s.p2Consumed ? [t('li.tier.P2'), `${num(s.p2Consumed)} / ${num(s.p2Enabled)}${pct(s.p2Consumed, s.p2Enabled)}`, s.p2Consumed > s.p2Enabled ? 'bad' : ''] : null,
+            s.p1Enabled || s.p1Consumed ? [t('li.tier.P1'), `${num(s.p1Consumed)} / ${num(s.p1Enabled)}${pct(s.p1Consumed, s.p1Enabled)}`, s.p1Consumed > s.p1Enabled ? 'bad' : ''] : null,
+            s.mdbEnabled || s.mdbConsumed ? [t('li.tier.MDB'), `${num(s.mdbConsumed)} / ${num(s.mdbEnabled)}${pct(s.mdbConsumed, s.mdbEnabled)}`, s.mdbConsumed > s.mdbEnabled ? 'bad' : ''] : null,
+            [t('li.licensedUsers'), num(s.licensedUsers)],
+            [t('li.clients'), num(s.clients)],
+            [t('li.clientsUnlicensed'), num(s.clientsUnlicensed), s.clientsUnlicensed ? 'bad' : ''],
+            [t('li.servers'), num(s.servers)]], t('li.ov.mde.note')),
+          card(t('li.sec.mdo'), '#/licensing?tab=mdo', (mdoSkus.length || mdoUsers.length) ? [
+            s.mdoP2Enabled || s.mdoP2Consumed ? [t('li.tier.P2'), `${num(s.mdoP2Consumed)} / ${num(s.mdoP2Enabled)}${pct(s.mdoP2Consumed, s.mdoP2Enabled)}`, s.mdoP2Consumed > s.mdoP2Enabled ? 'bad' : ''] : null,
+            s.mdoP1Enabled || s.mdoP1Consumed ? [t('li.tier.P1'), `${num(s.mdoP1Consumed)} / ${num(s.mdoP1Enabled)}${pct(s.mdoP1Consumed, s.mdoP1Enabled)}`, s.mdoP1Consumed > s.mdoP1Enabled ? 'bad' : ''] : null,
+            [t('li.mdoUsers'), num(s.mdoUsers)],
+            s.mdoUsersDisabled ? [t('li.mdoDisabled'), num(s.mdoUsersDisabled), 'warn'] : null,
+            s.mdoUsersWithoutMde ? [t('li.mdoWithoutMde'), num(s.mdoUsersWithoutMde)] : null] : [[t('li.mdo.none'), '']], t('li.ov.mdo.note'))));
+        main.append(h('h2', null, t('li.skus')), h('p', { class: 'lede' }, t('li.skus.lede')));
+        main.append(skuTable(skus, 'lic-skus-all', true));
+        if (findings.length) {
+          main.append(h('h2', null, t('v.findings')));
+          main.append(dataTable({
+            name: 'lic-findings', rows: findings, sort: (a, b) => SEV.indexOf(a.severity) - SEV.indexOf(b.severity), search: r => `${tx(r.title)} ${tx(r.detail)}`,
+            columns: [
+              { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
+              { title: t('f.finding'), text: r => tx(r.title) }],
+            detail: r => dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)]]),
+            empty: t('f.none')
+          }));
+        }
+        main.append(caveatsBlock() || '', warningsBlock(li.warnings) || '');
+        return;
+      }
+
+      if (active === 'mdo') {
+        main.append(h('p', { class: 'lede' }, t('li.mdo.lede')));
+        if (!mdoSkus.length && !mdoUsers.length) { main.append(h('p', { class: 'muted' }, t('li.mdo.none'))); return; }
+        main.append(h('div', { class: 'facts' },
+          fact(`${num(s.mdoP2Consumed)} / ${num(s.mdoP2Enabled)}`, `${t('li.tier.P2')} · ${t('li.consumed').toLowerCase()} / ${t('li.enabled').toLowerCase()}`),
+          s.mdoP1Enabled || s.mdoP1Consumed ? fact(`${num(s.mdoP1Consumed)} / ${num(s.mdoP1Enabled)}`, `${t('li.tier.P1')} · ${t('li.consumed').toLowerCase()} / ${t('li.enabled').toLowerCase()}`) : null,
+          fact(num(s.mdoUsers), t('li.mdoUsers')), fact(num(s.mdoUsersP2), t('li.mdoUsersP2')), s.mdoUsersP1 ? fact(num(s.mdoUsersP1), t('li.mdoUsersP1')) : null,
+          s.mdoUsersDisabled ? fact(num(s.mdoUsersDisabled), t('li.mdoDisabled')) : null,
+          s.mdoUsersWithoutMde ? fact(num(s.mdoUsersWithoutMde), t('li.mdoWithoutMde')) : null, s.mdeUsersWithoutMdo ? fact(num(s.mdeUsersWithoutMdo), t('li.mdeWithoutMdo')) : null));
+        main.append(h('h2', null, t('li.skus')));
+        main.append(skuTable(mdoSkus, 'lic-mdo-skus', false));
+        main.append(h('h2', null, t('li.mdoUserTable')));
+        main.append(dataTable({
+          name: 'lic-mdo-users', rows: mdoUsers, sort: (a, b) => String(b.tier).localeCompare(String(a.tier)) || String(a.upn).localeCompare(String(b.upn)),
+          search: r => `${r.upn} ${r.displayName || ''} ${r.tier} ${r.mdeTier || ''}`,
+          filters: [
+            { label: t('li.tier'), options: [...new Set(mdoUsers.map(r => r.tier))].sort(), optionLabel: v => code('li.tier', v), test: (r, v) => r.tier === v },
+            { type: 'check', label: t('li.mdoWithoutMde'), test: r => !r.mdeTier }],
+          columns: [
+            { title: t('li.user'), cell: r => h('span', null, r.displayName || r.upn, r.displayName && r.upn !== r.displayName ? [h('br'), h('span', { class: 'muted small' }, r.upn)] : null), text: r => r.upn },
+            { title: t('li.tier'), text: r => code('li.tier', r.tier) },
+            { title: t('li.mdeTier'), cell: r => h('span', { class: r.mdeTier ? '' : 'muted' }, r.mdeTier ? code('li.tier', r.mdeTier) : '–'), text: r => r.mdeTier ? code('li.tier', r.mdeTier) : '' },
+            { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'InUse' ? 'good' : 'warn'}` }, code('lu', r.state)), text: r => code('lu', r.state) }],
+          empty: t('li.none')
+        }));
+        main.append(caveatsBlock() || '');
+        return;
+      }
 
       // ---- Defender for Endpoint ----
-      main.append(h('h2', { class: 'section-title' }, t('li.sec.mde')));
+      main.append(h('p', { class: 'muted small' }, t('li.window', s.observedDays || 30, s.devicesPerUser || 5)));
       main.append(h('div', { class: 'facts' },
         fact(num(s.licensedUsers), t('li.licensedUsers')), fact(num(s.clients), t('li.clients')),
         fact(num(s.clientsLicensed), code('ls', 'Licensed')), fact(num(s.clientsUnlicensed), t('li.clientsUnlicensed')), fact(num(s.clientsNoUserPersonal !== undefined ? s.clientsNoUserPersonal : s.clientsNoUser), t(s.clientsNoUserPersonal !== undefined ? 'li.clientsNoUserPersonal' : 'li.clientsNoUser')),
@@ -1815,14 +1892,14 @@
         s.clientsP1Only ? fact(num(s.clientsP1Only), t('li.p1only')) : null, fact(num(s.servers), t('li.servers'))));
 
       // Purchased plans (MDE)
-      main.append(h('h3', null, t('li.skus')));
-      main.append(skuTable(skus.filter(r => !r.product || r.product === 'MDE'), 'lic-skus'));
+      main.append(h('h2', null, t('li.skus')));
+      main.append(skuTable(mdeSkus, 'lic-skus', false));
 
       // Client devices
       const devs = arr(li.devices);
       const confText = d => code('lc', d.confidence || 'None');
       const usersCell = d => arr(d.users).length ? h('span', null, arr(d.users).map((u, i) => [i ? ', ' : null, h('span', { class: u.tier ? '' : 'muted' }, u.upn || u.displayName || '–', u.tier ? ` (${code('li.tier', u.tier)})` : '')])) : h('span', { class: 'muted' }, '–');
-      main.append(h('h3', null, t('li.devices')), h('p', { class: 'lede' }, t('li.devices.lede')));
+      main.append(h('h2', null, t('li.devices')), h('p', { class: 'lede' }, t('li.devices.lede')));
       main.append(dataTable({
         name: 'lic-devices', rows: devs, sort: (a, b) => (['Unlicensed', 'NoUser', 'Licensed'].indexOf(a.state) - ['Unlicensed', 'NoUser', 'Licensed'].indexOf(b.state)) || String(a.deviceName).localeCompare(String(b.deviceName)),
         search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''} ${arr(r.users).map(u => u.upn).join(' ')} ${r.licensedBy || ''} ${r.usage || ''}`,
@@ -1847,7 +1924,7 @@
 
       // Licensed users
       const users = arr(li.users);
-      main.append(h('h3', null, t('li.userTable')), h('p', { class: 'lede' }, t('li.userTable.lede')));
+      main.append(h('h2', null, t('li.userTable')), h('p', { class: 'lede' }, t('li.userTable.lede')));
       main.append(dataTable({
         name: 'lic-users', rows: users, sort: (a, b) => (b.deviceCount || 0) - (a.deviceCount || 0) || String(a.upn).localeCompare(String(b.upn)),
         search: r => `${r.upn} ${r.displayName || ''} ${r.tier} ${arr(r.devices).join(' ')}`,
@@ -1868,7 +1945,7 @@
       // Servers (separate licensing)
       const srv = arr(li.servers);
       if (srv.length) {
-        main.append(h('h3', null, t('li.serversTable')), h('p', { class: 'lede' }, t('li.servers.lede')));
+        main.append(h('h2', null, t('li.serversTable')), h('p', { class: 'lede' }, t('li.servers.lede')));
         main.append(dataTable({
           name: 'lic-servers', rows: srv, sort: (a, b) => String(a.deviceName).localeCompare(String(b.deviceName)), search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''}`,
           columns: [
@@ -1876,41 +1953,7 @@
             { title: t('d.platform'), text: r => r.os }, { title: t('d.group'), text: r => r.deviceGroup || '–' }, { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }]
         }));
       }
-
-      // ---- Defender for Office 365 ----
-      const mdoSkus = skus.filter(r => r.product === 'MDO');
-      const mdoUsers = arr(li.mdoUsers);
-      main.append(h('h2', { class: 'section-title' }, t('li.sec.mdo')), h('p', { class: 'lede' }, t('li.mdo.lede')));
-      if (!mdoSkus.length && !mdoUsers.length) {
-        main.append(h('p', { class: 'muted' }, t('li.mdo.none')));
-      } else {
-        main.append(h('div', { class: 'facts' },
-          fact(`${num(s.mdoP2Consumed)} / ${num(s.mdoP2Enabled)}`, `${t('li.tier.P2')} · ${t('li.consumed').toLowerCase()} / ${t('li.enabled').toLowerCase()}`),
-          s.mdoP1Enabled || s.mdoP1Consumed ? fact(`${num(s.mdoP1Consumed)} / ${num(s.mdoP1Enabled)}`, `${t('li.tier.P1')} · ${t('li.consumed').toLowerCase()} / ${t('li.enabled').toLowerCase()}`) : null,
-          fact(num(s.mdoUsers), t('li.mdoUsers')), fact(num(s.mdoUsersP2), t('li.mdoUsersP2')), s.mdoUsersP1 ? fact(num(s.mdoUsersP1), t('li.mdoUsersP1')) : null,
-          s.mdoUsersDisabled ? fact(num(s.mdoUsersDisabled), t('li.mdoDisabled')) : null,
-          s.mdoUsersWithoutMde ? fact(num(s.mdoUsersWithoutMde), t('li.mdoWithoutMde')) : null, s.mdeUsersWithoutMdo ? fact(num(s.mdeUsersWithoutMdo), t('li.mdeWithoutMdo')) : null));
-        main.append(h('h3', null, t('li.skus')));
-        main.append(skuTable(mdoSkus, 'lic-mdo-skus'));
-        main.append(h('h3', null, t('li.mdoUserTable')));
-        main.append(dataTable({
-          name: 'lic-mdo-users', rows: mdoUsers, sort: (a, b) => String(b.tier).localeCompare(String(a.tier)) || String(a.upn).localeCompare(String(b.upn)),
-          search: r => `${r.upn} ${r.displayName || ''} ${r.tier} ${r.mdeTier || ''}`,
-          filters: [
-            { label: t('li.tier'), options: [...new Set(mdoUsers.map(r => r.tier))].sort(), optionLabel: v => code('li.tier', v), test: (r, v) => r.tier === v },
-            { type: 'check', label: t('li.mdoWithoutMde'), test: r => !r.mdeTier }],
-          columns: [
-            { title: t('li.user'), cell: r => h('span', null, r.displayName || r.upn, r.displayName && r.upn !== r.displayName ? [h('br'), h('span', { class: 'muted small' }, r.upn)] : null), text: r => r.upn },
-            { title: t('li.tier'), text: r => code('li.tier', r.tier) },
-            { title: t('li.mdeTier'), cell: r => h('span', { class: r.mdeTier ? '' : 'muted' }, r.mdeTier ? code('li.tier', r.mdeTier) : '–'), text: r => r.mdeTier ? code('li.tier', r.mdeTier) : '' },
-            { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'InUse' ? 'good' : 'warn'}` }, code('lu', r.state)), text: r => code('lu', r.state) }],
-          empty: t('li.none')
-        }));
-      }
-
-      const cav = arr(li.caveats);
-      if (cav.length) main.append(h('details', { class: 'warnings', open: true }, h('summary', null, t('li.caveats')), h('ul', null, cav.map(c => h('li', null, tx(c))))));
-      main.append(warningsBlock(li.warnings) || '');
+      main.append(caveatsBlock() || '', warningsBlock(li.warnings) || '');
     },
 
     async whocan(main, params) {
