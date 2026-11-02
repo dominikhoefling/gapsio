@@ -260,7 +260,8 @@
     'd.prev': ['← Previous', '← Zurück'], 'd.next': ['Next →', 'Weiter →'], 'f.devicesN': ['{0} devices', '{0} Geräte'],
     'd.cov.truncated': ['Only the first {0} entries are shown here; the export contains this subset.', 'Hier werden nur die ersten {0} Einträge angezeigt; der Export enthält diese Teilmenge.'],
     'dv.protection': ['Protection state', 'Schutzzustand'], 'dv.asr': ['ASR rules on this device', 'ASR-Regeln auf diesem Gerät'], 'dv.local': ['Local exclusions', 'Lokale Exclusions'],
-    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['Wardline does not resolve group memberships of devices; check the assignment to see whether a policy targets this device.', 'Wardline löst Gruppenmitgliedschaften von Geräten nicht auf; an der Zuweisung erkennst du, ob eine Richtlinie dieses Gerät trifft.'],
+    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['The per-device count in "Devices" is resolved server-side (including group memberships). This list is policy-level context and may include policies that do not target this specific device.', 'Die gerätespezifische Anzahl in „Devices“ wird serverseitig aufgelöst (inklusive Gruppenmitgliedschaften). Diese Liste ist Richtlinien-Kontext und kann Richtlinien enthalten, die dieses Gerät nicht direkt treffen.'],
+    'dv.policies.count': ['Resolved for this device: {0}', 'Für dieses Gerät aufgelöst: {0}'],
     'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
     'dv.links': ['Open in', 'Öffnen in'], 'dv.defender': ['Defender portal', 'Defender-Portal'], 'dv.intune': ['Intune', 'Intune'],
     'dv.user': ['Last user', 'Letzter Benutzer'], 'dv.join': ['Join type', 'Join-Typ'], 'dv.sensor': ['Sensor health', 'Sensorzustand'], 'dv.exposure': ['Exposure level', 'Gefährdungsstufe'],
@@ -1399,7 +1400,8 @@
       const byPolicy = {}; pols.forEach(p => { (byPolicy[p.policyId] = byPolicy[p.policyId] || { name: p.policyName, platform: p.platform, assignments: p.assignments, assigned: p.assigned, n: 0 }).n++; });
       const plat = String(d.os || '').toLowerCase().slice(0, 3);
       const relevant = Object.values(byPolicy).filter(p => String(p.platform || '').toLowerCase().startsWith(plat));
-      main.append(h('h2', null, t('dv.policies')), h('p', { class: 'muted small' }, t('dv.policies.note')), relevant.length ? list(relevant.map(p => `${p.name}: ${p.n} · ${arr(p.assignments).map(assignText).join(', ') || t('x.unassigned')}`)) : h('p', { class: 'muted' }, t('dv.none')));
+      const resolved = d.policyExclusions === null || d.policyExclusions === undefined ? '–' : String(d.policyExclusions);
+      main.append(h('h2', null, t('dv.policies')), h('p', { class: 'muted small' }, t('dv.policies.count', resolved)), h('p', { class: 'muted small' }, t('dv.policies.note')), relevant.length ? list(relevant.map(p => `${p.name}: ${p.n} · ${arr(p.assignments).map(assignText).join(', ') || t('x.unassigned')}`)) : h('p', { class: 'muted' }, t('dv.none')));
 
       let changes = []; try { changes = arr(state.changes.endpoint || (state.changes.endpoint = await api('changes?module=endpoint'))); } catch { changes = []; }
       const mine = changes.filter(c => JSON.stringify(c.label || '').includes(d.deviceName)).slice(0, 50);
