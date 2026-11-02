@@ -210,7 +210,9 @@ $fixtures = @{
     skus = @(
         [pscustomobject]@{ skuId = 'sku-p2'; skuPartNumber = 'WIN_DEF_ATP'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 12; prepaidUnits = [pscustomobject]@{ enabled = 10; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; provisioningStatus = 'Success' }) },
         [pscustomobject]@{ skuId = 'sku-p1'; skuPartNumber = 'DEFENDER_ENDPOINT_P1'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 1; prepaidUnits = [pscustomobject]@{ enabled = 5; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = '292cc034-7b7c-4950-aaf5-943befd3f1d4'; servicePlanName = 'MDE_LITE'; provisioningStatus = 'Success' }) },
-        [pscustomobject]@{ skuId = 'sku-e3'; skuPartNumber = 'SPE_E3'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 50; prepaidUnits = [pscustomobject]@{ enabled = 60 }; servicePlans = @([pscustomobject]@{ servicePlanId = '00000000-0000-0000-0000-00000000aaaa'; servicePlanName = 'EXCHANGE_S_ENTERPRISE' }) }
+        [pscustomobject]@{ skuId = 'sku-e3'; skuPartNumber = 'SPE_E3'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 50; prepaidUnits = [pscustomobject]@{ enabled = 60 }; servicePlans = @([pscustomobject]@{ servicePlanId = '00000000-0000-0000-0000-00000000aaaa'; servicePlanName = 'EXCHANGE_S_ENTERPRISE' }) },
+        [pscustomobject]@{ skuId = 'sku-mdo1'; skuPartNumber = 'ATP_ENTERPRISE'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 3; prepaidUnits = [pscustomobject]@{ enabled = 2; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = 'f20fedf3-f3c3-43c3-8267-2bfdd51c0939'; servicePlanName = 'ATP_ENTERPRISE'; provisioningStatus = 'Success' }) },
+        [pscustomobject]@{ skuId = 'sku-mdo2'; skuPartNumber = 'THREAT_INTELLIGENCE'; capabilityStatus = 'Enabled'; appliesTo = 'User'; consumedUnits = 1; prepaidUnits = [pscustomobject]@{ enabled = 5; suspended = 0; warning = 0 }; servicePlans = @([pscustomobject]@{ servicePlanId = '8e0c0a52-6a6c-4d40-8370-dd62790dcd70'; servicePlanName = 'THREAT_INTELLIGENCE'; provisioningStatus = 'Success' }) }
     )
     runStates = @(
         [pscustomobject]@{ lastStateUpdateDateTime = [DateTime]::UtcNow.AddMinutes(-30).ToString('o'); managedDevice = [pscustomobject]@{ deviceName = 'WIN-01'; azureADDeviceId = 'aad-win1' }
@@ -351,7 +353,8 @@ $hunting = @{
 
 # Access
 $users = @{
-    'u-alice' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-alice'; userPrincipalName = 'alice@contoso.com'; displayName = 'Alice'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Enabled' }) }
+    'u-alice' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-alice'; userPrincipalName = 'alice@contoso.com'; displayName = 'Alice'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Enabled' }, [pscustomobject]@{ servicePlanId = '8e0c0a52-6a6c-4d40-8370-dd62790dcd70'; servicePlanName = 'THREAT_INTELLIGENCE'; capabilityStatus = 'Enabled' }) }
+    'u-erin'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-erin'; userPrincipalName = 'erin@contoso.com'; displayName = 'Erin'; userType = 'Member'; accountEnabled = $false; assignedPlans = @([pscustomobject]@{ servicePlanId = 'f20fedf3-f3c3-43c3-8267-2bfdd51c0939'; servicePlanName = 'ATP_ENTERPRISE'; capabilityStatus = 'Enabled' }) }
     'u-bob'   = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-bob'; userPrincipalName = 'bob@contoso.com'; displayName = 'Bob'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '292cc034-7b7c-4950-aaf5-943befd3f1d4'; servicePlanName = 'MDE_LITE'; capabilityStatus = 'Enabled' }) }
     'u-carol' = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-carol'; userPrincipalName = 'carol@contoso.com'; displayName = 'Carol'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Enabled' }) }
     'u-dave'  = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.user'; id = 'u-dave'; userPrincipalName = 'dave@contoso.com'; displayName = 'Dave'; userType = 'Member'; accountEnabled = $true; assignedPlans = @([pscustomobject]@{ servicePlanId = '871d91ec-ec1a-452b-a83f-bd76c7d770ef'; servicePlanName = 'WINDEFATP'; capabilityStatus = 'Deleted' }) }
@@ -1170,9 +1173,14 @@ Write-Host '== End-to-end: licensing (Defender for Endpoint)' -ForegroundColor C
 $env:WL_MODULES = 'endpoint,agents,access,licensing'
 $rl = Invoke-WlLicensingCollection 6>$null
 $lic = $blobs['state/licensing-latest.json'] | ConvertFrom-Json -Depth 64
-Assert ($lic.module -eq 'licensing' -and $lic.scope -eq 'Defender for Endpoint') 'Licensing snapshot written'
+Assert ($lic.module -eq 'licensing' -and $lic.scope -eq 'Defender for Endpoint, Defender for Office 365') 'Licensing snapshot written'
 Assert ($lic.warnings.Count -eq 0) "Warnings in the licensing run: $($lic.warnings -join ' | ')"
-Assert (@($lic.skus).Count -eq 2 -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'SPE_E3' }).Count -eq 0) 'Only SKUs with an MDE plan are listed (E3 without MDE plan skipped)'
+Assert (@($lic.skus | Where-Object { $_.product -eq 'MDE' }).Count -eq 2 -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'SPE_E3' }).Count -eq 0) 'Only SKUs with an MDE plan are listed as MDE (E3 without MDE plan skipped)'
+Assert (@($lic.skus | Where-Object { $_.product -eq 'MDO' }).Count -eq 2 -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'THREAT_INTELLIGENCE' })[0].skuName -eq 'Defender for Office 365 P2' -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'THREAT_INTELLIGENCE' })[0].tier -eq 'P2') 'MDO SKUs listed with product MDO and display name'
+Assert ($lic.summary.mdoUsers -eq 2 -and $lic.summary.mdoUsersP2 -eq 1 -and $lic.summary.mdoUsersP1 -eq 1 -and $lic.summary.mdoUsersWithoutMde -eq 1 -and $lic.summary.mdoUsersDisabled -eq 1) "MDO users: $($lic.summary.mdoUsers) (P2 $($lic.summary.mdoUsersP2), P1 $($lic.summary.mdoUsersP1), without MDE $($lic.summary.mdoUsersWithoutMde))"
+Assert ($lic.summary.mdoP1Enabled -eq 2 -and $lic.summary.mdoP1Consumed -eq 3 -and $lic.summary.mdoP2Enabled -eq 5) 'MDO units summed per tier'
+Assert (@($lic.mdoUsers | Where-Object { $_.upn -eq 'erin@contoso.com' })[0].state -eq 'Disabled' -and -not @($lic.mdoUsers | Where-Object { $_.upn -eq 'erin@contoso.com' })[0].mdeTier) 'Erin: MDO-only, disabled account'
+Assert (@($lic.users | Where-Object { $_.upn -eq 'erin@contoso.com' }).Count -eq 0) 'MDO-only users do not appear in the MDE user table'
 $p2 = @($lic.skus | Where-Object { $_.skuPartNumber -eq 'WIN_DEF_ATP' })[0]
 Assert ($p2.tier -eq 'P2' -and $p2.enabled -eq 10 -and $p2.consumed -eq 12 -and -not $p2.isServer) 'P2 SKU: tier, units'
 Assert ($p2.skuName -eq 'Defender for Endpoint P2' -and @($lic.skus | Where-Object { $_.skuPartNumber -eq 'DEFENDER_ENDPOINT_P1' })[0].skuName -eq 'Defender for Endpoint P1') 'SKU display names: WIN_DEF_ATP -> Defender for Endpoint P2, DEFENDER_ENDPOINT_P1 -> P1'
@@ -1189,6 +1197,8 @@ Assert (@($lic.users | Where-Object { $_.upn -eq 'carol@contoso.com' })[0].state
 Assert ($lic.summary.clientsUnlicensed -eq 2 -and $lic.summary.clientsLicensed -eq 1 -and $lic.summary.usersNoDevice -eq 2) "Licensing summary (unlicensed $($lic.summary.clientsUnlicensed), licensed $($lic.summary.clientsLicensed), noDevice $($lic.summary.usersNoDevice))"
 $lf = @($lic.findings)
 Assert (@($lf | Where-Object { $_.title.en -like 'More licences assigned than purchased: Defender for Endpoint P2' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: consumed > enabled'
+Assert (@($lf | Where-Object { $_.title.en -like 'More licences assigned than purchased: Defender for Office 365 P1' -and $_.severity -eq 'High' }).Count -eq 1) 'Finding: MDO consumed > enabled'
+Assert (@($lf | Where-Object { $_.subject -eq 'mdo-mixed' }).Count -eq 1 -and @($lf | Where-Object { $_.subject -eq 'mdo-disabled' }).Count -eq 1) 'Findings: MDO mixed plans and disabled account with plan'
 Assert (@($lf | Where-Object { $_.title.en -like '2 onboarded client(s) used only by users without*' -and $_.deviceCount -eq 2 }).Count -eq 1) 'Finding: unlicensed clients (aggregated with device count)'
 Assert (@($lf | Where-Object { $_.title.en -like '*licensed user(s) without an onboarded device*' }).Count -eq 1) 'Finding: licensed users without device'
 Assert (@($lf | Where-Object { $_.title.en -like '*covered only by Plan 1*' }).Count -eq 0) 'No P1 finding (Bob has no device)'
