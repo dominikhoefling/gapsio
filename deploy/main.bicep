@@ -110,6 +110,25 @@ param scheduleAccess string = '0 47 2 * * *'
 @description('Schedule of the licensing module (NCRONTAB, UTC).')
 param scheduleLicensing string = '0 17 3 * * *'
 
+@description('Optional Wardline Assistant: a chat helper in the portal that explains findings and navigates. Uses an Azure OpenAI deployment in your own subscription via managed identity (no keys). Off by default.')
+param enableAssistant bool = false
+
+@description('Optional: endpoint of an existing Azure OpenAI / AI Foundry resource (https://<name>.openai.azure.com/). Empty = Wardline creates one in the resource group. With an existing resource, grant the runner identity "Cognitive Services OpenAI User" yourself.')
+param assistantEndpoint string = ''
+
+@description('Model deployment name used by the assistant (created when Wardline creates the resource).')
+param assistantDeployment string = 'gpt-4.1-mini'
+
+@description('Model name and version for the created deployment.')
+param assistantModel string = 'gpt-4.1-mini'
+param assistantModelVersion string = '2025-04-14'
+
+@description('Region for the created Azure OpenAI resource (model availability differs by region). Empty = same as location.')
+param assistantLocation string = ''
+
+@description('Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant.')
+param assistantCapacity int = 10
+
 @description('Redundancy of the storage account.')
 @allowed([ 'Standard_LRS', 'Standard_ZRS', 'Standard_GRS' ])
 param storageSku string = 'Standard_LRS'
@@ -128,6 +147,10 @@ var planName = empty(customPlanName) ? 'plan-${namePrefix}-${suffix}' : customPl
 var logWorkspaceName = empty(customLogWorkspaceName) ? 'log-${namePrefix}-${suffix}' : customLogWorkspaceName
 var appInsightsName = empty(customAppInsightsName) ? 'appi-${namePrefix}-${suffix}' : customAppInsightsName
 var modules = 'endpoint${enableAgents ? ',agents' : ''}${enableAccess ? ',access' : ''}${enableLicensing ? ',licensing' : ''}'
+var createAi = enableAssistant && empty(assistantEndpoint)
+var aiName = take('oai-${namePrefix}-${suffix}', 64)
+var aiLocation = empty(assistantLocation) ? location : assistantLocation
+var aiEndpoint = createAi ? 'https://${aiName}.openai.azure.com/' : assistantEndpoint
 
 var roles = {
   storageBlobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
@@ -135,6 +158,7 @@ var roles = {
   storageTableDataContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
   monitoringMetricsPublisher: '3913510d-42f4-4e42-8a64-420c390055eb'
   websiteContributor: 'de139f84-1756-47ae-9be6-808fbbe84772'
+  cognitiveServicesOpenAIUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 }
 
 // ---------- Identity ----------
@@ -307,6 +331,49 @@ resource raMetrics 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// ---------- Optional: Wardline Assistant (Azure OpenAI in the customer's subscription, keyless) ----------
+resource ai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (createAi) {
+  name: aiName
+  location: aiLocation
+  tags: union(tags, { 'wardline-component': 'assistant' })
+  kind: 'OpenAI'
+  sku: {
+    name: 'S0'
+  }
+  properties: {
+    customSubDomainName: aiName
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource aiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (createAi) {
+  parent: ai
+  name: assistantDeployment
+  sku: {
+    name: 'GlobalStandard'
+    capacity: assistantCapacity
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: assistantModel
+      version: assistantModelVersion
+    }
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
+  }
+}
+
+resource raAi 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createAi) {
+  scope: ai
+  name: guid(aiName, runner.id, roles.cognitiveServicesOpenAIUser)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveServicesOpenAIUser)
+    principalId: runner.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ---------- Function App (Flex Consumption, PowerShell 7.4) ----------
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: planName
@@ -375,6 +442,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_NOTIFY_MIN_SEVERITY', value: notifyMinSeverity }
         { name: 'WL_LICENSE_KEY', value: licenseKey }
         { name: 'WL_SCHEDULE_AGENTS', value: scheduleAgents }
+        { name: 'WL_ASSISTANT', value: enableAssistant ? 'true' : 'false' }
+        { name: 'WL_AI_ENDPOINT', value: enableAssistant ? aiEndpoint : '' }
+        { name: 'WL_AI_DEPLOYMENT', value: enableAssistant ? assistantDeployment : '' }
       ]
     }
     functionAppConfig: {
@@ -506,3 +576,4 @@ output runnerPrincipalId string = runner.properties.principalId
 output runnerClientId string = runner.properties.clientId
 output modules string = modules
 output storageAccountName string = storage.name
+output assistantEndpoint string = enableAssistant ? aiEndpoint : ''

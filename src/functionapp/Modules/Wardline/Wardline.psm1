@@ -2,7 +2,7 @@
 # Wardline core module. Loads the parts (Core, Endpoint, Agents, Access, Licensing).
 $ErrorActionPreference = 'Stop'
 
-foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1')) {
+foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'Assistant.ps1')) {
     . (Join-Path $PSScriptRoot $part)
 }
 

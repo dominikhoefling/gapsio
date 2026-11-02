@@ -36,10 +36,10 @@
     'noaccess': ['Wardline is only available to administrators (app role “Wardline Administrator”). Please contact your security team.', 'Wardline steht nur Administratoren zur Verfügung (App-Rolle „Wardline Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office (private preview)', 'Office (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'nav.menu': ['Menu', 'Menü'], 'nav.close': ['Close menu', 'Menü schließen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
-    'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
+    'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['Private preview', 'Private Preview'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
     'nav.licensing': ['Licences (Defender for Endpoint)', 'Lizenzen (Defender for Endpoint)'], 'v.licensing': ['Licence indication', 'Lizenz-Indikation'],
     'mod.endpoint': ['Endpoint', 'Endpoint'], 'mod.agents': ['Agents (beta)', 'Agents (Beta)'], 'mod.access': ['Access', 'Zugriffe'], 'mod.licensing': ['Licensing', 'Lizenzen'],
@@ -232,6 +232,14 @@
     'dv.np.EventsBlock': ['Network protection: derived from block events (no TVM assessment)', 'Netzwerkschutz: aus Block-Ereignissen abgeleitet (keine TVM-Bewertung)'],
     'dv.np.EventsAudit': ['Network protection: only audit events – it runs in audit mode', 'Netzwerkschutz: nur Audit-Ereignisse – läuft im Überwachungsmodus'],
     'ch.none': ['No changes yet. Deviations are recorded here from the second run on.', 'Noch keine Änderungen. Ab dem zweiten Lauf werden Abweichungen hier festgehalten.'],
+    // office preview
+    'office.title': ['Defender for Office 365 (private preview)', 'Defender for Office 365 (Private Preview)'],
+    'office.lede': ['Private draft from cyberdom365. This is a live workload probe and correlation starter, not a copy of the Defender UI.', 'Privater Draft aus cyberdom365. Das ist ein Live-Workload-Probe und Korrelations-Startpunkt, keine Kopie der Defender-UI.'],
+    'office.window': ['Window: last {0} days', 'Fenster: letzte {0} Tage'],
+    'office.probes': ['Probes: {0} ok, {1} errors', 'Probes: {0} ok, {1} Fehler'],
+    'office.probe': ['Probe', 'Probe'], 'office.workload': ['Workload', 'Workload'], 'office.result': ['Result', 'Ergebnis'],
+    'office.status.ok': ['ok', 'ok'], 'office.status.error': ['error', 'Fehler'],
+    'office.empty': ['No Office preview data yet. Upload office-preview-latest.json to the state container.', 'Noch keine Office-Preview-Daten. office-preview-latest.json in den State-Container hochladen.'],
     'coll.policyExclusions': ['Exclusion (policy)', 'Exclusion (Richtlinie)'], 'coll.localExclusions': ['Exclusion (local)', 'Exclusion (lokal)'], 'coll.indicators': ['Indicator', 'Indikator'],
     'coll.devices': ['Device', 'Gerät'], 'coll.baseline': ['Baseline', 'Baseline'], 'coll.asrRules': ['ASR rule', 'ASR-Regel'], 'coll.asrGroups': ['ASR device group', 'ASR-Gerätegruppe'],
     'coll.findings': ['Finding', 'Befund'], 'coll.entitlements': ['Permission', 'Recht'], 'coll.audiences': ['Open package', 'Offenes Paket'], 'coll.bypass': ['Entra bypass role', 'Entra-Bypass-Rolle'], 'coll.agents': ['Agent', 'Agent'],
@@ -316,7 +324,12 @@
     'd.aad': ['Entra device ID', 'Entra-Geräte-ID'], 'v.device': ['Device', 'Gerät'], 'v.accepted': ['Exceptions & assignments', 'Ausnahmen & Zuweisungen'],
     'g.registry.na': ['Neither the Agent 365 package catalog (CopilotPackages.Read.All) nor the legacy registry is available in this tenant (no Agent 365 licence or permission not granted). Agents from Entra Agent ID and Defender are still shown.', 'Weder der Agent-365-Paketkatalog (CopilotPackages.Read.All) noch die alte Registry ist in diesem Tenant verfügbar (keine Agent-365-Lizenz oder Berechtigung nicht erteilt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.'],
     'g.registry.legacy': ['Agent 365 data comes from the legacy registry (retired from May 2026). Grant CopilotPackages.Read.All to switch to the Agent 365 package catalog.', 'Agent-365-Daten stammen aus der alten Registry (wird ab Mai 2026 abgeschaltet). CopilotPackages.Read.All erteilen, um auf den Agent-365-Paketkatalog umzustellen.'],
-    'g.publisher2': ['Publisher', 'Herausgeber'], 'g.blocked': ['Blocked in the organisation', 'In der Organisation blockiert'], 'g.availability': ['Availability / deployment', 'Verfügbarkeit / Bereitstellung']
+    'g.publisher2': ['Publisher', 'Herausgeber'], 'g.blocked': ['Blocked in the organisation', 'In der Organisation blockiert'], 'g.availability': ['Availability / deployment', 'Verfügbarkeit / Bereitstellung'],
+    'ai.title': ['Wardline Assistant', 'Wardline-Assistent'], 'ai.open': ['Ask the assistant', 'Assistent fragen'], 'ai.close': ['Close', 'Schließen'],
+    'ai.placeholder': ['Ask about findings, devices or where to find something …', 'Frag nach Befunden, Geräten oder wo etwas zu finden ist …'],
+    'ai.send': ['Send', 'Senden'], 'ai.thinking': ['Thinking …', 'Denke nach …'], 'ai.clear': ['New conversation', 'Neue Unterhaltung'],
+    'ai.intro': ['I answer from the current Wardline data only – read-only, nothing is changed. Try: “What should I fix first?”, “Why is device X flagged?”, “Where do I see unused exclusions?”', 'Ich antworte nur aus den aktuellen Wardline-Daten – nur lesend, nichts wird geändert. Zum Beispiel: „Was soll ich zuerst beheben?“, „Warum ist Gerät X markiert?“, „Wo sehe ich ungenutzte Exclusions?“'],
+    'ai.failed': ['The assistant could not answer: {0}', 'Der Assistent konnte nicht antworten: {0}'], 'ai.disclaimer': ['AI-generated from your snapshot data via Azure OpenAI in your subscription. Verify before acting.', 'KI-generiert aus Ihren Snapshot-Daten über Azure OpenAI in Ihrer Subscription. Vor dem Handeln prüfen.']
   };
   function t(key, ...args) {
     const v = L[key];
@@ -341,7 +354,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -811,6 +824,7 @@
   async function loadAccess(force) { if (!state.access || force) state.access = await api('access'); return state.access; }
   async function loadLicensing(force) { if (!state.licensing || force) state.licensing = await api('licensing'); return state.licensing; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
+  async function loadOfficePreview(force) { if (!state.officePreview || force) state.officePreview = await api('officepreview'); return state.officePreview; }
   async function loadAcceptances(force) {
     if (!state.acceptances || force) {
       await Promise.all([
@@ -1708,6 +1722,45 @@
       }
     },
 
+    async officepreview(main) {
+      main.append(h('h1', null, t('office.title')), h('p', { class: 'lede' }, t('office.lede')));
+      let o; try { o = await loadOfficePreview(); } catch (e) { main.append(noData(e, 'all')); return; }
+      const rows = arr(o.results);
+      if (!rows.length) { main.append(h('div', { class: 'empty' }, t('office.empty'))); return; }
+      main.append(h('div', { class: 'facts' },
+        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('loading').replace(' …', ''))),
+        h('div', { class: 'fact' }, h('b', null, t('office.window', num(o.windowDays || 0))), h('span', null, t('office.probes', num(o.ok || 0), num(o.errors || 0))))));
+      const keyResult = (r) => {
+        const x = arr(r.result)[0];
+        if (!x) return t('none');
+        const pairs = [];
+        if (x.rows !== undefined) pairs.push(`rows=${x.rows}`);
+        if (x.activeDays !== undefined) pairs.push(`activeDays=${x.activeDays}`);
+        if (x.users !== undefined) pairs.push(`users=${x.users}`);
+        if (x.services !== undefined) pairs.push(`services=${x.services}`);
+        if (x.entities !== undefined) pairs.push(`entities=${x.entities}`);
+        if (!pairs.length) pairs.push(`rowsReturned=${arr(r.result).length}`);
+        return pairs.join(', ');
+      };
+      main.append(dataTable({
+        name: 'office-preview', rows,
+        search: r => `${r.title || ''} ${r.workload || ''} ${r.status || ''} ${r.error || ''}`,
+        filters: [
+          { label: t('office.workload'), options: [...new Set(rows.map(r => r.workload).filter(Boolean))].sort(), test: (r, v) => r.workload === v },
+          { label: t('x.status'), options: ['ok', 'error'], optionLabel: s => t(`office.status.${s}`), test: (r, v) => r.status === v }
+        ],
+        columns: [
+          { title: t('office.probe'), text: r => r.title || r.key },
+          { title: t('office.workload'), text: r => r.workload || '–' },
+          { title: t('x.status'), cell: r => h('span', { class: `state ${r.status === 'ok' ? 'good' : 'bad'}` }, t(`office.status.${r.status || 'error'}`)), text: r => t(`office.status.${r.status || 'error'}`) },
+          { title: t('office.result'), text: keyResult },
+          { title: t('error', ''), text: r => r.error || '–' }
+        ],
+        detail: r => h('div', null, dl([[t('office.result'), keyResult(r)], [t('error', ''), r.error || t('none')], [t('col.time'), fmtDate(o.generatedAt)]])),
+        empty: t('office.empty')
+      }));
+    },
+
     async access(main) {
       main.append(h('h1', null, t('nav.access')), h('p', { class: 'lede' }, t('r.lede')));
       let ac; try { ac = await loadAccess(); } catch (e) { main.append(noData(e, 'access')); return; }
@@ -2042,6 +2095,7 @@
 
   const NAV = [
     { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline'] },
+    { group: 'nav.office', admin: true, items: ['officepreview'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
@@ -2104,6 +2158,7 @@
       isAdmin && up && up.available && /^https:\/\/github\.com\//.test(up.url || '') ? h('a', { class: 'update-link', href: up.url, target: '_blank', rel: 'noopener noreferrer' }, t('update.available', up.latest)) : null,
       isAdmin && state.me.license ? h('a', { class: `license-link lic-${state.me.license.status}`, href: '#/license' }, t('lic.side', licenseShort(state.me.license))) : null));
     renderNotice();
+    renderAssistant();
     const langSel = h('select', { 'aria-label': t('language'), onchange: (e) => setLang(e.target.value) }, Object.entries(LANGS).map(([k, v]) => { const o = h('option', { value: k }, v); if (k === lang) o.selected = true; return o; }));
     const actions = $('#actions');
     actions.replaceChildren(h('label', { class: 'lang-switch' }, t('language'), langSel));
@@ -2115,6 +2170,47 @@
   }
 
   const licenseShort = (l) => l.status === 'Valid' ? `${code('lic.plan', l.plan)} · ${fmtDay(l.expires)}` : code('lic.st', l.status);
+
+  // ---------- Assistant (optional, WL_ASSISTANT) ----------
+  const ai = { history: [], open: false, busy: false };
+  function renderAssistant() {
+    let fab = $('#ai-fab'), panel = $('#ai-panel');
+    const enabled = state.me && state.me.isAdmin && state.me.assistant && !window.WARDLINE_DEMO;
+    if (!enabled) { if (fab) fab.remove(); if (panel) panel.remove(); return; }
+    if (!fab) {
+      fab = h('button', { id: 'ai-fab', type: 'button', class: 'ai-fab', onclick: () => { ai.open = !ai.open; renderAssistant(); if (ai.open) { const i = $('#ai-input'); if (i) i.focus(); } } }, '✦');
+      document.body.append(fab);
+    }
+    fab.setAttribute('aria-label', t('ai.open')); fab.title = t('ai.open'); fab.setAttribute('aria-expanded', String(ai.open));
+    if (!ai.open) { if (panel) panel.remove(); return; }
+    if (!panel) { panel = h('section', { id: 'ai-panel', class: 'ai-panel', role: 'dialog', 'aria-label': t('ai.title') }); document.body.append(panel); }
+    const log = h('div', { class: 'ai-log', 'aria-live': 'polite' },
+      h('p', { class: 'ai-msg ai-sys' }, t('ai.intro')),
+      ai.history.map(m => h('div', { class: `ai-msg ai-${m.role}` }, h('p', null, m.content),
+        m.links && m.links.length ? h('div', { class: 'ai-links' }, m.links.map(l => h('a', { href: l.view, onclick: () => { ai.open = false; renderAssistant(); } }, l.label))) : null)),
+      ai.busy ? h('p', { class: 'ai-msg ai-assistant muted' }, t('ai.thinking')) : null);
+    const input = h('textarea', { id: 'ai-input', rows: 2, placeholder: t('ai.placeholder'), maxlength: 2000, disabled: ai.busy || null,
+      onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askAssistant(); } } });
+    const form = h('form', { class: 'ai-form', onsubmit: (e) => { e.preventDefault(); askAssistant(); } }, input,
+      h('div', { class: 'ai-actions' },
+        h('button', { type: 'button', class: 'quiet', onclick: () => { ai.history = []; renderAssistant(); } }, t('ai.clear')),
+        h('button', { type: 'submit', class: 'primary', disabled: ai.busy || null }, t('ai.send'))));
+    panel.replaceChildren(
+      h('header', null, h('strong', null, t('ai.title')), h('button', { type: 'button', class: 'quiet', 'aria-label': t('ai.close'), onclick: () => { ai.open = false; renderAssistant(); } }, '×')),
+      log, form, h('p', { class: 'ai-foot muted' }, t('ai.disclaimer')));
+    log.scrollTop = log.scrollHeight;
+  }
+  async function askAssistant() {
+    const input = $('#ai-input'); const q = input && input.value.trim();
+    if (!q || ai.busy) return;
+    const hist = ai.history.map(m => ({ role: m.role, content: m.content }));
+    ai.history.push({ role: 'user', content: q }); ai.busy = true; renderAssistant();
+    try {
+      const r = await api('assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, history: hist.slice(-6), lang }) });
+      ai.history.push({ role: 'assistant', content: r.answer || '', links: arr(r.links) });
+    } catch (e) { ai.history.push({ role: 'assistant', content: t('ai.failed', e.message) }); }
+    finally { ai.busy = false; renderAssistant(); const i = $('#ai-input'); if (i) i.focus(); }
+  }
   function renderNotice() {
     const bar = $('#notice'); if (!bar) return;
     const l = state.me && state.me.isAdmin && state.me.license;

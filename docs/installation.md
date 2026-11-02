@@ -35,7 +35,18 @@ Re-runs and updates find an existing installation by the tag `wardline-component
 | `-SkipPermissionGrant` | Deploy everything but print the grant command for the identity team |
 | `-ShowPermissions` | Only show the permissions of the selected features, change nothing |
 | `-DeviceInventory`, `-DeviceInventoryGroupId`, `-RemoveDeviceInventory` | Optional device inventory, see below |
+| `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantLocation` | Optional portal assistant (Azure OpenAI in your subscription), see below |
 | `-SubscriptionId` | Subscription, if not the current one of `az` |
+
+## Optional: portal assistant
+
+`-Assistant` adds a chat helper to the portal (admins only). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
+
+- **Where it runs:** an Azure OpenAI resource and a `gpt-4.1-mini` deployment **in your own subscription**, created by the installer (`-AssistantLocation` picks the region, default = installation region; `swedencentral` has the broadest model availability). Or point to an existing resource with `-AssistantEndpoint https://<name>.openai.azure.com/` and grant Wardline's runner identity the role *Cognitive Services OpenAI User* on it.
+- **Authentication:** managed identity only; key-based access on the created resource is disabled.
+- **What the model sees:** a compact summary built on the server – enabled modules, the view list, per-module summary counts, the top 40 findings and, if you name a device, up to five matching device rows. Never full lists, never tokens or settings. Azure OpenAI does not use your prompts for training.
+- **Cost:** pay-as-you-go tokens on the deployment; a typical question is 3–5k tokens (fractions of a cent).
+- **Turn off:** re-run the installer with `-Assistant:$false` and delete the `oai-*` resource if it was created for you.
 
 ## Local exclusions: Advanced Hunting only, or device inventory as well
 

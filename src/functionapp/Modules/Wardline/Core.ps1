@@ -109,9 +109,9 @@ function Get-WlToken {
     if ($cached -and $cached.ExpiresOn -gt [DateTime]::UtcNow.AddMinutes(5)) { return $cached.Token }
 
     # Optional: a pre-created data-access app registration (WL_DATA_APP_ID). The managed identity signs in to it via
-    # workload identity federation (no secret). Storage always uses the managed identity directly.
+    # workload identity federation (no secret). Storage and Azure OpenAI (Azure RBAC) always use the managed identity directly.
     $dataApp = Get-WlSetting -Name 'WL_DATA_APP_ID'
-    if ($dataApp -and $Resource -notmatch 'storage\.azure\.com|AzureADTokenExchange') {
+    if ($dataApp -and $Resource -notmatch 'storage\.azure\.com|AzureADTokenExchange|cognitiveservices\.azure\.com') {
         $assertion = Get-WlToken -Resource 'api://AzureADTokenExchange'
         $loginHost = Get-WlSetting -Name 'WL_LOGIN_HOST' -Default 'login.microsoftonline.com'
         $tenant = Get-WlSetting -Name 'WL_TENANT_ID'
