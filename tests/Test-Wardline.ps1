@@ -1210,6 +1210,30 @@ $null = Invoke-WlLicensingCollection 6>$null
     & $A ((Get-WlBestTier @('P1', 'MDB', 'P2', $null)) -eq 'P2' -and (Get-WlBestTier @('P1', 'MDB')) -eq 'MDB') 'Best tier ranking'
     $m = Get-WlLicensingModel -Skus @() -Users @() -Data @{ devices = @(); logons = @(); intune = @() }
     & $A ($m.summary.clients -eq 0 -and @($m.findings).Count -eq 0) 'Empty model: no findings'
+    # Usage classification: shared (many people), kiosk (Intune self-deploying), VDI (model), service accounts ignored
+    $usersX = @(1..6 | ForEach-Object { [pscustomobject]@{ id = "u$_"; upn = "user$_@contoso.com"; displayName = "User $_"; tier = 'P2'; accountEnabled = $true; userType = 'Member'; names = @("user$_") } })
+    $devX = @(
+        [pscustomobject]@{ DeviceId = 'x-shared'; DeviceName = 'PC-FLOOR1'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; MachineGroup = 'Clients'; LastSeen = (Get-Date).ToString('o') },
+        [pscustomobject]@{ DeviceId = 'x-kiosk'; DeviceName = 'PC-0042'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; AadDeviceId = 'AAD-KIOSK'; MachineGroup = 'Clients'; LastSeen = (Get-Date).ToString('o') },
+        [pscustomobject]@{ DeviceId = 'x-vdi'; DeviceName = 'PC-0043'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; MachineGroup = 'Clients'; Model = 'Virtual Machine'; Vendor = 'Microsoft Corporation'; LastSeen = (Get-Date).ToString('o') },
+        [pscustomobject]@{ DeviceId = 'x-svc'; DeviceName = 'PC-0044'; OSPlatform = 'Windows11'; DeviceType = 'Workstation'; MachineGroup = 'Clients'; LastSeen = (Get-Date).ToString('o') }
+    )
+    $logX = @(1..5 | ForEach-Object { [pscustomobject]@{ DeviceId = 'x-shared'; AccountName = "user$_"; Logons = 1; Last = (Get-Date).ToString('o') } }) + @(
+        [pscustomobject]@{ DeviceId = 'x-vdi'; AccountName = 'user6'; Logons = 1; Last = (Get-Date).ToString('o') },
+        [pscustomobject]@{ DeviceId = 'x-svc'; AccountName = 'svc-backup'; Logons = 9; Last = (Get-Date).ToString('o') },
+        [pscustomobject]@{ DeviceId = 'x-svc'; AccountName = 'kioskUser0'; Logons = 9; Last = (Get-Date).ToString('o') })
+    $intX = @([pscustomobject]@{ id = 'i1'; azureADDeviceId = 'aad-kiosk'; userPrincipalName = $null; userId = $null; deviceEnrollmentType = 'windowsAzureADJoinUsingDeviceAuth'; enrollmentProfileName = 'Lobby kiosk'; model = 'OptiPlex'; manufacturer = 'Dell' })
+    $mx = Get-WlLicensingModel -Skus @() -Users $usersX -Data @{ devices = $devX; logons = $logX; intune = $intX }
+    $by = @{}; foreach ($d in $mx.devices) { $by[$d.deviceId] = $d }
+    & $A ($by['x-shared'].usage -eq 'Shared' -and $by['x-shared'].distinctUsers -eq 5) 'Usage: 5 distinct people -> Shared'
+    & $A ($by['x-kiosk'].usage -eq 'Kiosk' -and $by['x-kiosk'].state -eq 'NoUser') 'Usage: Intune self-deploying enrolment -> Kiosk'
+    & $A ($by['x-vdi'].usage -eq 'VDI' -and $by['x-vdi'].state -eq 'Licensed') 'Usage: model "Virtual Machine" -> VDI, still licensed by its user'
+    & $A ($by['x-svc'].usage -eq 'Personal' -and $by['x-svc'].state -eq 'NoUser' -and @($by['x-svc'].serviceAccounts).Count -eq 2) 'Service accounts are recorded but not counted as users'
+    & $A ($mx.summary.clientsShared -eq 1 -and $mx.summary.clientsKiosk -eq 1 -and $mx.summary.clientsVdi -eq 1 -and $mx.summary.serviceAccounts -eq 2 -and $mx.summary.clientsNoUserPersonal -eq 1) 'Usage summary counters'
+    $u1 = $mx.users | Where-Object upn -eq 'user1@contoso.com'; $u6 = $mx.users | Where-Object upn -eq 'user6@contoso.com'
+    & $A ($u1.deviceCount -eq 0 -and $u1.sharedDeviceCount -eq 1 -and $u1.state -eq 'InUse') 'Shared device does not count against the per-user limit but keeps the user "in use"'
+    & $A ($u6.deviceCount -eq 0 -and $u6.sharedDeviceCount -eq 1) 'VDI device is listed under shared devices for its user'
+    & $A (@($mx.findings | Where-Object subject -eq 'clients-shared').Count -eq 1) 'Info finding for shared-like clients'
 } ${function:Assert}
 
 Write-Host '== API' -ForegroundColor Cyan

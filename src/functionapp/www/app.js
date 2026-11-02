@@ -280,6 +280,10 @@
     'li.userTable': ['Licensed users', 'Lizenzierte Benutzer'], 'li.userTable.lede': ['Users with a Defender for Endpoint plan and the onboarded client devices they were seen on.', 'Benutzer mit Defender-for-Endpoint-Plan und die onboardeten Client-Geräte, auf denen sie gesehen wurden.'],
     'li.user': ['User', 'Benutzer'], 'li.deviceCount': ['Devices', 'Geräte'], 'lu.InUse': ['In use', 'In Nutzung'], 'lu.NoDevice': ['No device', 'Kein Gerät'], 'lu.OverLimit': ['Above {0} devices', 'Über {0} Geräten'], 'lu.Disabled': ['Account disabled', 'Konto deaktiviert'],
     'li.onlyUnlicensed': ['Unlicensed only', 'Nur unlizenzierte'], 'li.onlyNoDevice': ['Without device only', 'Nur ohne Gerät'],
+    'li.usage': ['Usage', 'Nutzung'], 'lg.Personal': ['Personal', 'Persönlich'], 'lg.Shared': ['Shared', 'Geteilt'], 'lg.Kiosk': ['Kiosk / shared PC', 'Kiosk / Shared PC'], 'lg.VDI': ['Virtual desktop', 'Virtueller Desktop'],
+    'li.usage.why': ['Why this usage', 'Warum diese Nutzung'], 'li.distinctUsers': ['Distinct people', 'Unterschiedliche Personen'], 'li.serviceAccounts': ['Service / admin accounts (not counted)', 'Dienst-/Admin-Konten (nicht gezählt)'],
+    'li.clientsShared': ['shared, kiosk or VDI clients', 'geteilte, Kiosk- oder VDI-Clients'], 'li.clientsNoUserPersonal': ['personal clients without any user seen', 'persönliche Clients ohne erkannten Benutzer'], 'li.svcAccounts': ['service / admin accounts ignored', 'Dienst-/Admin-Konten ignoriert'],
+    'li.sharedDeviceCount': ['Shared devices', 'Geteilte Geräte'], 'li.sharedDevices.hint': ['Shared, kiosk and VDI devices the user was seen on – they do not count against the limit.', 'Geteilte, Kiosk- und VDI-Geräte, auf denen der Benutzer gesehen wurde – sie zählen nicht gegen das Limit.'],
     'li.serversTable': ['Servers', 'Server'], 'li.servers.lede': ['Onboarded servers are licensed per server (Defender for Servers via Defender for Cloud, or Defender for Endpoint for Servers). Microsoft Graph does not show these; the count is here so you can reconcile it with Azure.', 'Onboardete Server werden pro Server lizenziert (Defender for Servers über Defender for Cloud oder Defender for Endpoint for Servers). Microsoft Graph zeigt diese nicht; die Zahl steht hier zum Abgleich mit Azure.'],
     'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (WL_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (WL_LICENSING_DETAIL=aggregate).'],
     'li.none': ['No data.', 'Keine Daten.'], 'li.window': ['Observation window: {0} days · device allowance per user used for the hint: {1}', 'Beobachtungszeitraum: {0} Tage · für den Hinweis verwendete Gerätegrenze pro Benutzer: {1}'],
@@ -1782,7 +1786,9 @@
       const fact = (b, sub, cls) => h('div', { class: `fact${cls ? ` ${cls}` : ''}` }, h('b', null, b), h('span', null, sub));
       main.append(h('div', { class: 'facts' },
         fact(num(s.licensedUsers), t('li.licensedUsers')), fact(num(s.clients), t('li.clients')),
-        fact(num(s.clientsLicensed), code('ls', 'Licensed')), fact(num(s.clientsUnlicensed), t('li.clientsUnlicensed')), fact(num(s.clientsNoUser), t('li.clientsNoUser')),
+        fact(num(s.clientsLicensed), code('ls', 'Licensed')), fact(num(s.clientsUnlicensed), t('li.clientsUnlicensed')), fact(num(s.clientsNoUserPersonal !== undefined ? s.clientsNoUserPersonal : s.clientsNoUser), t(s.clientsNoUserPersonal !== undefined ? 'li.clientsNoUserPersonal' : 'li.clientsNoUser')),
+        s.clientsShared !== undefined ? fact(num((s.clientsShared || 0) + (s.clientsKiosk || 0) + (s.clientsVdi || 0)), t('li.clientsShared')) : null,
+        s.serviceAccounts ? fact(num(s.serviceAccounts), t('li.svcAccounts')) : null,
         fact(num(s.usersNoDevice), t('li.usersNoDevice')), fact(num(s.usersOverLimit), t('li.usersOver', s.devicesPerUser || 5)),
         s.clientsP1Only ? fact(num(s.clientsP1Only), t('li.p1only')) : null, fact(num(s.servers), t('li.servers'))));
 
@@ -1808,20 +1814,23 @@
       main.append(h('h2', null, t('li.devices')), h('p', { class: 'lede' }, t('li.devices.lede')));
       main.append(dataTable({
         name: 'lic-devices', rows: devs, sort: (a, b) => (['Unlicensed', 'NoUser', 'Licensed'].indexOf(a.state) - ['Unlicensed', 'NoUser', 'Licensed'].indexOf(b.state)) || String(a.deviceName).localeCompare(String(b.deviceName)),
-        search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''} ${arr(r.users).map(u => u.upn).join(' ')} ${r.licensedBy || ''}`,
+        search: r => `${r.deviceName} ${r.os || ''} ${r.deviceGroup || ''} ${arr(r.users).map(u => u.upn).join(' ')} ${r.licensedBy || ''} ${r.usage || ''}`,
         filters: [
           { label: t('li.state'), options: [...new Set(devs.map(r => r.state))].sort(), optionLabel: v => code('ls', v), test: (r, v) => r.state === v },
+          { label: t('li.usage'), options: [...new Set(devs.map(r => r.usage || 'Personal'))].sort(), optionLabel: v => code('lg', v), test: (r, v) => (r.usage || 'Personal') === v },
           { label: t('d.platform'), options: [...new Set(devs.map(r => r.os).filter(Boolean))].sort(), test: (r, v) => r.os === v },
           { type: 'check', label: t('li.onlyUnlicensed'), test: r => r.state !== 'Licensed' }],
         columns: [
           { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
           { title: t('d.platform'), text: r => r.os },
           { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'Licensed' ? 'good' : r.state === 'Unlicensed' ? 'bad' : 'warn'}` }, code('ls', r.state)), text: r => code('ls', r.state) },
+          { title: t('li.usage'), cell: r => h('span', { class: (r.usage || 'Personal') === 'Personal' ? 'muted' : 'state warn', title: arr(r.usageReasons).join('\n') }, code('lg', r.usage || 'Personal')), text: r => code('lg', r.usage || 'Personal') },
           { title: t('li.tier'), text: r => r.tier ? code('li.tier', r.tier) : '–' },
           { title: t('li.users'), cell: usersCell, text: r => arr(r.users).map(u => u.upn).join(', ') },
           { title: t('li.confidence'), text: confText },
           { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }],
-        detail: r => dl([[t('li.licensedBy'), r.licensedBy || null], [t('d.group'), r.deviceGroup || null], [t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono small' }, r.aadDeviceId) : null]]),
+        detail: r => dl([[t('li.licensedBy'), r.licensedBy || null], [t('li.usage.why'), arr(r.usageReasons).length ? list(arr(r.usageReasons)) : null], [t('li.distinctUsers'), r.distinctUsers !== undefined ? num(r.distinctUsers) : null],
+          [t('li.serviceAccounts'), arr(r.serviceAccounts).length ? list(arr(r.serviceAccounts)) : null], [t('d.group'), r.deviceGroup || null], [t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono small' }, r.aadDeviceId) : null]]),
         empty: t('li.none')
       }));
 
@@ -1839,8 +1848,9 @@
           { title: t('li.user'), cell: r => h('span', null, r.displayName || r.upn, r.displayName && r.upn !== r.displayName ? [h('br'), h('span', { class: 'muted small' }, r.upn)] : null), text: r => r.upn },
           { title: t('li.tier'), text: r => code('li.tier', r.tier) },
           { title: t('li.state'), cell: r => h('span', { class: `state ${r.state === 'InUse' ? 'good' : r.state === 'OverLimit' ? 'bad' : 'warn'}` }, r.state === 'OverLimit' ? t('lu.OverLimit', s.devicesPerUser || 5) : code('lu', r.state)), text: r => code('lu', r.state) },
-          { title: t('li.deviceCount'), text: r => num(r.deviceCount || 0) }],
-        detail: r => dl([[t('li.deviceCount'), arr(r.devices).length ? list(arr(r.devices)) : null]]),
+          { title: t('li.deviceCount'), text: r => num(r.deviceCount || 0) },
+          { title: t('li.sharedDeviceCount'), cell: r => h('span', { class: r.sharedDeviceCount ? '' : 'muted', title: t('li.sharedDevices.hint') }, num(r.sharedDeviceCount || 0)), text: r => num(r.sharedDeviceCount || 0) }],
+        detail: r => dl([[t('li.deviceCount'), arr(r.devices).length ? list(arr(r.devices)) : null], [t('li.sharedDeviceCount'), arr(r.sharedDevices).length ? list(arr(r.sharedDevices)) : null]]),
         empty: t('li.none')
       }));
 
