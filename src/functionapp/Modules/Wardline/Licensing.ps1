@@ -172,7 +172,7 @@ DeviceLogonEvents
 "@
     $intune = $null
     if (Test-WlFeature 'coverage') {
-        $intune = Invoke-WlGraphSafe -All -Path 'deviceManagement/managedDevices?$select=id,azureADDeviceId,userPrincipalName,userId,usersLoggedOn,operatingSystem,deviceName&$top=1000' -Context 'Intune devices and their users (DeviceManagementManagedDevices.Read.All)'
+        $intune = Invoke-WlGraphSafe -All -Path 'deviceManagement/managedDevices?$select=id,azureADDeviceId,userPrincipalName,userId,operatingSystem,deviceName&$top=1000' -Context 'Intune devices and their users (DeviceManagementManagedDevices.Read.All)'
     }
     @{ devices = @($devices); logons = @($logons); intune = @($intune) }
 }
@@ -201,7 +201,7 @@ function Get-WlLicensingModel {
         $aad = $aad.ToLowerInvariant()
         if (-not $intuneUsers.ContainsKey($aad)) { $intuneUsers[$aad] = [System.Collections.Generic.HashSet[string]]::new() }
         $upn = [string](Get-WlProp $m 'userPrincipalName'); if ($upn) { $null = $intuneUsers[$aad].Add("upn:$($upn.ToLowerInvariant())") }
-        foreach ($lo in @(Get-WlProp $m 'usersLoggedOn')) { $uid = [string](Get-WlProp $lo 'userId'); if ($uid) { $null = $intuneUsers[$aad].Add("id:$uid") } }
+        $uid = [string](Get-WlProp $m 'userId'); if ($uid) { $null = $intuneUsers[$aad].Add("id:$uid") }
     }
     # Logons: DeviceId -> account names
     $logonNames = @{}
