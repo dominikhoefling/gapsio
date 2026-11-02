@@ -1,6 +1,7 @@
-# Wardline – module "licensing": Defender for Endpoint licence indication.
+# Wardline – module "licensing": Defender licence indication (Defender for Endpoint, Defender for Office 365).
 #
-# Scope (deliberately narrow): Defender for Endpoint only. The module compares
+# Scope (deliberately narrow): Defender for Endpoint with device mapping, Defender for Office 365 as purchased/assigned
+# units plus plan holders (no mailbox mapping). The module compares
 #   1. the MDE service plans a tenant owns (subscribedSkus),
 #   2. the users who hold such a plan (users/assignedPlans),
 #   3. the client devices actually onboarded to Defender for Endpoint and who uses them (Advanced Hunting, optional Intune).
@@ -17,6 +18,15 @@ $script:WlMdePlans = [ordered]@{
 }
 $script:WlMdePlanNames = @{ 'WINDEFATP' = 'P2'; 'MDE_LITE' = 'P1'; 'MDE_SMB' = 'MDB' }
 $script:WlMdeTierRank = @{ 'P2' = 3; 'MDB' = 2; 'P1' = 1 }
+# Defender for Office 365 service plans (licensed per user/mailbox; no device mapping).
+$script:WlMdoPlans = [ordered]@{
+    'f20fedf3-f3c3-43c3-8267-2bfdd51c0939' = @{ Name = 'ATP_ENTERPRISE'; Tier = 'P1'; Label = 'Defender for Office 365 Plan 1' }
+    '8e0c0a52-6a6c-4d40-8370-dd62790dcd70' = @{ Name = 'THREAT_INTELLIGENCE'; Tier = 'P2'; Label = 'Defender for Office 365 Plan 2' }
+    '493ff600-6a2b-4db6-ad37-a7d4eb214516' = @{ Name = 'ATP_ENTERPRISE_GOV'; Tier = 'P1'; Label = 'Defender for Office 365 Plan 1 (GCC)' }
+    '900018f1-0cdb-4ecb-94d4-90281760fdc6' = @{ Name = 'THREAT_INTELLIGENCE_GOV'; Tier = 'P2'; Label = 'Defender for Office 365 Plan 2 (GCC)' }
+}
+$script:WlMdoPlanNames = @{ 'ATP_ENTERPRISE' = 'P1'; 'ATP_ENTERPRISE_GOV' = 'P1'; 'THREAT_INTELLIGENCE' = 'P2'; 'THREAT_INTELLIGENCE_GOV' = 'P2' }
+$script:WlMdoTierRank = @{ 'P2' = 2; 'P1' = 1 }
 # Licence terms (Microsoft Product Terms): one user licence covers up to five concurrently used devices.
 # Both values can be tuned per installation (WL_LICENSING_DEVICES_PER_USER, WL_LICENSING_DAYS).
 $script:WlMdeDevicesPerUser = 5
@@ -40,6 +50,8 @@ $script:WlSkuNames = @{
     'SPE_E5'                        = 'Microsoft 365 E5'
     'SPE_E5_NOPSTNCONF'             = 'Microsoft 365 E5 (without Audio Conferencing)'
     'MICROSOFT_365_E5_(NO_TEAMS)'   = 'Microsoft 365 E5 (no Teams)'
+    'O365_W/O_TEAMS_BUNDLE_M5'      = 'Microsoft 365 E5 (no Teams)'
+    'O365_W/O_TEAMS_BUNDLE_M3'      = 'Microsoft 365 E3 (no Teams)'
     'SPE_E5_USGOV_GCCHIGH'          = 'Microsoft 365 E5 (GCC High)'
     'SPE_E3'                        = 'Microsoft 365 E3'
     'MICROSOFT_365_E3_(NO_TEAMS)'   = 'Microsoft 365 E3 (no Teams)'
@@ -56,8 +68,20 @@ $script:WlSkuNames = @{
     'WIN10_VDA_E5'                  = 'Windows Enterprise E5'
     'WIN_ENT_E5'                    = 'Windows Enterprise E5'
     'DEVELOPERPACK_E5'              = 'Microsoft 365 E5 Developer'
+    'ATP_ENTERPRISE'                = 'Defender for Office 365 P1'
+    'ATP_ENTERPRISE_FACULTY'        = 'Defender for Office 365 P1 (faculty)'
+    'ATP_ENTERPRISE_GOV'            = 'Defender for Office 365 P1 (GCC)'
+    'THREAT_INTELLIGENCE'           = 'Defender for Office 365 P2'
+    'THREAT_INTELLIGENCE_GOV'       = 'Defender for Office 365 P2 (GCC)'
+    'O365_E5'                       = 'Office 365 E5'
+    'ENTERPRISEPREMIUM'             = 'Office 365 E5'
+    'ENTERPRISEPREMIUM_NOPSTNCONF'  = 'Office 365 E5 (without Audio Conferencing)'
+    'O365_A5'                       = 'Office 365 A5'
+    'ENTERPRISEPREMIUM_FACULTY'     = 'Office 365 A5 (faculty)'
+    'ENTERPRISEPREMIUM_STUDENT'     = 'Office 365 A5 (students)'
 }
 $script:WlTierNames = @{ 'P2' = 'Defender for Endpoint P2'; 'P1' = 'Defender for Endpoint P1'; 'MDB' = 'Defender for Business' }
+$script:WlMdoTierNames = @{ 'P2' = 'Defender for Office 365 P2'; 'P1' = 'Defender for Office 365 P1' }
 
 function Get-WlSkuDisplayName {
     <#
@@ -65,11 +89,12 @@ function Get-WlSkuDisplayName {
     Product name for a subscribed SKU, e.g. WIN_DEF_ATP -> "Defender for Endpoint P2". Unknown suites:
     "<tier name> (in <part number>)", so the plan stays recognisable.
     #>
-    param([string]$PartNumber, [string]$Tier, [bool]$IsServer)
+    param([string]$PartNumber, [string]$Tier, [bool]$IsServer, [string]$Product = 'MDE')
     $k = ([string]$PartNumber).ToUpperInvariant()
     if ($script:WlSkuNames.ContainsKey($k)) { return $script:WlSkuNames[$k] }
     if ($IsServer) { return 'Defender for Endpoint for Servers' }
-    if ($Tier -and $script:WlTierNames.ContainsKey($Tier)) { return "$($script:WlTierNames[$Tier]) (in $PartNumber)" }
+    $names = if ($Product -eq 'MDO') { $script:WlMdoTierNames } else { $script:WlTierNames }
+    if ($Tier -and $names.ContainsKey($Tier)) { return "$($names[$Tier]) (in $PartNumber)" }
     $PartNumber
 }
 
@@ -134,17 +159,31 @@ function Get-WlMdePlanTier {
     $null
 }
 
+function Get-WlMdoPlanTier {
+    <#
+    .SYNOPSIS
+    'P2' or 'P1' for a Defender for Office 365 service plan (by ID or name), otherwise $null.
+    #>
+    param($Plan)
+    $id = [string](Get-WlProp $Plan 'servicePlanId'); $name = [string](Get-WlProp $Plan 'servicePlanName')
+    if ($id -and $script:WlMdoPlans.Contains($id.ToLowerInvariant())) { return $script:WlMdoPlans[$id.ToLowerInvariant()].Tier }
+    if ($name -and $script:WlMdoPlanNames.ContainsKey($name.ToUpperInvariant())) { return $script:WlMdoPlanNames[$name.ToUpperInvariant()] }
+    $null
+}
+
 function Get-WlBestTier {
-    param([string[]]$Tiers)
+    param([string[]]$Tiers, [string]$Product = 'MDE')
+    $rank = if ($Product -eq 'MDO') { $script:WlMdoTierRank } else { $script:WlMdeTierRank }
     $best = $null
-    foreach ($t in $Tiers) { if ($t -and ($null -eq $best -or $script:WlMdeTierRank[$t] -gt $script:WlMdeTierRank[$best])) { $best = $t } }
+    foreach ($t in $Tiers) { if ($t -and ($null -eq $best -or $rank[$t] -gt $rank[$best])) { $best = $t } }
     $best
 }
 
 function Get-WlLicenseSkus {
     <#
     .SYNOPSIS
-    Subscribed SKUs that contain a Defender for Endpoint service plan, with enabled/consumed units and the MDE tier.
+    Subscribed SKUs that contain a Defender for Endpoint or Defender for Office 365 service plan, with enabled/consumed
+    units and the tier. A suite with both (e.g. Microsoft 365 E5) yields one record per product.
     Server SKUs (MDATP_Server …) are flagged so the portal can keep them apart from user licences.
     #>
     $raw = Invoke-WlGraphSafe -All -Path 'subscribedSkus' -Context 'Subscribed SKUs (Organization.Read.All)'
@@ -153,39 +192,47 @@ function Get-WlLicenseSkus {
     foreach ($s in @($raw)) {
         $plans = @(Get-WlProp $s 'servicePlans')
         $mde = @(foreach ($p in $plans) { $t = Get-WlMdePlanTier $p; if ($t) { [pscustomobject]@{ name = [string]$p.servicePlanName; tier = $t; status = [string]$p.provisioningStatus } } })
-        if (-not $mde.Count) { continue }
+        $mdo = @(foreach ($p in $plans) { $t = Get-WlMdoPlanTier $p; if ($t) { [pscustomobject]@{ name = [string]$p.servicePlanName; tier = $t; status = [string]$p.provisioningStatus } } })
+        if (-not $mde.Count -and -not $mdo.Count) { continue }
         $part = [string](Get-WlProp $s 'skuPartNumber')
         $enabled = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'enabled'); $consumed = [int](Get-WlProp $s 'consumedUnits')
-        $tier = Get-WlBestTier @($mde | ForEach-Object tier)
-        $isServer = $part -match 'SERVER' -or $part -match 'MDATP_Server'
-        $display = Get-WlSkuDisplayName -PartNumber $part -Tier $tier -IsServer ([bool]$isServer)
-        $out.Add([pscustomobject]@{
-                key = Get-WlHash "sku|$($s.skuId)"; fp = Get-WlHash "$enabled|$consumed|$tier|$([string](Get-WlProp $s 'capabilityStatus'))"
-                label = "$display ($consumed/$enabled)"; state = [string](Get-WlProp $s 'capabilityStatus')
-                skuId = [string]$s.skuId; skuPartNumber = $part; skuName = $display; tier = $tier; isServer = [bool]$isServer
-                enabled = $enabled; consumed = $consumed; suspended = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'suspended'); warning = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'warning')
-                appliesTo = [string](Get-WlProp $s 'appliesTo'); plans = $mde
-            })
+        foreach ($product in @('MDE', 'MDO')) {
+            $planList = if ($product -eq 'MDE') { $mde } else { $mdo }
+            if (-not $planList.Count) { continue }
+            $tier = Get-WlBestTier @($planList | ForEach-Object tier) -Product $product
+            $isServer = $product -eq 'MDE' -and ($part -match 'SERVER' -or $part -match 'MDATP_Server')
+            $display = Get-WlSkuDisplayName -PartNumber $part -Tier $tier -IsServer ([bool]$isServer) -Product $product
+            $out.Add([pscustomobject]@{
+                    key = $(if ($product -eq 'MDE') { Get-WlHash "sku|$($s.skuId)" } else { Get-WlHash "sku|$($s.skuId)|MDO" })
+                    fp = Get-WlHash "$enabled|$consumed|$tier|$([string](Get-WlProp $s 'capabilityStatus'))"
+                    label = "$display ($consumed/$enabled)"; state = [string](Get-WlProp $s 'capabilityStatus')
+                    product = $product; skuId = [string]$s.skuId; skuPartNumber = $part; skuName = $display; tier = $tier; isServer = [bool]$isServer
+                    enabled = $enabled; consumed = $consumed; suspended = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'suspended'); warning = [int](Get-WlProp (Get-WlProp $s 'prepaidUnits') 'warning')
+                    appliesTo = [string](Get-WlProp $s 'appliesTo'); plans = $planList
+                })
+        }
     }
-    @($out | Sort-Object { -$script:WlMdeTierRank[$_.tier] }, skuPartNumber)
+    @($out | Sort-Object { if ($_.product -eq 'MDE') { 0 } else { 1 } }, { -$(if ($_.product -eq 'MDO') { $script:WlMdoTierRank[$_.tier] } else { $script:WlMdeTierRank[$_.tier] }) }, skuPartNumber)
 }
 
 function Get-WlMdeLicensedUsers {
     <#
     .SYNOPSIS
-    Users with an enabled Defender for Endpoint service plan (P2, P1 or Defender for Business). The whole user list is
-    read with a narrow $select and filtered locally – Graph does not filter reliably on assignedPlans.
+    Users with an enabled Defender for Endpoint plan (P2, P1 or Defender for Business) and/or a Defender for Office 365
+    plan. The whole user list is read with a narrow $select and filtered locally – Graph does not filter reliably on
+    assignedPlans. tier = MDE tier ($null when the user only holds MDO), mdoTier = Defender for Office 365 tier.
     #>
     $raw = Invoke-WlGraphSafe -All -Path 'users?$select=id,userPrincipalName,displayName,accountEnabled,userType,assignedPlans,onPremisesSamAccountName,mailNickname&$top=999' -Context 'Users with assigned plans (User.Read.All)'
     if ($null -eq $raw) { return $null }
     $out = [System.Collections.Generic.List[object]]::new()
     foreach ($u in @($raw)) {
-        $tiers = @(foreach ($p in @(Get-WlProp $u 'assignedPlans')) { if ([string](Get-WlProp $p 'capabilityStatus') -eq 'Enabled') { Get-WlMdePlanTier $p } })
-        $tier = Get-WlBestTier $tiers
-        if (-not $tier) { continue }
+        $enabledPlans = @(foreach ($p in @(Get-WlProp $u 'assignedPlans')) { if ([string](Get-WlProp $p 'capabilityStatus') -eq 'Enabled') { $p } })
+        $tier = Get-WlBestTier @(foreach ($p in $enabledPlans) { Get-WlMdePlanTier $p })
+        $mdoTier = Get-WlBestTier @(foreach ($p in $enabledPlans) { Get-WlMdoPlanTier $p }) -Product 'MDO'
+        if (-not $tier -and -not $mdoTier) { continue }
         $upn = [string]$u.userPrincipalName
         $out.Add([pscustomobject]@{
-                id = [string]$u.id; upn = $upn; displayName = [string]$u.displayName; tier = $tier
+                id = [string]$u.id; upn = $upn; displayName = [string]$u.displayName; tier = $tier; mdoTier = $mdoTier
                 accountEnabled = [bool](Get-WlProp $u 'accountEnabled'); userType = [string](Get-WlProp $u 'userType')
                 names = @(@(($upn -split '@')[0], [string](Get-WlProp $u 'onPremisesSamAccountName'), [string](Get-WlProp $u 'mailNickname')) | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Select-Object -Unique)
             })
@@ -240,6 +287,9 @@ function Get-WlLicensingModel {
     #>
     param($Skus, $Users, $Data, [string]$Detail = 'users')
     $T = { param($en, $de) New-WlText -En $en -De $de }
+    $allUsers = @($Users | Where-Object { $_ })
+    $Users = @($allUsers | Where-Object { $_.tier })          # Defender for Endpoint holders drive the device mapping
+    $mdoUsers = @($allUsers | Where-Object { $_.mdoTier })
     $byId = @{}; $byName = @{}
     foreach ($u in @($Users)) { $byId[$u.id] = $u; foreach ($n in $u.names) { if (-not $byName.ContainsKey($n)) { $byName[$n] = [System.Collections.Generic.List[object]]::new() }; $byName[$n].Add($u) } }
     $byUpn = @{}; foreach ($u in @($Users)) { if ($u.upn) { $byUpn[$u.upn.ToLowerInvariant()] = $u } }
@@ -335,10 +385,22 @@ function Get-WlLicensingModel {
     }
 
     $skuList = @($Skus | Where-Object { $_ })
-    $userSkus = @($skuList | Where-Object { -not $_.isServer }); $serverSkus = @($skuList | Where-Object isServer)
+    $mdoSkus = @($skuList | Where-Object product -eq 'MDO')
+    $skuListMde = @($skuList | Where-Object { -not $_.product -or $_.product -eq 'MDE' })
+    $userSkus = @($skuListMde | Where-Object { -not $_.isServer }); $serverSkus = @($skuListMde | Where-Object isServer)
     $sum = { param($list, $prop, $tier) [int](($list | Where-Object { $_.tier -eq $tier } | Measure-Object $prop -Sum).Sum) }
     $clients = @($devices)
     $licUsers = @($Users | Where-Object { $_ })
+    $mdoRows = [System.Collections.Generic.List[object]]::new()
+    foreach ($u in $mdoUsers) {
+        $upn = if ($Detail -eq 'aggregate') { "user-$((Get-WlHash $u.id).Substring(0, 10))" } else { $u.upn }
+        $name = if ($Detail -eq 'aggregate') { $null } else { $u.displayName }
+        $mdoRows.Add([pscustomobject]@{
+                key = Get-WlHash "mdouser|$($u.id)"; fp = Get-WlHash "$($u.mdoTier)|$($u.tier)|$($u.accountEnabled)"; label = "$upn (MDO $($u.mdoTier))"
+                state = $(if (-not $u.accountEnabled) { 'Disabled' } else { 'InUse' })
+                upn = $upn; displayName = $name; tier = $u.mdoTier; mdeTier = $u.tier; accountEnabled = $u.accountEnabled; userType = $u.userType
+            })
+    }
     $summary = [ordered]@{
         observedDays        = $script:WlLicensingDays
         devicesPerUser      = $script:WlMdeDevicesPerUser
@@ -347,6 +409,15 @@ function Get-WlLicensingModel {
         p1Enabled           = & $sum $userSkus 'enabled' 'P1'; p1Consumed = & $sum $userSkus 'consumed' 'P1'
         mdbEnabled          = & $sum $userSkus 'enabled' 'MDB'; mdbConsumed = & $sum $userSkus 'consumed' 'MDB'
         serverSkuEnabled    = [int](($serverSkus | Measure-Object enabled -Sum).Sum); serverSkuConsumed = [int](($serverSkus | Measure-Object consumed -Sum).Sum)
+        mdoP2Enabled        = & $sum $mdoSkus 'enabled' 'P2'; mdoP2Consumed = & $sum $mdoSkus 'consumed' 'P2'
+        mdoP1Enabled        = & $sum $mdoSkus 'enabled' 'P1'; mdoP1Consumed = & $sum $mdoSkus 'consumed' 'P1'
+        mdoSkus             = $mdoSkus.Count
+        mdoUsers            = $mdoUsers.Count
+        mdoUsersP2          = @($mdoUsers | Where-Object mdoTier -eq 'P2').Count
+        mdoUsersP1          = @($mdoUsers | Where-Object mdoTier -eq 'P1').Count
+        mdoUsersDisabled    = @($mdoUsers | Where-Object { -not $_.accountEnabled }).Count
+        mdoUsersWithoutMde  = @($mdoUsers | Where-Object { -not $_.tier }).Count
+        mdeUsersWithoutMdo  = @($licUsers | Where-Object { -not $_.mdoTier }).Count
         licensedUsers       = $licUsers.Count
         usersP2             = @($licUsers | Where-Object tier -eq 'P2').Count
         usersP1             = @($licUsers | Where-Object tier -eq 'P1').Count
@@ -371,9 +442,9 @@ function Get-WlLicensingModel {
 
     # Findings
     $f = [System.Collections.Generic.List[object]]::new()
-    foreach ($s in $userSkus) {
+    foreach ($s in @($userSkus) + @($mdoSkus)) {
         if ($s.consumed -gt $s.enabled -and $s.enabled -ge 0) {
-            $f.Add((New-WlFinding -Severity 'High' -Category 'Licensing' -Subject $s.skuId -StableKey `
+            $f.Add((New-WlFinding -Severity 'High' -Category 'Licensing' -Subject "$($s.skuId)$(if ($s.product -eq 'MDO') { '|MDO' })" -StableKey `
                         -Title (& $T "More licences assigned than purchased: $($s.skuName)" "Mehr Lizenzen zugewiesen als gekauft: $($s.skuName)") `
                         -Detail (& $T "$($s.consumed) of $($s.enabled) units are assigned. Microsoft 365 allows this temporarily; the overage is billed or blocked at the next true-up." "$($s.consumed) von $($s.enabled) Einheiten sind zugewiesen. Microsoft 365 erlaubt das vorübergehend; der Überhang wird beim nächsten True-up berechnet oder gesperrt.") `
                         -Recommendation (& $T 'Buy additional units or remove the plan from users who do not need it.' 'Zusätzliche Einheiten kaufen oder den Plan bei Benutzern entfernen, die ihn nicht benötigen.')))
@@ -423,16 +494,30 @@ function Get-WlLicensingModel {
                     -Detail (& $T 'Servers are normally licensed through Defender for Servers (Defender for Cloud, Azure subscription) – that is not visible in Microsoft Graph. Only "Defender for Endpoint Server" SKUs show up here.' 'Server werden normalerweise über Defender for Servers (Defender for Cloud, Azure-Abonnement) lizenziert – das ist in Microsoft Graph nicht sichtbar. Nur „Defender for Endpoint Server“-SKUs erscheinen hier.') `
                     -Recommendation (& $T 'Confirm that the servers are covered by a Defender for Servers plan or a server SKU.' 'Bestätigen, dass die Server durch einen Defender-for-Servers-Plan oder eine Server-SKU abgedeckt sind.')))
     }
+    if ($summary.mdoUsersP1 -gt 0 -and $summary.mdoUsersP2 -gt 0) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Licensing' -Subject 'mdo-mixed' -StableKey `
+                    -Title (& $T "Defender for Office 365: $($summary.mdoUsersP1) user(s) on Plan 1 next to $($summary.mdoUsersP2) on Plan 2" "Defender for Office 365: $($summary.mdoUsersP1) Benutzer mit Plan 1 neben $($summary.mdoUsersP2) mit Plan 2") `
+                    -Detail (& $T 'Plan 2 features (Threat Explorer, automated investigation, attack simulation, campaign views) are tenant-wide once licensed. Microsoft expects every user who benefits to hold Plan 2; mixed tenants are a common compliance finding.' 'Plan-2-Funktionen (Threat Explorer, automatische Untersuchung, Angriffssimulation, Kampagnenansicht) wirken mandantenweit, sobald lizenziert. Microsoft erwartet Plan 2 für jeden Benutzer, der davon profitiert; gemischte Mandanten sind ein häufiger Compliance-Befund.') `
+                    -Recommendation (& $T 'Either move the Plan 1 users to Plan 2 or document why Plan 1 is sufficient for them.' 'Die Plan-1-Benutzer auf Plan 2 heben oder dokumentieren, warum Plan 1 für sie ausreicht.')))
+    }
+    $mdoDisabled = @($mdoUsers | Where-Object { -not $_.accountEnabled })
+    if ($mdoDisabled.Count) {
+        $f.Add((New-WlFinding -Severity 'Low' -Category 'Licensing' -Subject 'mdo-disabled' -StableKey `
+                    -Title (& $T "$($mdoDisabled.Count) disabled account(s) still hold a Defender for Office 365 plan" "$($mdoDisabled.Count) deaktivierte(s) Konto/Konten halten noch einen Defender-for-Office-365-Plan") `
+                    -Detail (& $T 'Disabled accounts cannot receive mail protection benefits but still consume a licence.' 'Deaktivierte Konten profitieren nicht mehr vom E-Mail-Schutz, verbrauchen aber weiterhin eine Lizenz.') `
+                    -Recommendation (& $T 'Reclaim the licence or convert the mailbox to a shared mailbox (no licence needed below 50 GB without archive).' 'Lizenz zurückholen oder das Postfach in ein freigegebenes Postfach umwandeln (unter 50 GB ohne Archiv lizenzfrei).')))
+    }
     $summary.findings = $f.Count
 
     $caveats = @(
         (& $T 'Indication, not an audit: Microsoft licenses Defender for Endpoint per user (up to five devices each); Wardline derives the device-to-user mapping from Intune and interactive logons of the last 30 days.' 'Hinweis, kein Audit: Microsoft lizenziert Defender for Endpoint pro Benutzer (bis zu fünf Geräte); Wardline leitet die Zuordnung Gerät → Benutzer aus Intune und interaktiven Anmeldungen der letzten 30 Tage ab.'),
         (& $T "Shared devices, kiosks and VDI are recognised heuristically (≥ $($script:WlLicensingSharedMinUsers) distinct people, Intune enrolment type, hardware model, naming) and do not count against the per-user device limit; service and admin account names are ignored as users. Both can be tuned (WL_LICENSING_SHARED_MIN_USERS, WL_LICENSING_SERVICE_PATTERN)." "Geteilte Geräte, Kiosks und VDI werden heuristisch erkannt (≥ $($script:WlLicensingSharedMinUsers) unterschiedliche Personen, Intune-Registrierungstyp, Hardwaremodell, Namensmuster) und zählen nicht gegen das Gerätelimit pro Benutzer; Dienst- und Admin-Kontonamen werden nicht als Benutzer gewertet. Beides ist einstellbar (WL_LICENSING_SHARED_MIN_USERS, WL_LICENSING_SERVICE_PATTERN)."),
         (& $T 'Server licences (Defender for Servers via Azure) are not visible in Microsoft Graph; servers are listed separately.' 'Serverlizenzen (Defender for Servers über Azure) sind in Microsoft Graph nicht sichtbar; Server werden separat gezählt.'),
-        (& $T 'Confidence "Intune" = exact match by Entra device ID; "Logon" = account name matched to UPN / SAM account name.' 'Konfidenz „Intune“ = exakte Zuordnung über Entra-Geräte-ID; „Logon“ = Kontoname mit UPN / SAM-Kontoname abgeglichen.')
+        (& $T 'Confidence "Intune" = exact match by Entra device ID; "Logon" = account name matched to UPN / SAM account name.' 'Konfidenz „Intune“ = exakte Zuordnung über Entra-Geräte-ID; „Logon“ = Kontoname mit UPN / SAM-Kontoname abgeglichen.'),
+        (& $T 'Defender for Office 365 is licensed per user (mailbox); Wardline shows purchased vs. assigned units and the users holding a plan. Shared mailboxes, unlicensed guests and the tenant-wide effect of Plan 2 features are not assessed.' 'Defender for Office 365 wird pro Benutzer (Postfach) lizenziert; Wardline zeigt gekaufte vs. zugewiesene Einheiten und die Benutzer mit Plan. Freigegebene Postfächer, unlizenzierte Gäste und die mandantenweite Wirkung von Plan-2-Funktionen werden nicht bewertet.')
     )
     [ordered]@{
-        summary = $summary; skus = $skuList; users = @($userRows); devices = @($devices | Sort-Object { @{ Unlicensed = 0; NoUser = 1; Licensed = 2 }[$_.state] }, deviceName)
+        summary = $summary; skus = $skuList; users = @($userRows); mdoUsers = @($mdoRows); devices = @($devices | Sort-Object { @{ Unlicensed = 0; NoUser = 1; Licensed = 2 }[$_.state] }, deviceName)
         servers = @($servers); findings = @($f); caveats = $caveats
     }
 }
@@ -454,11 +539,11 @@ function Invoke-WlLicensingCollection {
     $m = Get-WlLicensingModel -Skus @($skus) -Users @($users) -Data $data -Detail $detail
     $r = [ordered]@{
         module = 'licensing'; version = (Get-WlVersion); generatedAt = $started.ToString('o'); tenantId = (Get-WlSetting 'WL_TENANT_ID')
-        scope = 'Defender for Endpoint'; detail = $detail
-        summary = $m.summary; skus = $m.skus; users = $m.users; devices = $m.devices; servers = $m.servers; findings = $m.findings; caveats = $m.caveats
+        scope = 'Defender for Endpoint, Defender for Office 365'; detail = $detail
+        summary = $m.summary; skus = $m.skus; users = $m.users; mdoUsers = $m.mdoUsers; devices = $m.devices; servers = $m.servers; findings = $m.findings; caveats = $m.caveats
         warnings = @(Get-WlWarnings)
     }
-    Save-WlSnapshot -Module 'licensing' -Snapshot $r -Collections @('skus', 'users', 'devices', 'findings') -Started $started
-    Write-Information "Licensing collection done: $($m.summary.licensedUsers) licensed users, $($m.summary.clients) clients ($($m.summary.clientsUnlicensed) unlicensed), $($m.summary.servers) servers, $($m.findings.Count) findings."
+    Save-WlSnapshot -Module 'licensing' -Snapshot $r -Collections @('skus', 'users', 'mdoUsers', 'devices', 'findings') -Started $started
+    Write-Information "Licensing collection done: $($m.summary.licensedUsers) MDE users, $($m.summary.mdoUsers) MDO users, $($m.summary.clients) clients ($($m.summary.clientsUnlicensed) unlicensed), $($m.summary.servers) servers, $($m.findings.Count) findings."
     $r
 }
