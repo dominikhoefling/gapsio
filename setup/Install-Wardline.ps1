@@ -26,6 +26,11 @@
       Inventory   optional   Device inventory via Intune Remediations (use -DeviceInventory, deploys a detection script)
     Show the exact permissions without installing:  ./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Agents
 
+    Assistant (optional, -Assistant): a chat helper in the portal that explains findings and points to the right view.
+      It uses an Azure OpenAI deployment in YOUR subscription (created by the installer, or -AssistantEndpoint for an
+      existing one), called with the managed identity – no keys, no data leaves your Azure tenant boundary. The model
+      only receives a compact server-side summary of the snapshots. Turn off again with -Assistant:$false.
+
     Separation of duties (large organisations):
       The identity team can create the app registrations up front with setup/New-WardlineAppRegistrations.ps1 and hand
       over the app IDs. The Azure team then only attaches them:
@@ -59,6 +64,10 @@
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -DeviceInventory -DeviceInventoryGroupId <device group objectId>
+
+.EXAMPLE
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Assistant -AssistantLocation swedencentral
+    Adds the optional portal assistant (Azure OpenAI gpt-4.1-mini in your subscription, keyless).
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-security -Location germanywestcentral -NamingMode Customized -FunctionAppName sec-wardline-fa-gwc-prd -StorageAccountName secwardlinegwcprd01 -RunnerIdentityName sec-wardline-mi-runner-gwc-prd -PlanName sec-wardline-plan-gwc-prd
@@ -99,7 +108,11 @@ param(
     [ValidatePattern('^(WL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$')][string]$LicenseKey,
     [switch]$DeviceInventory,
     [string]$DeviceInventoryGroupId,
-    [switch]$RemoveDeviceInventory
+    [switch]$RemoveDeviceInventory,
+    [switch]$Assistant,
+    [ValidatePattern('^(https://[a-z0-9-]+\.(openai\.azure\.com|cognitiveservices\.azure\.com|services\.ai\.azure\.com)/?)?$')][string]$AssistantEndpoint,
+    [string]$AssistantDeployment = 'gpt-4.1-mini',
+    [string]$AssistantLocation
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -215,6 +228,12 @@ if ($existing.ContainsKey('functionapp')) {
         if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['WL_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['WL_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
         if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['WL_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['WL_NOTIFY_MIN_SEVERITY'] }
         if (-not $PSBoundParameters.ContainsKey('LicenseKey') -and $curMap['WL_LICENSE_KEY']) { $LicenseKey = $curMap['WL_LICENSE_KEY'] }
+        if (-not $PSBoundParameters.ContainsKey('Assistant') -and $curMap['WL_ASSISTANT'] -eq 'true') {
+            $Assistant = $true
+            if (-not $AssistantEndpoint -and $curMap['WL_AI_ENDPOINT'] -and $curMap['WL_AI_ENDPOINT'] -notmatch '^https://oai-') { $AssistantEndpoint = $curMap['WL_AI_ENDPOINT'] }
+            if (-not $PSBoundParameters.ContainsKey('AssistantDeployment') -and $curMap['WL_AI_DEPLOYMENT']) { $AssistantDeployment = $curMap['WL_AI_DEPLOYMENT'] }
+            Write-Ok 'Assistant: kept'
+        }
         if (-not $PSBoundParameters.ContainsKey('RetentionDays')) {
             if (-not $SnapshotRetentionDays -and $curMap['WL_SNAPSHOT_RETENTION_DAYS']) { $SnapshotRetentionDays = [int]$curMap['WL_SNAPSHOT_RETENTION_DAYS'] }
             if (-not $ChangeRetentionDays -and $curMap['WL_CHANGE_RETENTION_DAYS']) { $ChangeRetentionDays = [int]$curMap['WL_CHANGE_RETENTION_DAYS'] }
@@ -236,6 +255,12 @@ function Deploy-Infrastructure {
         "features=$($endpointFeatures -join ',')", "dataAppId=$DataAppId", "notifyMinSeverity=$NotifyMinSeverity"
     )
     if ($NotifyWebhookUrl) { $params += "notifyWebhook=$NotifyWebhookUrl" }
+    $params += "enableAssistant=$($Assistant.IsPresent.ToString().ToLower())"
+    if ($Assistant) {
+        $params += "assistantDeployment=$AssistantDeployment"
+        if ($AssistantEndpoint) { $params += "assistantEndpoint=$AssistantEndpoint" }
+        if ($AssistantLocation) { $params += "assistantLocation=$AssistantLocation" }
+    }
     if ($LicenseKey) { $params += "licenseKey=$LicenseKey" }
     if ($CustomDomain) { $params += "customDomain=$CustomDomain" }
     if ($NamingMode -eq 'Customized') {
@@ -255,6 +280,7 @@ function Deploy-Infrastructure {
         PortalUrl         = $o.portalUrl.value
         RunnerPrincipalId = $o.runnerPrincipalId.value
         StorageAccount    = $o.storageAccountName.value
+        AssistantEndpoint = $(if ($o.assistantEndpoint) { $o.assistantEndpoint.value } else { '' })
     }
 }
 
@@ -267,6 +293,10 @@ Write-Step 'Deploying Azure resources (storage, Function App, monitoring, manage
 $infra = Deploy-Infrastructure
 Write-Ok "Function App: $($infra.FunctionAppName)"
 Write-Ok "Storage:      $($infra.StorageAccount) (Entra authentication only, no keys)"
+if ($Assistant) {
+    Write-Ok "Assistant:    $($infra.AssistantEndpoint) (deployment $AssistantDeployment, managed identity)"
+    if ($AssistantEndpoint) { Write-Note "Existing Azure OpenAI resource: grant the runner identity ($($infra.RunnerPrincipalId)) the role 'Cognitive Services OpenAI User' on it." }
+}
 if ($CustomDomain) {
     Write-Step "Custom domain $CustomDomain"
     Add-WardlineCustomDomain -ResourceGroup $ResourceGroup -FunctionAppName $infra.FunctionAppName -DefaultHostName $infra.HostName -Domain $CustomDomain

@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
@@ -75,6 +75,7 @@ try {
                     tier = $tier; communityRows = $(if ($community) { Get-WlCommunityRows } else { $null })
                     features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response') | Where-Object { Test-WlFeature -Name $_ })
                     tenantId = Get-WlSetting -Name 'WL_TENANT_ID'; version = (Get-WlVersion)
+                    assistant = $(if ($principal.isAdmin) { [bool](Test-WlAssistant) } else { $false })
                     update = $(if ($principal.isAdmin) { try { Get-WlBlob -Container 'state' -Name 'release.json' } catch { $null } })
                     license = $(if ($principal.isAdmin) { try { $l = Get-WlLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })
                 })
@@ -109,6 +110,19 @@ try {
         'agents' { Send-Snapshot -Name 'agents-latest.json' }
         'access' { Send-Snapshot -Name 'access-latest.json' }
         'licensing' { Send-Snapshot -Name 'licensing-latest.json' }
+        'officepreview' { Send-Snapshot -Name 'office-preview-latest.json' }
+        'assistant' {
+            # Optional chat helper (WL_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.
+            if (-not (Test-WlAssistant)) { Send-Response -Status 404 -Body 'The assistant is not enabled in this installation.'; return }
+            if (-not (Test-WlCsrf)) { return }
+            try {
+                $q = Get-WlRequestJson
+                $res = Invoke-WlAssistant -Question ([string]$q.question) -History @($q.history) -Lang ([string]$q.lang) -User $principal.upn
+                Send-Response -Status 200 -Body $res
+            }
+            catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }
+            catch { Write-Error $_ -ErrorAction Continue; Send-Response -Status 502 -Body ([string]$_.Exception.Message) }
+        }
         'access/me' {
             $snap = Get-WlBlob -Container 'state' -Name 'access-latest.json'
             if (-not $snap) { Send-Response -Status 404 -Body 'No data yet.'; return }

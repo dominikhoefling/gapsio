@@ -15,7 +15,8 @@
         'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',
         'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlLicensingCollection', 'Get-WlLicensingModel', 'Get-WlSkuDisplayName', 'Invoke-WlCollection',
         'Get-WlModules', 'Test-WlModuleEnabled', 'Test-WlFeature', 'Get-WlVersion', 'Compare-WlVersion', 'Update-WlReleaseInfo', 'Get-WlAcceptances', 'Test-WlAcceptanceActive', 'Set-WlAcceptance', 'Get-WlAssignments', 'Set-WlAssignment', 'Search-WlDirectory', 'Send-WlNotification', 'Test-WlLicenseKey', 'Get-WlLicense', 'Set-WlLicense', 'Get-WlLicenseTier', 'Get-WlCommunityRows', 'Get-WlPageSize', 'Protect-WlCommunity', 'Protect-WlCommunityList', 'Hide-WlItem',
-        'Update-WlLocalExclusionState', 'Get-WlEndpointFindings', 'Test-WlBaseline'
+        'Update-WlLocalExclusionState', 'Get-WlEndpointFindings', 'Test-WlBaseline',
+        'Test-WlAssistant', 'Get-WlAssistantContext', 'Invoke-WlAssistant'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
