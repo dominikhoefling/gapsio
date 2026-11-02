@@ -260,7 +260,7 @@
     'd.prev': ['← Previous', '← Zurück'], 'd.next': ['Next →', 'Weiter →'], 'f.devicesN': ['{0} devices', '{0} Geräte'],
     'd.cov.truncated': ['Only the first {0} entries are shown here; the export contains this subset.', 'Hier werden nur die ersten {0} Einträge angezeigt; der Export enthält diese Teilmenge.'],
     'dv.protection': ['Protection state', 'Schutzzustand'], 'dv.asr': ['ASR rules on this device', 'ASR-Regeln auf diesem Gerät'], 'dv.local': ['Local exclusions', 'Lokale Exclusions'],
-    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['The per-device count in "Devices" is resolved server-side (including group memberships). This list is policy-level context and may include policies that do not target this specific device.', 'Die gerätespezifische Anzahl in „Devices“ wird serverseitig aufgelöst (inklusive Gruppenmitgliedschaften). Diese Liste ist Richtlinien-Kontext und kann Richtlinien enthalten, die dieses Gerät nicht direkt treffen.'],
+    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['This list shows only policies that target this device (server-side target resolution). For old snapshots without target IDs, Wardline falls back to a platform filter.', 'Diese Liste zeigt nur Richtlinien, die dieses Gerät tatsächlich targeten (serverseitige Target-Auflösung). Bei alten Snapshots ohne Target-IDs nutzt Wardline als Fallback den Plattform-Filter.'],
     'dv.policies.count': ['Resolved for this device: {0}', 'Für dieses Gerät aufgelöst: {0}'],
     'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
     'dv.links': ['Open in', 'Öffnen in'], 'dv.defender': ['Defender portal', 'Defender-Portal'], 'dv.intune': ['Intune', 'Intune'],
@@ -1397,9 +1397,12 @@
       }
 
       const pols = arr(ep.policyExclusions);
-      const byPolicy = {}; pols.forEach(p => { (byPolicy[p.policyId] = byPolicy[p.policyId] || { name: p.policyName, platform: p.platform, assignments: p.assignments, assigned: p.assigned, n: 0 }).n++; });
+      const byPolicy = {}; pols.forEach(p => { (byPolicy[p.policyId] = byPolicy[p.policyId] || { id: p.policyId, name: p.policyName, platform: p.platform, assignments: p.assignments, assigned: p.assigned, n: 0 }).n++; });
       const plat = String(d.os || '').toLowerCase().slice(0, 3);
-      const relevant = Object.values(byPolicy).filter(p => String(p.platform || '').toLowerCase().startsWith(plat));
+      const matchedPolicyIds = new Set(arr(d.policyExclusionPolicyIds));
+      const relevant = matchedPolicyIds.size
+        ? Object.values(byPolicy).filter(p => matchedPolicyIds.has(p.id))
+        : Object.values(byPolicy).filter(p => String(p.platform || '').toLowerCase().startsWith(plat));
       const resolved = d.policyExclusions === null || d.policyExclusions === undefined ? '–' : String(d.policyExclusions);
       main.append(h('h2', null, t('dv.policies')), h('p', { class: 'muted small' }, t('dv.policies.count', resolved)), h('p', { class: 'muted small' }, t('dv.policies.note')), relevant.length ? list(relevant.map(p => `${p.name}: ${p.n} · ${arr(p.assignments).map(assignText).join(', ') || t('x.unassigned')}`)) : h('p', { class: 'muted' }, t('dv.none')));
 

@@ -33,7 +33,7 @@ function New-WlDevice {
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null; agentVersion = $null
-        checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; policyExclusions = $null; exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
+        checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; policyExclusions = $null; policyExclusionPolicyIds = @(); exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
         tags = @(); internetFacing = $null; tvmExcluded = $null; tvmExclusionReason = $null; assetValue = $null; transient = $null; mitigationStatus = $null; clientVersion = $null
         troubleshooting30d = 0; troubleshootingActive = $false; troubleshootingLast = $null; tampering30d = 0; tamperingLast = $null
         thirdPartyAv = @(); osBuild = $null; connectivityType = $null; wsl = $null; wslPlugin = $null
@@ -253,6 +253,7 @@ function Set-WlDevicePolicyExclusions {
         if ($d.aadDeviceId) { $keys += "dev:$($d.aadDeviceId)" }
         if ($d.lastUser) { $u = [string]$d.lastUser; $keys += "upn:$u"; $keys += "usr:$((($u -split '\\')[-1] -split '@')[0])" }
         $count = 0
+        $matched = [System.Collections.Generic.List[string]]::new()
         # Policy platform is a family ("Windows"); the device OS is a product ("Windows11", "WindowsServer2025") – compare families.
         $devFamily = if ($d.os) { Get-WlPlatformText ([string]$d.os) } else { $null }
         foreach ($polId in $byPolicy.Keys) {
@@ -269,9 +270,10 @@ function Set-WlDevicePolicyExclusions {
                     '*groupAssignmentTarget' { if ($gid -and -not $in -and (& $member $gid)) { $in = $true } }
                 }
             }
-            if ($in -and -not $out) { $count += $xs.Count }
+            if ($in -and -not $out) { $count += $xs.Count; [void]$matched.Add([string]$polId) }
         }
         $d.policyExclusions = $count
+        $d.policyExclusionPolicyIds = @($matched.ToArray())
     }
 }
 
@@ -2748,7 +2750,7 @@ function Get-WlEndpointFindings {
 
 #region Device statistics and search (large fleets)
 $script:WlDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
-    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'policyExclusions', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'policyExclusions', 'policyExclusionPolicyIds', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
     'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', 'thirdPartyAv', '_filter', '_search')
 $script:WlDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
