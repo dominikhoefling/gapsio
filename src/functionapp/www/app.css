@@ -363,6 +363,7 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .ai-user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
 .ai-assistant { align-self: flex-start; background: var(--surface-2); }
 .ai-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ai-meta { font-size: 11px; margin: 6px 0 0; line-height: 1.4; }
 .ai-links a { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
 .ai-form { display: grid; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line, rgba(128, 128, 128, .25)); }
 .ai-form textarea { width: 100%; resize: vertical; font: 13.5px/1.4 var(--sans); padding: 8px; border-radius: var(--radius-s); border: 1px solid var(--line, rgba(128, 128, 128, .35)); background: var(--surface); color: var(--ink); }

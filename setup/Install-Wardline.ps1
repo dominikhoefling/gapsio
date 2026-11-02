@@ -112,6 +112,7 @@ param(
     [switch]$Assistant,
     [ValidatePattern('^(https://[a-z0-9-]+\.(openai\.azure\.com|cognitiveservices\.azure\.com|services\.ai\.azure\.com)/?)?$')][string]$AssistantEndpoint,
     [string]$AssistantDeployment = 'gpt-4.1-mini',
+    [string]$AssistantEmbeddingDeployment = 'text-embedding-3-small',
     [string]$AssistantLocation
 )
 $ErrorActionPreference = 'Stop'
@@ -232,6 +233,7 @@ if ($existing.ContainsKey('functionapp')) {
             $Assistant = $true
             if (-not $AssistantEndpoint -and $curMap['WL_AI_ENDPOINT'] -and $curMap['WL_AI_ENDPOINT'] -notmatch '^https://oai-') { $AssistantEndpoint = $curMap['WL_AI_ENDPOINT'] }
             if (-not $PSBoundParameters.ContainsKey('AssistantDeployment') -and $curMap['WL_AI_DEPLOYMENT']) { $AssistantDeployment = $curMap['WL_AI_DEPLOYMENT'] }
+            if (-not $PSBoundParameters.ContainsKey('AssistantEmbeddingDeployment') -and $curMap.ContainsKey('WL_AI_EMBEDDING_DEPLOYMENT')) { $AssistantEmbeddingDeployment = $curMap['WL_AI_EMBEDDING_DEPLOYMENT'] }
             Write-Ok 'Assistant: kept'
         }
         if (-not $PSBoundParameters.ContainsKey('RetentionDays')) {
@@ -258,6 +260,7 @@ function Deploy-Infrastructure {
     $params += "enableAssistant=$($Assistant.IsPresent.ToString().ToLower())"
     if ($Assistant) {
         $params += "assistantDeployment=$AssistantDeployment"
+        $params += "assistantEmbeddingDeployment=$AssistantEmbeddingDeployment"
         if ($AssistantEndpoint) { $params += "assistantEndpoint=$AssistantEndpoint" }
         if ($AssistantLocation) { $params += "assistantLocation=$AssistantLocation" }
     }

@@ -129,6 +129,11 @@ param assistantLocation string = ''
 @description('Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant.')
 param assistantCapacity int = 10
 
+@description('Embedding model deployment used for semantic search in the Wardline docs / baseline rationale. Empty = keyword search only.')
+param assistantEmbeddingDeployment string = 'text-embedding-3-small'
+param assistantEmbeddingModel string = 'text-embedding-3-small'
+param assistantEmbeddingModelVersion string = '1'
+
 @description('Redundancy of the storage account.')
 @allowed([ 'Standard_LRS', 'Standard_ZRS', 'Standard_GRS' ])
 param storageSku string = 'Standard_LRS'
@@ -364,6 +369,23 @@ resource aiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-
   }
 }
 
+resource aiEmbeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (createAi && !empty(assistantEmbeddingDeployment)) {
+  parent: ai
+  name: assistantEmbeddingDeployment
+  dependsOn: [aiDeployment]   // deployments on one account must be created sequentially
+  sku: {
+    name: 'GlobalStandard'
+    capacity: assistantCapacity
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: assistantEmbeddingModel
+      version: assistantEmbeddingModelVersion
+    }
+  }
+}
+
 resource raAi 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createAi) {
   scope: ai
   name: guid(aiName, runner.id, roles.cognitiveServicesOpenAIUser)
@@ -445,6 +467,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'WL_ASSISTANT', value: enableAssistant ? 'true' : 'false' }
         { name: 'WL_AI_ENDPOINT', value: enableAssistant ? aiEndpoint : '' }
         { name: 'WL_AI_DEPLOYMENT', value: enableAssistant ? assistantDeployment : '' }
+        { name: 'WL_AI_EMBEDDING_DEPLOYMENT', value: enableAssistant ? assistantEmbeddingDeployment : '' }
       ]
     }
     functionAppConfig: {

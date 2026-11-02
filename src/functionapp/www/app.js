@@ -329,7 +329,8 @@
     'ai.placeholder': ['Ask about findings, devices or where to find something …', 'Frag nach Befunden, Geräten oder wo etwas zu finden ist …'],
     'ai.send': ['Send', 'Senden'], 'ai.thinking': ['Thinking …', 'Denke nach …'], 'ai.clear': ['New conversation', 'Neue Unterhaltung'],
     'ai.intro': ['I answer from the current Wardline data only – read-only, nothing is changed. Try: “What should I fix first?”, “Why is device X flagged?”, “Where do I see unused exclusions?”', 'Ich antworte nur aus den aktuellen Wardline-Daten – nur lesend, nichts wird geändert. Zum Beispiel: „Was soll ich zuerst beheben?“, „Warum ist Gerät X markiert?“, „Wo sehe ich ungenutzte Exclusions?“'],
-    'ai.failed': ['The assistant could not answer: {0}', 'Der Assistent konnte nicht antworten: {0}'], 'ai.disclaimer': ['AI-generated from your snapshot data via Azure OpenAI in your subscription. Verify before acting.', 'KI-generiert aus Ihren Snapshot-Daten über Azure OpenAI in Ihrer Subscription. Vor dem Handeln prüfen.']
+    'ai.failed': ['The assistant could not answer: {0}', 'Der Assistent konnte nicht antworten: {0}'], 'ai.disclaimer': ['AI-generated via Azure OpenAI in your subscription from your snapshot, live Defender Advanced Hunting data and the Wardline docs. Verify before acting.', 'KI-generiert über Azure OpenAI in Ihrer Subscription aus Ihrem Snapshot, Live-Daten aus Defender Advanced Hunting und der Wardline-Dokumentation. Vor dem Handeln prüfen.'],
+    'ai.tools': ['Looked up', 'Nachgeschlagen'], 'ai.sources': ['Sources', 'Quellen']
   };
   function t(key, ...args) {
     const v = L[key];
@@ -2187,7 +2188,10 @@
     const log = h('div', { class: 'ai-log', 'aria-live': 'polite' },
       h('p', { class: 'ai-msg ai-sys' }, t('ai.intro')),
       ai.history.map(m => h('div', { class: `ai-msg ai-${m.role}` }, h('p', null, m.content),
-        m.links && m.links.length ? h('div', { class: 'ai-links' }, m.links.map(l => h('a', { href: l.view, onclick: () => { ai.open = false; renderAssistant(); } }, l.label))) : null)),
+        m.links && m.links.length ? h('div', { class: 'ai-links' }, m.links.map(l => h('a', { href: l.view, onclick: () => { ai.open = false; renderAssistant(); } }, l.label))) : null,
+        (m.sources && m.sources.length) || (m.tools && m.tools.length) ? h('p', { class: 'ai-meta muted' },
+          m.tools && m.tools.length ? `${t('ai.tools')}: ${m.tools.map(x => x.name).join(', ')}` : '',
+          m.sources && m.sources.length ? `${m.tools && m.tools.length ? ' · ' : ''}${t('ai.sources')}: ${m.sources.join('; ')}` : '') : null)),
       ai.busy ? h('p', { class: 'ai-msg ai-assistant muted' }, t('ai.thinking')) : null);
     const input = h('textarea', { id: 'ai-input', rows: 2, placeholder: t('ai.placeholder'), maxlength: 2000, disabled: ai.busy || null,
       onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askAssistant(); } } });
@@ -2207,7 +2211,7 @@
     ai.history.push({ role: 'user', content: q }); ai.busy = true; renderAssistant();
     try {
       const r = await api('assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, history: hist.slice(-6), lang }) });
-      ai.history.push({ role: 'assistant', content: r.answer || '', links: arr(r.links) });
+      ai.history.push({ role: 'assistant', content: r.answer || '', links: arr(r.links), sources: arr(r.sources), tools: arr(r.tools) });
     } catch (e) { ai.history.push({ role: 'assistant', content: t('ai.failed', e.message) }); }
     finally { ai.busy = false; renderAssistant(); const i = $('#ai-input'); if (i) i.focus(); }
   }
