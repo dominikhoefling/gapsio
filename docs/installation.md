@@ -3,6 +3,15 @@
 `setup/Install-Wardline.ps1` deploys and configures everything. It is **idempotent**: run it again at any time to change
 features or settings – data and history are kept.
 
+For the full script surface (including less common switches), use the source and inline help on GitHub:
+
+- [`setup/Install-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Install-Wardline.ps1)
+- [`setup/Grant-WardlinePermissions.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Grant-WardlinePermissions.ps1)
+- [`setup/Update-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Update-Wardline.ps1)
+- [`setup/Uninstall-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Uninstall-Wardline.ps1)
+
+Tip: run `Get-Help ./setup/Install-Wardline.ps1 -Detailed` (or `-Full`) in PowerShell for the current release package.
+
 What the script does:
 
 1. Deploys the resource group and Azure resources (storage, Function App, monitoring, managed identity) from `deploy/azuredeploy.json` (compiled from `deploy/main.bicep`)
@@ -12,6 +21,8 @@ What the script does:
 5. Deploys the function code and starts the first run
 
 ## Parameters
+
+> The table below covers the common parameters. The complete and always up-to-date list is in the script help and GitHub source links above.
 
 | Parameter | Meaning |
 |---|---|

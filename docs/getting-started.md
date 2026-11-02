@@ -41,3 +41,13 @@ At the end the script prints the portal URL. Sign in with an account that has th
 - Choose features: [features and permissions](permissions.md)
 - All installation options, device inventory, Deploy to Azure: [installation](installation.md)
 - Keep Wardline current: [updates](updates.md)
+
+## Script reference (GitHub)
+
+If you need the full parameter surface for install/update/permission flows:
+
+- [`setup/Install-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Install-Wardline.ps1)
+- [`setup/Update-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Update-Wardline.ps1)
+- [`setup/Grant-WardlinePermissions.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Grant-WardlinePermissions.ps1)
+
+Use `Get-Help` locally for the exact release package version you run.
