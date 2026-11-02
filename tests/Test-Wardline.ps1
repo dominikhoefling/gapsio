@@ -325,6 +325,7 @@ $hunting = @{
     Coverage = @(
         [pscustomobject]@{ DeviceId = 'd-old1'; DeviceName = 'OLD-01'; OSPlatform = 'Windows10'; OnboardingStatus = 'Onboarded'; AadDeviceId = 'AAD-OLD1'; DeviceType = 'Workstation'; LastSeen = (T 20) },
         [pscustomobject]@{ DeviceId = 'd-disc1'; DeviceName = 'PRINTER-7'; OSPlatform = 'Windows10'; OnboardingStatus = 'Can be onboarded'; AadDeviceId = ''; DeviceType = 'Workstation'; LastSeen = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-disc2'; DeviceName = 'win-01.contoso.local'; OSPlatform = 'Windows11'; OnboardingStatus = 'Can be onboarded'; AadDeviceId = ''; DeviceType = 'Workstation'; LastSeen = (T 1) },
         [pscustomobject]@{ DeviceId = 'd-win1'; DeviceName = 'WIN-01'; OSPlatform = 'Windows11'; OnboardingStatus = 'Onboarded'; AadDeviceId = 'AAD-WIN1'; DeviceType = 'Workstation'; LastSeen = (T 0) }
     )
     Usage = @(
@@ -765,6 +766,18 @@ Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq
 # Fleet (tags, internet-facing, TVM exclusion, troubleshooting mode, tampering attempts, inactive devices)
 $flt = @($f | Where-Object { $_.category -eq 'Fleet' })
 $dw1 = @($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' })[0]; $ds1 = @($ep.devices | Where-Object { $_.deviceName -eq 'SRV-01' })[0]
+
+# Policy exclusions per device: policy platform is a family ("Windows"), device OS a product ("Windows11", "WindowsServer2025")
+& $mod {
+    param($A)
+    $devs = @{}
+    foreach ($p in @(@('w11', 'Windows11'), @('srv', 'WindowsServer2025'), @('mac', 'macOS'))) { $devs[$p[0]] = New-WlDevice -Id $p[0] -Name $p[0] -Os $p[1] }
+    $xs = @([pscustomobject]@{ policyId = 'pw'; platform = 'Windows'; assigned = $true; value = 'C:\a' }, [pscustomobject]@{ policyId = 'pw'; platform = 'Windows'; assigned = $true; value = 'C:\b' },
+        [pscustomobject]@{ policyId = 'pm'; platform = 'macOS'; assigned = $true; value = '/tmp' })
+    $tg = @{ pw = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.allDevicesAssignmentTarget' } }); pm = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.allDevicesAssignmentTarget' } }) }
+    Set-WlDevicePolicyExclusions -Devices $devs -Exclusions $xs -Targets $tg
+    & $A ($devs['w11'].policyExclusions -eq 2 -and $devs['srv'].policyExclusions -eq 2 -and $devs['mac'].policyExclusions -eq 1) "Policy exclusions per device match by platform family (w11=$($devs['w11'].policyExclusions), srv=$($devs['srv'].policyExclusions), mac=$($devs['mac'].policyExclusions))"
+} ${function:Assert}
 Assert (@($dw1.tags) -contains 'Finance Dept' -and @($dw1.tags) -contains 'VIP' -and @($ds1.tags) -contains 'DMZ' -and $dw1.internetFacing -eq $false -and $ds1.internetFacing -eq $true) "Fleet: tags and internet-facing parsed (WIN-01: $(@($dw1.tags) -join ','))"
 Assert ($dw1.troubleshooting30d -eq 4 -and -not $dw1.troubleshootingActive -and $dw1.tampering30d -eq 3) 'Fleet: troubleshooting/tampering counters on WIN-01'
 Assert (@($flt | Where-Object { $_.title.en -eq 'Internet-facing device with high exposure' -and $_.deviceName -eq 'SRV-01' -and $_.severity -eq 'Medium' }).Count -eq 1) 'Fleet: internet-facing + high exposure (SRV-01)'
@@ -876,6 +889,7 @@ Assert (@($cov | Where-Object { $_.deviceName -eq 'LAPTOP-NEW' -and $_.status -e
 Assert (@($cov | Where-Object { $_.deviceName -in 'LAPTOP-RETIRED', 'iPhone', 'WIN-01' }).Count -eq 0) 'Coverage: stale, mobile and onboarded devices are not gaps'
 Assert (@($cov | Where-Object { $_.deviceName -eq 'OLD-01' -and $_.status -eq 'SensorInactive' }).Count -eq 1) 'Coverage: onboarded device without recent data = sensor inactive'
 Assert (@($cov | Where-Object { $_.deviceName -eq 'PRINTER-7' -and $_.status -eq 'CanBeOnboarded' }).Count -eq 1) 'Coverage: device discovery'
+Assert (@($cov | Where-Object { $_.deviceId -eq 'd-disc2' }).Count -eq 0) 'Coverage: stale discovery row of an onboarded host (FQDN) is suppressed'
 Assert ($dWin1.intuneDeviceId -eq 'int-win1') 'Intune device ID on the Defender device (deep link)'
 Assert (@($f | Where-Object { $_.category -eq 'Coverage' -and $_.title.en -notmatch 'connector|compliance|Conditional Access' }).Count -eq 3 -and $ep.summary.coverageGaps -eq 2 -and $ep.summary.discoveredDevices -eq 1) "Coverage findings and summary ($($ep.summary.coverageGaps)/$($ep.summary.discoveredDevices))"
 $ps = @($pe | Where-Object { $_.value -eq 'powershell.exe' })[0]

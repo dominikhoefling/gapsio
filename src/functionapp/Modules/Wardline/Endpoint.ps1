@@ -224,7 +224,7 @@ function Get-WlGroupMemberKeys {
     Transitive members of a group as match keys: "dev:<Entra deviceId>" and "upn:<upn>" (cached per run).
     #>
     param([string]$GroupId, [hashtable]$Cache)
-    if ($Cache.ContainsKey($GroupId)) { return $Cache[$GroupId] }
+    if ($Cache.ContainsKey($GroupId)) { return , $Cache[$GroupId] }
     $keys = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($m in @(Invoke-WlGraphSafe -All -Context "Members of group $GroupId" -Path "groups/$GroupId/transitiveMembers?`$select=id,deviceId,userPrincipalName")) {
         if (-not $m) { continue }
@@ -233,7 +233,7 @@ function Get-WlGroupMemberKeys {
         if ($upn) { [void]$keys.Add("upn:$upn"); [void]$keys.Add("usr:$(($upn -split '@')[0])") }
     }
     $Cache[$GroupId] = $keys
-    $keys
+    , $keys
 }
 
 function Set-WlDevicePolicyExclusions {
@@ -253,13 +253,15 @@ function Set-WlDevicePolicyExclusions {
         if ($d.aadDeviceId) { $keys += "dev:$($d.aadDeviceId)" }
         if ($d.lastUser) { $u = [string]$d.lastUser; $keys += "upn:$u"; $keys += "usr:$((($u -split '\\')[-1] -split '@')[0])" }
         $count = 0
+        # Policy platform is a family ("Windows"); the device OS is a product ("Windows11", "WindowsServer2025") – compare families.
+        $devFamily = if ($d.os) { Get-WlPlatformText ([string]$d.os) } else { $null }
         foreach ($polId in $byPolicy.Keys) {
             $xs = $byPolicy[$polId]
-            if ($xs[0].platform -and $d.os -and $xs[0].platform -ne $d.os) { continue }
+            if ($xs[0].platform -and $devFamily -and (Get-WlPlatformText ([string]$xs[0].platform)) -ne $devFamily) { continue }
             $in = $false; $out = $false
             foreach ($a in @($Targets[$polId])) {
                 $t = Get-WlProp $a 'target'; $type = [string](Get-WlProp $t '@odata.type'); $gid = [string](Get-WlProp $t 'groupId')
-                $member = { param($g) $m = Get-WlGroupMemberKeys -GroupId $g -Cache $cache; @($keys | Where-Object { $m.Contains($_) }).Count -gt 0 }
+                $member = { param($g) $m = Get-WlGroupMemberKeys -GroupId $g -Cache $cache; $null -ne $m -and @($keys | Where-Object { $m.Contains($_) }).Count -gt 0 }
                 switch -Wildcard ($type) {
                     '*allDevicesAssignmentTarget' { $in = $true }
                     '*allLicensedUsersAssignmentTarget' { $in = $true }
@@ -1879,6 +1881,14 @@ DeviceInfo
 | project DeviceId, DeviceName, OSPlatform, OnboardingStatus, AadDeviceId, DeviceType, LastSeen = Timestamp
 "@
     $all = Invoke-WlHuntingSafe -Query $q -Context 'Advanced Hunting device coverage'
+    # Discovery rows are collected first and only reported when no onboarded device with the same Entra ID / host name exists
+    # (device discovery keeps its own DeviceId for 30 days after the host was onboarded).
+    $discovered = [System.Collections.Generic.List[object]]::new()
+    $onbAad = @{}; $onbNames = @{}
+    foreach ($d in $Devices.Values) {
+        if ($d.aadDeviceId) { $onbAad[([string]$d.aadDeviceId).ToLowerInvariant()] = $true }
+        if ($d.deviceName) { $onbNames[(([string]$d.deviceName) -split '\.')[0].ToLowerInvariant()] = $true }
+    }
     foreach ($r in @($all)) {
         if ($null -eq $r) { continue }
         $name = [string]$r.DeviceName
@@ -1887,12 +1897,20 @@ DeviceInfo
         $ob = [string]$r.OnboardingStatus
         $id = [string]$r.DeviceId
         if ($ob -eq 'Onboarded' -or -not $ob) {
+            if ($r.AadDeviceId) { $onbAad[([string]$r.AadDeviceId).ToLowerInvariant()] = $true }
+            if ($name) { $onbNames[($name -split '\.')[0].ToLowerInvariant()] = $true }
             $last = $null; try { $last = ConvertTo-WlUtc $r.LastSeen } catch { }
             if (-not $Devices.ContainsKey($id) -and $last -and $last -lt [DateTime]::UtcNow.AddDays(-$days)) {
                 & $add $id $name ([string]$r.OSPlatform) 'Defender' 'SensorInactive' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null
             }
         }
-        elseif ($ob -eq 'Can be onboarded') { & $add $id $name ([string]$r.OSPlatform) 'DeviceDiscovery' 'CanBeOnboarded' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null }
+        elseif ($ob -eq 'Can be onboarded') { $discovered.Add($r) }
+    }
+    foreach ($r in $discovered) {
+        $aad = ([string]$r.AadDeviceId).ToLowerInvariant()
+        $short = (([string]$r.DeviceName) -split '\.')[0].ToLowerInvariant()
+        if (($aad -and $onbAad.ContainsKey($aad)) -or ($short -and $onbNames.ContainsKey($short))) { continue }
+        & $add ([string]$r.DeviceId) ([string]$r.DeviceName) ([string]$r.OSPlatform) 'DeviceDiscovery' 'CanBeOnboarded' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null
     }
     foreach ($d in $Devices.Values) {
         if ($d.aadDeviceId) { $known[([string]$d.aadDeviceId).ToLowerInvariant()] = $d }
