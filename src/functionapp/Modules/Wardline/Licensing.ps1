@@ -206,7 +206,7 @@ function Get-WlLicensingDevices {
 DeviceInfo
 | where Timestamp > ago(${days}d)
 | where OnboardingStatus == "Onboarded"
-| summarize arg_max(Timestamp, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers, Model, Vendor) by DeviceId
+| summarize arg_max(Timestamp, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers), Model = take_anyif(Model, isnotempty(Model)), Vendor = take_anyif(Vendor, isnotempty(Vendor)) by DeviceId
 | project DeviceId, DeviceName, OSPlatform, DeviceType, AadDeviceId, MachineGroup, ExclusionReason, LoggedOnUsers, Model, Vendor, LastSeen = Timestamp
 "@
     if ($null -eq $devices) { return $null }
@@ -273,7 +273,7 @@ function Get-WlLicensingModel {
         $rec = [ordered]@{
             key = Get-WlHash "licdev|$id"; deviceId = $id; deviceName = [string]$row.DeviceName; os = [string]$row.OSPlatform; deviceType = [string]$row.DeviceType
             machineGroup = [string]$row.MachineGroup; lastSeen = ConvertTo-WlUtc $row.LastSeen; users = @(); licensedBy = $null; tier = $null; confidence = $null; state = $null
-            usage = 'Personal'; usageReasons = @(); distinctUsers = 0; serviceAccounts = @()
+            usage = 'Personal'; usageReasons = @(); distinctUsers = 0; serviceAccounts = @(); model = (("$([string](Get-WlProp $row 'Vendor')) $([string](Get-WlProp $row 'Model'))").Trim())
         }
         if ($isServer) { $rec.state = 'Server'; $rec.fp = Get-WlHash 'server'; $rec.label = "$($rec.deviceName): server"; $servers.Add([pscustomobject]$rec); continue }
 

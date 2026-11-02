@@ -281,7 +281,7 @@
     'li.user': ['User', 'Benutzer'], 'li.deviceCount': ['Devices', 'Geräte'], 'lu.InUse': ['In use', 'In Nutzung'], 'lu.NoDevice': ['No device', 'Kein Gerät'], 'lu.OverLimit': ['Above {0} devices', 'Über {0} Geräten'], 'lu.Disabled': ['Account disabled', 'Konto deaktiviert'],
     'li.onlyUnlicensed': ['Unlicensed only', 'Nur unlizenzierte'], 'li.onlyNoDevice': ['Without device only', 'Nur ohne Gerät'],
     'li.usage': ['Usage', 'Nutzung'], 'lg.Personal': ['Personal', 'Persönlich'], 'lg.Shared': ['Shared', 'Geteilt'], 'lg.Kiosk': ['Kiosk / shared PC', 'Kiosk / Shared PC'], 'lg.VDI': ['Virtual desktop', 'Virtueller Desktop'],
-    'li.usage.why': ['Why this usage', 'Warum diese Nutzung'], 'li.distinctUsers': ['Distinct people', 'Unterschiedliche Personen'], 'li.serviceAccounts': ['Service / admin accounts (not counted)', 'Dienst-/Admin-Konten (nicht gezählt)'],
+    'li.usage.why': ['Why this usage', 'Warum diese Nutzung'], 'li.distinctUsers': ['Distinct people', 'Unterschiedliche Personen'], 'li.model': ['Hardware model', 'Hardwaremodell'], 'li.serviceAccounts': ['Service / admin accounts (not counted)', 'Dienst-/Admin-Konten (nicht gezählt)'],
     'li.clientsShared': ['shared, kiosk or VDI clients', 'geteilte, Kiosk- oder VDI-Clients'], 'li.clientsNoUserPersonal': ['personal clients without any user seen', 'persönliche Clients ohne erkannten Benutzer'], 'li.svcAccounts': ['service / admin accounts ignored', 'Dienst-/Admin-Konten ignoriert'],
     'li.sharedDeviceCount': ['Shared devices', 'Geteilte Geräte'], 'li.sharedDevices.hint': ['Shared, kiosk and VDI devices the user was seen on – they do not count against the limit.', 'Geteilte, Kiosk- und VDI-Geräte, auf denen der Benutzer gesehen wurde – sie zählen nicht gegen das Limit.'],
     'li.serversTable': ['Servers', 'Server'], 'li.servers.lede': ['Onboarded servers are licensed per server (Defender for Servers via Defender for Cloud, or Defender for Endpoint for Servers). Microsoft Graph does not show these; the count is here so you can reconcile it with Azure.', 'Onboardete Server werden pro Server lizenziert (Defender for Servers über Defender for Cloud oder Defender for Endpoint for Servers). Microsoft Graph zeigt diese nicht; die Zahl steht hier zum Abgleich mit Azure.'],
@@ -1830,7 +1830,7 @@
           { title: t('li.confidence'), text: confText },
           { title: t('d.lastSeen'), text: r => fmtDate(r.lastSeen) }],
         detail: r => dl([[t('li.licensedBy'), r.licensedBy || null], [t('li.usage.why'), arr(r.usageReasons).length ? list(arr(r.usageReasons)) : null], [t('li.distinctUsers'), r.distinctUsers !== undefined ? num(r.distinctUsers) : null],
-          [t('li.serviceAccounts'), arr(r.serviceAccounts).length ? list(arr(r.serviceAccounts)) : null], [t('d.group'), r.deviceGroup || null], [t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono small' }, r.aadDeviceId) : null]]),
+          [t('li.serviceAccounts'), arr(r.serviceAccounts).length ? list(arr(r.serviceAccounts)) : null], [t('li.model'), r.model || null], [t('d.group'), r.deviceGroup || null], [t('d.aad'), r.aadDeviceId ? h('span', { class: 'mono small' }, r.aadDeviceId) : null]]),
         empty: t('li.none')
       }));
 
