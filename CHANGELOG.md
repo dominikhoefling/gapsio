@@ -10,6 +10,8 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 - **News agent**: `tools/Get-WardlineNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn,
   Tech Community, Microsoft 365 roadmap) into a Markdown digest; implementation rules for confirmed items in `AGENTS.md`.
 - GitHub social preview source (`.github/social-preview.html/.png`).
+- **Inventory findings for Linux audit-mode previews**: Wardline now flags assigned Linux policies that keep
+  antivirus or tamper protection in *audit* mode (preview) as rollout hygiene findings.
 
 ### Removed
 - Sponsor links (`FUNDING.yml`).

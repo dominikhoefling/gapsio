@@ -124,7 +124,11 @@ $fixtures = @{
         'linux_mdatp_managed_antivirusengine_enforcementlevel' = [pscustomobject]@{ id = 'linux_mdatp_managed_antivirusengine_enforcementlevel'; options = @(
                 [pscustomobject]@{ itemId = 'linux_mdatp_managed_antivirusengine_enforcementlevel_0'; displayName = 'Real time'; optionValue = [pscustomobject]@{ value = 'real_time' } },
                 [pscustomobject]@{ itemId = 'linux_mdatp_managed_antivirusengine_enforcementlevel_1'; displayName = 'On demand'; optionValue = [pscustomobject]@{ value = 'on_demand' } },
-                [pscustomobject]@{ itemId = 'linux_mdatp_managed_antivirusengine_enforcementlevel_2'; displayName = 'Passive'; optionValue = [pscustomobject]@{ value = 'passive' } }) }
+            [pscustomobject]@{ itemId = 'linux_mdatp_managed_antivirusengine_enforcementlevel_2'; displayName = 'Passive'; optionValue = [pscustomobject]@{ value = 'passive' } },
+            [pscustomobject]@{ itemId = 'linux_mdatp_managed_antivirusengine_enforcementlevel_3'; displayName = 'Audit'; optionValue = [pscustomobject]@{ value = 'audit' } }) }
+        'linux_mdatp_managed_tamperprotection_enforcementlevel' = [pscustomobject]@{ id = 'linux_mdatp_managed_tamperprotection_enforcementlevel'; options = @(
+            [pscustomobject]@{ itemId = 'linux_mdatp_managed_tamperprotection_enforcementlevel_0'; displayName = 'Block'; optionValue = [pscustomobject]@{ value = 'block' } },
+            [pscustomobject]@{ itemId = 'linux_mdatp_managed_tamperprotection_enforcementlevel_1'; displayName = 'Audit'; optionValue = [pscustomobject]@{ value = 'audit' } }) }
         'linux_mdatp_managed_exclusionsettings_mergepolicy' = [pscustomobject]@{ id = 'x'; options = @(
                 [pscustomobject]@{ itemId = 'linux_mdatp_managed_exclusionsettings_mergepolicy_0'; displayName = 'merge'; optionValue = [pscustomobject]@{ value = 'merge' } },
                 [pscustomobject]@{ itemId = 'linux_mdatp_managed_exclusionsettings_mergepolicy_1'; displayName = 'admin_only'; optionValue = [pscustomobject]@{ value = 'admin_only' } }) }
@@ -182,7 +186,8 @@ $fixtures = @{
                         (FxCi "${p}attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses" "${p}attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses_block"))))
         )
         'pol-lnx2' = @(
-            (FxC 'linux_mdatp_managed_antivirusengine_enforcementlevel' 'linux_mdatp_managed_antivirusengine_enforcementlevel_2'),
+            (FxC 'linux_mdatp_managed_antivirusengine_enforcementlevel' 'linux_mdatp_managed_antivirusengine_enforcementlevel_3'),
+            (FxC 'linux_mdatp_managed_tamperprotection_enforcementlevel' 'linux_mdatp_managed_tamperprotection_enforcementlevel_1'),
             (FxC 'linux_mdatp_managed_exclusionsettings_mergepolicy' 'linux_mdatp_managed_exclusionsettings_mergepolicy_1'),
             (FxG 'linux_mdatp_managed_exclusionsettings_exclusions' @(@(
                         (FxCi 'linux_mdatp_managed_exclusionsettings_exclusions_item_$type' 'linux_mdatp_managed_exclusionsettings_exclusions_item_$type_0'),
@@ -754,6 +759,8 @@ $inv = @($f | Where-Object { $_.category -eq 'Inventory' })
 Assert (@($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' -and $_.managedBy -eq 'Intune' }).Count -eq 1) 'Inventory: ManagedBy collected from DeviceInfo'
 Assert (@($inv | Where-Object { $_.title.en -match 'device group|Duplicate|management channel' }).Count -eq 0) 'Inventory: clean fixture -> no grouping/duplicate/unmanaged findings'
 Assert (@($inv | Where-Object { $_.title.en -match '^ASR rule in audit mode for 1\d\d\+ days' }).Count -eq 1) 'Inventory: eternal audit for pol-asr (psexec-wmi), not for the 59-day-old pol-win'
+Assert (@($inv | Where-Object { $_.title.en -eq 'Linux antivirus in audit mode (preview)' -and $_.detail.en -match 'Linux AV' -and $_.detail.en -match 'Group: All clients' }).Count -eq 1) 'Inventory: Linux antivirus audit mode preview finding'
+Assert (@($inv | Where-Object { $_.title.en -eq 'Linux tamper protection in audit mode (preview)' -and $_.detail.en -match 'Linux AV' -and $_.detail.en -match 'Group: All clients' }).Count -eq 1) 'Inventory: Linux tamper audit mode preview finding'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
 # Fleet (tags, internet-facing, TVM exclusion, troubleshooting mode, tampering attempts, inactive devices)
 $flt = @($f | Where-Object { $_.category -eq 'Fleet' })
@@ -844,7 +851,7 @@ Assert ($b['mac-exclusions-merge-policy'].status -eq 'Deviation') "macOS merge -
 Assert ($b['mac-pua'].status -eq 'Deviation') "macOS PUA audit (archive_bomb block does not count) -> Deviation, is $($b['mac-pua'].status)"
 Assert ($b['mac-network-protection'].status -eq 'Deviation') "macOS network protection disabled -> Deviation, is $($b['mac-network-protection'].status)"
 Assert ($b['mac-cloud'].status -eq 'OK') "macOS cloud enabled -> OK, is $($b['mac-cloud'].status)"
-Assert ($b['linux-enforcement-level'].status -eq 'Deviation' -and $b['linux-enforcement-level'].configured[0].value -match 'passive') "Linux enforcementLevel passive -> Deviation (display name), is $($b['linux-enforcement-level'].status) / $($b['linux-enforcement-level'].configured[0].value)"
+Assert ($b['linux-enforcement-level'].status -eq 'Deviation' -and $b['linux-enforcement-level'].configured[0].value -match 'audit') "Linux enforcementLevel audit -> Deviation (display name), is $($b['linux-enforcement-level'].status) / $($b['linux-enforcement-level'].configured[0].value)"
 Assert ($b['linux-exclusions-merge-policy'].status -eq 'OK') "Linux mergePolicy admin_only -> OK, is $($b['linux-exclusions-merge-policy'].status)"
 Assert ($b['linux-tamper-protection'].status -in 'NoData', 'OK', 'DeviceDeviation' -and -not $b['linux-tamper-protection'].configured.Count) "Linux tamper is effective-only (no Settings Catalog setting), is $($b['linux-tamper-protection'].status)"
 Assert ($b['linux-enforcement-level'].definitionId -eq 'linux_mdatp_managed_antivirusengine_enforcementlevel') 'Linux checks carry the exact Settings Catalog ID'

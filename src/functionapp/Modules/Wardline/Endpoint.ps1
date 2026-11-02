@@ -2388,6 +2388,7 @@ function Get-WlInventoryFindings {
       - onboarded Windows devices with no management channel (ManagedBy unknown): no Intune, ConfigMgr or
         security settings management – no Defender policy reaches them
       - ASR rules left in audit mode although the policy has not been touched for 90+ days ("eternal audit")
+            - Linux AV / Tamper Protection left in audit mode (preview) on assigned policies
     #>
     param([hashtable]$Devices, [object[]]$SettingValues, $Asr)
     $f = [System.Collections.Generic.List[object]]::new()
@@ -2445,6 +2446,31 @@ function Get-WlInventoryFindings {
         $f.Add((New-WlFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T "ASR rule in audit mode for $($stale[0].days)+ days: $($r.name)" "ASR-Regel seit $($stale[0].days)+ Tagen im Audit-Modus: $($r.name)") `
                     -Detail (& $T "Policy '$($stale[0].policy)' keeps this rule in audit mode and has not been modified for $($stale[0].days) days. Audit mode is an evaluation step (typically 30 days), not a protection state: it logs what would have been blocked and blocks nothing." "Richtlinie '$($stale[0].policy)' hält diese Regel im Audit-Modus und wurde seit $($stale[0].days) Tagen nicht geändert. Audit ist ein Bewertungsschritt (typisch 30 Tage), kein Schutzzustand: Er protokolliert, was blockiert worden wäre, und blockiert nichts.") `
                     -Recommendation (& $T 'Review the audit events in Advanced Hunting (DeviceEvents, AsrAudited), add the necessary exclusions and move the rule to Block or Warn.' 'Audit-Ereignisse in Advanced Hunting prüfen (DeviceEvents, AsrAudited), nötige Ausnahmen ergänzen und die Regel auf Block oder Warn stellen.') -Subject "inv|audit|$($r.id)" -StableKey))
+    }
+
+    # 5) Linux audit modes (preview): useful for rollout pilots, but not a target state
+    $linuxAuditAv = @($SettingValues | Where-Object {
+            $_ -and $_.platform -eq 'Linux' -and $_.definitionId -match '^linux_.*antivirusengine_enforcementlevel$' -and
+            (Test-WlAssigned $_.assignments) -and (([string]$_.display -match 'audit') -or ([string]$_.value -match 'audit'))
+        })
+    if ($linuxAuditAv.Count) {
+        $pol = @($linuxAuditAv | ForEach-Object { [string]$_.policyName } | Sort-Object -Unique)
+        $grp = @($linuxAuditAv | ForEach-Object { @($_.assignments) } | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T 'Linux antivirus in audit mode (preview)' 'Linux-Antivirus im Audit-Modus (Preview)') `
+                    -Detail (& $T "Assigned policy/policies keep Linux Defender antivirus in audit mode: $($pol -join ', '). Assigned to: $($grp -join ', '). Audit mode is an evaluation phase: detections are logged but not blocked, so this should remain a short pilot stage." "Zugewiesene Richtlinie(n) halten Linux-Defender-Antivirus im Audit-Modus: $($pol -join ', '). Zugewiesen an: $($grp -join ', '). Audit ist eine Bewertungsphase: Erkennungen werden protokolliert, aber nicht blockiert – das sollte nur eine kurze Pilotphase sein.") `
+                    -Recommendation (& $T 'Use audit mode for rollout validation (typically 2-4 weeks), then switch to real_time and keep only narrowly scoped exclusions.' 'Audit-Modus für den Rollout-Check nutzen (typisch 2–4 Wochen), danach auf real_time wechseln und nur eng gefasste Exclusions behalten.') -Subject 'inv|linux-av-audit' -StableKey))
+    }
+
+    $linuxAuditTamper = @($SettingValues | Where-Object {
+            $_ -and $_.platform -eq 'Linux' -and $_.definitionId -match '^linux_.*tamper.*enforcementlevel$' -and
+            (Test-WlAssigned $_.assignments) -and (([string]$_.display -match 'audit') -or ([string]$_.value -match 'audit'))
+        })
+    if ($linuxAuditTamper.Count) {
+        $pol = @($linuxAuditTamper | ForEach-Object { [string]$_.policyName } | Sort-Object -Unique)
+        $grp = @($linuxAuditTamper | ForEach-Object { @($_.assignments) } | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+        $f.Add((New-WlFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T 'Linux tamper protection in audit mode (preview)' 'Linux-Tamper-Protection im Audit-Modus (Preview)') `
+                    -Detail (& $T "Assigned policy/policies keep Linux tamper protection in audit mode: $($pol -join ', '). Assigned to: $($grp -join ', '). In audit mode, tampering attempts are recorded but not prevented; move to block once the pilot confirms compatibility." "Zugewiesene Richtlinie(n) halten Linux-Tamper-Protection im Audit-Modus: $($pol -join ', '). Zugewiesen an: $($grp -join ', '). Im Audit-Modus werden Manipulationsversuche protokolliert, aber nicht verhindert; nach dem Pilot auf Block wechseln.") `
+                    -Recommendation (& $T 'Review pilot events, then enforce block mode tenant-wide (Defender portal or managed config) so local stop/uninstall/reconfigure attempts are blocked.' 'Pilot-Ereignisse prüfen und anschließend mandantenweit den Block-Modus erzwingen (Defender-Portal oder verwaltete Konfiguration), damit lokale Stop-/Deinstallations-/Umkonfigurationsversuche blockiert werden.') -Subject 'inv|linux-tamper-audit' -StableKey))
     }
     @($f)
 }
