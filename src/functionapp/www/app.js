@@ -2072,7 +2072,8 @@
       const r = await api(`run?module=${module}`, { method: 'POST' });
       toast(window.WARDLINE_DEMO ? r.message : t('run.started'));
     } catch (e) {
-      toast(e.status === 403 && !/Wardline.Admin/.test(e.message) ? t('run.403') : t('run.failed', e.message));
+      const detail = e.status && !new RegExp(`\\b${e.status}\\b`).test(e.message || '') ? `${e.message} (HTTP ${e.status})` : e.message;
+      toast(e.status === 403 && !/Wardline.Admin/.test(e.message) ? t('run.403') : t('run.failed', detail));
     }
     finally { if (btn) setTimeout(() => { btn.disabled = false; }, 4000); }
   }

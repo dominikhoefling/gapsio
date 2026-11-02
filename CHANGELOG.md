@@ -13,6 +13,15 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 - **Inventory findings for Linux audit-mode previews**: Wardline now flags assigned Linux policies that keep
   antivirus or tamper protection in *audit* mode (preview) as rollout hygiene findings.
 
+### Fixed
+- **Intune policy exclusions per device were always 0**: the policy platform (`Windows`) was compared with the
+  Advanced Hunting OS product (`Windows11`, `WindowsServer2025`); both are now normalised to the platform family.
+- **Coverage: onboarded hosts no longer appear as "discovered, can be onboarded"** – device discovery keeps its
+  own record for up to 30 days after onboarding; those rows are now suppressed when an onboarded device with the
+  same Entra device ID or host name exists.
+- **"Collect now"** no longer queues a second run when clicked twice within two minutes (e.g. after a slow
+  response on a cold Function host); the error toast shows the HTTP status.
+
 ### Removed
 - Sponsor links (`FUNDING.yml`).
 

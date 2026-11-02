@@ -190,9 +190,18 @@ try {
             if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Wardline is missing.'; return }
             $m = ([string]$Request.Query.module).ToLowerInvariant()
             if ($m -notin @($modules) + 'all') { $m = 'all' }
+            # Debounce: a second click within two minutes (double click, retry after a slow response) must not queue a second run.
+            $marker = "run-requested-$m.json"
+            $prev = $null; try { $prev = Get-WlBlob -Container 'state' -Name $marker } catch { $prev = $null }
+            $prevAt = $null; if ($prev -and $prev.at) { try { $prevAt = ConvertTo-WlUtc $prev.at } catch { $prevAt = $null } }
+            if ($prevAt -and $prevAt -gt [DateTime]::UtcNow.AddMinutes(-2)) {
+                Send-Response -Status 202 -Body ([ordered]@{ message = "Run for '$m' is already queued. Results appear within a few minutes."; module = $m; queued = $false })
+                return
+            }
             $msg = ConvertTo-Json -Compress -InputObject @{ module = $m; requestedBy = $principal.upn; at = [DateTime]::UtcNow.ToString('o') }
             Add-WlQueueMessage -Text $msg
-            Send-Response -Status 202 -Body ([ordered]@{ message = "Run for '$m' started. Results appear within a few minutes."; module = $m })
+            try { Set-WlBlob -Container 'state' -Name $marker -Object @{ at = [DateTime]::UtcNow.ToString('o'); by = $principal.upn } } catch { Write-Warning "Run marker could not be written: $($_.Exception.Message)" }
+            Send-Response -Status 202 -Body ([ordered]@{ message = "Run for '$m' started. Results appear within a few minutes."; module = $m; queued = $true })
         }
         default { Send-Response -Status 404 -Body 'Unknown endpoint.' }
     }
