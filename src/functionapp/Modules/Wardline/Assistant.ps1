@@ -28,7 +28,6 @@ $script:WlAssistantViews = @(
     @{ view = 'changes'; module = $null; en = 'Changes between runs (added/changed/removed), per module and day' }
     @{ view = 'accepted'; module = $null; en = 'Accepted risks (acceptances) and their log' }
     @{ view = 'license'; module = $null; en = 'Wardline licence key and tier' }
-    @{ view = 'officepreview'; module = $null; en = 'Office 365 private preview (Exchange/Teams telemetry readiness)' }
 )
 
 function Get-WlAssistantFindingText {
@@ -250,7 +249,7 @@ function Search-WlKnowledge {
 #region Tools (what the model may call; every tool is read-only and bounded)
 $script:WlAssistantTools = @(
     @{ type = 'function'; function = @{ name = 'search_findings'; description = 'Search the stored findings of the last run. Use for questions about problems, severities, categories, counts, a specific device or subject.'; parameters = @{ type = 'object'; properties = @{
-                    module   = @{ type = 'string'; description = 'endpoint | agents | access | licensing | officepreview (omit for all)' }
+                    module   = @{ type = 'string'; description = 'endpoint | agents | access | licensing (omit for all)' }
                     severity = @{ type = 'string'; enum = @('Critical', 'High', 'Medium', 'Low') }
                     category = @{ type = 'string'; description = 'finding category as shown in the portal, e.g. exclusions, asr, baseline, coverage, hygiene, updates' }
                     query    = @{ type = 'string'; description = 'free text matched against title, device, subject and detail' }

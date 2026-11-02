@@ -6,12 +6,27 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-11-02
+
 ### Added
+- **Wardline Assistant (Enterprise, optional)**: install with `-Assistant` and Wardline creates an Azure OpenAI resource
+  (`gpt-4.1-mini` + `text-embedding-3-small`) **in your subscription**, keyless via managed identity. The portal gets a
+  chat helper for admins that answers from your data with read-only tools: stored findings and devices of the last run,
+  one device record, **live Microsoft Defender Advanced Hunting** (last seen, sensor health, alerts of the last 7 days,
+  failed secure-configuration checks – when the *hunting* feature is enabled) and a semantic search over the Wardline
+  documentation and the MDAV baseline rationale. Every answer lists the tools used and the doc sections cited.
+  Requires an Enterprise licence; Community installations see the entry point with an upgrade hint.
+  New installer parameters: `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantEmbeddingDeployment`,
+  `-AssistantLocation`. See *Installation › Optional: portal assistant*.
 - **News agent**: `tools/Get-WardlineNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn,
   Tech Community, Microsoft 365 roadmap) into a Markdown digest; implementation rules for confirmed items in `AGENTS.md`.
 - GitHub social preview source (`.github/social-preview.html/.png`).
 - **Inventory findings for Linux audit-mode previews**: Wardline now flags assigned Linux policies that keep
   antivirus or tamper protection in *audit* mode (preview) as rollout hygiene findings.
+
+### Changed
+- ARM/Bicep template: new optional Azure OpenAI resources and role assignment (`Cognitive Services OpenAI User` for the
+  runner identity) – only deployed with `enableAssistant=true`. No new Graph or Defender permissions.
 
 ### Fixed
 - **Intune policy exclusions per device were always 0**: the policy platform (`Windows`) was compared with the
