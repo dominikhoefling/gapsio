@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/dominikhoefling/wardline?display_name=tag&sort=semver)](https://github.com/dominikhoefling/wardline/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-teal.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/wardline.cloud-docs%20%26%20demo-0b6e82)](https://wardline.cloud)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-1f6feb)](https://dominikhoefling.github.io/wardline/)
 
 **Configured isn't protected.** Wardline shows where protection in Microsoft Defender and for AI agents **actually** has
 gaps – not just what is configured. Tools like Maester test what you set in the tenant; Wardline measures what is in
@@ -15,7 +16,7 @@ storage keys, read-only permissions only – granted per feature. Open source (M
 [Enterprise key](https://wardline.cloud/#pricing) lifts the 10-row display limit and adds governance – every check
 stays free, see the [open-core promise](docs/manifesto.md).
 
-**Documentation:** see [`docs/`](docs/index.md) (published with MkDocs). **Website and demo:** [wardline.cloud](https://wardline.cloud).
+**Documentation:** [GitHub Pages](https://dominikhoefling.github.io/wardline/) (source in [`docs/`](docs/index.md), published with MkDocs). **Website and demo:** [wardline.cloud](https://wardline.cloud).
 
 ## What it shows
 
