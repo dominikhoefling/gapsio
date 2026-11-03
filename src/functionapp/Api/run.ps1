@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
     return
@@ -75,8 +75,7 @@ try {
                     tier = $tier; communityRows = $(if ($community) { Get-WlCommunityRows } else { $null })
                     features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response') | Where-Object { Test-WlFeature -Name $_ })
                     tenantId = Get-WlSetting -Name 'WL_TENANT_ID'; version = (Get-WlVersion)
-                    assistant = $(if ($principal.isAdmin) { [bool](Test-WlAssistant) -and $tier -eq 'Full' } else { $false })
-                    assistantConfigured = $(if ($principal.isAdmin) { [bool](Test-WlAssistant) } else { $false })
+                    assistant = $(if ($principal.isAdmin) { [bool](Test-WlAssistant) } else { $false })
                     update = $(if ($principal.isAdmin) { try { Get-WlBlob -Container 'state' -Name 'release.json' } catch { $null } })
                     license = $(if ($principal.isAdmin) { try { $l = Get-WlLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })
                 })
@@ -111,10 +110,10 @@ try {
         'agents' { Send-Snapshot -Name 'agents-latest.json' }
         'access' { Send-Snapshot -Name 'access-latest.json' }
         'licensing' { Send-Snapshot -Name 'licensing-latest.json' }
+        'officepreview' { Send-Snapshot -Name 'office-preview-latest.json' }
         'assistant' {
             # Optional chat helper (WL_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.
             if (-not (Test-WlAssistant)) { Send-Response -Status 404 -Body 'The assistant is not enabled in this installation.'; return }
-            if ($tier -ne 'Full') { Send-Response -Status 402 -Body 'The assistant is an Enterprise feature. Enter a licence key under Settings > Licence.'; return }
             if (-not (Test-WlCsrf)) { return }
             try {
                 $q = Get-WlRequestJson
@@ -204,7 +203,7 @@ try {
             $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-wardline') { $csrf = $Request.Headers[$k] } }
             if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Wardline is missing.'; return }
             $m = ([string]$Request.Query.module).ToLowerInvariant()
-            if ($m -notin @($modules) + 'all') { $m = 'all' }
+            if ($m -notin @($modules) + @('all')) { $m = 'all' }
             # Debounce: a second click within two minutes (double click, retry after a slow response) must not queue a second run.
             $marker = "run-requested-$m.json"
             $prev = $null; try { $prev = Get-WlBlob -Container 'state' -Name $marker } catch { $prev = $null }

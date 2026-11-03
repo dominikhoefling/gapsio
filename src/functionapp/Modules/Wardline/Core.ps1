@@ -20,10 +20,11 @@ function Get-WlModules {
     <#
     .SYNOPSIS
     Enabled modules from the app setting WL_MODULES (comma-separated). Default: endpoint,agents.
-    The 'access' (PIM/roles) and 'licensing' (Defender for Endpoint licence indication) modules are included but disabled by default.
+    The 'access' (PIM/roles), 'licensing' (Defender licence indication) and
+    'officepreview' (Defender for Office 365 private preview) modules are optional.
     #>
     $raw = Get-WlSetting -Name 'WL_MODULES' -Default 'endpoint,agents'
-    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing' } | Select-Object -Unique)
+    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview' } | Select-Object -Unique)
 }
 
 function Test-WlFeature {

@@ -49,9 +49,27 @@ Re-runs and updates find an existing installation by the tag `wardline-component
 | `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantEmbeddingDeployment`, `-AssistantLocation` | Optional portal assistant (Azure OpenAI in your subscription), see below |
 | `-SubscriptionId` | Subscription, if not the current one of `az` |
 
+### Which modules exist (and how they are enabled)
+
+`WL_MODULES` is derived from `-Features` on every install/update run:
+
+| Module (`WL_MODULES`) | Enabled by feature(s) |
+|---|---|
+| `endpoint` | always (`Core`) |
+| `agents` | `Agents` |
+| `access` | `Access` |
+| `licensing` | `Licensing` |
+| `officepreview` | `OfficePreview` (private preview) |
+
+Example: enable the Office preview module in addition to the defaults:
+
+```powershell
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
+```
+
 ## Optional: portal assistant
 
-`-Assistant` adds a chat helper to the portal (admins only, **Enterprise licence required** – Community installations see the entry point with an upgrade hint). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
+`-Assistant` adds a chat helper to the portal (admins only). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
 
 - **Where it runs:** an Azure OpenAI resource with a `gpt-4.1-mini` chat deployment and a `text-embedding-3-small` embedding deployment **in your own subscription**, created by the installer (`-AssistantLocation` picks the region, default = installation region; `swedencentral` has the broadest model availability). Or point to an existing resource with `-AssistantEndpoint https://<name>.openai.azure.com/` and grant Wardline's runner identity the role *Cognitive Services OpenAI User* on it (`-AssistantEmbeddingDeployment ''` if that resource has no embedding model – doc search then falls back to keywords).
 - **Authentication:** managed identity only; key-based access on the created resource is disabled.

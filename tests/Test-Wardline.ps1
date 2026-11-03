@@ -1660,6 +1660,58 @@ $env:WL_MODULES = 'endpoint,agents,access'
 $env:WEBSITE_AUTH_ENABLED = $null
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 503) 'Without enabled authentication: 503 (header is not trusted)'
 
+# ---- Office preview: anti-phish drift (settings history + outcome correlation) ----
+Write-Host 'Anti-phish drift'
+$apParams = ConvertFrom-WlAntiPhishParams -Json (@(@{Name = 'Identity'; Value = 'P' }, @{Name = 'PhishThresholdLevel'; Value = '3' }, @{Name = 'ExcludedDomains'; Value = @('a.com', 'b.com') }) | ConvertTo-Json -Compress)
+Assert ($apParams.Count -eq 2 -and $apParams['PhishThresholdLevel'] -eq '3' -and $apParams['ExcludedDomains'] -eq 'a.com;b.com') 'Anti-phish: audit parameters parsed, noise dropped, arrays flattened'
+Assert ((Get-WlAntiPhishChangeDirection -Name 'PhishThresholdLevel' -Before '3' -After '1') -eq 'weaker') 'Anti-phish: threshold 3→1 is weaker'
+Assert ((Get-WlAntiPhishChangeDirection -Name 'PhishThresholdLevel' -Before '2' -After '4') -eq 'stronger') 'Anti-phish: threshold 2→4 is stronger'
+Assert ((Get-WlAntiPhishChangeDirection -Name 'TargetedUserProtectionAction' -Before 'Quarantine' -After 'MoveToJmf') -eq 'weaker') 'Anti-phish: Quarantine→MoveToJmf is weaker'
+Assert ((Get-WlAntiPhishChangeDirection -Name 'EnableSpoofIntelligence' -Before 'True' -After 'False') -eq 'weaker') 'Anti-phish: disabling spoof intelligence is weaker'
+Assert ((Get-WlAntiPhishChangeDirection -Name 'ExcludedDomains' -Before 'a.com' -After 'a.com;b.com') -eq 'weaker') 'Anti-phish: more exclusions is weaker'
+Assert ((Test-WlAntiPhishPolicyMatch -AuditName 'Office365 AntiPhish Default' -EventPolicy 'Office365 AntiPhish Default (Default)') -and -not (Test-WlAntiPhishPolicyMatch -AuditName 'Strict' -EventPolicy 'Standard Preset')) 'Anti-phish: policy name matching tolerates suffixes'
+& (Get-Module Wardline) {
+    param($A)
+    $origHunt = ${function:Invoke-WlHuntingSafe}; $origGet = ${function:Get-WlBlob}; $origSet = ${function:Set-WlBlob}
+    try {
+        $script:apBlobs = @{}
+        ${function:Get-WlBlob} = { param($Container, $Name) $script:apBlobs[$Name] }
+        ${function:Set-WlBlob} = { param($Container, $Name, $Object, $Depth = 32, $ContentType) $script:apBlobs[$Name] = ($Object | ConvertTo-Json -Depth 16 | ConvertFrom-Json -Depth 16) }
+        $script:apBase = [datetime]::UtcNow.Date
+        ${function:Invoke-WlHuntingSafe} = {
+            param($Query, $Context, $Timespan, $ShardColumn, [switch]$NoShard)
+            if ($Context -like '*changes*') {
+                return @(
+                    [pscustomobject]@{ Timestamp = $script:apBase.AddDays(-20); ActionType = 'New-AntiPhishPolicy'; Policy = 'Strict Phish'; Actor = 'admin@x'; Result = 'True'; Params = (@(@{Name = 'Name'; Value = 'Strict Phish' }, @{Name = 'PhishThresholdLevel'; Value = '3' }, @{Name = 'TargetedUserProtectionAction'; Value = 'Quarantine' }) | ConvertTo-Json -Compress) },
+                    [pscustomobject]@{ Timestamp = $script:apBase.AddDays(-10); ActionType = 'Set-AntiPhishPolicy'; Policy = 'Strict Phish'; Actor = 'admin@x'; Result = 'True'; Params = (@(@{Name = 'Identity'; Value = 'Strict Phish' }, @{Name = 'PhishThresholdLevel'; Value = '1' }) | ConvertTo-Json -Compress) })
+            }
+            $rows = @()
+            for ($i = 29; $i -ge 0; $i--) {
+                $d = $script:apBase.AddDays(-$i); $del = if ($i -le 10) { 8 } else { 2 }
+                $rows += [pscustomobject]@{ day = $d; Policy = 'Strict Phish'; Method = 'Filter'; Outcome = 'Delivered'; Confidence = 'Normal'; events = $del }
+                $rows += [pscustomobject]@{ day = $d; Policy = 'Strict Phish'; Method = 'Impersonation'; Outcome = 'Quarantine'; Confidence = 'High'; events = 5 }
+            }
+            $rows
+        }
+        $r1 = Update-WlOfficeAntiPhishHistory
+        & $A (@($r1.rows).Count -eq 2 -and @($r1.rows | Where-Object status -eq 'ok').Count -eq 2) 'Anti-phish: two probe rows ok'
+        & $A (@($r1.findings | Where-Object id -eq 'office.antiphish_weakened').Count -eq 1) 'Anti-phish: weakened finding when threshold is lowered'
+        & $A (@($r1.findings | Where-Object id -eq 'office.antiphish_delivery_up').Count -eq 1) 'Anti-phish: delivered-up finding when delivered share rises ≥10 pp after the change'
+        $eff = @($r1.antiphish.effects | Where-Object cmdlet -eq 'Set-AntiPhishPolicy')[0]
+        & $A ($eff.scope -eq 'policy' -and $eff.before.deliveredPct -lt $eff.after.deliveredPct -and $eff.deliveredDelta -gt 10) "Anti-phish: before/after window computed per policy ($($eff.before.deliveredPct) → $($eff.after.deliveredPct))"
+        $cur = @($r1.antiphish.periods | Where-Object current)[0]
+        & $A ($cur.threshold -eq '1' -and @($r1.antiphish.periods).Count -eq 3) "Anti-phish: setting periods split at changes, current threshold 1 ($(@($r1.antiphish.periods).Count) periods)"
+        & $A ($r1.antiphish.policies[0].settings.PhishThresholdLevel.value -eq '1' -and $r1.antiphish.policies[0].settings.TargetedUserProtectionAction.value -eq 'Quarantine') 'Anti-phish: last known settings carry over unchanged values'
+        & $A (@($r1.antiphish.matrix).Count -eq 2) 'Anti-phish: policy × method matrix'
+        $h1 = $script:apBlobs['office-antiphish-history.json']
+        $r2 = Update-WlOfficeAntiPhishHistory
+        $h2 = $script:apBlobs['office-antiphish-history.json']
+        & $A (@($h1.changes).Count -eq 2 -and @($h2.changes).Count -eq 2 -and @($h2.daily).Count -eq @($h1.daily).Count) 'Anti-phish: re-run merges history without duplicates'
+        & $A ($r2.rows[0].result[0].newChanges -eq 0 -and $h2.since -eq $h1.since) 'Anti-phish: second run adds no new changes and keeps history start'
+    }
+    finally { ${function:Invoke-WlHuntingSafe} = $origHunt; ${function:Get-WlBlob} = $origGet; ${function:Set-WlBlob} = $origSet }
+} ${function:Assert}
+
 if ($OutDir) {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
     foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/licensing-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
