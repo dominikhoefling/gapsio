@@ -13,7 +13,7 @@ Set by the install script; change them in the Function App configuration or via 
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `WL_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`) – derived from `-Features` |
+| `WL_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`) – derived from `-Features` |
 | `WL_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `inventory`) – derived from `-Features` |
 | `WL_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `WL_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |

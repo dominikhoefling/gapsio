@@ -4,7 +4,6 @@
 [![Release](https://img.shields.io/github/v/release/dominikhoefling/wardline?display_name=tag&sort=semver)](https://github.com/dominikhoefling/wardline/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-teal.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/wardline.cloud-docs%20%26%20demo-0b6e82)](https://wardline.cloud)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-1f6feb)](https://dominikhoefling.github.io/wardline/)
 
 **Configured isn't protected.** Wardline shows where protection in Microsoft Defender and for AI agents **actually** has
 gaps – not just what is configured. Tools like Maester test what you set in the tenant; Wardline measures what is in
@@ -16,7 +15,7 @@ storage keys, read-only permissions only – granted per feature. Open source (M
 [Enterprise key](https://wardline.cloud/#pricing) lifts the 10-row display limit and adds governance – every check
 stays free, see the [open-core promise](docs/manifesto.md).
 
-**Documentation:** [GitHub Pages](https://dominikhoefling.github.io/wardline/) (source in [`docs/`](docs/index.md), published with MkDocs). **Website and demo:** [wardline.cloud](https://wardline.cloud).
+**Documentation:** see [`docs/`](docs/index.md) (published with MkDocs). **Website and demo:** [wardline.cloud](https://wardline.cloud).
 
 ## What it shows
 
@@ -27,6 +26,7 @@ stays free, see the [open-core promise](docs/manifesto.md).
   and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
 - **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role, how (direct, group, PIM eligible, access package), for which data sources – and whether it was ever used
 - **Licensing** (optional) – Defender for Endpoint licence indication: plans owned vs. users entitled vs. client devices actually onboarded and who uses them; servers listed separately
+- **Office preview** (optional, private preview) – Defender for Office 365 telemetry view: policy map (top recipients/domains), MDO trend probes and anti-phish drift (who changed settings, before/after outcome shifts)
 - **Third-party AV/EDR** – devices running CrowdStrike, SentinelOne & co. alongside an active Defender Antivirus
 - **History** – dated snapshots and drift between runs, accepted risks with audit log, notifications to Teams, CSV export; portal in English and German
 

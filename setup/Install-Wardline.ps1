@@ -23,6 +23,7 @@
       Agents      default    AI agents: Entra Agent ID, Agent 365 registry, Conditional Access coverage
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
       Licensing   optional   Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices without a licensed user
+    OfficePreview optional  Defender for Office 365 telemetry-based private preview (policy map, anti-phish drift)
       Inventory   optional   Device inventory via Intune Remediations (use -DeviceInventory, deploys a detection script)
     Show the exact permissions without installing:  ./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Agents
 
@@ -50,6 +51,10 @@
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location germanywestcentral -Features Hunting,Indicators,Coverage,Response,Agents,Access -EnableImmutability -SnapshotRetentionDays 730 -ChangeRetentionDays 365
+
+.EXAMPLE
+    ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
+    Enables the optional Defender for Office 365 private-preview module (policy map + anti-phish drift).
 
 .EXAMPLE
     ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Name contoso
@@ -123,7 +128,7 @@ if ($DeviceInventory -and $RemoveDeviceInventory) { throw '-DeviceInventory and 
 $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-WardlineFeatures -Features $featureList
-$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' })
+$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' })
 $endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
@@ -500,6 +505,10 @@ if (-not $SkipCode) {
     $pkgVersion = Get-WardlinePackageVersion -Path $PackagePath
     $templateHash = if ($template -like '*.json') { (Get-FileHash -Algorithm SHA256 $template).Hash.ToLowerInvariant() } else { $null }
     Set-WardlineVersionTags -ResourceGroup $ResourceGroup -FunctionAppName $infra.FunctionAppName -Version $pkgVersion -TemplateSha256 $templateHash
+    # Keep WL_MODULES aligned with selected features; this also enables optional modules that may not be represented by template booleans.
+    $moduleSetting = ($modules -join ',')
+    Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'set', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '--settings', "WL_MODULES=$moduleSetting", '-o', 'none') | Out-Null
+    Write-Ok "Modules: $moduleSetting"
     if ($pkgVersion) { Write-Ok "Version $pkgVersion" }
 }
 
@@ -509,7 +518,7 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
-        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' })
+        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' })
         foreach ($fn in $fns) {
             Invoke-RestMethod -Method Post -Uri "https://$($infra.HostName)/admin/functions/$fn" -Headers @{ 'x-functions-key' = $keys.masterKey } -ContentType 'application/json' -Body '{"input":""}' | Out-Null
         }

@@ -15,6 +15,7 @@ the install, grant and app registration scripts all read it.
 | `Access` | off | Defender XDR unified RBAC: roles, assignments, data-source scope, PIM eligibility and activations, access packages, portal usage, Entra bypass roles; API apps with Defender permissions, access reviews, PIM activation rules | Graph: `RoleManagement.Read.Defender`, `RoleManagement.Read.Directory`, `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup`, `EntitlementManagement.Read.All`, `AuditLog.Read.All`, `Directory.Read.All`, `AccessReview.Read.All`, `RoleManagementPolicy.Read.AzureADGroup` |
 | `Audit` | off | Defender for Endpoint portal activity from the Purview unified audit log: offboarding package downloads, live response, setting changes | Graph: `AuditLogsQuery.Read.All` |
 | `Licensing` | off | Defender for Endpoint licence indication: plans owned, entitled users, onboarded client devices and their users ([Licensing module](modules/licensing.md)); needs `Hunting` | Graph: `Organization.Read.All`, `User.Read.All` |
+| `OfficePreview` | off | Defender for Office 365 private preview: telemetry probes, policy map and anti-phish drift ([Office preview module](modules/office-preview.md)); uses Advanced Hunting data | Graph: `ThreatHunting.Read.All` |
 | `Inventory` | off | Device inventory via Intune Remediations (use `-DeviceInventory`) | Graph: `DeviceManagementScripts.Read.All`, `DeviceManagementManagedDevices.Read.All` |
 
 ```powershell
@@ -26,6 +27,9 @@ the install, grant and app registration scripts all read it.
 
 # Add the optional access module later
 ./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,Access
+
+# Add the optional Office preview module (private preview)
+./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
 ```
 
 - **Switching a feature off** and running the script again removes the permissions that are no longer needed.

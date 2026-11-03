@@ -60,6 +60,7 @@ nav:
       - AI agents: modules/agents.md
       - Access (optional): modules/access.md
       - Licensing (optional): modules/licensing.md
+      - Office preview (optional, private preview): modules/office-preview.md
   - Using Wardline:
       - Portal: portal.md
       - Customising the baseline: baseline.md

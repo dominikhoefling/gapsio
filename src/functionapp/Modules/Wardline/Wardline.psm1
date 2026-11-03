@@ -2,17 +2,17 @@
 # Wardline core module. Loads the parts (Core, Endpoint, Agents, Access, Licensing).
 $ErrorActionPreference = 'Stop'
 
-foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'Assistant.ps1')) {
+foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'OfficeAntiPhish.ps1', 'OfficePreview.ps1', 'Assistant.ps1')) {
     . (Join-Path $PSScriptRoot $part)
 }
 
 function Invoke-WlCollection {
     <#
     .SYNOPSIS
-    Runs the data collection for a module ('endpoint', 'agents', 'access', 'licensing' or 'all').
+    Runs the data collection for a module ('endpoint', 'agents', 'access', 'licensing', 'officepreview' or 'all').
     'all' covers the enabled modules only (app setting WL_MODULES).
     #>
-    param([ValidateSet('endpoint', 'agents', 'access', 'licensing', 'all')][string]$Module = 'all')
+    param([ValidateSet('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'all')][string]$Module = 'all')
     $enabled = Get-WlModules
     $todo = if ($Module -eq 'all') { $enabled } else { @($Module) }
     $results = @()
@@ -23,6 +23,7 @@ function Invoke-WlCollection {
             'agents' { $results += Invoke-WlAgentsCollection }
             'access' { $results += Invoke-WlAccessCollection }
             'licensing' { $results += Invoke-WlLicensingCollection }
+            'officepreview' { $results += Invoke-WlOfficePreviewCollection }
         }
     }
     if ($todo -contains 'endpoint') { try { Update-WlReleaseInfo | Out-Null } catch { Write-Warning "Update check: $($_.Exception.Message)" } }

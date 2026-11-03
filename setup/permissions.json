@@ -245,6 +245,19 @@
           "why": "Assigned service plans per user (which users hold an MDE P1/P2 or Defender for Business plan)"
         }
       ]
+    },
+    {
+      "id": "OfficePreview",
+      "default": false,
+      "module": "officepreview",
+      "name": "Office preview (private preview): telemetry-based Defender for Office 365 view (policy map, anti-phish drift, outcome trends)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "ThreatHunting.Read.All",
+          "why": "Advanced Hunting queries for EmailEvents/UrlClickEvents/CloudAppEvents (MDO telemetry and anti-phish change history)"
+        }
+      ]
     }
   ]
 }
