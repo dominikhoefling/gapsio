@@ -6,6 +6,17 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 
 ## [Unreleased]
 
+### Added
+- **Office preview module (optional, private preview)**: `-Features Endpoint,Agents,OfficePreview` enables the `officepreview`
+  module (`ThreatHunting.Read.All`). It collects anti-phish policy drift from Defender for Office 365 audit events (who changed
+  which setting, direction *weakened*/*hardened*) and sets each change against phishing outcomes before and after
+  (delivered vs. blocked, per policy, 400-day history). Portal: *Office preview*, *Phish drift* and *Policy map*.
+  Findings `office.antiphish_weakened` (High) and `office.antiphish_delivery_up` (Medium).
+- Installer writes `WL_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
+
+### Changed
+- Documentation is published at https://wardline.cloud/docs/ (canonical); GitHub Pages remains as the build source.
+
 ## [0.5.0] – 2026-11-02
 
 ### Added
