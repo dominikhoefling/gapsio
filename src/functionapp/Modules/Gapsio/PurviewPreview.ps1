@@ -267,7 +267,11 @@ DeviceFileEvents
     $lic = $null; try { $lic = Get-GapsioPurviewLicensing } catch { Add-GapsioWarning "Purview licensing: $($_.Exception.Message)" }
     $roles = @(); try { $roles = Get-GapsioPurviewRoleHolders } catch { Add-GapsioWarning "Purview roles: $($_.Exception.Message)" }
     $labels = $null
-    $lr = Invoke-GapsioGraphSafe -Beta -All -Path 'security/informationProtection/sensitivityLabels' -Context 'Sensitivity labels (InformationProtectionPolicy.Read.All)'
+    $lr = $null
+    foreach ($path in @('security/dataSecurityAndGovernance/sensitivityLabels', 'security/informationProtection/sensitivityLabels')) {
+        try { $lr = @(Invoke-GapsioGraph -Beta -All -Path $path); break } catch { $labelError = Get-GapsioErrorText -Exception $_.Exception -Context 'Sensitivity labels InformationProtectionPolicy.Read.All' }
+    }
+    if ($null -eq $lr -and $labelError) { Add-GapsioWarning "Sensitivity labels: $labelError" }
     if ($null -ne $lr) {
         $labels = @($lr | ForEach-Object { [ordered]@{ id = [string]$_.id; name = [string]$_.name; description = [string]$_.description; sensitivity = $_.sensitivity; isActive = $_.isActive; parent = [string](Get-GapsioProp (Get-GapsioProp $_ 'parent') 'name'); contentFormats = @($_.contentFormats) } })
     }
