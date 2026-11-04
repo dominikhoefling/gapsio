@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Gapsio.psm1'
-    ModuleVersion     = '0.5.0'
+    ModuleVersion     = '0.6.0'
     GUID              = '6b0f7c52-2a0e-4d6f-9a51-3c1d8e0b7a41'
     Author            = 'Gapsio'
     CompanyName       = 'Gapsio'
@@ -8,16 +8,16 @@
     Description       = 'Gapsio core: data collection and analysis for Microsoft Defender, AI agents (Entra Agent ID, local agents) and Entra/Intune RBAC.'
     PowerShellVersion = '7.2'
     FunctionsToExport = @(
-        'Get-WlSetting', 'Reset-WlWarnings', 'Add-WlWarning', 'Get-WlWarnings',
-        'Get-WlToken', 'Invoke-WlRest', 'Invoke-WlGraph', 'Invoke-WlGraphSafe', 'Invoke-WlGraphV1First', 'Invoke-WlHunting',
-        'Get-WlBlob', 'Get-WlBlobText', 'Set-WlBlob', 'Remove-WlBlob', 'Add-WlQueueMessage', 'Get-WlPage', 'Get-WlPagedMeta', 'Get-WlPagedCollection', 'Get-WlPagedIndex', 'Get-WlPagedIndexRaw', 'Search-WlDevices', 'Get-WlDevice',
-        'Get-WlHash', 'Get-WlSettingValues', 'Get-WlExclusionRisk', 'Get-WlIndicatorRisk',
-        'Compare-WlCollection', 'Save-WlSnapshot', 'Get-WlPrincipal', 'Get-WlBaseline', 'Test-WlBaselineValue',
-        'Invoke-WlEndpointCollection', 'Invoke-WlAccessCollection', 'Invoke-WlAgentsCollection', 'Invoke-WlLicensingCollection', 'Get-WlLicensingModel', 'Get-WlSkuDisplayName', 'Invoke-WlCollection',
-        'Get-WlModules', 'Test-WlModuleEnabled', 'Test-WlFeature', 'Get-WlVersion', 'Compare-WlVersion', 'Update-WlReleaseInfo', 'Get-WlAcceptances', 'Test-WlAcceptanceActive', 'Set-WlAcceptance', 'Get-WlAssignments', 'Set-WlAssignment', 'Search-WlDirectory', 'Send-WlNotification', 'Test-WlLicenseKey', 'Get-WlLicense', 'Set-WlLicense', 'Get-WlLicenseTier', 'Get-WlCommunityRows', 'Get-WlPageSize', 'Protect-WlCommunity', 'Protect-WlCommunityList', 'Hide-WlItem',
-        'Update-WlLocalExclusionState', 'Get-WlEndpointFindings', 'Test-WlBaseline',
-        'Test-WlAssistant', 'Get-WlAssistantContext', 'Invoke-WlAssistant',
-        'Update-WlOfficeAntiPhishHistory', 'ConvertFrom-WlAntiPhishParams', 'Get-WlAntiPhishChangeDirection', 'Test-WlAntiPhishPolicyMatch'
+        'Get-GapsioSetting', 'Reset-GapsioWarnings', 'Add-GapsioWarning', 'Get-GapsioWarnings',
+        'Get-GapsioToken', 'Invoke-GapsioRest', 'Invoke-GapsioGraph', 'Invoke-GapsioGraphSafe', 'Invoke-GapsioGraphV1First', 'Invoke-GapsioHunting',
+        'Get-GapsioBlob', 'Get-GapsioBlobText', 'Set-GapsioBlob', 'Remove-GapsioBlob', 'Add-GapsioQueueMessage', 'Get-GapsioPage', 'Get-GapsioPagedMeta', 'Get-GapsioPagedCollection', 'Get-GapsioPagedIndex', 'Get-GapsioPagedIndexRaw', 'Search-GapsioDevices', 'Get-GapsioDevice',
+        'Get-GapsioHash', 'Get-GapsioSettingValues', 'Get-GapsioExclusionRisk', 'Get-GapsioIndicatorRisk',
+        'Compare-GapsioCollection', 'Save-GapsioSnapshot', 'Get-GapsioPrincipal', 'Get-GapsioBaseline', 'Test-GapsioBaselineValue',
+        'Invoke-GapsioEndpointCollection', 'Invoke-GapsioAccessCollection', 'Invoke-GapsioAgentsCollection', 'Invoke-GapsioLicensingCollection', 'Get-GapsioLicensingModel', 'Get-GapsioSkuDisplayName', 'Invoke-GapsioCollection',
+        'Get-GapsioModules', 'Test-GapsioModuleEnabled', 'Test-GapsioFeature', 'Get-GapsioVersion', 'Compare-GapsioVersion', 'Update-GapsioReleaseInfo', 'Get-GapsioAcceptances', 'Test-GapsioAcceptanceActive', 'Set-GapsioAcceptance', 'Get-GapsioAssignments', 'Set-GapsioAssignment', 'Search-GapsioDirectory', 'Send-GapsioNotification', 'Test-GapsioLicenseKey', 'Get-GapsioLicense', 'Set-GapsioLicense', 'Get-GapsioLicenseTier', 'Get-GapsioCommunityRows', 'Get-GapsioPageSize', 'Protect-GapsioCommunity', 'Protect-GapsioCommunityList', 'Hide-GapsioItem',
+        'Update-GapsioLocalExclusionState', 'Get-GapsioEndpointFindings', 'Test-GapsioBaseline',
+        'Test-GapsioAssistant', 'Get-GapsioAssistantContext', 'Invoke-GapsioAssistant',
+        'Update-GapsioOfficeAntiPhishHistory', 'ConvertFrom-GapsioAntiPhishParams', 'Get-GapsioAntiPhishChangeDirection', 'Test-GapsioAntiPhishPolicyMatch'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

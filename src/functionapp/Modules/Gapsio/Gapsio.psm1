@@ -6,26 +6,26 @@ foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Ac
     . (Join-Path $PSScriptRoot $part)
 }
 
-function Invoke-WlCollection {
+function Invoke-GapsioCollection {
     <#
     .SYNOPSIS
     Runs the data collection for a module ('endpoint', 'agents', 'access', 'licensing', 'officepreview' or 'all').
-    'all' covers the enabled modules only (app setting WL_MODULES).
+    'all' covers the enabled modules only (app setting GAPSIO_MODULES).
     #>
     param([ValidateSet('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'all')][string]$Module = 'all')
-    $enabled = Get-WlModules
+    $enabled = Get-GapsioModules
     $todo = if ($Module -eq 'all') { $enabled } else { @($Module) }
     $results = @()
     foreach ($m in $todo) {
-        if ($enabled -notcontains $m) { Write-Warning "Module '$m' is not enabled (WL_MODULES) – skipped."; continue }
+        if ($enabled -notcontains $m) { Write-Warning "Module '$m' is not enabled (GAPSIO_MODULES) – skipped."; continue }
         switch ($m) {
-            'endpoint' { $results += Invoke-WlEndpointCollection }
-            'agents' { $results += Invoke-WlAgentsCollection }
-            'access' { $results += Invoke-WlAccessCollection }
-            'licensing' { $results += Invoke-WlLicensingCollection }
-            'officepreview' { $results += Invoke-WlOfficePreviewCollection }
+            'endpoint' { $results += Invoke-GapsioEndpointCollection }
+            'agents' { $results += Invoke-GapsioAgentsCollection }
+            'access' { $results += Invoke-GapsioAccessCollection }
+            'licensing' { $results += Invoke-GapsioLicensingCollection }
+            'officepreview' { $results += Invoke-GapsioOfficePreviewCollection }
         }
     }
-    if ($todo -contains 'endpoint') { try { Update-WlReleaseInfo | Out-Null } catch { Write-Warning "Update check: $($_.Exception.Message)" } }
+    if ($todo -contains 'endpoint') { try { Update-GapsioReleaseInfo | Out-Null } catch { Write-Warning "Update check: $($_.Exception.Message)" } }
     $results
 }

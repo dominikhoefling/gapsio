@@ -55,7 +55,7 @@ The overview page gets a short *Licences* block when the module is enabled; the 
 | Medium | *n* onboarded client(s) used only by users without a Defender for Endpoint licence | Every user seen on the device in 30 days has no MDE plan. Assign a plan (group-based licensing) or stop onboarding the device. |
 | Medium | *n* client(s) covered only by Plan 1 in a tenant using Plan 2 features | The device's users hold P1 only while the tenant has P2 SKUs; P1 has no EDR, vulnerability management or automated investigation – but the device gets them. |
 | Low | *n* licensed user(s) without an onboarded device in 30 days | Possibly unused licences – or a device that is not onboarded, has no interactive logons (VDI, Mac without Intune), or was inactive. Cross-check with Coverage. |
-| Low | *n* user(s) seen on more than `WL_LICENSING_DEVICES_PER_USER` (5) devices | Above the per-user allowance – or an administrator / technician account that logs on everywhere. |
+| Low | *n* user(s) seen on more than `GAPSIO_LICENSING_DEVICES_PER_USER` (5) devices | Above the per-user allowance – or an administrator / technician account that logs on everywhere. |
 | Low | *n* onboarded server(s) – no server licence visible in Microsoft 365 | Normal when servers are licensed through Defender for Servers in Azure. Confirm it there. |
 
 Aggregated findings carry `deviceCount` and `deviceSample` like fleet findings and keep a stable key, so an accepted exception survives count changes.
@@ -71,16 +71,16 @@ Aggregated findings carry `deviceCount` and `deviceSample` like fleet findings a
 
 ## Data protection
 
-The snapshot contains UPNs and display names of licensed users and the accounts seen on each device. If that is more than you want to store, set the app setting `WL_LICENSING_DETAIL = aggregate`: user identities are replaced by stable pseudonyms (`user-xxxxxxxx`), display names are dropped, and only counts remain meaningful. The Community edition masks user rows beyond the first ten in any case.
+The snapshot contains UPNs and display names of licensed users and the accounts seen on each device. If that is more than you want to store, set the app setting `GAPSIO_LICENSING_DETAIL = aggregate`: user identities are replaced by stable pseudonyms (`user-xxxxxxxx`), display names are dropped, and only counts remain meaningful. The Community edition masks user rows beyond the first ten in any case.
 
 ## Settings
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `WL_SCHEDULE_LICENSING` | `0 17 3 * * *` | NCRONTAB schedule of the collector (UTC) |
-| `WL_LICENSING_DAYS` | `30` | Observation window for logons and device activity (7–90) |
-| `WL_LICENSING_DEVICES_PER_USER` | `5` | Device allowance used for the *above n devices* hint |
-| `WL_LICENSING_DETAIL` | `users` | `aggregate` pseudonymises users in the snapshot |
+| `GAPSIO_SCHEDULE_LICENSING` | `0 17 3 * * *` | NCRONTAB schedule of the collector (UTC) |
+| `GAPSIO_LICENSING_DAYS` | `30` | Observation window for logons and device activity (7–90) |
+| `GAPSIO_LICENSING_DEVICES_PER_USER` | `5` | Device allowance used for the *above n devices* hint |
+| `GAPSIO_LICENSING_DETAIL` | `users` | `aggregate` pseudonymises users in the snapshot |
 
 ## Permissions
 

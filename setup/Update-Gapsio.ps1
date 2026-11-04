@@ -24,7 +24,7 @@
     ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -CheckOnly
 
 .EXAMPLE
-    ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.5.0
+    ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.6.0
 
 .EXAMPLE
     # Offline: release assets downloaded beforehand into one folder
@@ -55,12 +55,12 @@ $installed = if ($fa.tags.PSObject.Properties['gapsio-version']) { $fa.tags.'gap
 $installedTemplate = if ($fa.tags.PSObject.Properties['gapsio-template']) { $fa.tags.'gapsio-template' } else { $null }
 $settings = @{}
 foreach ($s in ((Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'list', '-g', $ResourceGroup, '-n', $fa.name, '-o', 'json')) | ConvertFrom-Json)) { $settings[$s.name] = $s.value }
-$modules = @(([string]$settings['WL_MODULES']) -split '[,; ]+' | Where-Object { $_ })
+$modules = @(([string]$settings['GAPSIO_MODULES']) -split '[,; ]+' | Where-Object { $_ })
 if (-not $modules) { $modules = @('endpoint', 'agents') }
-$epFeatures = @(([string]$settings['WL_FEATURES']) -split '[,; ]+' | Where-Object { $_ })
-if (-not $settings.ContainsKey('WL_FEATURES')) { $epFeatures = @('hunting', 'indicators') }
+$epFeatures = @(([string]$settings['GAPSIO_FEATURES']) -split '[,; ]+' | Where-Object { $_ })
+if (-not $settings.ContainsKey('GAPSIO_FEATURES')) { $epFeatures = @('hunting', 'indicators') }
 $features = @('Core') + @($epFeatures | ForEach-Object { (Get-Culture).TextInfo.ToTitleCase($_.ToLowerInvariant()) }) +
-    $(if ($settings['WL_DEVICE_INVENTORY'] -eq 'true') { 'Inventory' }) + $(if ($modules -contains 'agents') { 'Agents' }) + $(if ($modules -contains 'access') { 'Access' }) + $(if ($modules -contains 'licensing') { 'Licensing' }) + $(if ($modules -contains 'officepreview') { 'OfficePreview' })
+    $(if ($settings['GAPSIO_DEVICE_INVENTORY'] -eq 'true') { 'Inventory' }) + $(if ($modules -contains 'agents') { 'Agents' }) + $(if ($modules -contains 'access') { 'Access' }) + $(if ($modules -contains 'licensing') { 'Licensing' }) + $(if ($modules -contains 'officepreview') { 'OfficePreview' })
 $features = @($features | Where-Object { $_ } | Select-Object -Unique)
 Write-Ok "Function App:  $($fa.name)"
 Write-Ok "Installed:     $(if ($installed) { $installed } else { 'unknown (installed before version tags existed)' })"
@@ -126,10 +126,10 @@ try {
     Write-Step 'Checking permissions for the installed features'
     if (Test-Path (Join-Path $work 'permissions.json')) { $script:GapsioPermissionsPath = Join-Path $work 'permissions.json' }
     $principalId = $null
-    if ($settings['WL_DATA_APP_ID']) {
-        $sp = Get-ServicePrincipalByAppId -AppId $settings['WL_DATA_APP_ID'] -Select 'id,appId,displayName'
+    if ($settings['GAPSIO_DATA_APP_ID']) {
+        $sp = Get-ServicePrincipalByAppId -AppId $settings['GAPSIO_DATA_APP_ID'] -Select 'id,appId,displayName'
         $principalId = $sp.id
-        $who = "data-access app $($settings['WL_DATA_APP_ID'])"
+        $who = "data-access app $($settings['GAPSIO_DATA_APP_ID'])"
     }
     else {
         $principalId = ((Invoke-Az -Arguments @('identity', 'list', '-g', $ResourceGroup, '--query', "[?ends_with(name, '-runner')] | [0].principalId", '-o', 'tsv')) ?? '').Trim()

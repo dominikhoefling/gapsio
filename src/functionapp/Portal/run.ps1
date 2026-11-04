@@ -22,7 +22,7 @@ function Send-File {
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{ StatusCode = [HttpStatusCode]$Status; Body = $Body; ContentType = $ContentType; Headers = $h })
 }
 
-$principal = Get-WlPrincipal -Request $Request
+$principal = Get-GapsioPrincipal -Request $Request
 if (-not $principal.ok) {
     $msg = [System.Net.WebUtility]::HtmlEncode($principal.message)
     Send-File -Status $principal.status -ContentType 'text/html; charset=utf-8' -Body "<!doctype html><html lang=`"de`"><meta charset=`"utf-8`"><title>Gapsio</title><body><h1>Gapsio</h1><p>$msg</p></body></html>"

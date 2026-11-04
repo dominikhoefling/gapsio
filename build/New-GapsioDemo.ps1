@@ -101,7 +101,7 @@ $keep = @(Get-ChildItem -Recurse -File -Path (Join-Path $root 'src/functionapp/M
 $tree = $data | ConvertTo-Json -Depth 64 -Compress | ConvertFrom-Json -AsHashtable -Depth 64
 $mapper = Protect-GapsioDemoData -Data $tree -DenyTerms $DenyTerms -KeepGuids $keep
 $tree.me.upn = 'alice.demo@contoso.example'; $tree.me.displayName = 'Alice (Demo)'
-$tree.license = [ordered]@{ status = 'Valid'; licenseId = 'WL-DEMO'; customer = 'Contoso (Demo)'; plan = 'Annual'; tenantId = $tree.me.tenantId; issued = [DateTime]::UtcNow.AddMonths(-2).ToString('yyyy-MM-dd'); expires = $tree.me.license.expires; daysLeft = 300; source = 'Portal'; setBy = 'alice.demo@contoso.example'; setAt = [DateTime]::UtcNow.AddMonths(-2).ToString('o') }
+$tree.license = [ordered]@{ status = 'Valid'; licenseId = 'GP-DEMO'; customer = 'Contoso (Demo)'; plan = 'Annual'; tenantId = $tree.me.tenantId; issued = [DateTime]::UtcNow.AddMonths(-2).ToString('yyyy-MM-dd'); expires = $tree.me.license.expires; daysLeft = 300; source = 'Portal'; setBy = 'alice.demo@contoso.example'; setAt = [DateTime]::UtcNow.AddMonths(-2).ToString('o') }
 $json = $tree | ConvertTo-Json -Depth 64 -Compress
 $leaks = @(Test-GapsioDemoLeaks -Json $json -Mapper $mapper -DenyTerms $DenyTerms)
 if ($leaks.Count) { Remove-Item $tmp -Recurse -Force; throw "Demo data not clean – nothing written:`n  $($leaks -join "`n  ")" }

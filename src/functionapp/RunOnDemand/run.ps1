@@ -11,4 +11,4 @@ try {
 catch { Write-Warning "Unreadable message, running all modules: $($_.Exception.Message)" }
 
 Write-Information "Manual run: $module" -InformationAction Continue
-Invoke-WlCollection -Module $module | Out-Null
+Invoke-GapsioCollection -Module $module | Out-Null

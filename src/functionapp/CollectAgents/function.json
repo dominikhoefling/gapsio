@@ -1,5 +1,5 @@
 {
   "bindings": [
-    { "name": "Timer", "type": "timerTrigger", "direction": "in", "schedule": "%WL_SCHEDULE_AGENTS%" }
+    { "name": "Timer", "type": "timerTrigger", "direction": "in", "schedule": "%GAPSIO_SCHEDULE_AGENTS%" }
   ]
 }

@@ -1,10 +1,10 @@
-function Invoke-WlOfficePreviewCollection {
+function Invoke-GapsioOfficePreviewCollection {
     <#
     .SYNOPSIS
     Builds state/office-preview-latest.json from Defender Advanced Hunting (MDO telemetry).
     Private preview module for lab validation.
     #>
-    if (-not (Test-WlFeature -Name 'hunting')) {
+    if (-not (Test-GapsioFeature -Name 'hunting')) {
         $out = [ordered]@{
             generatedAt = [DateTime]::UtcNow.ToString('o')
             windowDays  = 30
@@ -13,7 +13,7 @@ function Invoke-WlOfficePreviewCollection {
             results     = @([ordered]@{ key = 'hunting'; title = 'Advanced Hunting access'; workload = 'platform'; status = 'error'; error = 'ThreatHunting.Read.All is not enabled in this installation.'; result = @() })
             findings    = @()
         }
-        Set-WlBlob -Container 'state' -Name 'office-preview-latest.json' -Object $out
+        Set-GapsioBlob -Container 'state' -Name 'office-preview-latest.json' -Object $out
         return $out
     }
 
@@ -257,7 +257,7 @@ EmailEvents
     $ok = 0; $errors = 0
     foreach ($p in $probes) {
         try {
-            $r = Invoke-WlHuntingSafe -NoShard -Context "office preview $($p.key)" -Timespan 'P30D' -Query $p.query
+            $r = Invoke-GapsioHuntingSafe -NoShard -Context "office preview $($p.key)" -Timespan 'P30D' -Query $p.query
             $all = @($r)
             $maxRows = if ($p.maxRows) { [int]$p.maxRows } else { 1 }
             $resultRows = if ($p.returnMany) { @($all | Select-Object -First $maxRows) } else { @($all | Select-Object -First 1) }
@@ -341,7 +341,7 @@ EmailEvents
 
     # Optional licensing context from the existing licensing module snapshot.
     try {
-        $lic = Get-WlBlob -Container 'state' -Name 'licensing-latest.json'
+        $lic = Get-GapsioBlob -Container 'state' -Name 'licensing-latest.json'
         if ($lic -and $lic.summary) {
             $summary = $lic.summary
             $rows.Add([ordered]@{
@@ -370,7 +370,7 @@ EmailEvents
             }
         }
         else {
-            $rows.Add([ordered]@{ key = 'licensing_context'; title = 'Licensing context (from licensing module snapshot)'; workload = 'Licensing'; status = 'ok'; error = $null; result = @([ordered]@{ state = 'unavailable'; reason = 'Licensing module not enabled or not run yet'; action = 'Enable module "licensing" in WL_MODULES and run it once.' }) })
+            $rows.Add([ordered]@{ key = 'licensing_context'; title = 'Licensing context (from licensing module snapshot)'; workload = 'Licensing'; status = 'ok'; error = $null; result = @([ordered]@{ state = 'unavailable'; reason = 'Licensing module not enabled or not run yet'; action = 'Enable module "licensing" in GAPSIO_MODULES and run it once.' }) })
         }
     }
     catch {
@@ -380,7 +380,7 @@ EmailEvents
     # Anti-phish policy drift: settings history (Exchange admin audit) + phish outcomes per policy/day.
     $antiphish = $null
     try {
-        $ap = Update-WlOfficeAntiPhishHistory
+        $ap = Update-GapsioOfficeAntiPhishHistory
         foreach ($r in @($ap.rows)) { $rows.Add($r); if ($r.status -eq 'ok') { $ok++ } else { $errors++ } }
         foreach ($f in @($ap.findings)) { $findings.Add($f) }
         $antiphish = $ap.antiphish
@@ -400,6 +400,6 @@ EmailEvents
         findings    = @($findings)
         antiphish   = $antiphish
     }
-    Set-WlBlob -Container 'state' -Name 'office-preview-latest.json' -Object $out -Depth 16
+    Set-GapsioBlob -Container 'state' -Name 'office-preview-latest.json' -Object $out -Depth 16
     $out
 }

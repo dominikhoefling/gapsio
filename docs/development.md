@@ -75,7 +75,7 @@ repository** – keep it offline with a backup (password manager). The matching 
     -TenantId <customer tenant id> -Customer 'Contoso GmbH' -Plan Annual -Months 12
 
 # Show what a key contains
-./build/New-GapsioLicense.ps1 -Inspect 'WL1.…'
+./build/New-GapsioLicense.ps1 -Inspect 'GP1.…'
 ```
 
 Losing the private key means no new keys can be issued for existing installations until a release with a new public
