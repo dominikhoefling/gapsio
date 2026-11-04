@@ -437,7 +437,7 @@
     {
       "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
       "apiVersion": "2023-05-01",
-      "name": "[format('{0}/{1}/{2}', variables('storageName'), 'default', 'wl-run')]",
+      "name": "[format('{0}/{1}/{2}', variables('storageName'), 'default', 'gapsio-run')]",
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/queueServices', variables('storageName'), 'default')]"
       ]
@@ -710,91 +710,91 @@
               "value": "4"
             },
             {
-              "name": "WL_CLIENT_ID",
+              "name": "GAPSIO_CLIENT_ID",
               "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').clientId]"
             },
             {
-              "name": "WL_TENANT_ID",
+              "name": "GAPSIO_TENANT_ID",
               "value": "[tenant().tenantId]"
             },
             {
-              "name": "WL_STORAGE_ACCOUNT",
+              "name": "GAPSIO_STORAGE_ACCOUNT",
               "value": "[variables('storageName')]"
             },
             {
-              "name": "WL_STORAGE_SUFFIX",
+              "name": "GAPSIO_STORAGE_SUFFIX",
               "value": "[environment().suffixes.storage]"
             },
             {
-              "name": "WL_SCHEDULE_ENDPOINT",
+              "name": "GAPSIO_SCHEDULE_ENDPOINT",
               "value": "[parameters('scheduleEndpoint')]"
             },
             {
-              "name": "WL_SCHEDULE_ACCESS",
+              "name": "GAPSIO_SCHEDULE_ACCESS",
               "value": "[parameters('scheduleAccess')]"
             },
             {
-              "name": "WL_SCHEDULE_LICENSING",
+              "name": "GAPSIO_SCHEDULE_LICENSING",
               "value": "[parameters('scheduleLicensing')]"
             },
             {
-              "name": "WL_CHANGE_RETENTION_DAYS",
+              "name": "GAPSIO_CHANGE_RETENTION_DAYS",
               "value": "[string(variables('changeDays'))]"
             },
             {
-              "name": "WL_SNAPSHOT_RETENTION_DAYS",
+              "name": "GAPSIO_SNAPSHOT_RETENTION_DAYS",
               "value": "[string(variables('snapshotDays'))]"
             },
             {
-              "name": "WL_DEVICE_INVENTORY",
+              "name": "GAPSIO_DEVICE_INVENTORY",
               "value": "[if(parameters('deviceInventory'), 'true', 'false')]"
             },
             {
-              "name": "WL_MODULES",
+              "name": "GAPSIO_MODULES",
               "value": "[variables('modules')]"
             },
             {
-              "name": "WL_FEATURES",
+              "name": "GAPSIO_FEATURES",
               "value": "[parameters('features')]"
             },
             {
-              "name": "WL_DATA_APP_ID",
+              "name": "GAPSIO_DATA_APP_ID",
               "value": "[parameters('dataAppId')]"
             },
             {
-              "name": "WL_UPDATE_CHECK",
+              "name": "GAPSIO_UPDATE_CHECK",
               "value": "[string(parameters('updateCheck'))]"
             },
             {
-              "name": "WL_NOTIFY_WEBHOOK",
+              "name": "GAPSIO_NOTIFY_WEBHOOK",
               "value": "[parameters('notifyWebhook')]"
             },
             {
-              "name": "WL_NOTIFY_MIN_SEVERITY",
+              "name": "GAPSIO_NOTIFY_MIN_SEVERITY",
               "value": "[parameters('notifyMinSeverity')]"
             },
             {
-              "name": "WL_LICENSE_KEY",
+              "name": "GAPSIO_LICENSE_KEY",
               "value": "[parameters('licenseKey')]"
             },
             {
-              "name": "WL_SCHEDULE_AGENTS",
+              "name": "GAPSIO_SCHEDULE_AGENTS",
               "value": "[parameters('scheduleAgents')]"
             },
             {
-              "name": "WL_ASSISTANT",
+              "name": "GAPSIO_ASSISTANT",
               "value": "[if(parameters('enableAssistant'), 'true', 'false')]"
             },
             {
-              "name": "WL_AI_ENDPOINT",
+              "name": "GAPSIO_AI_ENDPOINT",
               "value": "[if(parameters('enableAssistant'), variables('aiEndpoint'), '')]"
             },
             {
-              "name": "WL_AI_DEPLOYMENT",
+              "name": "GAPSIO_AI_DEPLOYMENT",
               "value": "[if(parameters('enableAssistant'), parameters('assistantDeployment'), '')]"
             },
             {
-              "name": "WL_AI_EMBEDDING_DEPLOYMENT",
+              "name": "GAPSIO_AI_EMBEDDING_DEPLOYMENT",
               "value": "[if(parameters('enableAssistant'), parameters('assistantEmbeddingDeployment'), '')]"
             }
           ]

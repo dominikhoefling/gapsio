@@ -219,7 +219,7 @@
     'lic.community.export': ['The export contains only the unmasked entries.', 'Der Export enthält nur die unmaskierten Einträge.'],
     'lic.status': ['Status', 'Status'], 'lic.customer': ['Licensed to', 'Lizenziert für'], 'lic.plan': ['Plan', 'Tarif'], 'lic.expires': ['Valid until', 'Gültig bis'], 'lic.id': ['Licence ID', 'Lizenz-ID'],
     'lic.tenant': ['Tenant', 'Tenant'], 'lic.source': ['Entered', 'Hinterlegt'], 'lic.src.Portal': ['in the portal by {0} on {1}', 'im Portal von {0} am {1}'], 'lic.src.AppSetting': ['at installation (-LicenseKey)', 'bei der Installation (-LicenseKey)'],
-    'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with WL1.)', 'Lizenzschlüssel (beginnt mit WL1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
+    'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with GP1.)', 'Lizenzschlüssel (beginnt mit GP1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
     'lic.saved': ['Licence saved.', 'Lizenz gespeichert.'], 'lic.buy': ['Get a licence', 'Lizenz erwerben'], 'lic.days': ['{0} days left', 'noch {0} Tage'],
     'lic.st.None': ['No licence (Community edition)', 'Keine Lizenz (Community-Edition)'], 'lic.st.Valid': ['Valid', 'Gültig'], 'lic.st.ExpiringSoon': ['Expires soon', 'Läuft bald ab'],
     'lic.st.Expired': ['Expired', 'Abgelaufen'], 'lic.st.Invalid': ['Invalid key', 'Ungültiger Schlüssel'], 'lic.st.WrongTenant': ['Key belongs to another tenant', 'Schlüssel gehört zu einem anderen Tenant'],
@@ -403,7 +403,7 @@
     'li.clientsShared': ['shared, kiosk or VDI clients', 'geteilte, Kiosk- oder VDI-Clients'], 'li.clientsNoUserPersonal': ['personal clients without any user seen', 'persönliche Clients ohne erkannten Benutzer'], 'li.svcAccounts': ['service / admin accounts ignored', 'Dienst-/Admin-Konten ignoriert'],
     'li.sharedDeviceCount': ['Shared devices', 'Geteilte Geräte'], 'li.sharedDevices.hint': ['Shared, kiosk and VDI devices the user was seen on – they do not count against the limit.', 'Geteilte, Kiosk- und VDI-Geräte, auf denen der Benutzer gesehen wurde – sie zählen nicht gegen das Limit.'],
     'li.serversTable': ['Servers', 'Server'], 'li.servers.lede': ['Onboarded servers are licensed per server (Defender for Servers via Defender for Cloud, or Defender for Endpoint for Servers). Microsoft Graph does not show these; the count is here so you can reconcile it with Azure.', 'Onboardete Server werden pro Server lizenziert (Defender for Servers über Defender for Cloud oder Defender for Endpoint for Servers). Microsoft Graph zeigt diese nicht; die Zahl steht hier zum Abgleich mit Azure.'],
-    'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (WL_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (WL_LICENSING_DETAIL=aggregate).'],
+    'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (GAPSIO_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (GAPSIO_LICENSING_DETAIL=aggregate).'],
     'li.none': ['No data.', 'Keine Daten.'], 'li.window': ['Observation window: {0} days · device allowance per user used for the hint: {1}', 'Beobachtungszeitraum: {0} Tage · für den Hinweis verwendete Gerätegrenze pro Benutzer: {1}'],
     'dv.sigver': ['Signature version', 'Signaturversion'], 'dv.engver': ['Engine / platform', 'Engine / Plattform'], 'dv.sigtime': ['Signatures published', 'Signaturen veröffentlicht'],
     'dv.target': ['Target', 'Soll'], 'dv.effective': ['On the device', 'Auf dem Gerät'], 'dv.none': ['None.', 'Keine.'],
@@ -2371,7 +2371,7 @@
             ? 'Licensing snapshot is not available yet in this environment.'
             : (g.why || t('none'));
           const next = (r.key === 'licensing_context' && (x.state || '') === 'unavailable')
-            ? 'Enable module "licensing" in WL_MODULES and run it once; then rerun office preview.'
+            ? 'Enable module "licensing" in GAPSIO_MODULES and run it once; then rerun office preview.'
             : (g.next || t('none'));
           return h('div', null,
             dl([
@@ -2737,7 +2737,7 @@
         [t('lic.customer'), l.customer], [t('lic.plan'), l.plan ? code('lic.plan', l.plan) : null], [t('lic.expires'), l.expires ? fmtDay(l.expires) : null],
         [t('lic.id'), l.licenseId ? h('span', { class: 'mono' }, l.licenseId) : null], [t('lic.tenant'), l.tenantId ? h('span', { class: 'mono' }, l.tenantId) : (state.me.tenantId || null)],
         [t('lic.source'), l.source === 'Portal' ? t('lic.src.Portal', l.setBy || '–', fmtDate(l.setAt)) : l.source ? t('lic.src.AppSetting') : null]])));
-      const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'WL1.…', 'aria-label': t('lic.key') });
+      const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'GP1.…', 'aria-label': t('lic.key') });
       const form = h('form', { class: 'license-form' }, h('label', null, t('lic.key'), ta),
         h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('lic.save')), h('a', { class: 'btn', href: 'https://gapsio.cloud/pricing', target: '_blank', rel: 'noopener noreferrer' }, t('lic.buy'))));
       form.addEventListener('submit', async (e) => {
@@ -2885,7 +2885,7 @@
 
   const licenseShort = (l) => l.status === 'Valid' ? `${code('lic.plan', l.plan)} · ${fmtDay(l.expires)}` : code('lic.st', l.status);
 
-  // ---------- Assistant (optional, WL_ASSISTANT) ----------
+  // ---------- Assistant (optional, GAPSIO_ASSISTANT) ----------
   const ai = { history: [], open: false, busy: false };
   function renderAssistant() {
     let fab = $('#ai-fab'), panel = $('#ai-panel');

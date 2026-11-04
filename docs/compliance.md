@@ -67,8 +67,8 @@ Gapsio processes personal data (user principal names, device names, role assignm
 | Principle (Art. 5) / Obligation | How Gapsio addresses it |
 |---|---|
 | Purpose limitation | Read-only collection, fixed set of Graph/Defender queries per module; no alert or content data |
-| Data minimisation | Only the attributes needed for a finding are stored. `WL_LICENSING_DETAIL=aggregate` pseudonymises UPNs in the licensing snapshot; the Community edition masks names in exports |
-| Storage limitation | `WL_SNAPSHOT_RETENTION_DAYS` and `WL_CHANGE_RETENTION_DAYS` (default 365) enforced by a storage lifecycle rule |
+| Data minimisation | Only the attributes needed for a finding are stored. `GAPSIO_LICENSING_DETAIL=aggregate` pseudonymises UPNs in the licensing snapshot; the Community edition masks names in exports |
+| Storage limitation | `GAPSIO_SNAPSHOT_RETENTION_DAYS` and `GAPSIO_CHANGE_RETENTION_DAYS` (default 365) enforced by a storage lifecycle rule |
 | Integrity and confidentiality | Data stays in your own Azure subscription; Entra ID sign-in with role-based portal access; no outbound transfer except the optional update check (no tenant data) |
 | Accountability (Art. 5(2), Art. 30) | Portal access log; this page and [Architecture and data protection](security.md) as input to the record of processing activities |
 | Data protection by design (Art. 25) | Optional modules are off by default; permissions are granted per feature ([Features and permissions](permissions.md)) |
@@ -81,7 +81,7 @@ A short description of the processing for your record of processing activities i
 Use this before an audit to make sure the evidence is complete:
 
 - [ ] All modules that are in scope are enabled and have collected within the last 24 hours (Portal → Overview shows the collection timestamp).
-- [ ] Snapshot and change retention cover the audit period (`WL_SNAPSHOT_RETENTION_DAYS`, `WL_CHANGE_RETENTION_DAYS`).
+- [ ] Snapshot and change retention cover the audit period (`GAPSIO_SNAPSHOT_RETENTION_DAYS`, `GAPSIO_CHANGE_RETENTION_DAYS`).
 - [ ] The Defender Antivirus baseline has been reviewed and deviations are either fixed or documented ([Customising the baseline](baseline.md)).
 - [ ] High findings have an owner and a due date outside Gapsio (ticketing system).
 - [ ] Device exclusions for devices that must not be onboarded (e.g. lab systems) are documented.

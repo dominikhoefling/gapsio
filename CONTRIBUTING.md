@@ -44,7 +44,7 @@ tenant: [docs/testing.md](docs/testing.md).
    fix text in English and German. Link the Microsoft Learn page.
 3. **No tenant data in code or docs.** Tests use the fictitious `fabrikam.de` data in `tests/`.
 4. **Degrade, don't fail.** Microsoft changes beta APIs. Wrap calls so a failing source becomes a notice in the run,
-   not a failed run (see `Invoke-WlGraph` and the notice helpers in `Core.ps1`).
+   not a failed run (see `Invoke-GapsioGraph` and the notice helpers in `Core.ps1`).
 5. **Both languages.** Portal strings go into the dictionary in `www/`; documentation is English, the portal is EN/DE.
 
 ## Pull requests
@@ -59,7 +59,7 @@ tenant: [docs/testing.md](docs/testing.md).
 
 ## Style
 
-PowerShell: `Verb-WlNoun` for functions, 4-space indent, no aliases in scripts, `[CmdletBinding()]`, explicit
+PowerShell: `Verb-GapsioNoun` for functions, 4-space indent, no aliases in scripts, `[CmdletBinding()]`, explicit
 `-ErrorAction`. JavaScript/CSS: no frameworks, no build step, no third-party code – the portal ships without
 dependencies on purpose (see [docs/trust.md](docs/trust.md)). `.editorconfig` has the rest.
 

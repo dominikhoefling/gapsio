@@ -22,7 +22,7 @@ param(
     [string]$Location = 'germanywestcentral',
     [ValidateLength(1, 15)][string]$VmName = 'wl-test-win11',
     [string]$Size = 'Standard_B2ms',
-    [string]$AdminUser = 'wladmin',
+    [string]$AdminUser = 'gapsioadmin',
     [securestring]$AdminPassword,
     [string]$AllowRdpFrom,
     [string]$ShutdownUtc = '1800',
@@ -88,7 +88,7 @@ Write-Ok "VM running; daily auto-shutdown at $($ShutdownUtc.Insert(2, ':')) UTC"
 
 if ($OnboardingPackage) {
     Write-Step 'Defender for Endpoint onboarding via Run Command'
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) "wl-onboard-$([guid]::NewGuid().ToString('n'))"
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "gapsio-onboard-$([guid]::NewGuid().ToString('n'))"
     Expand-Archive -Path $OnboardingPackage -DestinationPath $tmp -Force
     $cmd = Get-ChildItem -Path $tmp -Recurse -Filter '*Onboarding*.cmd' | Select-Object -First 1
     if (-not $cmd) { throw 'No *Onboarding*.cmd found in the package. Please use the Windows 10/11 package (Group Policy or Local Script).' }

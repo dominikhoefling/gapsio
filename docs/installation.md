@@ -51,9 +51,9 @@ Re-runs and updates find an existing installation by the tag `gapsio-component` 
 
 ### Which modules exist (and how they are enabled)
 
-`WL_MODULES` is derived from `-Features` on every install/update run:
+`GAPSIO_MODULES` is derived from `-Features` on every install/update run:
 
-| Module (`WL_MODULES`) | Enabled by feature(s) |
+| Module (`GAPSIO_MODULES`) | Enabled by feature(s) |
 |---|---|
 | `endpoint` | always (`Core`) |
 | `agents` | `Agents` |

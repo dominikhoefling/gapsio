@@ -101,7 +101,7 @@ Enable it via the install script feature `OfficePreview`:
 ./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
 ```
 
-This sets `WL_MODULES=...,officepreview`.
+This sets `GAPSIO_MODULES=...,officepreview`.
 
 Runtime:
 

@@ -30,10 +30,10 @@ switches to the full view immediately – nothing has to be collected again, bec
 === "Installation"
 
     ```powershell
-    ./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -LicenseKey 'WL1.…'
+    ./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -LicenseKey 'GP1.…'
     ```
 
-    The key is stored as the app setting `WL_LICENSE_KEY`; re-runs keep it. A key entered in the portal takes precedence.
+    The key is stored as the app setting `GAPSIO_LICENSE_KEY`; re-runs keep it. A key entered in the portal takes precedence.
 
 ## When the licence expires
 
@@ -58,5 +58,5 @@ entered – it simply replaces the old one.
 
 ## What the key contains
 
-A key looks like `WL1.<data>.<signature>`. The data is readable (base64url JSON): licence ID, customer name, tenant ID,
+A key looks like `GP1.<data>.<signature>`. The data is readable (base64url JSON): licence ID, customer name, tenant ID,
 plan, issue and expiry date. It contains no secret and grants no access to anything – it only confirms the licence.

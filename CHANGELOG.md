@@ -6,13 +6,22 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.6.0] – 2026-11-04
+
+### Changed (breaking)
+- **Product renamed to Gapsio.** App settings are now `GAPSIO_*` (previously `WL_*`), the on-demand queue is `gapsio-run`,
+  Azure resource tags are `gapsio-component`, release assets are `gapsio.zip` / `gapsio-functionapp.zip`.
+- **New licence signing key.** Licence keys now start with `GP1.` and licence IDs with `GP-`; keys issued for earlier
+  versions are no longer accepted. Customers receive a new key by e-mail (or via *Resend licence* on gapsio.cloud).
+- The portal admin app role is `Gapsio.Admin`.
+
 ### Added
 - **Office preview module (optional, private preview)**: `-Features Endpoint,Agents,OfficePreview` enables the `officepreview`
   module (`ThreatHunting.Read.All`). It collects anti-phish policy drift from Defender for Office 365 audit events (who changed
   which setting, direction *weakened*/*hardened*) and sets each change against phishing outcomes before and after
   (delivered vs. blocked, per policy, 400-day history). Portal: *Office preview*, *Phish drift* and *Policy map*.
   Findings `office.antiphish_weakened` (High) and `office.antiphish_delivery_up` (Medium).
-- Installer writes `WL_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
+- Installer writes `GAPSIO_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
 
 ### Changed
 - Documentation is published at https://gapsio.cloud/docs/ (canonical); GitHub Pages remains as the build source.
@@ -89,8 +98,8 @@ First version published on GitHub.
   mapping) and who uses them. New portal page *Licensing (MDE)* with SKUs, client devices (Licensed/Unlicensed/No user, confidence
   Intune/Logon), licensed users and a separate server list; findings for over-consumption, unlicensed clients, Plan-1-only devices,
   licensed users without a device and users over the five-device limit; caveats are shown on the page. Feature `Licensing`
-  (permissions `Organization.Read.All`, `User.Read.All`), timer `CollectLicensing`, settings `WL_SCHEDULE_LICENSING`,
-  `WL_LICENSING_DAYS`, `WL_LICENSING_DEVICES_PER_USER`, `WL_LICENSING_DETAIL` (`aggregate` pseudonymises UPNs).
+  (permissions `Organization.Read.All`, `User.Read.All`), timer `CollectLicensing`, settings `GAPSIO_SCHEDULE_LICENSING`,
+  `GAPSIO_LICENSING_DAYS`, `GAPSIO_LICENSING_DEVICES_PER_USER`, `GAPSIO_LICENSING_DETAIL` (`aggregate` pseudonymises UPNs).
 - **Third-party AV/EDR**: `DeviceTvmSoftwareInventory` is queried for other AV/EDR vendors; devices show the products, a new
   device chart and filter `3pav:1`, a Medium finding per device where a third-party product runs alongside an active Defender
   Antivirus and an aggregated Low finding per tenant.
@@ -108,7 +117,7 @@ First version published on GitHub.
 - **Large fleets (up to several hundred thousand devices)**: Advanced Hunting results above the 100,000-row limit are
   collected in hash shards with truncation notices and a per-minute call budget; device and coverage lists are stored in
   pages with a search index instead of inside the snapshot; the portal searches and filters devices on the server above
-  10,000 devices (`api/devices`, `api/device`); identical per-device findings on more than `WL_FINDING_ROLLUP` devices are
+  10,000 devices (`api/devices`, `api/device`); identical per-device findings on more than `GAPSIO_FINDING_ROLLUP` devices are
   rolled up into one finding; the template deploys 4 GB instances (`instanceMemoryMB`).
 - **Assignments and unlimited exceptions**: every finding and exclusion can be assigned to an Entra user, a security group, a distribution list or a manually typed e-mail address (people picker in the detail row, backed by `User.ReadBasic.All` and `GroupMember.Read.All`; falls back to manual e-mail when the directory is not readable). Assigned items stay open, show the assignee in the findings list (with a filter) and in notifications (`gapsio.findings[].assignee`) so a flow can e-mail them. Exceptions (formerly "accept risk") can now be unlimited (no expiry) or dated up to ten years; the one-year cap is gone. *History › Exceptions & assignments* adds an *Assignments* tab; assign/unassign actions go to the same audit log.
 - **macOS/Linux findings** (category *macOS / Linux*): Full Disk Access missing and system extensions not approved on Macs (from the secure configuration assessment), Defender agent builds 6+ months behind the fleet (`101.YYMM.x`, with an auditd note for Linux < 101.2408), and macOS/Linux fleets without any Intune Defender policy (Jamf-managed Macs are called out). Agent version is now collected from `DeviceTvmSoftwareInventory`.
@@ -126,7 +135,7 @@ First version published on GitHub.
 - **Least privilege per feature** (`-Features Core,Hunting,Indicators,Agents,Access,Inventory`); permissions that are no longer needed are removed.
 - **Separation of duties**: app registrations can be created up front by the identity team (`New-GapsioAppRegistrations.ps1`) and attached with `-PortalAppId` / `-DataAppId`; the data-access app is used via workload identity federation (no secret).
 - **English/German portal** with a language switch; all scripts and installation output in English.
-- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `WL_UPDATE_CHECK=false` to disable) and `Update-Gapsio.ps1` with checksum verification, permission and template change detection.
+- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `GAPSIO_UPDATE_CHECK=false` to disable) and `Update-Gapsio.ps1` with checksum verification, permission and template change detection.
 
 - **Device page**: protection state incl. network protection, controlled folder access and EDR in block mode, ASR per rule, local exclusions, findings, local AI agents, changes and links to Defender and Intune.
 - **Defender coverage gaps**: Intune devices not onboarded (feature `Coverage`), inactive or impaired sensors, discovered devices.

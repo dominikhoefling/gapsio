@@ -22,7 +22,7 @@ The module looks at **one thing only: Microsoft Defender XDR unified RBAC** – 
 
 | Severity | Finding |
 |---|---|
-| Medium | Standing permission never used – a person holds a role with response/config permissions permanently but has not signed in to the Defender portal for `WL_ACCESS_UNUSED_DAYS` days (default 30) |
+| Medium | Standing permission never used – a person holds a role with response/config permissions permanently but has not signed in to the Defender portal for `GAPSIO_ACCESS_UNUSED_DAYS` days (default 30) |
 | Low | Eligible role never activated – PIM-eligible, no activation and no portal sign-in in the window |
 | High | People with full Defender access through Entra roles (Global/Security Administrator, Security Operator) |
 | Low | People reading all Defender data through Entra reader roles |
@@ -36,13 +36,13 @@ The module looks at **one thing only: Microsoft Defender XDR unified RBAC** – 
 | Medium | Offboarding package downloaded (feature `Audit`, unified audit log, 30 days) |
 | Low | Live response actions and portal setting changes in 30 days (feature `Audit`) |
 
-A person who has not used a permission in the observation window is reported as *never used*; while the window is still shorter than `WL_ACCESS_UNUSED_DAYS` (first runs), the verdict is *no data yet* and no finding is raised.
+A person who has not used a permission in the observation window is reported as *never used*; while the window is still shorter than `GAPSIO_ACCESS_UNUSED_DAYS` (first runs), the verdict is *no data yet* and no finding is raised.
 
 ## Limitations
 
 - **Device-group scoping** for Defender for Endpoint (which device groups a role assignment applies to) is configured on the *Device groups* page and is not part of the role assignment object. Microsoft does not expose it through a public API, so Gapsio cannot show it. The data-source scope (`Mde`, `/` …) is shown instead.
 - Usage is based on interactive portal sign-ins. API-only use (e.g. a SOC automation signing in with a user account through a script) is not counted.
-- Large groups are capped at 10,000 members when resolving (`WL_MAX_GROUP_MEMBERS`).
+- Large groups are capped at 10,000 members when resolving (`GAPSIO_MAX_GROUP_MEMBERS`).
 
 - **Audit log** (feature `Audit`): the Graph audit log query API runs asynchronously. Each run reads the query the
   previous run started, so results appear from the second run on. Operation names are classified by keyword

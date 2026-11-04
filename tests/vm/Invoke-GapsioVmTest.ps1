@@ -29,7 +29,7 @@ $exclusions = @(
     @{ Param = 'ExclusionPath'; Value = 'C:\Users\Public\GapsioTest' }   # user-writable folder -> High
     @{ Param = 'ExclusionPath'; Value = 'C:\GapsioTemp' }                # removed in phase Drift
     @{ Param = 'ExclusionProcess'; Value = 'powershell.exe' }              # interpreter -> Critical
-    @{ Param = 'ExclusionExtension'; Value = '.wltest' }                   # harmless test extension -> Medium
+    @{ Param = 'ExclusionExtension'; Value = '.gapsiotest' }                   # harmless test extension -> Medium
 )
 
 function New-Call {

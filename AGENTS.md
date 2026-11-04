@@ -41,8 +41,8 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 
 ## Conventions
 
-- PowerShell: functions `Verb-WlNoun`, `[CmdletBinding()]`, 4 spaces, no aliases, explicit `-ErrorAction`,
-  `Write-WlLog` for logging (never log tokens or tenant data).
+- PowerShell: functions `Verb-GapsioNoun`, `[CmdletBinding()]`, 4 spaces, no aliases, explicit `-ErrorAction`,
+  `Write-GapsioLog` for logging (never log tokens or tenant data).
 - Findings: stable `id`, `severity` (High/Medium/Low/Info), `category`, `title`, `rationale`, `fix`, `learnUrl`,
   `platform`, `entityType/entityId`. Keep IDs stable – customers accept risks by ID.
 - Commits: imperative, one topic, `-s` sign-off (DCO). Add a CHANGELOG line.
