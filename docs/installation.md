@@ -60,6 +60,7 @@ Re-runs and updates find an existing installation by the tag `gapsio-component` 
 | `access` | `Access` |
 | `licensing` | `Licensing` |
 | `officepreview` | `OfficePreview` (private preview) |
+| `purviewpreview` | `PurviewPreview` (private preview) |
 
 Example: enable the Office preview module in addition to the defaults:
 
