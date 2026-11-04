@@ -60,7 +60,7 @@ if (-not $modules) { $modules = @('endpoint', 'agents') }
 $epFeatures = @(([string]$settings['GAPSIO_FEATURES']) -split '[,; ]+' | Where-Object { $_ })
 if (-not $settings.ContainsKey('GAPSIO_FEATURES')) { $epFeatures = @('hunting', 'indicators') }
 $features = @('Core') + @($epFeatures | ForEach-Object { (Get-Culture).TextInfo.ToTitleCase($_.ToLowerInvariant()) }) +
-    $(if ($settings['GAPSIO_DEVICE_INVENTORY'] -eq 'true') { 'Inventory' }) + $(if ($modules -contains 'agents') { 'Agents' }) + $(if ($modules -contains 'access') { 'Access' }) + $(if ($modules -contains 'licensing') { 'Licensing' }) + $(if ($modules -contains 'officepreview') { 'OfficePreview' })
+    $(if ($settings['GAPSIO_DEVICE_INVENTORY'] -eq 'true') { 'Inventory' }) + $(if ($modules -contains 'agents') { 'Agents' }) + $(if ($modules -contains 'access') { 'Access' }) + $(if ($modules -contains 'licensing') { 'Licensing' }) + $(if ($modules -contains 'officepreview') { 'OfficePreview' }) + $(if ($modules -contains 'purviewpreview') { 'PurviewPreview' })
 $features = @($features | Where-Object { $_ } | Select-Object -Unique)
 Write-Ok "Function App:  $($fa.name)"
 Write-Ok "Installed:     $(if ($installed) { $installed } else { 'unknown (installed before version tags existed)' })"

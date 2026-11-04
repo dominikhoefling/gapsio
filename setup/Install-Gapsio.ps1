@@ -128,7 +128,7 @@ if ($DeviceInventory -and $RemoveDeviceInventory) { throw '-DeviceInventory and 
 $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-GapsioFeatures -Features $featureList
-$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' })
+$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' }) + $(if ($featureList -contains 'PurviewPreview') { 'purviewpreview' })
 $endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
@@ -518,7 +518,7 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
-        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' })
+        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' }) + $(if ($modules -contains 'purviewpreview') { 'CollectPurviewPreview' })
         foreach ($fn in $fns) {
             Invoke-RestMethod -Method Post -Uri "https://$($infra.HostName)/admin/functions/$fn" -Headers @{ 'x-functions-key' = $keys.masterKey } -ContentType 'application/json' -Body '{"input":""}' | Out-Null
         }
