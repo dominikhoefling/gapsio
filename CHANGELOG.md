@@ -16,6 +16,9 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 - The portal admin app role is `Gapsio.Admin`.
 
 ### Added
+- **Purview DLP preview module (optional, private preview)**: `-Features ...,PurviewPreview`
+  enables `purviewpreview`. DLP licence coverage, Purview role holders, sensitivity labels
+  and 12 Advanced Hunting probes. Portal group *Purview*. See docs/modules/purview-preview.md.
 - **Office preview module (optional, private preview)**: `-Features Endpoint,Agents,OfficePreview` enables the `officepreview`
   module (`ThreatHunting.Read.All`). It collects anti-phish policy drift from Defender for Office 365 audit events (who changed
   which setting, direction *weakened*/*hardened*) and sets each change against phishing outcomes before and after

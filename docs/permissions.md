@@ -16,6 +16,7 @@ the install, grant and app registration scripts all read it.
 | `Audit` | off | Defender for Endpoint portal activity from the Purview unified audit log: offboarding package downloads, live response, setting changes | Graph: `AuditLogsQuery.Read.All` |
 | `Licensing` | off | Defender for Endpoint licence indication: plans owned, entitled users, onboarded client devices and their users ([Licensing module](modules/licensing.md)); needs `Hunting` | Graph: `Organization.Read.All`, `User.Read.All` |
 | `OfficePreview` | off | Defender for Office 365 private preview: telemetry probes, policy map and anti-phish drift ([Office preview module](modules/office-preview.md)); uses Advanced Hunting data | Graph: `ThreatHunting.Read.All` |
+| `PurviewPreview` | off | Purview DLP private preview: licences, Purview roles, sensitivity labels, DLP hunting ([Purview DLP preview module](modules/purview-preview.md)) | Graph: `ThreatHunting.Read.All`, `Organization.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`, `InformationProtectionPolicy.Read.All` |
 | `Inventory` | off | Device inventory via Intune Remediations (use `-DeviceInventory`) | Graph: `DeviceManagementScripts.Read.All`, `DeviceManagementManagedDevices.Read.All` |
 
 ```powershell
