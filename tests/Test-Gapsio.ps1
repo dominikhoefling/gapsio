@@ -370,7 +370,7 @@ $xdrRole = { param($id, $name, $actions) [pscustomobject]@{ id = $id; displayNam
 $access = @{
     groups = @{ 'g1' = (& $grp 'g1' 'Helpdesk-Team'); 'g4' = (& $grp 'g4' 'Helpdesk-Candidates') }
     roleDefs = @(
-        (& $xdrRole $XSO 'SecOps Responder' @('microsoft.xdr/secops/securitydata/basic/read', 'microsoft.xdr/secops/securitydata/response/manage', 'microsoft.xdr/secops/securitydata/liveresponse-basic/manage')),
+        (& $xdrRole $XSO 'SecOps Responder' @('microsoft.xdr/secops/securitydata/basic/read', 'microsoft.xdr/secops/securitydata/alerts/manage', 'microsoft.xdr/secops/securitydata/response/manage', 'microsoft.xdr/secops/securitydata/liveresponse-basic/manage')),
         (& $xdrRole $XRD 'Defender Reader' @('microsoft.xdr/secops/securitydata/basic/read', 'microsoft.xdr/securityposture/posturemanagement/read')),
         (& $xdrRole $XCF 'Defender Settings Admin' @('microsoft.xdr/configuration/security/manage'))
     )
@@ -1112,6 +1112,17 @@ $fixtures.agents.packages = $null
 
 Write-Host '== End-to-end: access' -ForegroundColor Cyan
 $env:GAPSIO_MODULES = 'endpoint,agents,access'
+# Permission usage evidence (feature Response is on in these tests, Audit is off)
+$fixtures.machineActions = @(
+    [pscustomobject]@{ id = 'ma1'; type = 'Isolate'; status = 'Succeeded'; requestor = 'Alice@contoso.com'; creationDateTimeUtc = (T 3); machineId = 'd-win1'; computerDnsName = 'WIN-01' },
+    [pscustomobject]@{ id = 'ma2'; type = 'RunAntiVirusScan'; status = 'Succeeded'; requestor = 'erin@contoso.com'; creationDateTimeUtc = (T 4); machineId = 'd-win2'; computerDnsName = 'WIN-02' },
+    [pscustomobject]@{ id = 'ma3'; type = 'LiveResponse'; status = 'Succeeded'; requestor = 'Automation'; creationDateTimeUtc = (T 5); machineId = 'd-win2'; computerDnsName = 'WIN-02'; commands = @([pscustomobject]@{ command = [pscustomobject]@{ type = 'RunScript' } }) },
+    [pscustomobject]@{ id = 'ma4'; type = 'Isolate'; status = 'Succeeded'; requestor = 'carol@contoso.com'; creationDateTimeUtc = (T 45); machineId = 'd-win2'; computerDnsName = 'WIN-02' }
+)
+$fixtures.mdeAlerts = @(
+    [pscustomobject]@{ id = 'al1'; status = 'Resolved'; assignedTo = 'alice@contoso.com'; resolvedTime = (T 2); lastUpdateTime = (T 2); comments = @([pscustomobject]@{ createdBy = 'alice@contoso.com'; createdTime = (T 2); comment = 'benign' }) },
+    [pscustomobject]@{ id = 'al2'; status = 'New'; assignedTo = 'dave@contoso.com'; lastUpdateTime = (T 1); comments = @() }
+)
 $ra = Invoke-GapsioAccessCollection 6>$null
 $ac = $blobs['state/access-latest.json'] | ConvertFrom-Json -Depth 64
 Assert ($ac.warnings.Count -eq 0) "Warnings in the access run: $($ac.warnings -join ' | ')"
@@ -1156,6 +1167,27 @@ Assert (@($af | Where-Object { $_.title.en -like '*permanent response permission
 Assert (@($af | Where-Object { $_.title.en -like '*assignment(s) to individual users' }).Count -eq 1) 'Finding: direct user assignments'
 Assert (@($af | Where-Object { $_.title.en -like 'Eligible Defender role never activated*' }).Count -eq 0) 'Gina activated her eligibility – no idle finding'
 Assert ($ac.summary.standingPrivileged -eq 2 -and $ac.summary.unusedActive -ge 3 -and $ac.summary.bypassUsers -eq 2) "Access summary (standing $($ac.summary.standingPrivileged), unused $($ac.summary.unusedActive), bypass $($ac.summary.bypassUsers))"
+# Held versus used
+$cov = @($ac.permissionCoverage)
+function Cov { param($upn, $perm) @($cov | Where-Object { $_.upn -eq $upn -and $_.permissionId -eq $perm })[0] }
+Assert ($ac.permissionSourceState.actions -eq 'ok' -and $ac.permissionSourceState.alerts -eq 'ok' -and $ac.permissionSourceState.audit -eq 'off' -and (@($ac.permissionSources) -join ',') -eq 'Response actions,Alerts') 'Permission sources: response actions and alerts read, audit off'
+Assert ((Cov 'alice@contoso.com' 'response').status -eq 'Used' -and (Cov 'alice@contoso.com' 'response').count -eq 1) 'Alice: isolation = Response used (requestor case-insensitive)'
+Assert ((Cov 'alice@contoso.com' 'alerts').status -eq 'Used' -and (Cov 'alice@contoso.com' 'alerts').count -eq 2) 'Alice: resolved alert and comment = Alerts used'
+Assert ((Cov 'alice@contoso.com' 'lr-basic').status -eq 'Unused' -and (Cov 'alice@contoso.com' 'lr-basic').reason -eq 'checked') 'Alice: basic live response held but not used'
+Assert ((Cov 'erin@contoso.com' 'alerts').status -eq 'Used' -and (Cov 'erin@contoso.com' 'response').status -eq 'Unused') 'Erin: antivirus scan counts as Alerts (manage), not Response'
+Assert ((Ent 'erin@contoso.com' 'SecOps Responder' 'Active').usage -eq 'Used') 'Erin: an action counts as use without a portal sign-in'
+Assert ((Cov 'dave@contoso.com' 'alerts').status -eq 'Unused') 'Dave: an alert that is only assigned (New) is not use'
+Assert ((Cov 'carol@contoso.com' 'coresettings').status -eq 'NotMeasurable' -and (Cov 'carol@contoso.com' 'coresettings').reason -eq 'off.audit') 'Carol: settings permission not measurable without the audit feature'
+Assert (@($ac.permissionUsage | Where-Object { $_.upn -eq 'carol@contoso.com' }).Count -eq 0) 'Carol: action older than 30 days ignored'
+Assert ((Cov 'bob@contoso.com' 'read').status -eq 'Unused' -and (Cov 'bob@contoso.com' 'read').reason -eq 'signIn') 'Bob: read access judged by portal sign-in'
+Assert (@((Cov 'gina@contoso.com' 'response').states) -contains 'Eligible') 'Eligible permissions are listed'
+Assert (@($cov | Where-Object { $_.upn -eq 'hank@contoso.com' }).Count -eq 0) 'Requestable permissions are not held'
+Assert (@($ac.permissionUsage | Where-Object { $_.upn -notmatch '@' }).Count -eq 0 -and @($ac.permissionUsage | Where-Object { $_.upn -eq 'alice@contoso.com' -and $_.permission -eq 'Response (manage)' }).Count -eq 1) 'Usage table: catalog names, no automation requestors'
+$pf = @($ac.findings | Where-Object { $_.title.en -like 'Defender permissions held but not used:*' })
+Assert (@($pf | Where-Object { $_.title.en -like '*: Alice' -and $_.severity -eq 'Medium' -and $_.detail.en -match 'Basic live response' -and $_.detail.en -cnotmatch 'Alerts \(manage\)|Response \(manage\)' }).Count -eq 1) 'Finding: Alice holds live response but did not use it (Medium)'
+Assert (@($pf | Where-Object { $_.title.en -like '*: Erin' -and $_.detail.en -match 'Response \(manage\)' }).Count -eq 1) 'Finding: Erin holds response but only scanned'
+Assert (@($pf | Where-Object { $_.title.en -like '*: Dave' -or $_.title.en -like '*: Carol' -or $_.title.en -like '*: Gina' }).Count -eq 0) 'No permission finding for never-signed-in (already reported), not measurable or eligible-only'
+Assert ($ac.summary.unusedPermissions -ge 3 -and $ac.summary.peopleWithUnusedPermissions -ge 2 -and $ac.summary.notMeasurablePermissions -ge 1) "Summary: unused $($ac.summary.unusedPermissions), people $($ac.summary.peopleWithUnusedPermissions), not measurable $($ac.summary.notMeasurablePermissions)"
 
 # Second run: a previous snapshot with an older sign-in and an eligible user who never activated
 $access.pimActivations['g1'] = @()
@@ -1168,6 +1200,7 @@ Assert (@($ac2.findings | Where-Object { $_.title.en -like 'Eligible Defender ro
 $access.pimActivations['g1'] = @([pscustomobject]@{ groupId = 'g1'; principalId = 'u-gina'; accessId = 'member'; action = 'selfActivate'; createdDateTime = (T 10) })
 $access.signIns = @([pscustomobject]@{ userId = 'u-alice'; createdDateTime = (T 2) }, [pscustomobject]@{ userId = 'u-gina'; createdDateTime = (T 10) })
 $e = @($ac.entitlements)
+$fixtures.machineActions = $null; $fixtures.mdeAlerts = $null
 
 Write-Host '== End-to-end: licensing (Defender for Endpoint)' -ForegroundColor Cyan
 $env:GAPSIO_MODULES = 'endpoint,agents,access,licensing'
@@ -1477,6 +1510,65 @@ Write-Host '== Response readiness (unit)' -ForegroundColor Cyan
     & $A ($r2.Count -eq 1 -and $r2[0].title.en -eq 'Response capabilities never used in 90 days') 'Response: nothing in 90 days on 50 devices -> readiness finding'
     & $A (@(Get-GapsioResponseFindings -Facts ([pscustomobject]@{ actions = @(); alerts = @() }) -WindowsDevices 10).Count -eq 0) 'Response: small fleet -> no readiness finding'
     & $A (@(Get-GapsioResponseFindings -Facts $null -WindowsDevices 50).Count -eq 0) 'Response: feature off -> nothing'
+} ${function:Assert} ${function:T}
+
+Write-Host '== Permission usage and coverage (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A, $T)
+    $r = Resolve-GapsioXdrPermission -Action 'microsoft.xdr/secops/securitydata/liveresponse-advanced/manage'
+    & $A ($r.id -eq 'lr-advanced' -and $r.highImpact) 'Permission catalog: advanced live response, high impact'
+    & $A ((Resolve-GapsioXdrPermission -Action 'microsoft.xdr/secops/securitydata/alerts/manage').id -eq 'alerts' -and -not (Resolve-GapsioXdrPermission -Action 'microsoft.xdr/secops/securitydata/alerts/manage').highImpact) 'Permission catalog: alerts (manage), not high impact'
+    & $A ((Resolve-GapsioXdrPermission -Action 'microsoft.xdr/configuration/security/read').id -eq 'read') 'Permission catalog: read action'
+    & $A ((Resolve-GapsioXdrPermission -Action 'microsoft.xdr/securityposture/posturemanagement/exceptionhandling/manage').id -eq 'posture') 'Permission catalog: posture management'
+    $o = Resolve-GapsioXdrPermission -Action 'microsoft.xdr/secops/newthing/manage'
+    & $A ($o.id -eq 'other:secops/newthing/manage' -and @($o.requires).Count -eq 0) 'Permission catalog: unknown action gets its own entry without a source'
+
+    $saved = $env:GAPSIO_FEATURES
+    try {
+        $env:GAPSIO_FEATURES = 'hunting'   # response off -> no MDE calls
+        $recs = @(
+            [pscustomobject]@{ operation = 'SetAdvancedFeatures'; userPrincipalName = 'carol@contoso.com'; createdDateTime = (& $T 3) },
+            [pscustomobject]@{ operation = 'AddIndicator'; userPrincipalName = 'carol@contoso.com'; createdDateTime = (& $T 4) },
+            [pscustomobject]@{ operation = 'EditRole'; userPrincipalName = 'carol@contoso.com'; createdDateTime = (& $T 40) }
+        )
+        $u = Get-GapsioPermissionUsage -AuditRecords $recs -AuditState 'ok' -Days 30
+        & $A ($u.sources.actions -eq 'off' -and $u.sources.alerts -eq 'off' -and $u.sources.audit -eq 'ok') 'Permission usage: response off, audit ok'
+        & $A (@($u.rows | Where-Object permissionId -eq 'coresettings').Count -eq 1 -and @($u.rows | Where-Object permissionId -eq 'detectiontuning').Count -eq 1 -and @($u.rows | Where-Object permissionId -eq 'authorization').Count -eq 0) 'Permission usage: settings and indicators mapped, 40-day-old record ignored'
+        $u2 = Get-GapsioPermissionUsage -AuditRecords $recs -AuditState 'running' -Days 30
+        & $A (@($u2.rows).Count -eq 0 -and $u2.sources.audit -eq 'running') 'Permission usage: audit records ignored until the query finished'
+
+        $roles = @([pscustomobject]@{ id = 'r1'; actions = @('microsoft.xdr/configuration/security/manage', 'microsoft.xdr/configuration/authorization/manage', 'microsoft.xdr/secops/securitydata/response/manage', 'microsoft.xdr/secops/securitydata/filecollection/manage') })
+        $ent = [pscustomobject]@{ principalId = 'p1'; principalType = 'user'; upn = 'Carol@contoso.com'; displayName = 'Carol'; roleId = 'r1'; role = 'R1'; state = 'Active'; privileged = $true; usage = 'Used'; lastUsed = (& $T 1) }
+        $c = @(Get-GapsioPermissionCoverage -Entitlements @($ent) -Roles $roles -Usage $u.rows -Sources $u.sources)
+        $by = @{}; foreach ($x in $c) { $by[$x.permissionId] = $x }
+        & $A ($c.Count -eq 4 -and $by['coresettings'].status -eq 'Used' -and $by['coresettings'].reason -eq 'activity') 'Coverage: settings change = used (UPN case-insensitive)'
+        & $A ($by['authorization'].status -eq 'Unused' -and $by['authorization'].reason -eq 'checked') 'Coverage: audit read, no role change in 30 days = unused'
+        & $A ($by['response'].status -eq 'NotMeasurable' -and $by['response'].reason -eq 'off.actions') 'Coverage: response feature off = not measurable, not unused'
+        & $A ($by['filecollection'].status -eq 'NotMeasurable' -and $by['filecollection'].reason -eq 'noSource') 'Coverage: no API for file collection = not measurable'
+        $c3 = @(Get-GapsioPermissionCoverage -Entitlements @($ent) -Roles $roles -Usage @() -Sources ([pscustomobject]@{ actions = 'ok'; alerts = 'ok'; audit = 'started' }))
+        & $A (@($c3 | Where-Object { $_.permissionId -eq 'authorization' -and $_.status -eq 'NotMeasurable' -and $_.reason -eq 'started.audit' }).Count -eq 1) 'Coverage: audit query only started = not measurable yet'
+        $c4 = @(Get-GapsioPermissionCoverage -Entitlements @($ent) -Roles $roles -Usage @() -Sources ([pscustomobject]@{ actions = 'failed'; alerts = 'ok'; audit = 'ok' }))
+        & $A (@($c4 | Where-Object { $_.permissionId -eq 'response' -and $_.reason -eq 'failed.actions' }).Count -eq 1) 'Coverage: failed source = not measurable'
+        $f = @(Get-GapsioPermissionUsageFindings -Coverage $c -Entitlements @($ent))
+        & $A ($f.Count -eq 1 -and $f[0].severity -eq 'Medium' -and $f[0].detail.en -match 'Authorization \(manage\)' -and $f[0].detail.en -notmatch 'File collection|Response|Core security') 'Finding lists only provably unused permissions'
+        $entR = [pscustomobject]@{ principalId = 'p2'; principalType = 'user'; upn = 'x@contoso.com'; displayName = 'X'; roleId = 'r1'; role = 'R1'; state = 'Eligible'; privileged = $true; usage = 'Used' }
+        & $A (@(Get-GapsioPermissionUsageFindings -Coverage @(Get-GapsioPermissionCoverage -Entitlements @($entR) -Roles $roles -Usage @() -Sources $u.sources) -Entitlements @($entR)).Count -eq 0) 'No finding for eligible-only permissions'
+    }
+    finally { $env:GAPSIO_FEATURES = $saved }
+
+    # Paging: nextLink is followed on Microsoft hosts only (the bearer token must not leave Microsoft)
+    $orig = ${function:script:Invoke-GapsioRest}
+    try {
+        $script:calls = 0
+        ${function:script:Invoke-GapsioRest} = { param([string]$Uri, [string]$Resource) $script:calls++; [pscustomobject]@{ value = @([pscustomobject]@{ id = $script:calls }); '@odata.nextLink' = 'https://evil.example.net/api/alerts?$skip=1' } }
+        $m = Get-GapsioMdeItems -Path 'alerts' -Context 'Test paging'
+        & $A ($m.ok -eq $false -and @($m.items).Count -eq 1 -and $script:calls -eq 1) 'Paging: link to a foreign host is not followed and marks the source failed'
+        $script:calls = 0
+        ${function:script:Invoke-GapsioRest} = { param([string]$Uri, [string]$Resource) $script:calls++; if ($script:calls -eq 1) { [pscustomobject]@{ value = @(1); '@odata.nextLink' = 'https://api.securitycenter.microsoft.com/api/alerts?$skip=1' } } else { [pscustomobject]@{ value = @(2) } } }
+        $m = Get-GapsioMdeItems -Path 'alerts' -Context 'Test paging'
+        & $A ($m.ok -and @($m.items).Count -eq 2) 'Paging: Microsoft nextLink followed'
+    }
+    finally { ${function:script:Invoke-GapsioRest} = $orig }
 } ${function:Assert} ${function:T}
 
 Write-Host '== macOS/Linux platform (unit)' -ForegroundColor Cyan
