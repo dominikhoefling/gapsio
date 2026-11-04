@@ -1207,6 +1207,39 @@ function Send-GapsioNotification {
 #endregion
 
 #region Auth (App Service Authentication / Easy Auth)
+$script:GapsioRoleCache = @{}
+function Get-GapsioAssignedAppRoles {
+    <#
+    .SYNOPSIS
+    App role values a user holds on the portal app, read from Entra (direct assignment or via a group).
+    Fallback for sign-ins whose header carries no roles claim. Cached for 5 minutes per user. Needs Directory.Read.All.
+    #>
+    param([Parameter(Mandatory)][string]$UserId, [string]$PortalAppId)
+    if (-not $PortalAppId) { $PortalAppId = $env:WEBSITE_AUTH_CLIENT_ID }
+    if ($UserId -notmatch '^[0-9a-fA-F-]{36}$' -or $PortalAppId -notmatch '^[0-9a-fA-F-]{36}$') { return @() }
+
+    $hit = $script:GapsioRoleCache[$UserId]
+    if ($hit -and $hit.At -gt [DateTime]::UtcNow.AddMinutes(-5)) { return $hit.Roles }
+
+    $roles = @()
+    try {
+        $sp = @(Invoke-GapsioGraph -Path "servicePrincipals?`$filter=appId eq '$PortalAppId'&`$select=id,appRoles").value | Select-Object -First 1
+        if ($sp) {
+            # Groups (transitive) plus the user itself: an assignment to any of them grants the role.
+            $principals = @($UserId) + @(Invoke-GapsioGraph -Path "users/$UserId/transitiveMemberOf/microsoft.graph.group?`$select=id" -All | ForEach-Object { $_.id })
+            $assigned = @(Invoke-GapsioGraph -Path "servicePrincipals/$($sp.id)/appRoleAssignedTo?`$select=principalId,appRoleId" -All |
+                    Where-Object { $_.principalId -in $principals } | ForEach-Object { $_.appRoleId })
+            $roles = @($sp.appRoles | Where-Object { $_.isEnabled -and [string]$_.id -in @($assigned | ForEach-Object { [string]$_ }) } | ForEach-Object { [string]$_.value })
+            Write-Information "Gapsio sign-in: Entra lookup found $($assigned.Count) assignment(s) for $UserId on the portal app."
+        }
+        else { Write-Warning "Gapsio sign-in: portal service principal $PortalAppId not found." }
+    }
+    catch { Write-Warning "Gapsio sign-in: could not read app role assignments from Entra: $($_.Exception.Message)" }
+
+    $script:GapsioRoleCache[$UserId] = @{ At = [DateTime]::UtcNow; Roles = $roles }
+    $roles
+}
+
 function Get-GapsioPrincipal {
     <#
     .SYNOPSIS
@@ -1233,12 +1266,27 @@ function Get-GapsioPrincipal {
     }
     $roleTypes = @('roles', 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role')
     if ($p.PSObject.Properties['role_typ'] -and $p.role_typ) { $roleTypes += [string]$p.role_typ }
-    $roles = @($claims | Where-Object { $_.typ -in $roleTypes } | ForEach-Object { [string]$_.val })
+    # A roles claim can arrive as one claim per role, as a JSON array string or as an array value.
+    $roles = @($claims | Where-Object { $_.typ -in $roleTypes } | ForEach-Object {
+            foreach ($v in @($_.val)) {
+                $s = ([string]$v).Trim()
+                if ($s.StartsWith('[')) { try { @($s | ConvertFrom-Json) | ForEach-Object { ([string]$_).Trim() } } catch { $s } } else { $s }
+            }
+        } | Where-Object { $_ })
+    $oid = & $first @('http://schemas.microsoft.com/identity/claims/objectidentifier', 'oid')
+
+    # Fallback: if the sign-in header carries no admin role, ask Entra directly (direct and group assignments).
+    if ($roles -notcontains 'Gapsio.Admin' -and $oid) {
+        $aud = & $first @('aud')
+        $fromEntra = @(Get-GapsioAssignedAppRoles -UserId $oid -PortalAppId $aud)
+        Write-Information "Gapsio sign-in: header roles [$($roles -join ', ')], Entra roles [$($fromEntra -join ', ')] for $oid (app $aud)."
+        $roles = @(@($roles) + $fromEntra | Select-Object -Unique)
+    }
 
     [pscustomobject]@{
         ok          = $true
         status      = 200
-        oid         = & $first @('http://schemas.microsoft.com/identity/claims/objectidentifier', 'oid')
+        oid         = $oid
         tid         = & $first @('http://schemas.microsoft.com/identity/claims/tenantid', 'tid')
         upn         = & $first @('preferred_username', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn', 'upn', 'email')
         displayName = & $first @('name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name')
