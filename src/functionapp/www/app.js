@@ -181,6 +181,11 @@
     'r.person': ['Person', 'Person'], 'r.role': ['Role', 'Rolle'], 'r.platform': ['Platform', 'Plattform'], 'r.state': ['State', 'Zustand'], 'r.path': ['Path', 'Weg'], 'r.scope': ['Data sources', 'Datenquellen'], 'r.ends': ['Ends', 'Endet'],
     'r.onlyPriv': ['Response/config permissions only', 'Nur Response-/Konfigurationsrechte'], 'r.privileged': ['response/config', 'Response/Konfig'], 'r.onlyUnused': ['Never used only', 'Nur nie genutzte'],
     'r.perms': ['Permission groups', 'Berechtigungsgruppen'], 'r.assignment': ['Assignment', 'Zuweisung'], 'r.lastUsed': ['Last used', 'Zuletzt genutzt'], 'r.activated': ['activated {0}', 'aktiviert {0}'],
+    'pu.title': ['Permissions actually used (30 days)', 'Tatsächlich genutzte Berechtigungen (30 Tage)'],
+    'pu.lede': ['What each person did with their Defender permissions in the last 30 days, derived from response actions, alert triage and the audit log. Permissions someone holds but never appears with here are candidates for a narrower role. Viewing data and hunting leave no trace in these sources – the portal sign-in date covers read access.', 'Was jede Person in den letzten 30 Tagen mit ihren Defender-Berechtigungen getan hat – abgeleitet aus Response-Aktionen, Alert-Bearbeitung und dem Audit-Log. Berechtigungen, die jemand hält, hier aber nie auftaucht, sind Kandidaten für eine engere Rolle. Ansehen und Hunting hinterlassen in diesen Quellen keine Spur – Lesezugriff deckt das Portal-Anmeldedatum ab.'],
+    'pu.sources': ['Sources: {0}', 'Quellen: {0}'], 'pu.noAudit': ['Enable the feature "Audit" (AuditLogsQuery.Read.All) to include setting, indicator and authorization changes.', 'Feature „Audit“ (AuditLogsQuery.Read.All) aktivieren, um auch Einstellungs-, Indikator- und Berechtigungsänderungen einzubeziehen.'],
+    'pu.permission': ['Permission', 'Berechtigung'], 'pu.actions': ['Actions', 'Aktionen'], 'pu.count': ['Count', 'Anzahl'], 'pu.first': ['First', 'Erstmals'], 'pu.last': ['Last', 'Zuletzt'], 'pu.source': ['Source', 'Quelle'],
+    'pu.none': ['No permission use recorded in the last 30 days.', 'Keine Nutzung von Berechtigungen in den letzten 30 Tagen erfasst.'], 'pu.used': ['used: {0}', 'genutzt: {0}'], 'pu.readOnly': ['read only', 'nur gelesen'],
     'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
     'r.bypass': ['Full access outside unified RBAC', 'Vollzugriff außerhalb von Unified RBAC'],
     'r.bypass.lede': ['These Entra roles keep access to the whole Defender portal regardless of unified RBAC – they do not appear in the role table above.', 'Diese Entra-Rollen behalten Zugriff auf das gesamte Defender-Portal unabhängig von Unified RBAC – in der Rollentabelle oben erscheinen sie nicht.'],
@@ -2397,7 +2402,8 @@
       const usageCell = r => {
         const cls = r.usage === 'Unused' ? 'tag warn' : r.usage === 'Used' ? 'tag' : 'tag muted';
         return h('span', null, h('span', { class: cls }, code('au', r.usage || 'Unknown')), r.lastUsed ? [' ', h('span', { class: 'muted small' }, fmtDay(r.lastUsed))] : null,
-          r.lastActivated ? [h('br'), h('span', { class: 'muted small' }, t('r.activated', fmtDay(r.lastActivated)))] : null);
+          r.lastActivated ? [h('br'), h('span', { class: 'muted small' }, t('r.activated', fmtDay(r.lastActivated)))] : null,
+          r.usage === 'Used' ? [h('br'), h('span', { class: 'muted small' }, arr(r.usedPermissions).length ? t('pu.used', arr(r.usedPermissions).join(', ')) : t('pu.readOnly'))] : null);
       };
       main.append(dataTable({
         name: 'access', rows, sort: (a, b) => String(a.displayName).localeCompare(String(b.displayName)) || String(a.role).localeCompare(String(b.role)),
@@ -2416,6 +2422,26 @@
           { title: t('r.lastUsed'), cell: usageCell, text: r => code('au', r.usage || 'Unknown') },
           { title: t('r.ends'), text: r => r.end ? fmtDay(r.end) : t('unlimited') }],
         empty: t('r.none')
+      }));
+      const pu = arr(ac.permissionUsage);
+      const srcs = arr(ac.permissionSources);
+      main.append(h('h2', null, t('pu.title')), h('p', { class: 'lede' }, t('pu.lede')),
+        h('p', { class: 'muted small' }, srcs.length ? t('pu.sources', srcs.join(', ')) : '', srcs.includes('Audit log') ? null : [' ', t('pu.noAudit')]));
+      main.append(dataTable({
+        name: 'access-perm-usage', rows: pu, sort: (a, b) => String(a.upn).localeCompare(String(b.upn)) || String(b.last).localeCompare(String(a.last)),
+        search: r => `${r.upn} ${r.permission} ${arr(r.actions).map(x => x.action).join(' ')}`,
+        filters: [
+          { label: t('r.person'), options: [...new Set(pu.map(r => r.upn))].sort(), test: (r, v) => r.upn === v },
+          { label: t('pu.permission'), options: [...new Set(pu.map(r => r.permission))].sort(), test: (r, v) => r.permission === v }],
+        columns: [
+          { title: t('r.person'), text: r => r.upn },
+          { title: t('pu.permission'), text: r => r.permission },
+          { title: t('pu.actions'), cell: r => h('span', { class: 'small' }, arr(r.actions).map(x => `${x.action} ×${x.count}`).join(', ')), text: r => arr(r.actions).map(x => `${x.action} x${x.count}`).join(', ') },
+          { title: t('pu.count'), text: r => String(r.count) },
+          { title: t('pu.first'), text: r => fmtDate(r.first) },
+          { title: t('pu.last'), text: r => fmtDate(r.last) },
+          { title: t('pu.source'), text: r => r.source }],
+        empty: t('pu.none')
       }));
       const byp = arr(ac.bypass);
       if (byp.length) {
