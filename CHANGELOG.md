@@ -6,9 +6,26 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Added
+- **Access: held but not used.** New table per person and unified RBAC permission – *used*, *not used* or *not
+  measurable* with the reason – and the finding *Defender permissions held but not used* (Medium/Low). *Not used* is
+  only claimed when every source that can reveal the use was read; otherwise the permission is *not measurable*
+  (e.g. feature `Audit` off, audit query still running). The page shows which usage sources were read.
+
 ### Changed
 - Portal sign-in fallback for missing `roles` claim now reads direct app-role assignments on the user object.
   Least-privilege mapping moved to the required `Core` feature with Graph `RoleManagement.Read.Directory`.
+- Access: *last used* also counts recorded actions (response actions, alert triage, audit log), so people who act
+  through the API are no longer reported as *never used*.
+- Access: an empty *permissions actually used* table now says whether no source could be read or nothing was found.
+
+### Fixed
+- Access: antivirus scans and investigation packages count as *Alerts (manage)* (previously *Response* / *File
+  collection*), as in Microsoft's permission reference.
+- Access: an alert that is only assigned (status New) no longer counts as use by the assignee.
+- Access: a failed read of the audit log records no longer looks like "no activity".
+- Access: paging links of the Defender for Endpoint API are only followed to `https://*.microsoft.com`.
+- Docs: the findings table on the Access page was split by an empty line.
 
 ## [0.6.0] – 2026-11-04
 
