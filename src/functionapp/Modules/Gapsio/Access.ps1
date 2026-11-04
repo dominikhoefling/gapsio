@@ -3,8 +3,10 @@
 #   for which data sources (appScopeIds), through which path
 # - Paths: direct, via group (transitive members), PIM for groups (eligible), access package that grants
 #   such a group (requestable / assigned)
-# - Usage: last sign-in to the Defender portal per person (Entra sign-in logs, carried forward across runs)
-#   and last PIM-for-groups activation -> "has this permission ever been used?"
+# - Usage: last sign-in to the Defender portal or last recorded action per person (Entra sign-in logs, carried
+#   forward across runs) and last PIM-for-groups activation -> "has this role been used at all?"
+# - Held versus used: per person and unified RBAC permission, whether the permission was used, provably not used,
+#   or cannot be measured with the sources that were read (Get-GapsioPermissionCoverage)
 # - Entra roles that bypass unified RBAC (Global/Security Administrator, Security Operator/Reader,
 #   Global Reader) are reported separately, not mixed into the table
 # States: Active, Eligible, Requestable
@@ -27,6 +29,43 @@ $script:GapsioXdrDataSources = @{
 }
 # Permissions whose misuse has direct impact (response, live response, file collection, settings, authorization).
 $script:GapsioXdrHighImpact = 'securitydata/response/manage', 'liveresponse', 'filecollection/manage', 'configuration/authorization/manage', 'configuration/security/manage', 'configuration/systemsettings/manage', 'emailadvancedactions/manage', 'emailquarantine/manage'
+
+# Unified RBAC permissions (https://learn.microsoft.com/defender-xdr/custom-permissions-details) and the data sources
+# that can prove their use. 'match' is a regex on the lower-case resource action (microsoft.xdr/...); first match wins.
+# 'requires' lists the usage sources that must all have been read successfully before "not used" may be claimed:
+#   actions = MDE machine actions (feature Response), alerts = MDE alerts (feature Response), audit = unified audit log
+#   (feature Audit). An empty list means no API shows its use – such a permission is reported as not measurable,
+#   never as unused. 'read' permissions are judged by the Defender portal sign-in instead.
+$script:GapsioXdrPermissionCatalog = @(
+    @{ id = 'read'; name = 'Read access (view data, hunting)'; match = '/read$'; requires = @() }
+    @{ id = 'alerts'; name = 'Alerts (manage)'; match = '/securitydata/alerts/manage$'; requires = @('actions', 'alerts') }
+    @{ id = 'response'; name = 'Response (manage)'; match = '/securitydata/response/manage$'; requires = @('actions') }
+    @{ id = 'lr-basic'; name = 'Basic live response (manage)'; match = 'liveresponse-basic'; requires = @('actions') }
+    @{ id = 'lr-advanced'; name = 'Advanced live response (manage)'; match = 'liveresponse-advanced'; requires = @('actions') }
+    @{ id = 'filecollection'; name = 'File collection (manage)'; match = 'filecollection'; requires = @() }
+    @{ id = 'email-quarantine'; name = 'Email & collaboration quarantine (manage)'; match = 'emailquarantine'; requires = @() }
+    @{ id = 'email-actions'; name = 'Email & collaboration advanced actions (manage)'; match = 'emailadvancedactions'; requires = @() }
+    @{ id = 'authorization'; name = 'Authorization (manage)'; match = 'configuration/authorization/manage$'; requires = @('audit') }
+    @{ id = 'detectiontuning'; name = 'Detection tuning (manage)'; match = 'detectiontuning'; requires = @('audit') }
+    @{ id = 'coresettings'; name = 'Core security settings (manage)'; match = 'configuration/security/manage$'; requires = @('audit') }
+    @{ id = 'systemsettings'; name = 'System settings (manage)'; match = 'configuration/systemsettings/manage$'; requires = @() }
+    @{ id = 'posture'; name = 'Vulnerability management (manage)'; match = 'securityposture/posturemanagement/.+/manage$'; requires = @() }
+)
+
+function Resolve-GapsioXdrPermission {
+    <#
+    .SYNOPSIS
+    Maps a unified RBAC resource action (microsoft.xdr/...) to its catalog permission. Unknown manage actions get their
+    own entry (named after the action) without a usage source, so they are never reported as unused.
+    #>
+    param([string]$Action)
+    $a = $Action.ToLowerInvariant()
+    foreach ($p in $script:GapsioXdrPermissionCatalog) {
+        if ($a -match $p.match) { return [pscustomobject]@{ id = $p.id; name = $p.name; requires = @($p.requires); highImpact = [bool]@($script:GapsioXdrHighImpact | Where-Object { $a -like "*$_*" }).Count } }
+    }
+    $short = $a -replace '^microsoft\.xdr/', ''
+    [pscustomobject]@{ id = "other:$short"; name = $short; requires = @(); highImpact = [bool]@($script:GapsioXdrHighImpact | Where-Object { $a -like "*$_*" }).Count }
+}
 
 function ConvertTo-GapsioIsoUtc {
     # Any timestamp (string or DateTime, as it comes from Graph or from a stored snapshot) -> sortable ISO-8601 UTC string.
@@ -449,17 +488,22 @@ function Get-GapsioDefenderAuditFacts {
     started by the previous run and starts the next one, so a run never waits for Purview.
     #>
     param($Previous)
-    if (-not ((Get-GapsioSetting -Name 'GAPSIO_FEATURES' -Default '') -split '[,; ]+' -contains 'audit')) { return $null }
-    $records = $null; $queryAt = $null
+    if (-not (Test-GapsioFeature -Name 'audit')) { return $null }
+    $records = $null; $queryAt = $null; $readFailed = $false
     $prevId = [string](Get-GapsioProp (Get-GapsioProp $Previous 'auditQuery') 'id')
     if ($prevId) {
         $q = Invoke-GapsioGraphSafe -Beta -Path "security/auditLog/queries/$prevId" -Context 'Audit log query status (AuditLogsQuery.Read.All)'
         if ([string](Get-GapsioProp $q 'status') -eq 'succeeded') {
-            $records = @(Invoke-GapsioGraphSafe -Beta -All -Path "security/auditLog/queries/$prevId/records" -Context 'Audit log records')
-            $queryAt = [string](Get-GapsioProp (Get-GapsioProp $Previous 'auditQuery') 'createdAt')
+            # Not Invoke-GapsioGraphSafe: its $null on failure would look like "query finished, no records" and turn
+            # every audit-backed permission into "not used".
+            try {
+                $records = @(Invoke-GapsioGraph -Beta -All -Path "security/auditLog/queries/$prevId/records")
+                $queryAt = [string](Get-GapsioProp (Get-GapsioProp $Previous 'auditQuery') 'createdAt')
+            }
+            catch { $readFailed = $true; Add-GapsioWarning "Audit log records (AuditLogsQuery.Read.All): $(Get-GapsioErrorText -Exception $_.Exception -Context 'audit')" }
         }
         elseif ($q -and [string](Get-GapsioProp $q 'status') -in 'notStarted', 'running') {
-            return [pscustomobject]@{ query = (Get-GapsioProp $Previous 'auditQuery'); records = $null; summary = (Get-GapsioProp $Previous 'auditSummary') }
+            return [pscustomobject]@{ query = (Get-GapsioProp $Previous 'auditQuery'); records = $null; summary = (Get-GapsioProp $Previous 'auditSummary'); state = 'running' }
         }
     }
     $now = [DateTime]::UtcNow
@@ -477,7 +521,10 @@ function Get-GapsioDefenderAuditFacts {
         $summary = [pscustomobject]@{ since = $queryAt; total = @($records).Count; events = @($rows | Sort-Object at -Descending | Select-Object -First 200) }
     }
     elseif ($Previous) { $summary = Get-GapsioProp $Previous 'auditSummary' }
-    [pscustomobject]@{ query = $(if ($new) { [pscustomobject]@{ id = [string]$new.id; createdAt = $now.ToString('o') } } else { $null }); records = $records; summary = $summary }
+    # state: ok = records of a finished query were read; started = only a new query was started (first run or the previous
+    # query was lost) – results arrive with the next run; failed = no records and no query could be started.
+    $state = if ($null -ne $records) { 'ok' } elseif ($new -and -not $readFailed) { 'started' } else { 'failed' }
+    [pscustomobject]@{ query = $(if ($new) { [pscustomobject]@{ id = [string]$new.id; createdAt = $now.ToString('o') } } else { $null }); records = $records; summary = $summary; state = $state }
 }
 
 function Get-GapsioDefenderAuditFindings {
@@ -511,99 +558,222 @@ function Get-GapsioDefenderAuditFindings {
 }
 #endregion
 
+function Get-GapsioMdeItems {
+    <#
+    .SYNOPSIS
+    Pages through an MDE API collection. Returns @{ items; ok } – ok is $false when any page failed, so callers can tell
+    "no data" from "could not read". Follows @odata.nextLink only to https://*.microsoft.com, so the bearer token is
+    never sent to another host.
+    #>
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Context)
+    $res = 'https://api.securitycenter.microsoft.com'
+    $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+    $items = [System.Collections.Generic.List[object]]::new()
+    $uri = "$base/$Path"
+    try {
+        while ($uri) {
+            $r = Invoke-GapsioRest -Uri $uri -Resource $res
+            foreach ($i in @($r.value)) { if ($null -ne $i) { $items.Add($i) } }
+            $uri = if ($r.PSObject.Properties['@odata.nextLink']) { [string]$r.'@odata.nextLink' } else { $null }
+            if ($uri) {
+                $u = $null
+                if (-not [uri]::TryCreate($uri, [UriKind]::Absolute, [ref]$u) -or $u.Scheme -ne 'https' -or -not ($u.Host -eq 'microsoft.com' -or $u.Host.EndsWith('.microsoft.com'))) {
+                    throw "unexpected paging link to '$(if ($u) { $u.Host } else { 'invalid URI' })'"
+                }
+            }
+        }
+    }
+    catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)"; return [pscustomobject]@{ items = $items.ToArray(); ok = $false } }
+    [pscustomobject]@{ items = $items.ToArray(); ok = $true }
+}
+
 function Get-GapsioPermissionUsage {
     <#
     .SYNOPSIS
-    Which unified RBAC permission each person actually used in the last 30 days, derived from what they did:
-    - Response actions (MDE machineactions, requestor)            -> Response / live response   (feature Response: Machine.Read.All)
-    - Alert triage (MDE alerts: assigned, status, comments)      -> Alerts (manage)            (feature Response: Alert.Read.All)
-    - Portal operations (unified audit log, record mdatpAudit)    -> settings, indicators, ...  (feature Audit: AuditLogsQuery.Read.All)
-    Returns one row per person and permission: upn, permission, actions (operation -> count), count, first, last, source.
-    Read access (viewing data, hunting) leaves no trace in these sources; the portal sign-in date covers it.
+    Which unified RBAC permission each person actually used in the last $Days days, derived from what they did
+    (mapping per https://learn.microsoft.com/defender-xdr/custom-permissions-details):
+    - MDE machine actions (requestor)    feature Response: Machine.Read.All
+        isolate / restrict / quarantine -> Response; antivirus scan, investigation package -> Alerts;
+        live response -> Basic, or Advanced when RunScript/PutFile was used; offboard -> Core security settings
+    - MDE alerts (comments; assignee of alerts in progress or resolved)    feature Response: Alert.Read.All -> Alerts
+      An alert that is only assigned (status New) is not counted: somebody else may have assigned it.
+    - Unified audit log (record type mdatpAudit)    feature Audit: AuditLogsQuery.Read.All -> settings, indicators, roles …
+    Returns @{ rows; sources }. rows: one per person and permission (upn, permissionId, permission, actions, count,
+    first, last, source). sources: state per usage source – actions/alerts: ok | off | failed; audit: ok | off |
+    running | started | failed. Read access leaves no trace here; the portal sign-in covers it.
     #>
-    param($AuditRecords, [int]$Days = 30)
+    param($AuditRecords, [string]$AuditState = 'off', [int]$Days = 30)
     $since = [DateTime]::UtcNow.AddDays(-$Days)
     $acc = @{}
+    $names = @{}; foreach ($p in $script:GapsioXdrPermissionCatalog) { $names[$p.id] = $p.name }
     $add = {
-        param([string]$Upn, [string]$Permission, [string]$Action, $At, [string]$Source)
+        param([string]$Upn, [string]$PermId, [string]$Action, $At, [string]$Source)
         if (-not $Upn -or $Upn -notmatch '@') { return }   # system / automation requestors are not people
         $when = $null; try { $when = ConvertTo-GapsioUtc $At } catch { return }
-        if ($when -lt $since) { return }
-        $k = "$($Upn.ToLowerInvariant())|$Permission"
-        if (-not $acc.ContainsKey($k)) { $acc[$k] = [pscustomobject]@{ upn = $Upn.ToLowerInvariant(); permission = $Permission; actions = @{}; count = 0; first = $when; last = $when; sources = @{} } }
+        if (-not $when -or $when -lt $since) { return }
+        $k = "$($Upn.ToLowerInvariant())|$PermId"
+        if (-not $acc.ContainsKey($k)) {
+            $acc[$k] = [pscustomobject]@{ upn = $Upn.ToLowerInvariant(); permissionId = $PermId; permission = $(if ($names.ContainsKey($PermId)) { $names[$PermId] } else { $PermId -replace '^other:', 'Other: ' }); actions = @{}; count = 0; first = $when; last = $when; sources = @{} }
+        }
         $e = $acc[$k]; $e.count++; $e.actions[$Action] = 1 + [int]$e.actions[$Action]; $e.sources[$Source] = $true
         if ($when -lt $e.first) { $e.first = $when }
         if ($when -gt $e.last) { $e.last = $when }
     }
+    $sources = [ordered]@{ actions = 'off'; alerts = 'off'; audit = $AuditState }
 
     if (Test-GapsioFeature -Name 'response') {
-        $res = 'https://api.securitycenter.microsoft.com'
-        $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
         $sinceText = $since.ToString('yyyy-MM-ddTHH:mm:ssZ')
-        $pull = {
-            param($Path, $Context)
-            $uri = "$base/$Path"
-            try {
-                while ($uri) {
-                    $r = Invoke-GapsioRest -Uri $uri -Resource $res
-                    foreach ($i in @($r.value)) { if ($i) { $i } }
-                    $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
-                }
-            }
-            catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)" }
-        }
-        foreach ($a in @(& $pull "machineactions?`$filter=creationDateTimeUtc ge $sinceText" 'Permission usage: response actions (Machine.Read.All)')) {
-            $type = [string]$a.type
+        $ma = Get-GapsioMdeItems -Path "machineactions?`$filter=creationDateTimeUtc ge $sinceText" -Context 'Permission usage: response actions (Machine.Read.All)'
+        $sources.actions = if ($ma.ok) { 'ok' } else { 'failed' }
+        foreach ($a in $ma.items) {
+            $type = [string](Get-GapsioProp $a 'type')
             $perm = switch -Regex ($type) {
                 '^LiveResponse' {
                     $cmds = @(@(Get-GapsioProp $a 'commands') | ForEach-Object { [string](Get-GapsioProp (Get-GapsioProp $_ 'command') 'type') })
-                    if ($cmds -match 'RunScript|PutFile') { 'Advanced live response (manage)' } else { 'Basic live response (manage)' }
+                    if ($cmds -match '^(RunScript|PutFile)$') { 'lr-advanced' } else { 'lr-basic' }
                     break
                 }
-                'CollectInvestigationPackage|CollectFile' { 'File collection (manage)'; break }
-                'Offboard' { 'Core security settings (manage)'; break }
-                default { 'Response (manage)' }
+                '^(RunAntiVirusScan|CollectInvestigationPackage)$' { 'alerts'; break }
+                '^Offboard$' { 'coresettings'; break }
+                default { 'response' }
             }
             & $add ([string](Get-GapsioProp $a 'requestor')) $perm $type (Get-GapsioProp $a 'creationDateTimeUtc') 'Response actions'
         }
-        foreach ($al in @(& $pull "alerts?`$filter=lastUpdateTime ge $sinceText" 'Permission usage: alerts (Alert.Read.All)')) {
-            foreach ($c in @(Get-GapsioProp $al 'comments')) {
-                if ($c) { & $add ([string](Get-GapsioProp $c 'createdBy')) 'Alerts (manage)' 'Alert comment' (Get-GapsioProp $c 'createdTime') 'Alerts' }
+        $al = Get-GapsioMdeItems -Path "alerts?`$filter=lastUpdateTime ge $sinceText" -Context 'Permission usage: alerts (Alert.Read.All)'
+        $sources.alerts = if ($al.ok) { 'ok' } else { 'failed' }
+        foreach ($x in $al.items) {
+            foreach ($c in @(Get-GapsioProp $x 'comments')) {
+                if ($c) { & $add ([string](Get-GapsioProp $c 'createdBy')) 'alerts' 'Alert comment' (Get-GapsioProp $c 'createdTime') 'Alerts' }
             }
-            $who = [string](Get-GapsioProp $al 'assignedTo')
-            if ($who) {
-                $act = if ([string](Get-GapsioProp $al 'status') -eq 'Resolved') { 'Alert resolved / classified' } else { 'Alert assigned' }
-                $at = Get-GapsioProp $al 'resolvedTime'; if (-not $at) { $at = Get-GapsioProp $al 'lastUpdateTime' }
-                & $add $who 'Alerts (manage)' $act $at 'Alerts'
+            $who = [string](Get-GapsioProp $x 'assignedTo'); $status = [string](Get-GapsioProp $x 'status')
+            if ($who -and $status -in 'InProgress', 'Resolved') {
+                $act = if ($status -eq 'Resolved') { 'Alert resolved / classified' } else { 'Alert in progress' }
+                $at = Get-GapsioProp $x 'resolvedTime'; if (-not $at) { $at = Get-GapsioProp $x 'lastUpdateTime' }
+                & $add $who 'alerts' $act $at 'Alerts'
             }
         }
     }
 
-    foreach ($r in @($AuditRecords)) {
-        if (-not $r) { continue }
-        $op = [string](Get-GapsioProp $r 'operation')
-        $perm = switch -Regex ($op.ToLowerInvariant()) {
-            'role|rbac|permission|machinegroup|devicegroup' { 'Authorization (manage)'; break }
-            'indicator|customdetection|detectionrule|suppression|alerttuning' { 'Detection tuning (manage)'; break }
-            'live ?response' { 'Basic live response (manage)'; break }
-            'isolat|quarantine|scan|restrict|investigationpackage' { 'Response (manage)'; break }
-            'onboard|offboard|advancedfeature|tamper|exclusion|setting|webcontent|asr' { 'Core security settings (manage)'; break }
-            'exception|remediation|vulnerab' { 'Vulnerability management (manage)'; break }
-            default { "Other: $op" }
+    if ($AuditState -eq 'ok') {
+        foreach ($r in @($AuditRecords)) {
+            if (-not $r) { continue }
+            $op = [string](Get-GapsioProp $r 'operation')
+            $perm = switch -Regex ($op.ToLowerInvariant()) {
+                'role|rbac|machinegroup|devicegroup|permission' { 'authorization'; break }
+                'indicator|customdetection|detectionrule|suppression|alerttuning' { 'detectiontuning'; break }
+                'live ?response' { 'lr-basic'; break }
+                'isolat|quarantine|restrict' { 'response'; break }
+                'scan|investigationpackage' { 'alerts'; break }
+                'onboard|offboard|advancedfeature|tamper|exclusion|setting|webcontent|asr' { 'coresettings'; break }
+                'exception|remediation|vulnerab' { 'posture'; break }
+                default { "other:$op" }
+            }
+            & $add ([string](Get-GapsioProp $r 'userPrincipalName')) $perm $op (Get-GapsioProp $r 'createdDateTime') 'Audit log'
         }
-        & $add ([string](Get-GapsioProp $r 'userPrincipalName')) $perm $op (Get-GapsioProp $r 'createdDateTime') 'Audit log'
     }
 
-    @($acc.Values | Sort-Object upn, permission | ForEach-Object {
+    $rows = @($acc.Values | Sort-Object upn, permission | ForEach-Object {
             [pscustomobject]@{
-                upn        = $_.upn
-                permission = $_.permission
-                count      = $_.count
-                first      = $_.first.ToString('o')
-                last       = $_.last.ToString('o')
-                actions    = @($_.actions.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object { [pscustomobject]@{ action = $_.Key; count = $_.Value } })
-                source     = (@($_.sources.Keys) | Sort-Object) -join ', '
+                upn          = $_.upn
+                permissionId = $_.permissionId
+                permission   = $_.permission
+                count        = $_.count
+                first        = $_.first.ToString('o')
+                last         = $_.last.ToString('o')
+                actions      = @($_.actions.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object { [pscustomobject]@{ action = $_.Key; count = $_.Value } })
+                source       = (@($_.sources.Keys) | Sort-Object) -join ', '
             }
+        })
+    [pscustomobject]@{ rows = $rows; sources = [pscustomobject]$sources }
+}
+
+function Get-GapsioPermissionCoverage {
+    <#
+    .SYNOPSIS
+    Held versus used: one row per person and unified RBAC permission they hold (active or eligible), with
+    status Used | Unused | NotMeasurable and a reason code:
+      Used          – activity seen (reason 'activity'), or for read access a portal sign-in or activity (reason 'signIn')
+      Unused        – every source that can prove use was read successfully and shows nothing (reason 'checked'),
+                      or for read access no portal sign-in in the window (reason 'signIn')
+      NotMeasurable – noSource (no API shows its use), off.<source> (feature not enabled), running.audit /
+                      started.audit (audit query not finished yet), failed.<source>, window (observation too short)
+    #>
+    param([object[]]$Entitlements, [object[]]$Roles, [object[]]$Usage, $Sources)
+    $actionsByRole = @{}; foreach ($r in @($Roles)) { if ($r) { $actionsByRole[[string]$r.id] = @($r.actions) } }
+    $used = @{}; foreach ($u in @($Usage)) { if ($u) { $used["$($u.upn)|$($u.permissionId)"] = $u } }
+    $resolved = @{}   # action -> catalog entry (roles share actions; resolve each once)
+    $held = [ordered]@{}
+    foreach ($e in @($Entitlements)) {
+        if (-not $e -or $e.principalType -ne 'user' -or $e.state -notin 'Active', 'Eligible' -or -not $e.upn) { continue }
+        foreach ($act in @($actionsByRole[[string]$e.roleId])) {
+            if (-not $act) { continue }
+            if (-not $resolved.ContainsKey($act)) { $resolved[$act] = Resolve-GapsioXdrPermission -Action $act }
+            $p = $resolved[$act]
+            $k = "$($e.principalId)|$($p.id)"
+            if (-not $held.Contains($k)) {
+                $held[$k] = [pscustomobject]@{ e = $e; p = $p; roles = [System.Collections.Generic.List[string]]::new(); states = [System.Collections.Generic.List[string]]::new(); ents = [System.Collections.Generic.List[object]]::new() }
+            }
+            $h = $held[$k]
+            if (-not $h.roles.Contains([string]$e.role)) { $h.roles.Add([string]$e.role) }
+            if (-not $h.states.Contains([string]$e.state)) { $h.states.Add([string]$e.state) }
+            $h.ents.Add($e)
+        }
+    }
+    @(foreach ($h in $held.Values) {
+            $e = $h.e; $p = $h.p; $upn = ([string]$e.upn).ToLowerInvariant()
+            $u = $used["$upn|$($p.id)"]
+            $status = 'NotMeasurable'; $reason = 'noSource'; $last = $null; $count = 0
+            if ($p.id -eq 'read') {
+                $verdicts = @($h.ents | ForEach-Object { $_.usage })
+                $last = @($h.ents | ForEach-Object { $_.lastUsed } | Where-Object { $_ } | Sort-Object -Descending)[0]
+                if ($verdicts -contains 'Used') { $status = 'Used'; $reason = 'signIn' }
+                elseif ($verdicts -contains 'Unused') { $status = 'Unused'; $reason = 'signIn' }
+                else { $reason = 'window' }
+            }
+            elseif ($u) { $status = 'Used'; $reason = 'activity'; $last = $u.last; $count = $u.count }
+            elseif (@($p.requires).Count) {
+                $bad = @($p.requires | Where-Object { [string](Get-GapsioProp $Sources $_) -ne 'ok' })
+                if (-not $bad.Count) { $status = 'Unused'; $reason = 'checked' }
+                else { $s = $bad[0]; $st = [string](Get-GapsioProp $Sources $s); if (-not $st) { $st = 'off' }; $reason = "$st.$s" }
+            }
+            [pscustomobject]@{
+                principalId  = $e.principalId
+                upn          = $upn
+                displayName  = $e.displayName
+                permissionId = $p.id
+                permission   = $p.name
+                highImpact   = $p.highImpact
+                status       = $status
+                reason       = $reason
+                roles        = @($h.roles)
+                states       = @($h.states)
+                lastUsed     = $last
+                count        = $count
+            }
+        })
+}
+
+function Get-GapsioPermissionUsageFindings {
+    <#
+    .SYNOPSIS
+    One finding per person who holds active (standing) manage permissions that were provably not used in the window.
+    People without any portal sign-in are skipped – the finding "Standing Defender permission never used" covers them.
+    #>
+    param([object[]]$Coverage, [object[]]$Entitlements, [int]$Days = 30)
+    $T = { param($en, $de) New-GapsioText -En $en -De $de }
+    $neverSignedIn = @{}
+    foreach ($e in @($Entitlements | Where-Object { $_.state -eq 'Active' -and $_.privileged -eq $true -and $_.usage -eq 'Unused' -and $_.principalType -eq 'user' })) { $neverSignedIn[[string]$e.principalId] = $true }
+    $rows = @($Coverage | Where-Object { $_.status -eq 'Unused' -and $_.permissionId -ne 'read' -and @($_.states) -contains 'Active' -and -not $neverSignedIn.ContainsKey([string]$_.principalId) })
+    @(foreach ($g in @($rows | Group-Object principalId)) {
+            $r0 = $g.Group[0]
+            $perms = @($g.Group | Sort-Object @{ Expression = { [int]$_.highImpact }; Descending = $true }, permission | ForEach-Object { $_.permission })
+            $roles = @($g.Group | ForEach-Object { $_.roles } | Sort-Object -Unique) -join ', '
+            $high = [bool]@($g.Group | Where-Object { $_.highImpact }).Count
+            New-GapsioFinding -Severity $(if ($high) { 'Medium' } else { 'Low' }) -Category 'LeastPrivilege' `
+                -Title (& $T "Defender permissions held but not used: $($r0.displayName)" "Defender-Berechtigungen gehalten, aber nicht genutzt: $($r0.displayName)") `
+                -Detail (& $T "$($r0.upn) holds $($perms.Count) permission(s) through '$roles' that were not used in the last $Days days: $($perms -join ', ')." "$($r0.upn) hält über '$roles' $($perms.Count) Berechtigung(en), die in den letzten $Days Tagen nicht genutzt wurden: $($perms -join ', ').") `
+                -Recommendation (& $T 'Move the person to a narrower custom role without these permissions, or make the role eligible through PIM for groups so it is only active when needed.' 'Die Person in eine engere benutzerdefinierte Rolle ohne diese Berechtigungen verschieben oder die Rolle über PIM für Gruppen eligible machen, damit sie nur bei Bedarf aktiv ist.') `
+                -Subject "acc|permunused|$($r0.principalId)"
         })
 }
 
@@ -799,6 +969,20 @@ function Invoke-GapsioAccessCollection {
     }
     $fresh = Get-GapsioDefenderPortalUsage -Days $signInDays
     foreach ($k in $fresh.Keys) { if (-not $usage.ContainsKey($k) -or [string]::CompareOrdinal($fresh[$k], $usage[$k]) -gt 0) { $usage[$k] = $fresh[$k] } }
+
+    # Permission usage (response actions, alert triage, audit log): which permission each person actually exercised.
+    # An action also counts as use of Defender – people who act through the API never sign in to the portal.
+    $audit = Get-GapsioDefenderAuditFacts -Previous $prev
+    $permResult = Get-GapsioPermissionUsage -AuditRecords $(if ($audit) { $audit.records } else { $null }) -AuditState $(if ($audit) { $audit.state } else { 'off' }) -Days $signInDays
+    $permUsage = @($permResult.rows)
+    $lastActByUpn = @{}
+    foreach ($u in $permUsage) { if (-not $lastActByUpn.ContainsKey($u.upn) -or [string]::CompareOrdinal($u.last, $lastActByUpn[$u.upn]) -gt 0) { $lastActByUpn[$u.upn] = $u.last } }
+    foreach ($r in $ents) {
+        $k = ([string]$r.upn).ToLowerInvariant()
+        if (-not $k -or -not $lastActByUpn.ContainsKey($k)) { continue }
+        $v = ConvertTo-GapsioIsoUtc $lastActByUpn[$k]
+        if ($v -and (-not $usage.ContainsKey($r.principalId) -or [string]::CompareOrdinal($v, $usage[$r.principalId]) -gt 0)) { $usage[$r.principalId] = $v }
+    }
     $now = [DateTime]::UtcNow
     $observedSince = $now.AddDays(-$signInDays)
     $prevSince = [string](Get-GapsioProp $prev 'usageObservedSince')
@@ -821,22 +1005,21 @@ function Invoke-GapsioAccessCollection {
     $reviews = Get-GapsioAccessReviewCoverage
     $pimRules = @{}
     foreach ($gid in @($groupGrants.Keys)) { if (@($groupGrants[$gid] | Where-Object { $_.privileged }).Count) { $pimRules[$gid] = Get-GapsioPimGroupRules -GroupId $gid } }
-    $audit = Get-GapsioDefenderAuditFacts -Previous $prev
     #endregion
 
-    #region Permission usage: which permissions each person actually exercised (30 days)
-    $permUsage = @(Get-GapsioPermissionUsage -AuditRecords $(if ($audit) { $audit.records } else { $null }) -Days $signInDays)
+    #region Permission coverage: held versus used per person and permission
     $byUpn = @{}
     foreach ($u in $permUsage) { if (-not $byUpn.ContainsKey($u.upn)) { $byUpn[$u.upn] = [System.Collections.Generic.List[string]]::new() }; $byUpn[$u.upn].Add($u.permission) }
     foreach ($e in $ents) {
         $k = ([string]$e.upn).ToLowerInvariant()
         $e | Add-Member -NotePropertyName usedPermissions -NotePropertyValue $(if ($k -and $byUpn.ContainsKey($k)) { @($byUpn[$k]) } else { @() }) -Force
     }
-    $permSources = @(@('Response actions', 'Alerts') | Where-Object { Test-GapsioFeature -Name 'response' })
-    if ($audit) { $permSources += 'Audit log' }
+    $coverage = @(Get-GapsioPermissionCoverage -Entitlements $ents -Roles @($roles) -Usage $permUsage -Sources $permResult.sources)
+    $srcNames = [ordered]@{ actions = 'Response actions'; alerts = 'Alerts'; audit = 'Audit log' }
+    $permSources = @($srcNames.Keys | Where-Object { [string](Get-GapsioProp $permResult.sources $_) -eq 'ok' } | ForEach-Object { $srcNames[$_] })
     #endregion
 
-    $findings = @(Get-GapsioAccessFindings -Entitlements $ents -Bypass @($bypass) -UnusedDays $unusedDays) + @(Get-GapsioPlatformAccessFindings -ApiApps $apiApps -Reviews $reviews -GroupGrants $groupGrants -PimRules $pimRules) + @(Get-GapsioDefenderAuditFindings -Audit $audit)
+    $findings = @(Get-GapsioAccessFindings -Entitlements $ents -Bypass @($bypass) -UnusedDays $unusedDays) + @(Get-GapsioPermissionUsageFindings -Coverage $coverage -Entitlements $ents -Days $signInDays) + @(Get-GapsioPlatformAccessFindings -ApiApps $apiApps -Reviews $reviews -GroupGrants $groupGrants -PimRules $pimRules) + @(Get-GapsioDefenderAuditFindings -Audit $audit)
     $principals = @($ents | Select-Object -ExpandProperty principalId -Unique)
     $activeEnts = @($ents | Where-Object { $_.state -eq 'Active' })
     $snapshot = [ordered]@{
@@ -861,6 +1044,9 @@ function Invoke-GapsioAccessCollection {
             apiApps            = $apiApps.Count
             apiAppsHighImpact  = @($apiApps | Where-Object { @($_.highImpact).Count }).Count
             accessReviews      = $(if ($reviews) { $reviews.count } else { $null })
+            unusedPermissions  = @($coverage | Where-Object { $_.status -eq 'Unused' -and $_.permissionId -ne 'read' }).Count
+            peopleWithUnusedPermissions = @($coverage | Where-Object { $_.status -eq 'Unused' -and $_.permissionId -ne 'read' } | Select-Object -ExpandProperty principalId -Unique).Count
+            notMeasurablePermissions    = @($coverage | Where-Object { $_.status -eq 'NotMeasurable' }).Count
             findings           = $findings.Count
         }
         unusedDays         = $unusedDays
@@ -876,6 +1062,8 @@ function Invoke-GapsioAccessCollection {
         auditSummary       = $(if ($audit) { $audit.summary } else { $null })
         permissionUsage    = $permUsage
         permissionSources  = @($permSources)
+        permissionSourceState = $permResult.sources
+        permissionCoverage = $coverage
         findings           = $findings
         warnings           = @(Get-GapsioWarnings)
     }

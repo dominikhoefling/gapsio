@@ -182,11 +182,26 @@
     'r.onlyPriv': ['Response/config permissions only', 'Nur Response-/Konfigurationsrechte'], 'r.privileged': ['response/config', 'Response/Konfig'], 'r.onlyUnused': ['Never used only', 'Nur nie genutzte'],
     'r.perms': ['Permission groups', 'Berechtigungsgruppen'], 'r.assignment': ['Assignment', 'Zuweisung'], 'r.lastUsed': ['Last used', 'Zuletzt genutzt'], 'r.activated': ['activated {0}', 'aktiviert {0}'],
     'pu.title': ['Permissions actually used (30 days)', 'Tatsächlich genutzte Berechtigungen (30 Tage)'],
-    'pu.lede': ['What each person did with their Defender permissions in the last 30 days, derived from response actions, alert triage and the audit log. Permissions someone holds but never appears with here are candidates for a narrower role. Viewing data and hunting leave no trace in these sources – the portal sign-in date covers read access.', 'Was jede Person in den letzten 30 Tagen mit ihren Defender-Berechtigungen getan hat – abgeleitet aus Response-Aktionen, Alert-Bearbeitung und dem Audit-Log. Berechtigungen, die jemand hält, hier aber nie auftaucht, sind Kandidaten für eine engere Rolle. Ansehen und Hunting hinterlassen in diesen Quellen keine Spur – Lesezugriff deckt das Portal-Anmeldedatum ab.'],
+    'pu.lede': ['What each person did with their Defender permissions in the last 30 days, derived from response actions, alert triage and the audit log. The table above sets this against the permissions each person holds. Viewing data and hunting leave no trace in these sources – the portal sign-in date covers read access.', 'Was jede Person in den letzten 30 Tagen mit ihren Defender-Berechtigungen getan hat – abgeleitet aus Response-Aktionen, Alert-Bearbeitung und dem Audit-Log. Die Tabelle oben stellt das den Berechtigungen gegenüber, die jede Person hält. Ansehen und Hunting hinterlassen in diesen Quellen keine Spur – Lesezugriff deckt das Portal-Anmeldedatum ab.'],
     'pu.sources': ['Sources: {0}', 'Quellen: {0}'], 'pu.noAudit': ['Enable the feature "Audit" (AuditLogsQuery.Read.All) to include setting, indicator and authorization changes.', 'Feature „Audit“ (AuditLogsQuery.Read.All) aktivieren, um auch Einstellungs-, Indikator- und Berechtigungsänderungen einzubeziehen.'],
     'pu.permission': ['Permission', 'Berechtigung'], 'pu.actions': ['Actions', 'Aktionen'], 'pu.count': ['Count', 'Anzahl'], 'pu.first': ['First', 'Erstmals'], 'pu.last': ['Last', 'Zuletzt'], 'pu.source': ['Source', 'Quelle'],
-    'pu.none': ['No permission use recorded in the last 30 days.', 'Keine Nutzung von Berechtigungen in den letzten 30 Tagen erfasst.'], 'pu.used': ['used: {0}', 'genutzt: {0}'], 'pu.readOnly': ['read only', 'nur gelesen'],
-    'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
+    'pu.none': ['No permission use recorded in the last 30 days in the sources that were read.', 'In den gelesenen Quellen keine Nutzung von Berechtigungen in den letzten 30 Tagen erfasst.'],
+    'pu.noSources': ['No usage source could be read – nothing is measured. Enable the feature "Response" (Machine.Read.All, Alert.Read.All) and optionally "Audit" (AuditLogsQuery.Read.All), or check the warnings of the last run.', 'Keine Nutzungsquelle konnte gelesen werden – es wird nichts gemessen. Feature „Response“ (Machine.Read.All, Alert.Read.All) und optional „Audit“ (AuditLogsQuery.Read.All) aktivieren oder die Warnungen des letzten Laufs prüfen.'],
+    'pc.title': ['Held but not used (30 days)', 'Gehalten, aber nicht genutzt (30 Tage)'],
+    'pc.lede': ['Every Defender permission a person holds through unified RBAC (active or eligible), set against what they actually did. “Not used” is only shown when every source that could reveal the use was read successfully; otherwise the permission is “not measurable” and the reason says why.', 'Jede Defender-Berechtigung, die eine Person über Unified RBAC hält (aktiv oder eligible), gegen das, was sie tatsächlich getan hat. „Nicht genutzt“ steht nur da, wenn jede Quelle, die die Nutzung zeigen könnte, erfolgreich gelesen wurde; sonst ist die Berechtigung „nicht messbar“ und der Grund steht dabei.'],
+    'pc.summary': ['{0} permission(s) held but not used by {1} person(s) · {2} not measurable', '{0} Berechtigung(en) bei {1} Person(en) gehalten, aber nicht genutzt · {2} nicht messbar'],
+    'pc.src': ['Usage sources: {0}', 'Nutzungsquellen: {0}'],
+    'pcsrc.actions': ['response actions', 'Response-Aktionen'], 'pcsrc.alerts': ['alerts', 'Alerts'], 'pcsrc.audit': ['audit log', 'Audit-Log'],
+    'pcst.ok': ['read', 'gelesen'], 'pcst.off': ['not enabled', 'nicht aktiviert'], 'pcst.running': ['query running', 'Abfrage läuft'], 'pcst.started': ['query started, results next run', 'Abfrage gestartet, Ergebnisse beim nächsten Lauf'], 'pcst.failed': ['failed – see warnings', 'fehlgeschlagen – siehe Warnungen'],
+    'pc.status': ['Status', 'Status'], 'pc.reason': ['Why', 'Warum'], 'pc.via': ['Through role', 'Über Rolle'], 'pc.onlyUnused': ['Not used only', 'Nur nicht genutzte'],
+    'pcs.Used': ['used', 'genutzt'], 'pcs.Unused': ['not used', 'nicht genutzt'], 'pcs.NotMeasurable': ['not measurable', 'nicht messbar'],
+    'pcr.activity': ['activity recorded', 'Aktivität erfasst'], 'pcr.signIn': ['Defender portal sign-in or recorded action', 'Anmeldung am Defender-Portal oder erfasste Aktion'], 'pcr.checked': ['no activity in the sources that show it', 'keine Aktivität in den Quellen, die sie zeigen'],
+    'pcr.noSource': ['no Microsoft API shows the use of this permission', 'keine Microsoft-API zeigt die Nutzung dieser Berechtigung'], 'pcr.window': ['observation window still too short', 'Beobachtungszeitraum noch zu kurz'],
+    'pcr.off.actions': ['feature “Response” not enabled', 'Feature „Response“ nicht aktiviert'], 'pcr.off.alerts': ['feature “Response” not enabled', 'Feature „Response“ nicht aktiviert'], 'pcr.off.audit': ['feature “Audit” not enabled', 'Feature „Audit“ nicht aktiviert'],
+    'pcr.running.audit': ['audit log query still running', 'Audit-Log-Abfrage läuft noch'], 'pcr.started.audit': ['audit log query started – results with the next run', 'Audit-Log-Abfrage gestartet – Ergebnisse mit dem nächsten Lauf'],
+    'pcr.failed.actions': ['reading response actions failed', 'Lesen der Response-Aktionen fehlgeschlagen'], 'pcr.failed.alerts': ['reading alerts failed', 'Lesen der Alerts fehlgeschlagen'], 'pcr.failed.audit': ['reading the audit log failed', 'Lesen des Audit-Logs fehlgeschlagen'],
+    'pc.none': ['Nobody holds a unified RBAC permission.', 'Niemand hält eine Unified-RBAC-Berechtigung.'], 'pc.rerun': ['This view needs a newer access run – run the access module once.', 'Diese Ansicht braucht einen neueren Access-Lauf – das Access-Modul einmal ausführen.'], 'pu.used': ['used: {0}', 'genutzt: {0}'], 'pu.readOnly': ['read only', 'nur gelesen'],
+    'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com) or last recorded action (response, alert triage, audit log), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com) oder letzte erfasste Aktion (Response, Alert-Bearbeitung, Audit-Log), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
     'r.bypass': ['Full access outside unified RBAC', 'Vollzugriff außerhalb von Unified RBAC'],
     'r.bypass.lede': ['These Entra roles keep access to the whole Defender portal regardless of unified RBAC – they do not appear in the role table above.', 'Diese Entra-Rollen behalten Zugriff auf das gesamte Defender-Portal unabhängig von Unified RBAC – in der Rollentabelle oben erscheinen sie nicht.'],
     'r.level': ['Impact', 'Auswirkung'], 'lvl.High': ['Full access', 'Vollzugriff'], 'lvl.Low': ['Read all', 'Alles lesen'],
@@ -2571,6 +2586,39 @@
           { title: t('r.ends'), text: r => r.end ? fmtDay(r.end) : t('unlimited') }],
         empty: t('r.none')
       }));
+      // Held versus used: one row per person and permission (backend: Get-GapsioPermissionCoverage)
+      main.append(h('h2', null, t('pc.title')), h('p', { class: 'lede' }, t('pc.lede')));
+      if (!Array.isArray(ac.permissionCoverage)) main.append(h('p', { class: 'muted small' }, t('pc.rerun')));
+      else {
+        const pc = ac.permissionCoverage;
+        const st = ac.permissionSourceState || {};
+        const sum = ac.summary || {};
+        const pcCls = s => s === 'Unused' ? 'tag warn' : s === 'Used' ? 'tag' : 'tag muted';
+        const pcRank = { Unused: 0, NotMeasurable: 1, Used: 2 };
+        main.append(h('p', { class: 'muted small' },
+          t('pc.src', ['actions', 'alerts', 'audit'].map(k => `${t(`pcsrc.${k}`)}: ${code('pcst', st[k] || 'off')}`).join(' · ')), h('br'),
+          t('pc.summary', num(sum.unusedPermissions), num(sum.peopleWithUnusedPermissions), num(sum.notMeasurablePermissions))));
+        main.append(dataTable({
+          name: 'access-perm-coverage', rows: pc,
+          sort: (a, b) => (pcRank[a.status] ?? 9) - (pcRank[b.status] ?? 9) || String(a.upn).localeCompare(String(b.upn)) || Number(!!b.highImpact) - Number(!!a.highImpact) || String(a.permission).localeCompare(String(b.permission)),
+          search: r => `${r.upn} ${r.displayName || ''} ${r.permission} ${arr(r.roles).join(' ')}`,
+          filters: [
+            { label: t('r.person'), options: [...new Set(pc.map(r => r.upn))].sort(), test: (r, v) => r.upn === v },
+            { label: t('pu.permission'), options: [...new Set(pc.map(r => r.permission))].sort(), test: (r, v) => r.permission === v },
+            { label: t('pc.status'), options: ['Unused', 'NotMeasurable', 'Used'], optionLabel: s => code('pcs', s), test: (r, v) => r.status === v },
+            { type: 'check', label: t('pc.onlyUnused'), test: r => r.status === 'Unused' },
+            { type: 'check', label: t('r.onlyPriv'), test: r => r.highImpact === true }],
+          columns: [
+            { title: t('r.person'), cell: r => h('span', null, r.displayName || r.upn, h('br'), h('span', { class: 'muted small' }, r.upn)), text: r => r.upn },
+            { title: t('pu.permission'), cell: r => h('span', null, r.permission, r.highImpact ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null), text: r => r.permission },
+            { title: t('pc.status'), cell: r => h('span', { class: pcCls(r.status) }, code('pcs', r.status)), text: r => code('pcs', r.status) },
+            { title: t('pc.reason'), cell: r => h('span', { class: 'small' }, code('pcr', r.reason)), text: r => code('pcr', r.reason) },
+            { title: t('pc.via'), cell: r => h('span', null, arr(r.roles).join(', '), h('br'), h('span', { class: 'muted small' }, arr(r.states).map(s => code('rs', s)).join(', '))), text: r => arr(r.roles).join(', ') },
+            { title: t('r.lastUsed'), text: r => r.lastUsed ? fmtDay(r.lastUsed) : '–' }],
+          empty: t('pc.none')
+        }));
+      }
+
       const pu = arr(ac.permissionUsage);
       const srcs = arr(ac.permissionSources);
       main.append(h('h2', null, t('pu.title')), h('p', { class: 'lede' }, t('pu.lede')),
@@ -2589,7 +2637,7 @@
           { title: t('pu.first'), text: r => fmtDate(r.first) },
           { title: t('pu.last'), text: r => fmtDate(r.last) },
           { title: t('pu.source'), text: r => r.source }],
-        empty: t('pu.none')
+        empty: srcs.length ? t('pu.none') : t('pu.noSources')
       }));
       const byp = arr(ac.bypass);
       if (byp.length) {
