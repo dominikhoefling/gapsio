@@ -59,10 +59,11 @@ function Get-GapsioPurviewLicensing {
                     plans         = @($hits | ForEach-Object { "$($_.servicePlanName) ($($_.provisioningStatus))" })
                 })
         }
+        $en = 0; $co = 0; foreach ($x in $sources) { $en += [int]$x.enabled; $co += [int]$x.consumed }
         [ordered]@{
             id = $c.id; label = $c.label; licensed = [bool]$sources.Count
-            enabled = [int](($sources | Measure-Object -Property enabled -Sum).Sum)
-            consumed = [int](($sources | Measure-Object -Property consumed -Sum).Sum)
+            enabled = $en
+            consumed = $co
             sources = @($sources)
         }
     }
@@ -139,7 +140,7 @@ CloudAppEvents
 | where toint(RawEventData.RecordType) == 63
 | extend Device = tolower(tostring(RawEventData.DeviceName)), Op = tostring(RawEventData.Operation), User = tolower(tostring(RawEventData.UserId))
 | where isnotempty(Device)
-| summarize events = count(), users = dcount(User), operations = make_set(Op, 8), first = min(Timestamp), last = max(Timestamp) by Device
+| summarize events = count(), users = dcount(User), operations = make_set(Op, 8), FirstEvent = min(Timestamp), LastEvent = max(Timestamp) by Device
 | order by events desc
 '@ }
         [ordered]@{ key = 'dlp_rule_matches'; title = 'DLP rule matches by workload and policy'; workload = 'DLP'; returnMany = $true; maxRows = 200
@@ -151,7 +152,7 @@ CloudAppEvents
 | extend Policy = coalesce(tostring(RawEventData.PolicyMatchInfo.PolicyName), tostring(RawEventData.PolicyDetails[0].PolicyName), "(unknown)"),
          Rule = coalesce(tostring(RawEventData.PolicyMatchInfo.RuleName), tostring(RawEventData.PolicyDetails[0].Rules[0].RuleName), ""),
          Workload = tostring(RawEventData.Workload)
-| summarize events = count(), users = dcount(AccountObjectId), last = max(Timestamp) by Workload, Policy, Rule
+| summarize events = count(), users = dcount(AccountObjectId), LastEvent = max(Timestamp) by Workload, Policy, Rule
 | order by events desc
 '@ }
         [ordered]@{ key = 'dlp_exfil_channels'; title = 'Endpoint DLP activities (USB, cloud upload, print, share, clipboard)'; workload = 'DLP'; returnMany = $true; maxRows = 50
@@ -170,7 +171,7 @@ CloudAppEvents
 | extend RT = toint(RawEventData.RecordType), Op = tostring(RawEventData.Operation), Just = tostring(RawEventData.Justification), Mode = toint(RawEventData.EnforcementMode)
 | where (RT == 63 and (isnotempty(Just) or Mode == 3)) or Op in~ ("DLPRuleUndo", "DlpRuleUndo") or tostring(RawEventData) has "Override"
 | extend User = tolower(coalesce(tostring(RawEventData.UserId), AccountDisplayName))
-| summarize overrides = count(), operations = make_set(Op, 6), justifications = make_set(Just, 5), last = max(Timestamp) by User
+| summarize overrides = count(), operations = make_set(Op, 6), justifications = make_set(Just, 5), LastEvent = max(Timestamp) by User
 | order by overrides desc
 '@ }
         [ordered]@{ key = 'label_changes'; title = 'Sensitivity label removals and downgrades'; workload = 'Labels'; returnMany = $true; maxRows = 100
@@ -181,7 +182,7 @@ CloudAppEvents
 | extend EvType = toint(RawEventData.SensitivityLabelEventData.LabelEventType),
          User = tolower(coalesce(tostring(RawEventData.UserId), AccountDisplayName))
 | extend Change = case(ActionType has "Removed" or EvType == 3, "removed", EvType == 2, "downgraded", EvType == 1, "upgraded", ActionType has "Applied", "applied", "changed")
-| summarize events = count(), removed = countif(Change == "removed"), downgraded = countif(Change == "downgraded"), last = max(Timestamp) by User
+| summarize events = count(), removed = countif(Change == "removed"), downgraded = countif(Change == "downgraded"), LastEvent = max(Timestamp) by User
 | where removed > 0 or downgraded > 0
 | order by removed + downgraded desc
 '@ }
@@ -210,7 +211,7 @@ CloudAppEvents
 AlertInfo
 | where Timestamp > ago(30d)
 | where ServiceSource has "Data Loss Prevention" or DetectionSource has "Data Loss Prevention" or Category =~ "DataLossPrevention"
-| summarize alerts = dcount(AlertId), last = max(Timestamp) by Severity, Title
+| summarize alerts = dcount(AlertId), LastEvent = max(Timestamp) by Severity, Title
 | order by alerts desc
 '@ }
         [ordered]@{ key = 'dlp_alerts_daily'; title = 'DLP alerts per day'; workload = 'Alerts'; returnMany = $true; maxRows = 60
@@ -231,19 +232,21 @@ DeviceFileEvents
 | where Timestamp > ago(30d) and ActionType in ("FileCreated", "FileModified", "FileRenamed")
 | extend Drive = substring(FolderPath, 0, 2), Label = tostring(column_ifexists("SensitivityLabel", ""))
 | join kind=inner usb on DeviceId, Drive
-| summarize files = dcount(SHA1), labeled = dcountif(SHA1, isnotempty(Label)), last = max(Timestamp) by DeviceName, InitiatingProcessAccountName
+| summarize files = dcount(SHA1), labeled = dcountif(SHA1, isnotempty(Label)), LastEvent = max(Timestamp) by DeviceName, InitiatingProcessAccountName
 | order by labeled desc, files desc
 '@ }
     )
 
+    $hunting = Test-GapsioFeature -Name 'hunting'
     foreach ($p in $probes) {
+        if (-not $hunting) { & $add $p.key $p.title $p.workload 'skipped' 'Feature Hunting (ThreatHunting.Read.All) not enabled' @(); continue }
         try {
-            $r = Invoke-GapsioHuntingSafe -NoShard -Context "purview preview $($p.key)" -Timespan 'P30D' -Query $p.query
+            $r = Invoke-GapsioHunting -Timespan 'P30D' -Query $p.query
             $all = @($r | Where-Object { $null -ne $_ })
             & $add $p.key $p.title $p.workload 'ok' $null @($all | Select-Object -First ([int]$p.maxRows))
             $ok++
         }
-        catch { & $add $p.key $p.title $p.workload 'error' ([string]$_.Exception.Message) @(); $errors++ }
+        catch { & $add $p.key $p.title $p.workload 'error' (Get-GapsioErrorText -Exception $_.Exception -Context 'ThreatHunting.Read.All') @(); $errors++ }
     }
     $byKey = @{}; foreach ($r in $rows) { $byKey[$r.key] = $r }
 
@@ -254,7 +257,7 @@ DeviceFileEvents
         $short = ([string]$d.DeviceName -split '\.')[0]
         $a = $active[$short]
         [ordered]@{ device = [string]$d.DeviceName; platform = [string]$d.OSPlatform; osVersion = [string]$d.OSVersion; lastSeen = $d.LastSeen
-            dlpActive = [bool]$a; dlpEvents = $(if ($a) { [int]$a.events } else { 0 }); dlpLast = $(if ($a) { $a.last } else { $null }); operations = $(if ($a) { @($a.operations) } else { @() }) }
+            dlpActive = [bool]$a; dlpEvents = $(if ($a) { [int]$a.events } else { 0 }); dlpLast = $(if ($a) { $a.LastEvent } else { $null }); operations = $(if ($a) { @($a.operations) } else { @() }) }
     }
     $deviceRows = @($deviceRows)
     $silent = @($deviceRows | Where-Object { -not $_.dlpActive }).Count
@@ -275,7 +278,7 @@ DeviceFileEvents
     if ($capable.Count -and $silent -gt 0 -and $cloudAppEventsSeen) {
         & $F 'devices_silent' $(if ($silent / [Math]::Max(1, $capable.Count) -gt 0.5) { 'High' } else { 'Medium' }) 'Capable devices without Endpoint DLP activity' 'DLP-fähige Geräte ohne Endpoint-DLP-Aktivität' "$silent of $($capable.Count) onboarded Windows/macOS devices reported no DLPEndpoint audit event in 30 days." "$silent von $($capable.Count) onboarded Windows-/macOS-Geräten haben in 30 Tagen kein DLPEndpoint-Audit-Ereignis gemeldet." 'Check Purview > Settings > Device onboarding, policy scope (devices/users) and that Endpoint DLP policies include the Devices location.' 'Purview > Einstellungen > Geräte-Onboarding, Policy-Scope (Geräte/Benutzer) und Speicherort „Geräte“ in den Endpoint-DLP-Richtlinien prüfen.'
     }
-    if (-not $cloudAppEventsSeen -and (Test-GapsioFeature -Name 'hunting')) {
+    if (-not $cloudAppEventsSeen -and $byKey['devices_dlp_activity'].status -eq 'ok' -and $byKey['config_changes'].status -eq 'ok') {
         & $F 'no_audit_feed' 'Medium' 'No Purview audit records in Advanced Hunting' 'Keine Purview-Audit-Daten in Advanced Hunting' 'CloudAppEvents contained no DLP/label/config records in 30 days.' 'CloudAppEvents enthielt in 30 Tagen keine DLP-/Label-/Konfigurations-Einträge.' 'Enable the Defender for Cloud Apps "Microsoft 365" app connector and make sure unified audit logging is on.' 'Den Defender-for-Cloud-Apps-Connector „Microsoft 365“ aktivieren und sicherstellen, dass das Unified Audit Log eingeschaltet ist.'
     }
     if ($capEdlp -and -not $capEdlp.licensed -and $capable.Count) {
@@ -283,12 +286,12 @@ DeviceFileEvents
     }
     $ov = @($byKey['dlp_overrides'].result)
     if ($ov.Count) {
-        $total = ($ov | Measure-Object -Property overrides -Sum).Sum
+        $total = 0; foreach ($x in $ov) { $total += [int]$x.overrides }
         & $F 'overrides' 'Medium' 'Users override DLP policies' 'Benutzer übersteuern DLP-Richtlinien' "$total override(s)/justification(s) by $($ov.Count) user(s) in 30 days." "$total Override(s)/Begründung(en) von $($ov.Count) Benutzer(n) in 30 Tagen." 'Review justifications; switch frequently overridden rules from "warn" to "block" or refine them.' 'Begründungen prüfen; häufig übersteuerte Regeln von „Warnen“ auf „Blockieren“ umstellen oder schärfen.'
     }
     $lc = @($byKey['label_changes'].result)
     if ($lc.Count) {
-        $rm = ($lc | Measure-Object -Property removed -Sum).Sum; $dg = ($lc | Measure-Object -Property downgraded -Sum).Sum
+        $rm = 0; $dg = 0; foreach ($x in $lc) { $rm += [int]$x.removed; $dg += [int]$x.downgraded }
         & $F 'label_downgrades' $(if ($rm + $dg -ge 20) { 'High' } else { 'Medium' }) 'Sensitivity labels removed or downgraded' 'Vertraulichkeitsbezeichnungen entfernt oder herabgestuft' "$rm removal(s), $dg downgrade(s) by $($lc.Count) user(s)." "$rm Entfernung(en), $dg Herabstufung(en) durch $($lc.Count) Benutzer." 'Require justification for downgrades (label policy) and correlate with exfil activity.' 'Begründungspflicht für Herabstufungen (Label-Policy) aktivieren und mit Exfil-Aktivität korrelieren.'
     }
     $cc = @($byKey['config_changes'].result)

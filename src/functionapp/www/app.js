@@ -2110,7 +2110,7 @@
         }
         const alerts = res('dlp_alerts');
         if (alerts.length) main.append(dataTable({ name: 'purview-alerts', rows: alerts, search: r => `${r.Title} ${r.Severity}`,
-          columns: [{ title: t('x.severity'), text: r => r.Severity || '' }, { title: t('x.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.last) }] }));
+          columns: [{ title: t('x.severity'), text: r => r.Severity || '' }, { title: t('x.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.LastEvent) }] }));
         main.append(h('h3', null, t('pv.labels')));
         if (o.labels == null) main.append(h('p', { class: 'muted small' }, t('pv.labels.na')));
         else main.append(dataTable({ name: 'purview-labels', rows: arr(o.labels), search: l => `${l.name} ${l.parent}`,
@@ -2186,7 +2186,7 @@
         if (!rowsIn.length) continue;
         const cols = Object.keys(rowsIn[0]);
         main.append(dataTable({ name: `purview-h-${r.key}`, rows: rowsIn, search: x => cols.map(c => String(x[c] ?? '')).join(' '),
-          columns: cols.map(c => ({ title: c, text: x => { const v = x[c]; return Array.isArray(v) ? v.join(', ') : (/^(last|first|Timestamp|day)$/i.test(c) ? fmtDate(v) : String(v ?? '')); } })) }));
+          columns: cols.map(c => ({ title: c, text: x => { const v = x[c]; return Array.isArray(v) ? v.join(', ') : (/^(LastEvent|FirstEvent|LastSeen|Timestamp|day)$/i.test(c) ? fmtDate(v) : String(v ?? '')); } })) }));
       }
     },
 
