@@ -24,7 +24,7 @@ function Get-GapsioModules {
     'officepreview' (Defender for Office 365 private preview) modules are optional.
     #>
     $raw = Get-GapsioSetting -Name 'GAPSIO_MODULES' -Default 'endpoint,agents'
-    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview' } | Select-Object -Unique)
+    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview' } | Select-Object -Unique)
 }
 
 function Test-GapsioFeature {

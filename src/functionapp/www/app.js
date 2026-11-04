@@ -36,7 +36,7 @@
     'noaccess': ['Gapsio is only available to administrators (app role “Gapsio Administrator”). Please contact your security team.', 'Gapsio steht nur Administratoren zur Verfügung (App-Rolle „Gapsio Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.purview': ['Purview DLP (private preview)', 'Purview DLP (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'nav.menu': ['Menu', 'Menü'], 'nav.close': ['Close menu', 'Menü schließen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['MDO private preview', 'MDO Private Preview'], 'v.officeantiphish': ['Anti-phish drift', 'Anti-Phishing-Drift'], 'v.officepolicymap': ['Policy map', 'Policy-Map'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
@@ -251,6 +251,23 @@
     'office.title': ['Defender for Office 365 (private preview)', 'Defender for Office 365 (Private Preview)'],
     'office.lede': ['Private draft from cyberdom365. This is a live workload probe and correlation starter, not a copy of the Defender UI.', 'Privater Draft aus cyberdom365. Das ist ein Live-Workload-Probe und Korrelations-Startpunkt, keine Kopie der Defender-UI.'],
     'office.window': ['Window: last {0} days', 'Fenster: letzte {0} Tage'],
+    'v.purview': ['DLP overview', 'DLP-Übersicht'], 'v.purviewdevices': ['Endpoint DLP devices', 'Endpoint-DLP-Geräte'], 'v.purviewlicensing': ['Licences', 'Lizenzen'], 'v.purviewaccess': ['Permissions', 'Berechtigungen'], 'v.purviewhunting': ['Activity & audit', 'Aktivität & Audit'],
+    'pv.title': ['Purview DLP (private preview)', 'Purview DLP (Private Preview)'],
+    'pv.lede': ['Endpoint DLP coverage, Purview licences, DLP/label activity and configuration changes – data Purview spreads over many pages or does not show at all.', 'Endpoint-DLP-Abdeckung, Purview-Lizenzen, DLP-/Label-Aktivität und Konfigurationsänderungen – Daten, die Purview über viele Seiten verteilt oder gar nicht zeigt.'],
+    'pv.empty': ['No Purview data yet.', 'Noch keine Purview-Daten.'],
+    'pv.capable': ['DLP-capable devices', 'DLP-fähige Geräte'], 'pv.active': ['with DLP activity', 'mit DLP-Aktivität'], 'pv.silent': ['without DLP activity', 'ohne DLP-Aktivität'],
+    'pv.feed': ['Purview audit feed in Advanced Hunting', 'Purview-Audit-Feed in Advanced Hunting'], 'pv.feed.on': ['available', 'vorhanden'], 'pv.feed.off': ['missing', 'fehlt'],
+    'pv.feed.hint': ['CloudAppEvents contains no Purview audit records. Enable the Defender for Cloud Apps "Microsoft 365" connector – otherwise DLP activity, overrides, label changes and config changes stay empty.', 'CloudAppEvents enthält keine Purview-Audit-Einträge. Den Defender-for-Cloud-Apps-Connector „Microsoft 365“ aktivieren – sonst bleiben DLP-Aktivität, Overrides, Label- und Konfigurationsänderungen leer.'],
+    'pv.findings': ['Findings', 'Befunde'], 'pv.alerts': ['DLP alerts (30 days)', 'DLP-Alerts (30 Tage)'], 'pv.labels': ['Sensitivity labels', 'Vertraulichkeitsbezeichnungen'], 'pv.labels.na': ['Not available – grant InformationProtectionPolicy.Read.All.', 'Nicht verfügbar – InformationProtectionPolicy.Read.All erteilen.'],
+    'pv.device': ['Device', 'Gerät'], 'pv.platform': ['Platform', 'Plattform'], 'pv.lastSeen': ['Last seen (MDE)', 'Zuletzt gesehen (MDE)'], 'pv.dlpState': ['Endpoint DLP', 'Endpoint DLP'], 'pv.events': ['Events', 'Ereignisse'], 'pv.lastDlp': ['Last DLP event', 'Letztes DLP-Ereignis'], 'pv.ops': ['Activities', 'Aktivitäten'], 'pv.yes': ['active', 'aktiv'], 'pv.no': ['no activity', 'keine Aktivität'],
+    'pv.cap': ['Capability', 'Funktion'], 'pv.licensed': ['Licensed', 'Lizenziert'], 'pv.units': ['Units (assigned/purchased)', 'Einheiten (zugewiesen/gekauft)'], 'pv.skus': ['From SKUs / service plans', 'Aus SKUs / Service-Plänen'], 'pv.users': ['Users holding the plan', 'Benutzer mit Plan'],
+    'pv.u.endpointdlp': ['Endpoint DLP (MICROSOFTENDPOINTDLP)', 'Endpoint DLP (MICROSOFTENDPOINTDLP)'], 'pv.u.mipPremium': ['Information Protection Premium (MIP_S_CLP2)', 'Information Protection Premium (MIP_S_CLP2)'], 'pv.u.mipStandard': ['Information Protection Standard (MIP_S_CLP1)', 'Information Protection Standard (MIP_S_CLP1)'], 'pv.u.insiderRisk': ['Insider Risk (INSIDER_RISK)', 'Insider Risk (INSIDER_RISK)'],
+    'pv.role': ['Role', 'Rolle'], 'pv.principal': ['Principal', 'Principal'], 'pv.assignment': ['Assignment', 'Zuweisung'], 'pv.scope': ['What it allows', 'Was sie erlaubt'], 'pv.type': ['Type', 'Typ'],
+    'pv.probe': ['Probe', 'Abfrage'], 'pv.status': ['Status', 'Status'], 'pv.rows': ['Rows', 'Zeilen'], 'pv.notes': ['Limits', 'Grenzen'],
+    'pv.lic.lede': ['Which Purview capabilities the tenant owns, from which SKU/add-on, and how many users actually hold the key plans.', 'Welche Purview-Funktionen der Tenant besitzt, aus welcher SKU/welchem Add-on, und wie viele Benutzer die Schlüssel-Pläne tatsächlich haben.'],
+    'pv.dev.lede': ['Onboarded Windows 10/11 and macOS devices are Endpoint DLP capable once device onboarding is on in Purview. Devices without any DLPEndpoint audit event in 30 days are likely not covered by a policy.', 'Onboarded Windows-10/11- und macOS-Geräte sind Endpoint-DLP-fähig, sobald das Geräte-Onboarding in Purview aktiv ist. Geräte ohne DLPEndpoint-Audit-Ereignis in 30 Tagen sind vermutlich von keiner Richtlinie erfasst.'],
+    'pv.acc.lede': ['Entra roles with Purview/DLP reach – active and PIM-eligible. Purview role groups have no Graph API and are not listed.', 'Entra-Rollen mit Purview-/DLP-Reichweite – aktiv und PIM-berechtigt. Purview-Rollengruppen haben keine Graph-API und fehlen hier.'],
+    'pv.hunt.lede': ['Advanced Hunting probes for security and audit: rule matches, overrides, exfil channels, label downgrades, who changed DLP/label/audit settings.', 'Advanced-Hunting-Abfragen für Security und Audit: Regel-Treffer, Overrides, Exfil-Kanäle, Label-Herabstufungen, wer DLP-/Label-/Audit-Einstellungen geändert hat.'],
     'office.probes': ['Probes: {0} ok, {1} errors', 'Probes: {0} ok, {1} Fehler'],
     'office.kpi': ['Quick KPIs', 'Schnell-KPIs'],
     'office.kpi.threatEvents': ['Threat events (30d)', 'Threat-Events (30T)'],
@@ -474,7 +491,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, purview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -945,6 +962,7 @@
   async function loadLicensing(force) { if (!state.licensing || force) state.licensing = await api('licensing'); return state.licensing; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadOfficePreview(force) { if (!state.officePreview || force) state.officePreview = await api('officepreview'); return state.officePreview; }
+  async function loadPurview(force) { if (!state.purview || force) state.purview = await api('purviewpreview'); return state.purview; }
   async function loadAcceptances(force) {
     if (!state.acceptances || force) {
       await Promise.all([
@@ -2042,6 +2060,136 @@
       }
     },
 
+    async purviewdevices(main, params) { return views.purview(main, params, 'devices'); },
+    async purviewlicensing(main, params) { return views.purview(main, params, 'licensing'); },
+    async purviewaccess(main, params) { return views.purview(main, params, 'access'); },
+    async purviewhunting(main, params) { return views.purview(main, params, 'hunting'); },
+
+    async purview(main, params, section = 'overview') {
+      const ledes = { overview: 'pv.lede', devices: 'pv.dev.lede', licensing: 'pv.lic.lede', access: 'pv.acc.lede', hunting: 'pv.hunt.lede' };
+      const titles = { overview: 'pv.title', devices: 'v.purviewdevices', licensing: 'v.purviewlicensing', access: 'v.purviewaccess', hunting: 'v.purviewhunting' };
+      main.append(h('h1', null, t(titles[section])), h('p', { class: 'lede' }, t(ledes[section])));
+      let o; try { o = await loadPurview(); } catch (e) { main.append(noData(e, 'purviewpreview')); return; }
+      if (!o || !arr(o.results).length) { main.append(h('div', { class: 'empty' }, t('pv.empty'))); return; }
+      const s = o.summary || {};
+      const byKey = Object.fromEntries(arr(o.results).map(r => [r.key, r]));
+      const res = k => arr((byKey[k] || {}).result);
+      main.append(h('div', { class: 'facts' },
+        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('office.probes', num(o.ok || 0), num(o.errors || 0)))),
+        h('div', { class: 'fact' }, h('b', null, num(s.capableDevices || 0)), h('span', null, t('pv.capable'))),
+        h('div', { class: 'fact' }, h('b', null, num(s.dlpActiveDevices || 0)), h('span', null, t('pv.active'))),
+        h('div', { class: 'fact' }, h('b', null, num(s.silentDevices || 0)), h('span', null, t('pv.silent'))),
+        h('div', { class: 'fact' }, h('b', null, t(s.auditFeed ? 'pv.feed.on' : 'pv.feed.off')), h('span', null, t('pv.feed')))));
+      if (!s.auditFeed) main.append(h('p', { class: 'muted small' }, t('pv.feed.hint')));
+
+      if (section === 'overview') {
+        const findings = arr(o.findings);
+        if (findings.length) {
+          main.append(h('h3', null, t('pv.findings')));
+          main.append(dataTable({
+            name: 'purview-findings', rows: findings,
+            search: f => `${tx(f.title)} ${tx(f.detail)} ${f.severity || ''}`,
+            filters: [{ label: t('x.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
+            columns: [
+              { title: t('x.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
+              { title: t('x.title'), text: f => tx(f.title) },
+              { title: t('x.detail'), text: f => tx(f.detail) },
+              { title: t('x.recommendation'), text: f => tx(f.recommendation) }
+            ]
+          }));
+        }
+        const daily = res('dlp_alerts_daily');
+        if (daily.length) {
+          const keys = [
+            { id: 'High', label: 'High', color: 'var(--sev-hoch)' }, { id: 'Medium', label: 'Medium', color: 'var(--sev-mittel)' },
+            { id: 'Low', label: 'Low', color: 'var(--sev-ok)' }, { id: 'Informational', label: 'Info', color: 'var(--muted)' }
+          ];
+          const byDay = {};
+          for (const r of daily) { const d = dayKey(r.day); if (!d) continue; const b = byDay[d] || (byDay[d] = {}); b[r.bucket] = (b[r.bucket] || 0) + Number(r.events || 0); }
+          main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('pv.alerts'), buckets: lastDays(30).map(d => ({ id: d, label: dayShort(d), title: dayLong(d), values: byDay[d] || {}, empty: !byDay[d] })), keys }));
+        }
+        const alerts = res('dlp_alerts');
+        if (alerts.length) main.append(dataTable({ name: 'purview-alerts', rows: alerts, search: r => `${r.Title} ${r.Severity}`,
+          columns: [{ title: t('x.severity'), text: r => r.Severity || '' }, { title: t('x.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.last) }] }));
+        main.append(h('h3', null, t('pv.labels')));
+        if (o.labels == null) main.append(h('p', { class: 'muted small' }, t('pv.labels.na')));
+        else main.append(dataTable({ name: 'purview-labels', rows: arr(o.labels), search: l => `${l.name} ${l.parent}`,
+          columns: [{ title: 'Label', text: l => (l.parent ? `${l.parent} / ` : '') + (l.name || '') }, { title: 'Sensitivity', text: l => String(l.sensitivity ?? '') }, { title: 'Active', text: l => String(l.isActive ?? '') }, { title: 'Formats', text: l => arr(l.contentFormats).join(', ') }] }));
+        if (arr(o.notes).length) main.append(h('details', { class: 'warnings' }, h('summary', null, t('pv.notes')), h('ul', null, arr(o.notes).map(n => h('li', null, n)))));
+        if (arr(o.warnings).length) main.append(h('details', { class: 'warnings' }, h('summary', null, `Warnings (${arr(o.warnings).length})`), h('ul', null, arr(o.warnings).map(n => h('li', { class: 'small' }, n)))));
+        return;
+      }
+
+      if (section === 'devices') {
+        main.append(dataTable({
+          name: 'purview-devices', rows: arr(o.devices),
+          sort: (a, b) => (a.dlpActive === b.dlpActive ? 0 : a.dlpActive ? 1 : -1) || String(a.device).localeCompare(String(b.device)),
+          search: d => `${d.device} ${d.platform} ${arr(d.operations).join(' ')}`,
+          filters: [{ label: t('pv.dlpState'), options: [t('pv.yes'), t('pv.no')], test: (d, v) => (d.dlpActive ? t('pv.yes') : t('pv.no')) === v }],
+          columns: [
+            { title: t('pv.device'), text: d => d.device },
+            { title: t('pv.platform'), text: d => `${d.platform || ''} ${d.osVersion || ''}`.trim() },
+            { title: t('pv.lastSeen'), text: d => fmtDate(d.lastSeen) },
+            { title: t('pv.dlpState'), cell: d => h('span', { class: `sev sev-${d.dlpActive ? 'Low' : 'Medium'}` }, d.dlpActive ? t('pv.yes') : t('pv.no')), text: d => d.dlpActive ? t('pv.yes') : t('pv.no') },
+            { title: t('pv.events'), text: d => num(d.dlpEvents || 0) },
+            { title: t('pv.lastDlp'), text: d => d.dlpLast ? fmtDate(d.dlpLast) : '–' },
+            { title: t('pv.ops'), text: d => arr(d.operations).join(', ') }
+          ]
+        }));
+        const plat = res('devices_platform');
+        if (plat.length) main.append(h('h3', null, t('pv.platform')), dataTable({ name: 'purview-platforms', rows: plat,
+          columns: [{ title: t('pv.platform'), text: r => r.OSPlatform }, { title: 'Onboarded', text: r => num(r.devices || 0) }, { title: t('pv.capable'), text: r => num(r.capable || 0) }] }));
+        return;
+      }
+
+      if (section === 'licensing') {
+        const lic = o.licensing;
+        if (!lic) { main.append(h('p', { class: 'muted' }, t('pv.empty'))); return; }
+        main.append(h('div', { class: 'facts' }, ...Object.entries(lic.users || {}).map(([k, v]) => h('div', { class: 'fact' }, h('b', null, v == null ? '–' : num(v)), h('span', null, t(`pv.u.${k}`))))));
+        main.append(dataTable({
+          name: 'purview-capabilities', rows: arr(lic.capabilities),
+          search: c => `${c.label} ${arr(c.sources).map(x => x.skuPartNumber).join(' ')}`,
+          filters: [{ label: t('pv.licensed'), options: ['✓', '✗'], test: (c, v) => (c.licensed ? '✓' : '✗') === v }],
+          columns: [
+            { title: t('pv.cap'), text: c => c.label },
+            { title: t('pv.licensed'), cell: c => h('span', { class: `sev sev-${c.licensed ? 'Low' : 'High'}` }, c.licensed ? '✓' : '✗'), text: c => c.licensed ? '✓' : '✗' },
+            { title: t('pv.units'), text: c => c.licensed ? `${num(c.consumed)}/${num(c.enabled)}` : '–' },
+            { title: t('pv.skus'), text: c => arr(c.sources).map(x => `${x.skuPartNumber} (${num(x.consumed)}/${num(x.enabled)}): ${arr(x.plans).join(', ')}`).join(' · ') }
+          ]
+        }));
+        return;
+      }
+
+      if (section === 'access') {
+        main.append(dataTable({
+          name: 'purview-roles', rows: arr(o.roles),
+          search: r => `${r.role} ${r.principal} ${r.upn}`,
+          filters: [
+            { label: t('pv.role'), options: [...new Set(arr(o.roles).map(r => r.role))], test: (r, v) => r.role === v },
+            { label: t('pv.assignment'), options: ['active', 'eligible'], test: (r, v) => r.assignment === v }
+          ],
+          columns: [
+            { title: t('pv.role'), text: r => r.role },
+            { title: t('pv.principal'), text: r => r.upn || r.principal || '' },
+            { title: t('pv.type'), text: r => r.type || '' },
+            { title: t('pv.assignment'), text: r => r.assignment },
+            { title: t('pv.scope'), text: r => r.scope }
+          ]
+        }));
+        return;
+      }
+
+      // hunting
+      for (const r of arr(o.results).filter(r => !['devices_capable', 'devices_platform', 'dlp_alerts_daily'].includes(r.key))) {
+        const rowsIn = arr(r.result);
+        main.append(h('h3', null, r.title), h('p', { class: 'muted small' }, `${r.workload} · ${r.status === 'ok' ? `${num(rowsIn.length)} ${t('pv.rows')}` : `error: ${r.error || ''}`}`));
+        if (!rowsIn.length) continue;
+        const cols = Object.keys(rowsIn[0]);
+        main.append(dataTable({ name: `purview-h-${r.key}`, rows: rowsIn, search: x => cols.map(c => String(x[c] ?? '')).join(' '),
+          columns: cols.map(c => ({ title: c, text: x => { const v = x[c]; return Array.isArray(v) ? v.join(', ') : (/^(last|first|Timestamp|day)$/i.test(c) ? fmtDate(v) : String(v ?? '')); } })) }));
+      }
+    },
+
     async officeantiphish(main, params) { return views.officepreview(main, params, 'antiphish'); },
     async officepolicymap(main, params) { return views.officepreview(main, params, 'policymap'); },
 
@@ -2831,6 +2979,7 @@
   const NAV = [
     { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline'] },
     { group: 'nav.office', admin: true, module: 'officepreview', items: ['officepreview', 'officeantiphish', 'officepolicymap'] },
+    { group: 'nav.purview', admin: true, module: 'purviewpreview', items: ['purview', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
@@ -2842,7 +2991,8 @@
     agents: 'agents', agentca: 'agents',
     access: 'access', whocan: 'access', mine: 'access',
     licensing: 'licensing',
-    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview'
+    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview',
+    purview: 'purviewpreview', purviewdevices: 'purviewpreview', purviewlicensing: 'purviewpreview', purviewaccess: 'purviewpreview', purviewhunting: 'purviewpreview'
   };
   const NAV_ALIAS = { device: 'devices' };
   let navCollapsed = {};

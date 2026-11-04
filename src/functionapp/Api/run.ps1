@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Gapsio.Admin role.'
     return
@@ -111,6 +111,7 @@ try {
         'access' { Send-Snapshot -Name 'access-latest.json' }
         'licensing' { Send-Snapshot -Name 'licensing-latest.json' }
         'officepreview' { Send-Snapshot -Name 'office-preview-latest.json' }
+        'purviewpreview' { Send-Snapshot -Name 'purview-preview-latest.json' }
         'assistant' {
             # Optional chat helper (GAPSIO_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.
             if (-not (Test-GapsioAssistant)) { Send-Response -Status 404 -Body 'The assistant is not enabled in this installation.'; return }
