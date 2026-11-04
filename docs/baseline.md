@@ -2,7 +2,7 @@
 
 The shipped baseline is `src/functionapp/config/mdav-baseline.json` (titles and texts in English and German).
 
-To use your own: edit a copy and upload it as `config/mdav-baseline.json` to the **config** container of the Wardline
+To use your own: edit a copy and upload it as `config/mdav-baseline.json` to the **config** container of the Gapsio
 storage account. It then takes precedence over the shipped one – also after updates.
 
 ## Check format
@@ -29,4 +29,4 @@ deviation and an optional note.
 
 !!! tip
     After the first run the Baseline view lists every Defender setting found in your tenant – use it to verify IDs.
-    `tests/tenant/New-WardlineTestData.ps1` writes a full ID check report as well.
+    `tests/tenant/New-GapsioTestData.ps1` writes a full ID check report as well.

@@ -1,0 +1,17 @@
+# Build output
+dist/
+site/
+*.tgz
+
+# Local / generated files
+local.settings.json
+gapsio-setting-check.txt
+mac-defender-settings.json
+.DS_Store
+Thumbs.db
+__pycache__/
+.venv/
+.idea/
+
+# Local deny terms for the public demo (company names, people, tenant ID)
+build/demo-denylist.txt

@@ -42,13 +42,13 @@ Customer subscription / resource group
 
 - The portal serves only its own files (strict Content Security Policy, no external scripts or fonts).
 - Tenant data (paths, command lines, names) is rendered as text, never as HTML.
-- State-changing API calls require a custom header (`X-Wardline`) in addition to the sign-in cookie.
+- State-changing API calls require a custom header (`X-Gapsio`) in addition to the sign-in cookie.
 - Without App Service Authentication the API refuses to work (the identity header is not trusted).
 
 ## Supply chain
 
-- Wardline never updates itself. Updates are started by an administrator with `Update-Wardline.ps1`.
+- Gapsio never updates itself. Updates are started by an administrator with `Update-Gapsio.ps1`.
 - Release packages are built by GitHub Actions from a tagged commit, checksummed (`SHA256SUMS`) and – for public
   releases – carry a build provenance attestation (`gh attestation verify`).
 
-Report vulnerabilities privately: see [SECURITY.md](https://github.com/dominikhoefling/wardline/blob/main/SECURITY.md).
+Report vulnerabilities privately: see [SECURITY.md](https://github.com/dominikhoefling/gapsio/blob/main/SECURITY.md).

@@ -1,0 +1,63 @@
+name: Release
+
+# Publishing a release: set ModuleVersion in src/functionapp/Modules/Gapsio/Gapsio.psd1, add the section to
+# CHANGELOG.md, commit, then:  git tag v0.4.0 && git push origin v0.4.0
+# Tags with a suffix (v0.5.0-rc.1) are published as pre-releases; "latest" (and the update check) ignores them.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write       # create the release
+  id-token: write       # build provenance attestation
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches ModuleVersion
+        shell: pwsh
+        run: |
+          $v = (Import-PowerShellDataFile src/functionapp/Modules/Gapsio/Gapsio.psd1).ModuleVersion
+          $tag = $env:GITHUB_REF_NAME -replace '^v', '' -replace '-.*$', ''
+          if ($tag -ne $v) { Write-Host "::error::Tag $env:GITHUB_REF_NAME does not match ModuleVersion $v in Gapsio.psd1"; exit 1 }
+
+      - name: Tests
+        shell: pwsh
+        run: ./tests/Test-Gapsio.ps1
+
+      - name: Build release assets
+        shell: pwsh
+        run: ./build/New-GapsioRelease.ps1
+
+      # Lets customers verify that the package was built by this workflow: gh attestation verify <file> --repo <owner>/<repo>
+      # (free for public repositories; private repositories need GitHub Enterprise Cloud)
+      - name: Build provenance attestation
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/release/*'
+
+      - name: Release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $v = $env:GITHUB_REF_NAME -replace '^v', ''
+          $text = Get-Content -Raw CHANGELOG.md
+          $m = [regex]::Match($text, "(?ms)^## \[?$([regex]::Escape($v))\]?[^\n]*\n(.*?)(?=^## |\z)")
+          $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Gapsio $v" }
+          $notes += "`n`n---`n**Update an installation:** ``./setup/Update-Gapsio.ps1 -ResourceGroup <resource group>```n"
+          $notes += "**New installation:** download ``gapsio.zip``, extract it and run ``./setup/Install-Gapsio.ps1`` – see the documentation.`n"
+          $notes += "**Checksums:** ``SHA256SUMS`` (verified automatically by Update-Gapsio.ps1)."
+          Set-Content -Path dist/notes.md -Value $notes
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/release/* --title "Gapsio $GITHUB_REF_NAME" --notes-file dist/notes.md $flags

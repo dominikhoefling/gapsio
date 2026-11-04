@@ -1,7 +1,7 @@
 # Features and permissions
 
-Wardline follows least privilege: every feature adds only the read-only application permissions it needs – nothing
-more. The single source of truth is [`setup/permissions.json`](https://github.com/dominikhoefling/wardline/blob/main/setup/permissions.json);
+Gapsio follows least privilege: every feature adds only the read-only application permissions it needs – nothing
+more. The single source of truth is [`setup/permissions.json`](https://github.com/dominikhoefling/gapsio/blob/main/setup/permissions.json);
 the install, grant and app registration scripts all read it.
 
 | Feature | Default | What you get | Permissions (read-only, application) |
@@ -19,18 +19,18 @@ the install, grant and app registration scripts all read it.
 
 ```powershell
 # Show exactly what would be granted – changes nothing
-./setup/Install-Wardline.ps1 -ShowPermissions -Features Hunting,Agents
+./setup/Install-Gapsio.ps1 -ShowPermissions -Features Hunting,Agents
 
 # Endpoint only, without agents and indicators
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting
 
 # Add the optional access module later
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,Access
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,Access
 ```
 
 - **Switching a feature off** and running the script again removes the permissions that are no longer needed.
 - A feature that is not selected is **skipped quietly** at runtime – no errors for missing permissions.
-- New releases may add permissions only in a new **minor** version; `Update-Wardline.ps1` reports them before updating
+- New releases may add permissions only in a new **minor** version; `Update-Gapsio.ps1` reports them before updating
   ([updates](updates.md)).
 
 ## Who holds the permissions?
@@ -42,6 +42,6 @@ identity federation, so there is still no secret ([separation of duties](separat
 ## Other identities
 
 - **Portal app registration**: no application permissions, no secret. Delegated `openid profile email User.Read` only
-  (admin consent), app role `Wardline.Admin` for administrators.
-- **Azure roles** of the managed identity: Storage Blob/Queue/Table Data roles only on Wardline's own storage account,
+  (admin consent), app role `Gapsio.Admin` for administrators.
+- **Azure roles** of the managed identity: Storage Blob/Queue/Table Data roles only on Gapsio's own storage account,
   Monitoring Metrics Publisher on its Application Insights.

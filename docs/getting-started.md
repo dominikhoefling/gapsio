@@ -1,6 +1,6 @@
 # Quick start
 
-This installs Wardline with the default features (Endpoint with Advanced Hunting, allow indicators and coverage gaps, AI agents) into a
+This installs Gapsio with the default features (Endpoint with Advanced Hunting, allow indicators and coverage gaps, AI agents) into a
 new resource group. It takes about 10 minutes.
 
 ## What you need
@@ -16,19 +16,19 @@ new resource group. It takes about 10 minutes.
 
 ```powershell
 # 1. Download and extract the latest release
-Invoke-WebRequest https://github.com/dominikhoefling/wardline/releases/latest/download/wardline.zip -OutFile wardline.zip
-Expand-Archive wardline.zip -DestinationPath . -Force
-cd wardline
+Invoke-WebRequest https://github.com/dominikhoefling/gapsio/releases/latest/download/gapsio.zip -OutFile gapsio.zip
+Expand-Archive gapsio.zip -DestinationPath . -Force
+cd gapsio
 
 # 2. Optional: see exactly which permissions will be granted
-./setup/Install-Wardline.ps1 -ShowPermissions
+./setup/Install-Gapsio.ps1 -ShowPermissions
 
 # 3. Install
 az login            # not needed in Cloud Shell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location westeurope
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Location westeurope
 ```
 
-At the end the script prints the portal URL. Sign in with an account that has the **Wardline Administrator** app role
+At the end the script prints the portal URL. Sign in with an account that has the **Gapsio Administrator** app role
 (the installing account gets it automatically; add more with `-AdminGroupId`).
 
 !!! note "First run"
@@ -40,14 +40,14 @@ At the end the script prints the portal URL. Sign in with an account that has th
 
 - Choose features: [features and permissions](permissions.md)
 - All installation options, device inventory, Deploy to Azure: [installation](installation.md)
-- Keep Wardline current: [updates](updates.md)
+- Keep Gapsio current: [updates](updates.md)
 
 ## Script reference (GitHub)
 
 If you need the full parameter surface for install/update/permission flows:
 
-- [`setup/Install-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Install-Wardline.ps1)
-- [`setup/Update-Wardline.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Update-Wardline.ps1)
-- [`setup/Grant-WardlinePermissions.ps1`](https://github.com/dominikhoefling/wardline/blob/main/setup/Grant-WardlinePermissions.ps1)
+- [`setup/Install-Gapsio.ps1`](https://github.com/dominikhoefling/gapsio/blob/main/setup/Install-Gapsio.ps1)
+- [`setup/Update-Gapsio.ps1`](https://github.com/dominikhoefling/gapsio/blob/main/setup/Update-Gapsio.ps1)
+- [`setup/Grant-GapsioPermissions.ps1`](https://github.com/dominikhoefling/gapsio/blob/main/setup/Grant-GapsioPermissions.ps1)
 
 Use `Get-Help` locally for the exact release package version you run.

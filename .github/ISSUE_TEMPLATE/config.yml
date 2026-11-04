@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or discussion
-    url: https://github.com/dominikhoefling/wardline/discussions
-    about: Ask how something works, share how you use Wardline, or discuss a check before opening an issue.
+    url: https://github.com/dominikhoefling/gapsio/discussions
+    about: Ask how something works, share how you use Gapsio, or discuss a check before opening an issue.
   - name: Security vulnerability
-    url: https://github.com/dominikhoefling/wardline/security/advisories/new
+    url: https://github.com/dominikhoefling/gapsio/security/advisories/new
     about: Please report security problems privately. Do not open a public issue.
   - name: Enterprise support
-    url: https://wardline.cloud/#pricing
+    url: https://gapsio.cloud/#pricing
     about: Enterprise customers reach support via the e-mail address in their licence confirmation.

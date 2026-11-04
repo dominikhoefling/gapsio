@@ -4,5 +4,5 @@
 # Security-sensitive paths require the maintainer
 /setup/permissions.json @dominikhoefling
 /deploy/ @dominikhoefling
-/src/functionapp/Modules/Wardline/Core.ps1 @dominikhoefling
+/src/functionapp/Modules/Gapsio/Core.ps1 @dominikhoefling
 /.github/workflows/ @dominikhoefling

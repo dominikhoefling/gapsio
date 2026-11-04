@@ -1,0 +1,26 @@
+name: New check or feature
+description: Propose a check Gapsio should perform or a feature it should have
+labels: [enhancement]
+body:
+  - type: textarea
+    id: gap
+    attributes:
+      label: What gap should Gapsio make visible?
+      description: Describe the misconfiguration or risk and why it matters. Link the Microsoft Learn page or blog post that motivates it.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Data source
+      description: Which Graph endpoint, Advanced Hunting table or Defender API exposes it? Which (read-only) permission is needed?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Endpoint, AI agents, Access, Licensing, Portal / reporting, Setup / operations, Other]
+  - type: textarea
+    id: severity
+    attributes:
+      label: Suggested severity and fix
+      description: How severe is the finding, and what should the fix text tell the administrator to do?

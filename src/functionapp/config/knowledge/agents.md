@@ -12,20 +12,20 @@ Inventory from **Microsoft Entra Agent ID**, the **Agent 365 package catalog** a
 - Blueprints with their principals and agent count
 
 Agent 365 data is read from the **Package Management API** (`GET /v1.0/copilot/admin/catalog/packages`, application
-permission `CopilotPackages.Read.All`, requires an Agent 365 licence). If that is denied or unavailable, Wardline falls
+permission `CopilotPackages.Read.All`, requires an Agent 365 licence). If that is denied or unavailable, Gapsio falls
 back to the legacy registry (`/beta/agentRegistry/agentInstances`, `AgentInstance.Read.All`, retired from May 2026) and
 says so on the page. The snapshot exposes `registryStatus`, `registrySource` and `registryNote`.
 
 ### Defender AgentsInfo
 
-Wardline reads the documented columns of the Advanced Hunting table
+Gapsio reads the documented columns of the Advanced Hunting table
 [`AgentsInfo`](https://learn.microsoft.com/defender-xdr/advanced-hunting-agentsinfo-table) (one row per `AgentId`,
 latest `Timestamp`): `AgentName`, `Platform`, `AgentDescription`, `Version`, `EntraAgentId`, `EntraBlueprintId`,
 `SourceAgentId`, `PublishedStatus`, `LifecycleStatus`, `Availability`, `InstanceCount`, `Model`, the timestamps and the
 dynamic columns `Owners`, `SharedWith`, `Permissions`, `Guardrails`, `Endpoints`, `McpServers`, `ConnectedAgents`,
 `DeclaredTools`, `DeclaredDataSources`, `Channels`.
 
-The **inner structure of the dynamic columns is not documented**. Wardline therefore only derives counts (tools, data
+The **inner structure of the dynamic columns is not documented**. Gapsio therefore only derives counts (tools, data
 sources, permissions, shared-with entries), display names (owners, connected agents, channels) and looks up obvious
 property names inside `Endpoints`/`McpServers` (`url`, `transport`, `external…`). Values that are missing are shown as
 unknown, never as zero. Local agents on endpoints are read from `RawAgentInfo.localAgentMetadata`, which is not part
@@ -45,11 +45,11 @@ Rated **separately for the agent identity and the agent user**, because a policy
 | Protected | An enabled policy applies (directly, via the blueprint, or "All agent identities") |
 | Report-only | Only report-only policies apply – nothing is enforced |
 | Excluded | The agent is explicitly excluded |
-| Unclear | Policies select agents by custom security attributes; Wardline does not read the attributes |
+| Unclear | Policies select agents by custom security attributes; Gapsio does not read the attributes |
 | Not covered | No policy applies |
 | Security defaults | Security defaults are on – Conditional Access is not evaluated at all |
 
-Wardline accounts for the fact that **"All users" does not include agent users**; they must be targeted via
+Gapsio accounts for the fact that **"All users" does not include agent users**; they must be targeted via
 "All agent users" or individually.
 
 ## Local agents

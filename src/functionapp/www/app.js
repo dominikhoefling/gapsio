@@ -1,4 +1,4 @@
-/* Wardline portal. Deliberately without a framework and without external dependencies.
+/* Gapsio portal. Deliberately without a framework and without external dependencies.
    Security rule: data is only ever written to the DOM as text (never innerHTML), because exclusion paths,
    command lines and names can come from attackers.
    Languages: English and German. The back end delivers codes (status, severity, type …) and bilingual
@@ -8,7 +8,7 @@
 
   // ---------- Language ----------
   const LANGS = { en: 'English', de: 'Deutsch' };
-  function storedLang() { try { return localStorage.getItem('wardline-lang'); } catch { return null; } }
+  function storedLang() { try { return localStorage.getItem('gapsio-lang'); } catch { return null; } }
   let lang = storedLang() || ((navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en');
   if (!LANGS[lang]) lang = 'en';
   const locale = () => (lang === 'de' ? 'de-DE' : 'en-GB');
@@ -19,7 +19,7 @@
     'loading': ['Loading …', 'Lade …'], 'data.as.of': ['Data as of {0}', 'Datenstand {0}'], 'reload': ['Reload', 'Neu laden'],
     'version': ['Version {0}', 'Version {0}'], 'update.available': ['Update available: {0}', 'Update verfügbar: {0}'],
     'run.now': ['Collect now', 'Jetzt erfassen'], 'reloaded': ['Data reloaded.', 'Daten neu geladen.'], 'signout': ['Sign out', 'Abmelden'],
-    'role.admin': ['Wardline administrator', 'Wardline-Administrator'], 'role.user': ['User', 'Benutzer'], 'signed.in': ['Signed in', 'Angemeldet'],
+    'role.admin': ['Gapsio administrator', 'Gapsio-Administrator'], 'role.user': ['User', 'Benutzer'], 'signed.in': ['Signed in', 'Angemeldet'],
     'language': ['Language', 'Sprache'], 'search': ['Search …', 'Suchen …'], 'search.aria': ['Search table', 'Tabelle durchsuchen'],
     'export.csv': ['Export as CSV', 'Als CSV exportieren'], 'all': ['all', 'alle'], 'entries': ['{0} entries', '{0} Einträge'], 'entry': ['1 entry', '1 Eintrag'],
     'entries.capped': ['{0} entries, showing the first {1} (the export contains all).', '{0} Einträge, die ersten {1} werden angezeigt (Export enthält alle).'],
@@ -33,7 +33,7 @@
     'load.failed': ['Data could not be loaded: {0}', 'Daten konnten nicht geladen werden: {0}'], 'unknown.error': ['unknown error', 'unbekannter Fehler'],
     'signin.failed': ['Sign-in failed: {0}', 'Anmeldung fehlgeschlagen: {0}'], 'not.signed.in': ['Not signed in', 'Nicht angemeldet'],
     'warnings': ['{0} notice(s) from the last run (e.g. missing permissions or licences)', '{0} Hinweis(e) aus dem letzten Lauf (z. B. fehlende Rechte oder Lizenzen)'],
-    'noaccess': ['Wardline is only available to administrators (app role “Wardline Administrator”). Please contact your security team.', 'Wardline steht nur Administratoren zur Verfügung (App-Rolle „Wardline Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
+    'noaccess': ['Gapsio is only available to administrators (app role “Gapsio Administrator”). Please contact your security team.', 'Gapsio steht nur Administratoren zur Verfügung (App-Rolle „Gapsio Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
     'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
@@ -114,7 +114,7 @@
     // baseline
     'b.title': ['MDAV baseline', 'MDAV-Baseline'],
     'b.lede': ['Three levels per check: what is recommended (target), what is configured in Intune and what actually applies on the devices. Basis: {0} ({1}).', 'Drei Ebenen je Prüfung: was empfohlen ist (Soll), was in Intune konfiguriert ist und was auf den Geräten tatsächlich gilt. Grundlage: {0} ({1}).'],
-    'b.src.default': ['Wardline default', 'Wardline-Standard'], 'b.src.custom': ['custom baseline (storage)', 'kundeneigene Baseline (Storage)'],
+    'b.src.default': ['Gapsio default', 'Gapsio-Standard'], 'b.src.custom': ['custom baseline (storage)', 'kundeneigene Baseline (Storage)'],
     'b.weight': ['Weight', 'Gewicht'], 'b.check': ['Check', 'Prüfung'], 'b.target': ['Target', 'Soll'], 'b.status': ['Status', 'Status'], 'b.devices': ['Devices', 'Geräte'],
     'b.devCount': ['{0} ok, {1} deviating', '{0} ok, {1} abweichend'], 'b.why': ['Why', 'Warum'], 'b.fix': ['How to fix', 'So beheben'], 'b.configuredIn': ['Configured in', 'Konfiguriert in'],
     'b.noPolicy': ['no policy', 'keiner Richtlinie'], 'b.meets': ['meets target', 'entspricht Soll'], 'b.deviates': ['deviates', 'weicht ab'], 'b.notAssigned': [' (not assigned, not effective)', ' (nicht zugewiesen, wirkt nicht)'],
@@ -213,7 +213,7 @@
     'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
     'ch.areas': ['By area', 'Nach Bereich'],
     'v.license': ['Licence', 'Lizenz'],
-    'lic.lede': ['Wardline checks the licence offline – it never calls home. Without a valid licence Wardline runs as Community edition: all checks run, summaries and charts are complete, but every list shows only its first {0} entries in clear – the rest is masked on the server.', 'Wardline prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz läuft Wardline als Community-Edition: alle Prüfungen laufen, Zusammenfassungen und Diagramme sind vollständig, aber jede Liste zeigt nur die ersten {0} Einträge im Klartext – der Rest wird serverseitig maskiert.'],
+    'lic.lede': ['Gapsio checks the licence offline – it never calls home. Without a valid licence Gapsio runs as Community edition: all checks run, summaries and charts are complete, but every list shows only its first {0} entries in clear – the rest is masked on the server.', 'Gapsio prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz läuft Gapsio als Community-Edition: alle Prüfungen laufen, Zusammenfassungen und Diagramme sind vollständig, aber jede Liste zeigt nur die ersten {0} Einträge im Klartext – der Rest wird serverseitig maskiert.'],
     'lic.community.rows': ['Community edition: {0} of {1} entries shown in clear, the rest is masked.', 'Community-Edition: {0} von {1} Einträgen im Klartext, der Rest ist maskiert.'],
     'lic.community.link': ['Get a licence for the full list.', 'Mit Lizenz die ganze Liste sehen.'], 'lic.community.masked': ['Masked – licence required', 'Maskiert – Lizenz erforderlich'],
     'lic.community.export': ['The export contains only the unmasked entries.', 'Der Export enthält nur die unmaskierten Einträge.'],
@@ -225,10 +225,10 @@
     'lic.st.Expired': ['Expired', 'Abgelaufen'], 'lic.st.Invalid': ['Invalid key', 'Ungültiger Schlüssel'], 'lic.st.WrongTenant': ['Key belongs to another tenant', 'Schlüssel gehört zu einem anderen Tenant'],
     'lic.plan.Monthly': ['Monthly', 'Monatlich'], 'lic.plan.Annual': ['Annual', 'Jährlich'], 'lic.plan.Assessment': ['Assessment', 'Assessment'], 'lic.plan.Pilot': ['Pilot', 'Pilot'], 'lic.plan.Partner': ['Partner', 'Partner'],
     'lic.side': ['Licence: {0}', 'Lizenz: {0}'],
-    'lic.n.None': ['Wardline runs as Community edition without a licence key: lists show the first {0} entries, the rest is masked.', 'Wardline läuft ohne Lizenzschlüssel als Community-Edition: Listen zeigen die ersten {0} Einträge, der Rest ist maskiert.'],
-    'lic.n.ExpiringSoon': ['The Wardline licence expires in {0} days.', 'Die Wardline-Lizenz läuft in {0} Tagen ab.'],
-    'lic.n.Expired': ['The Wardline licence expired on {0}. After 30 days Wardline falls back to the Community edition – please renew.', 'Die Wardline-Lizenz ist am {0} abgelaufen. Nach 30 Tagen fällt Wardline auf die Community-Edition zurück – bitte verlängern.'],
-    'lic.n.Invalid': ['The Wardline licence key is not valid – Community edition.', 'Der Wardline-Lizenzschlüssel ist ungültig – Community-Edition.'], 'lic.n.WrongTenant': ['The Wardline licence key belongs to another tenant – Community edition.', 'Der Wardline-Lizenzschlüssel gehört zu einem anderen Tenant – Community-Edition.'],
+    'lic.n.None': ['Gapsio runs as Community edition without a licence key: lists show the first {0} entries, the rest is masked.', 'Gapsio läuft ohne Lizenzschlüssel als Community-Edition: Listen zeigen die ersten {0} Einträge, der Rest ist maskiert.'],
+    'lic.n.ExpiringSoon': ['The Gapsio licence expires in {0} days.', 'Die Gapsio-Lizenz läuft in {0} Tagen ab.'],
+    'lic.n.Expired': ['The Gapsio licence expired on {0}. After 30 days Gapsio falls back to the Community edition – please renew.', 'Die Gapsio-Lizenz ist am {0} abgelaufen. Nach 30 Tagen fällt Gapsio auf die Community-Edition zurück – bitte verlängern.'],
+    'lic.n.Invalid': ['The Gapsio licence key is not valid – Community edition.', 'Der Gapsio-Lizenzschlüssel ist ungültig – Community-Edition.'], 'lic.n.WrongTenant': ['The Gapsio licence key belongs to another tenant – Community edition.', 'Der Gapsio-Lizenzschlüssel gehört zu einem anderen Tenant – Community-Edition.'],
     'lic.n.action': ['Licence …', 'Lizenz …'],
     'chart.more': ['+ {0} more', '+ {0} weitere'], 'chart.total': ['Total: {0}', 'Gesamt: {0}'], 'chart.on': ['On', 'An'], 'chart.off': ['Off', 'Aus'],
     'chart.na': ['Not applicable', 'Nicht anwendbar'], 'chart.unknown': ['Unknown', 'Unbekannt'], 'chart.share': ['{0} of {1} devices', '{0} von {1} Geräten'],
@@ -324,7 +324,7 @@
     'ap.tab.effects': ['Before / after', 'Vorher / nachher'],
     'ap.tab.periods': ['Setting periods', 'Einstellungs-Zeiträume'],
     'ap.tab.outcomes': ['Outcomes', 'Ausgänge'],
-    'ap.changes.none': ['No anti-phish policy changes recorded yet. The history starts with the first Set-/New-AntiPhishPolicy call after installation (Advanced Hunting keeps 30 days; Wardline keeps 400).', 'Noch keine Anti-Phishing-Änderungen erfasst. Die Historie beginnt mit dem ersten Set-/New-AntiPhishPolicy-Aufruf nach der Installation (Advanced Hunting hält 30 Tage, Wardline 400).'],
+    'ap.changes.none': ['No anti-phish policy changes recorded yet. The history starts with the first Set-/New-AntiPhishPolicy call after installation (Advanced Hunting keeps 30 days; Gapsio keeps 400).', 'Noch keine Anti-Phishing-Änderungen erfasst. Die Historie beginnt mit dem ersten Set-/New-AntiPhishPolicy-Aufruf nach der Installation (Advanced Hunting hält 30 Tage, Gapsio 400).'],
     'ap.col.when': ['When', 'Wann'], 'ap.col.policy': ['Policy', 'Policy'], 'ap.col.cmdlet': ['Cmdlet', 'Cmdlet'], 'ap.col.actor': ['Changed by', 'Geändert von'],
     'ap.col.changes': ['Changed settings', 'Geänderte Einstellungen'], 'ap.col.direction': ['Direction', 'Richtung'],
     'ap.dir.weaker': ['weaker', 'schwächer'], 'ap.dir.stronger': ['stronger', 'stärker'], 'ap.dir.neutral': ['neutral', 'neutral'],
@@ -370,7 +370,7 @@
     'd.np': ['Network prot.', 'Netzwerkschutz'], 'd.open': ['Open device page', 'Geräteseite öffnen'],
     'd.cov.lede': ['Devices Defender for Endpoint does not (fully) protect: Intune-managed devices that never showed up in Defender, onboarded devices with sensor problems and devices found by device discovery.', 'Geräte, die Defender for Endpoint nicht (vollständig) schützt: Intune-verwaltete Geräte, die nie in Defender aufgetaucht sind, onboardete Geräte mit Sensorproblemen und Geräte aus der Geräteerkennung.'],
     'd.cov.status': ['Status', 'Status'], 'd.cov.source': ['Source', 'Quelle'], 'd.cov.user': ['User', 'Benutzer'], 'd.cov.none': ['No coverage gaps found.', 'Keine Abdeckungslücken gefunden.'],
-    'd.cov.feature': ['The Intune comparison needs the feature Coverage (Install-Wardline.ps1 -Features …,Coverage).', 'Der Intune-Abgleich braucht die Funktion Coverage (Install-Wardline.ps1 -Features …,Coverage).'],
+    'd.cov.feature': ['The Intune comparison needs the feature Coverage (Install-Gapsio.ps1 -Features …,Coverage).', 'Der Intune-Abgleich braucht die Funktion Coverage (Install-Gapsio.ps1 -Features …,Coverage).'],
     // device page
     'dv.back': ['← All devices', '← Alle Geräte'], 'dv.notfound': ['Device not found in the latest run.', 'Gerät im letzten Lauf nicht gefunden.'],
     'd.large': ['Large fleet: {0} devices. The list is searched and filtered on the server; charts show the totals of the last run.', 'Große Flotte: {0} Geräte. Die Liste wird serverseitig gesucht und gefiltert; die Diagramme zeigen die Summen des letzten Laufs.'],
@@ -378,7 +378,7 @@
     'd.prev': ['← Previous', '← Zurück'], 'd.next': ['Next →', 'Weiter →'], 'f.devicesN': ['{0} devices', '{0} Geräte'],
     'd.cov.truncated': ['Only the first {0} entries are shown here; the export contains this subset.', 'Hier werden nur die ersten {0} Einträge angezeigt; der Export enthält diese Teilmenge.'],
     'dv.protection': ['Protection state', 'Schutzzustand'], 'dv.asr': ['ASR rules on this device', 'ASR-Regeln auf diesem Gerät'], 'dv.local': ['Local exclusions', 'Lokale Exclusions'],
-    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['This list shows only policies that target this device (server-side target resolution). For old snapshots without target IDs, Wardline falls back to a platform filter.', 'Diese Liste zeigt nur Richtlinien, die dieses Gerät tatsächlich targeten (serverseitige Target-Auflösung). Bei alten Snapshots ohne Target-IDs nutzt Wardline als Fallback den Plattform-Filter.'],
+    'dv.policies': ['Policies with exclusions and their assignments', 'Richtlinien mit Exclusions und ihre Zuweisungen'], 'dv.policies.note': ['This list shows only policies that target this device (server-side target resolution). For old snapshots without target IDs, Gapsio falls back to a platform filter.', 'Diese Liste zeigt nur Richtlinien, die dieses Gerät tatsächlich targeten (serverseitige Target-Auflösung). Bei alten Snapshots ohne Target-IDs nutzt Gapsio als Fallback den Plattform-Filter.'],
     'dv.policies.count': ['Resolved for this device: {0}', 'Für dieses Gerät aufgelöst: {0}'],
     'dv.findings': ['Findings for this device', 'Befunde zu diesem Gerät'], 'dv.agents': ['Local AI agents', 'Lokale KI-Agents'], 'dv.changes': ['Changes', 'Änderungen'],
     'dv.links': ['Open in', 'Öffnen in'], 'dv.defender': ['Defender portal', 'Defender-Portal'], 'dv.intune': ['Intune', 'Intune'],
@@ -387,7 +387,7 @@
     'dv.tampering': ['Tampering attempts (30 d)', 'Manipulationsversuche (30 T)'], 'dv.troubleshooting': ['Troubleshooting mode (30 d)', 'Troubleshooting-Modus (30 T)'], 'dv.tsActive': ['active now', 'gerade aktiv'], 'dv.clientVersion': ['Sensor version', 'Sensorversion'],
     'dv.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'ov.thirdParty': ['devices with a third-party AV/EDR product', 'Geräte mit Fremd-AV/EDR-Produkt'], 'd.thirdParty': ['Third-party AV/EDR', 'Fremd-AV/EDR'], 'chart.3pav.1': ['third-party product present', 'Fremdprodukt vorhanden'], 'chart.3pav.0': ['Defender only', 'nur Defender'],
     // licensing (optional module, Defender for Endpoint only)
-    'li.lede': ['Indication, not an audit: which Defender plans are purchased and assigned and who holds them. For Defender for Endpoint, Wardline also maps onboarded client devices to users (Intune primary user, Defender logon events) and shows which devices were used in the last {0} days only by people without a plan. Server licences are not visible in Microsoft 365.', 'Indikation, kein Audit: welche Defender-Pläne gekauft und zugewiesen sind und wer sie hält. Für Defender for Endpoint ordnet Wardline zusätzlich onboardete Client-Geräte Benutzern zu (primärer Intune-Benutzer, Defender-Anmeldeereignisse) und zeigt, welche Geräte in den letzten {0} Tagen nur von Personen ohne Plan genutzt wurden. Serverlizenzen sind in Microsoft 365 nicht sichtbar.'],
+    'li.lede': ['Indication, not an audit: which Defender plans are purchased and assigned and who holds them. For Defender for Endpoint, Gapsio also maps onboarded client devices to users (Intune primary user, Defender logon events) and shows which devices were used in the last {0} days only by people without a plan. Server licences are not visible in Microsoft 365.', 'Indikation, kein Audit: welche Defender-Pläne gekauft und zugewiesen sind und wer sie hält. Für Defender for Endpoint ordnet Gapsio zusätzlich onboardete Client-Geräte Benutzern zu (primärer Intune-Benutzer, Defender-Anmeldeereignisse) und zeigt, welche Geräte in den letzten {0} Tagen nur von Personen ohne Plan genutzt wurden. Serverlizenzen sind in Microsoft 365 nicht sichtbar.'],
     'li.skus': ['Purchased plans', 'Gekaufte Pläne'], 'li.sku': ['Product', 'Produkt'], 'li.tier': ['Plan', 'Plan'], 'li.enabled': ['Purchased', 'Gekauft'], 'li.consumed': ['Assigned', 'Zugewiesen'], 'li.free': ['Free', 'Frei'], 'li.over': ['over-assigned', 'überzugewiesen'],
     'li.tier.P2': ['Plan 2', 'Plan 2'], 'li.tier.P1': ['Plan 1', 'Plan 1'], 'li.tier.MDB': ['Defender for Business', 'Defender for Business'], 'li.tier.Server': ['Servers', 'Server'],
     'li.licensedUsers': ['users with an MDE plan', 'Benutzer mit MDE-Plan'], 'li.clients': ['onboarded clients', 'onboardete Clients'], 'li.clientsUnlicensed': ['clients used only by unlicensed users', 'Clients nur von Unlizenzierten genutzt'], 'li.clientsNoUser': ['clients without any user seen', 'Clients ohne erkannten Benutzer'],
@@ -439,11 +439,11 @@
     'g.registry.na': ['Neither the Agent 365 package catalog (CopilotPackages.Read.All) nor the legacy registry is available in this tenant (no Agent 365 licence or permission not granted). Agents from Entra Agent ID and Defender are still shown.', 'Weder der Agent-365-Paketkatalog (CopilotPackages.Read.All) noch die alte Registry ist in diesem Tenant verfügbar (keine Agent-365-Lizenz oder Berechtigung nicht erteilt). Agents aus Entra Agent ID und Defender werden weiterhin angezeigt.'],
     'g.registry.legacy': ['Agent 365 data comes from the legacy registry (retired from May 2026). Grant CopilotPackages.Read.All to switch to the Agent 365 package catalog.', 'Agent-365-Daten stammen aus der alten Registry (wird ab Mai 2026 abgeschaltet). CopilotPackages.Read.All erteilen, um auf den Agent-365-Paketkatalog umzustellen.'],
     'g.publisher2': ['Publisher', 'Herausgeber'], 'g.blocked': ['Blocked in the organisation', 'In der Organisation blockiert'], 'g.availability': ['Availability / deployment', 'Verfügbarkeit / Bereitstellung'],
-    'ai.title': ['Wardline Assistant', 'Wardline-Assistent'], 'ai.open': ['Ask the assistant', 'Assistent fragen'], 'ai.close': ['Close', 'Schließen'],
+    'ai.title': ['Gapsio Assistant', 'Gapsio-Assistent'], 'ai.open': ['Ask the assistant', 'Assistent fragen'], 'ai.close': ['Close', 'Schließen'],
     'ai.placeholder': ['Ask about findings, devices or where to find something …', 'Frag nach Befunden, Geräten oder wo etwas zu finden ist …'],
     'ai.send': ['Send', 'Senden'], 'ai.thinking': ['Thinking …', 'Denke nach …'], 'ai.clear': ['New conversation', 'Neue Unterhaltung'],
-    'ai.intro': ['I answer from the current Wardline data only – read-only, nothing is changed. Try: “What should I fix first?”, “Why is device X flagged?”, “Where do I see unused exclusions?”', 'Ich antworte nur aus den aktuellen Wardline-Daten – nur lesend, nichts wird geändert. Zum Beispiel: „Was soll ich zuerst beheben?“, „Warum ist Gerät X markiert?“, „Wo sehe ich ungenutzte Exclusions?“'],
-    'ai.failed': ['The assistant could not answer: {0}', 'Der Assistent konnte nicht antworten: {0}'], 'ai.disclaimer': ['AI-generated via Azure OpenAI in your subscription from your snapshot, live Defender Advanced Hunting data and the Wardline docs. Verify before acting.', 'KI-generiert über Azure OpenAI in Ihrer Subscription aus Ihrem Snapshot, Live-Daten aus Defender Advanced Hunting und der Wardline-Dokumentation. Vor dem Handeln prüfen.'],
+    'ai.intro': ['I answer from the current Gapsio data only – read-only, nothing is changed. Try: “What should I fix first?”, “Why is device X flagged?”, “Where do I see unused exclusions?”', 'Ich antworte nur aus den aktuellen Gapsio-Daten – nur lesend, nichts wird geändert. Zum Beispiel: „Was soll ich zuerst beheben?“, „Warum ist Gerät X markiert?“, „Wo sehe ich ungenutzte Exclusions?“'],
+    'ai.failed': ['The assistant could not answer: {0}', 'Der Assistent konnte nicht antworten: {0}'], 'ai.disclaimer': ['AI-generated via Azure OpenAI in your subscription from your snapshot, live Defender Advanced Hunting data and the Gapsio docs. Verify before acting.', 'KI-generiert über Azure OpenAI in Ihrer Subscription aus Ihrem Snapshot, Live-Daten aus Defender Advanced Hunting und der Gapsio-Dokumentation. Vor dem Handeln prüfen.'],
     'ai.tools': ['Looked up', 'Nachgeschlagen'], 'ai.sources': ['Sources', 'Quellen']
   };
   function t(key, ...args) {
@@ -508,8 +508,8 @@
 
   async function api(path, opts = {}) {
     // Demo mode (dist/demo): data comes from demo-data.js instead of the API.
-    if (window.WARDLINE_DEMO) {
-      const d = window.WARDLINE_DEMO;
+    if (window.GAPSIO_DEMO) {
+      const d = window.GAPSIO_DEMO;
       const key = path.split('?')[0];
       if (key === 'run') return { message: t('demo.run') };
       if (opts.method === 'POST') return { message: t('demo.readonly') };
@@ -518,7 +518,7 @@
       if (key in d) return d[key];
       const e = new Error('No data'); e.status = 404; throw e;
     }
-    const res = await fetch(`api/${path}`, { ...opts, credentials: 'same-origin', referrerPolicy: 'same-origin', headers: { 'X-Wardline': '1', ...(opts.headers || {}) } });
+    const res = await fetch(`api/${path}`, { ...opts, credentials: 'same-origin', referrerPolicy: 'same-origin', headers: { 'X-Gapsio': '1', ...(opts.headers || {}) } });
     if (res.status === 401) { location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(location.pathname + location.hash); throw new Error(t('not.signed.in')); }
     let body = null;
     try { body = await res.json(); } catch { body = null; }
@@ -922,7 +922,7 @@
         ep.coverage = await loadPages('coverage', ep.coveragePages, maxPages);
         ep.coverageTruncated = Number(ep.coveragePages.pages) > maxPages;
       }
-      if (window.WARDLINE_DEMO && /[?&]large\b/.test(location.search) && ep.devices && ep.deviceStats) {
+      if (window.GAPSIO_DEMO && /[?&]large\b/.test(location.search) && ep.devices && ep.deviceStats) {
         // Demo of the large-fleet view: the list comes from the emulated paged API
         state.demoDevices = ep.devices;
         ep.devicesPages = { count: ep.devices.length, pages: 1, pageSize: 2000 }; ep.largeFleet = true; delete ep.devices;
@@ -1307,7 +1307,7 @@
 
   const views = {
     async noaccess(main) {
-      main.append(h('h1', null, 'Wardline'), h('div', { class: 'empty' }, t('noaccess')));
+      main.append(h('h1', null, 'Gapsio'), h('div', { class: 'empty' }, t('noaccess')));
     },
 
     async overview(main) {
@@ -2012,7 +2012,7 @@
     async baseline(main) {
       main.append(h('h1', null, t('b.title')));
       let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
-      main.append(h('p', { class: 'lede' }, t('b.lede', tx(ep.baselineName) || 'Wardline', ep.baselineSource === 'custom' ? t('b.src.custom') : t('b.src.default'))));
+      main.append(h('p', { class: 'lede' }, t('b.lede', tx(ep.baselineName) || 'Gapsio', ep.baselineSource === 'custom' ? t('b.src.custom') : t('b.src.default'))));
       const rows = arr(ep.baseline);
       const stClass = s => (s === 'OK' || s === 'Default') ? 'good' : (s === 'NotRelevant' || s === 'NoData') ? '' : (s === 'Inconsistent' ? 'warn' : 'bad');
       main.append(dataTable({
@@ -2739,7 +2739,7 @@
         [t('lic.source'), l.source === 'Portal' ? t('lic.src.Portal', l.setBy || '–', fmtDate(l.setAt)) : l.source ? t('lic.src.AppSetting') : null]])));
       const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'WL1.…', 'aria-label': t('lic.key') });
       const form = h('form', { class: 'license-form' }, h('label', null, t('lic.key'), ta),
-        h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('lic.save')), h('a', { class: 'btn', href: 'https://wardline.cloud/pricing', target: '_blank', rel: 'noopener noreferrer' }, t('lic.buy'))));
+        h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('lic.save')), h('a', { class: 'btn', href: 'https://gapsio.cloud/pricing', target: '_blank', rel: 'noopener noreferrer' }, t('lic.buy'))));
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -2820,7 +2820,7 @@
   };
   const NAV_ALIAS = { device: 'devices' };
   let navCollapsed = {};
-  try { navCollapsed = JSON.parse(localStorage.getItem('wardline-nav') || '{}') || {}; } catch { navCollapsed = {}; }
+  try { navCollapsed = JSON.parse(localStorage.getItem('gapsio-nav') || '{}') || {}; } catch { navCollapsed = {}; }
   const navGroupOf = (view) => { const v = NAV_ALIAS[view] || view; const g = NAV.find(g => g.items.includes(v)); return g ? g.group : null; };
 
   function renderNav() {
@@ -2829,7 +2829,7 @@
     const groups = NAV.filter(g => (isAdmin || !g.admin) && (!g.module || hasMod(g.module)));
     $('#nav').replaceChildren(...groups.map(g => {
       const open = g.group === active || !navCollapsed[g.group];
-      const btn = h('button', { type: 'button', class: 'nav-group-title', 'aria-expanded': String(open), onclick: () => { navCollapsed[g.group] = open; try { localStorage.setItem('wardline-nav', JSON.stringify(navCollapsed)); } catch { /* ignore */ } renderNav(); } },
+      const btn = h('button', { type: 'button', class: 'nav-group-title', 'aria-expanded': String(open), onclick: () => { navCollapsed[g.group] = open; try { localStorage.setItem('gapsio-nav', JSON.stringify(navCollapsed)); } catch { /* ignore */ } renderNav(); } },
         h('span', null, t(g.group)), h('span', { class: 'chev', 'aria-hidden': 'true' }, '›'));
       const links = g.items.map(id => h('a', { class: 'nav-link', href: `#/${id}`, 'data-view': id, onclick: () => closeDrawer() }, t(`v.${id}`)));
       if (state.view && (NAV_ALIAS[state.view] || state.view) && g.items.includes(NAV_ALIAS[state.view] || state.view)) links.forEach(a => { if (a.dataset.view === (NAV_ALIAS[state.view] || state.view)) a.setAttribute('aria-current', 'page'); });
@@ -2843,17 +2843,17 @@
     if (btn) btn.disabled = true;
     try {
       const r = await api(`run?module=${module}`, { method: 'POST' });
-      toast(window.WARDLINE_DEMO ? r.message : t('run.started'));
+      toast(window.GAPSIO_DEMO ? r.message : t('run.started'));
     } catch (e) {
       const detail = e.status && !new RegExp(`\\b${e.status}\\b`).test(e.message || '') ? `${e.message} (HTTP ${e.status})` : e.message;
-      toast(e.status === 403 && !/Wardline.Admin/.test(e.message) ? t('run.403') : t('run.failed', detail));
+      toast(e.status === 403 && !/Gapsio.Admin/.test(e.message) ? t('run.403') : t('run.failed', detail));
     }
     finally { if (btn) setTimeout(() => { btn.disabled = false; }, 4000); }
   }
 
   function setLang(l) {
     lang = LANGS[l] ? l : 'en';
-    try { localStorage.setItem('wardline-lang', lang); } catch { /* storage not available */ }
+    try { localStorage.setItem('gapsio-lang', lang); } catch { /* storage not available */ }
     document.documentElement.lang = lang;
     renderChrome();
     route();
@@ -2889,7 +2889,7 @@
   const ai = { history: [], open: false, busy: false };
   function renderAssistant() {
     let fab = $('#ai-fab'), panel = $('#ai-panel');
-    const enabled = state.me && state.me.isAdmin && state.me.assistant && !window.WARDLINE_DEMO;
+    const enabled = state.me && state.me.isAdmin && state.me.assistant && !window.GAPSIO_DEMO;
     if (!enabled) { if (fab) fab.remove(); if (panel) panel.remove(); return; }
     if (!fab) {
       fab = h('button', { id: 'ai-fab', type: 'button', class: 'ai-fab', onclick: () => { ai.open = !ai.open; renderAssistant(); if (ai.open) { const i = $('#ai-input'); if (i) i.focus(); } } }, '✦');
@@ -2941,7 +2941,7 @@
   function updateMeta() {
     const ep = state.endpoint, ac = state.access, mi = state.mine, ag = state.agents, li = state.licensing;
     const ts = [ep && ep.generatedAt, ag && ag.generatedAt, ac && ac.generatedAt, mi && mi.generatedAt, li && li.generatedAt].filter(Boolean).sort().pop();
-    $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Wardline';
+    $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Gapsio';
   }
 
   async function route() {

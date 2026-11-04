@@ -1,11 +1,11 @@
 name: New check or feature
-description: Propose a check Wardline should perform or a feature it should have
+description: Propose a check Gapsio should perform or a feature it should have
 labels: [enhancement]
 body:
   - type: textarea
     id: gap
     attributes:
-      label: What gap should Wardline make visible?
+      label: What gap should Gapsio make visible?
       description: Describe the misconfiguration or risk and why it matters. Link the Microsoft Learn page or blog post that motivates it.
     validations:
       required: true

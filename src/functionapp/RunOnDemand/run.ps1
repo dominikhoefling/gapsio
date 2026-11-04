@@ -1,6 +1,6 @@
 # Run triggered manually ("Collect now" in the portal). Message: {"module":"endpoint|agents|access|licensing|officepreview|all"}
 param($QueueItem, $TriggerMetadata)
-Import-Module Wardline
+Import-Module Gapsio
 
 $module = 'all'
 try {

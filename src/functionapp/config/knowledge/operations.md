@@ -3,7 +3,7 @@
 ## Runs
 
 - Scheduled daily (times below, UTC) and on demand via **Collect now** in the portal.
-- Logs: Application Insights in the Wardline resource group.
+- Logs: Application Insights in the Gapsio resource group.
 - Cost: Flex Consumption with daily runs, a small storage account and Log Analytics with little data – usually a few
   euros per month; larger tenants accordingly more.
 
@@ -38,21 +38,21 @@ Set by the install script; change them in the Function App configuration or via 
 
 ## Notifications
 
-After each run Wardline can post **new findings** (not in the previous run, at least `WL_NOTIFY_MIN_SEVERITY`, not
+After each run Gapsio can post **new findings** (not in the previous run, at least `WL_NOTIFY_MIN_SEVERITY`, not
 accepted) to a webhook:
 
 - **Teams**: create a workflow in the channel with the template *"Post to a channel when a webhook request is received"* and pass its URL.
-  Wardline sends an Adaptive Card with the findings and a link to the portal.
+  Gapsio sends an Adaptive Card with the findings and a link to the portal.
 - **E-mail or anything else**: a Power Automate flow with the trigger *"When an HTTP request is received"* – the payload
-  also contains the plain field `wardline.findings` (severity, category, title, device, and `assignee` with `type`,
+  also contains the plain field `gapsio.findings` (severity, category, title, device, and `assignee` with `type`,
   `displayName` and `mail` when the finding is [assigned](portal.md#exceptions-and-assignments) to someone). A flow can
   use `assignee.mail` to notify the person, group or distribution list directly.
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -NotifyWebhookUrl "https://…" -NotifyMinSeverity High
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -NotifyWebhookUrl "https://…" -NotifyMinSeverity High
 ```
 
-Re-runs keep the webhook unless you pass a new one. Wardline only sends findings – no exclusion values or command lines.
+Re-runs keep the webhook unless you pass a new one. Gapsio only sends findings – no exclusion values or command lines.
 
 ## Notices after a run
 
@@ -60,7 +60,7 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 
 | Notice | Meaning | What to do |
 |---|---|---|
-| `HTTP 403 … Not in the token: X` | Permission `X` is not granted, or was granted after the managed identity's current token was issued | Re-run the install or `Grant-WardlinePermissions.ps1` (lists what is granted). Azure caches managed identity tokens for up to 24 hours – the notice disappears with the next token. |
+| `HTTP 403 … Not in the token: X` | Permission `X` is not granted, or was granted after the managed identity's current token was issued | Re-run the install or `Grant-GapsioPermissions.ps1` (lists what is granted). Azure caches managed identity tokens for up to 24 hours – the notice disappears with the next token. |
 | `HTTP 403 … The token contains X` | The permission is there, but the API refuses anyway | Usually a missing licence (Agent ID, Agent 365) or a preview API that is not enabled in the tenant |
 | `HTTP 400/404` on agent APIs | The API is not available in the tenant (yet) | Nothing – the agents module shows what it can |
 
@@ -75,9 +75,9 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 
 ## Large fleets
 
-Wardline is built for tenants with a few hundred up to several hundred thousand devices:
+Gapsio is built for tenants with a few hundred up to several hundred thousand devices:
 
-- **Advanced Hunting** returns at most 100,000 rows per query. When a query hits that limit Wardline counts the
+- **Advanced Hunting** returns at most 100,000 rows per query. When a query hits that limit Gapsio counts the
   result and re-runs it in hash shards over `DeviceId`, so every device is collected exactly once. The run also
   keeps within the 45-calls-per-minute budget of the API. If a shard is still truncated the run shows a notice.
 - **Device lists** are not stored inside the snapshot but in pages; the snapshot keeps the aggregates
@@ -88,5 +88,5 @@ Wardline is built for tenants with a few hundred up to several hundred thousand 
   away in the Devices view.
 - **Function memory**: the template deploys 4 GB instances (`instanceMemoryMB`). A run with 300,000 devices takes
   roughly 15–30 minutes, most of it waiting for Advanced Hunting; 2 GB is enough below ~50,000 devices.
-- `tests/Invoke-WardlineScaleTest.ps1 -Devices 300000` runs the paging, search and drift code against a synthetic
+- `tests/Invoke-GapsioScaleTest.ps1 -Devices 300000` runs the paging, search and drift code against a synthetic
   fleet locally and prints timings.

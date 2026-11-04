@@ -2,7 +2,7 @@
 
 ## Our pledge
 
-We as members, contributors and maintainers pledge to make participation in the Wardline community a harassment-free
+We as members, contributors and maintainers pledge to make participation in the Gapsio community a harassment-free
 experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex
 characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality,
 personal appearance, race, religion, or sexual identity and orientation.
@@ -13,7 +13,7 @@ Examples of behaviour that contributes to a positive environment:
 
 - Being respectful of differing opinions, viewpoints and experiences
 - Giving and gracefully accepting constructive feedback
-- Focusing on what is best for the community and the people who rely on Wardline in production
+- Focusing on what is best for the community and the people who rely on Gapsio in production
 - Showing empathy towards other community members
 
 Examples of unacceptable behaviour:

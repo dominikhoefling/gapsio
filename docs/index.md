@@ -1,6 +1,6 @@
-# Wardline
+# Gapsio
 
-Wardline shows where protection in Microsoft Defender and for AI agents **actually** has gaps – not just what is configured.
+Gapsio shows where protection in Microsoft Defender and for AI agents **actually** has gaps – not just what is configured.
 It runs entirely in your own Azure subscription: no data leaves your tenant, there are no secrets or storage keys, and
 it uses read-only permissions only, granted per feature.
 
@@ -31,8 +31,8 @@ Your subscription / resource group
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-1. An administrator installs Wardline with one script (Azure Cloud Shell is enough) – see the [quick start](getting-started.md).
-2. Wardline collects once a day and on demand ("Collect now" in the portal).
+1. An administrator installs Gapsio with one script (Azure Cloud Shell is enough) – see the [quick start](getting-started.md).
+2. Gapsio collects once a day and on demand ("Collect now" in the portal).
 3. Administrators see findings, exclusions, ASR, baseline, agents and changes in the portal – in English or German.
 4. New releases are announced in the portal; you update with one command – see [updates](updates.md).
 
@@ -43,4 +43,4 @@ Your subscription / resource group
 - **No secrets** – managed identity, workload identity federation, App Service Authentication without a client secret.
 - **Fits large organisations** – the identity team can create the app registrations up front, the Azure team only
   attaches them ([separation of duties](separation-of-duties.md)).
-- **You stay in control of updates** – Wardline never updates itself.
+- **You stay in control of updates** – Gapsio never updates itself.

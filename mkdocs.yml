@@ -1,10 +1,10 @@
-site_name: Wardline
-site_url: https://wardline.cloud/docs/
+site_name: Gapsio
+site_url: https://gapsio.cloud/docs/
 site_description: Self-hosted visibility into where Microsoft Defender and AI agent protection actually has gaps.
-repo_url: https://github.com/dominikhoefling/wardline
-repo_name: wardline
+repo_url: https://github.com/dominikhoefling/gapsio
+repo_name: gapsio
 edit_uri: edit/main/docs/
-copyright: Wardline
+copyright: Gapsio
 
 theme:
   name: material
@@ -63,7 +63,7 @@ nav:
       - Access (optional): modules/access.md
       - Licensing (optional): modules/licensing.md
       - Office preview (optional, private preview): modules/office-preview.md
-  - Using Wardline:
+  - Using Gapsio:
       - Portal: portal.md
       - Customising the baseline: baseline.md
       - Operations and settings: operations.md
