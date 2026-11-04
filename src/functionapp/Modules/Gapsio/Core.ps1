@@ -1212,7 +1212,9 @@ function Get-GapsioAssignedAppRoles {
     <#
     .SYNOPSIS
     App role values a user holds on the portal app, read from Entra (direct assignment or via a group).
-    Fallback for sign-ins whose header carries no roles claim. Cached for 5 minutes per user. Needs Directory.Read.All.
+    Fallback for sign-ins whose header carries no roles claim. Cached for 5 minutes per user.
+    Uses direct app-role assignments on the user object. Group-based app-role assignments should arrive via roles claim.
+    Needs RoleManagement.Read.Directory.
     #>
     param([Parameter(Mandatory)][string]$UserId, [string]$PortalAppId)
     if (-not $PortalAppId) { $PortalAppId = $env:WEBSITE_AUTH_CLIENT_ID }
@@ -1225,10 +1227,8 @@ function Get-GapsioAssignedAppRoles {
     try {
         $sp = @(Invoke-GapsioGraph -Path "servicePrincipals?`$filter=appId eq '$PortalAppId'&`$select=id,appRoles").value | Select-Object -First 1
         if ($sp) {
-            # Groups (transitive) plus the user itself: an assignment to any of them grants the role.
-            $principals = @($UserId) + @(Invoke-GapsioGraph -Path "users/$UserId/transitiveMemberOf/microsoft.graph.group?`$select=id" -All | ForEach-Object { $_.id })
-            $assigned = @(Invoke-GapsioGraph -Path "servicePrincipals/$($sp.id)/appRoleAssignedTo?`$select=principalId,appRoleId" -All |
-                    Where-Object { $_.principalId -in $principals } | ForEach-Object { $_.appRoleId })
+            $assigned = @(Invoke-GapsioGraph -Path "users/$UserId/appRoleAssignments?`$select=resourceId,appRoleId" -All |
+                    Where-Object { [string]$_.resourceId -eq [string]$sp.id } | ForEach-Object { $_.appRoleId })
             $roles = @($sp.appRoles | Where-Object { $_.isEnabled -and [string]$_.id -in @($assigned | ForEach-Object { [string]$_ }) } | ForEach-Object { [string]$_.value })
             Write-Information "Gapsio sign-in: Entra lookup found $($assigned.Count) assignment(s) for $UserId on the portal app."
         }

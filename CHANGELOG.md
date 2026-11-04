@@ -6,6 +6,10 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Changed
+- Portal sign-in fallback for missing `roles` claim now reads direct app-role assignments on the user object.
+  Least-privilege mapping moved to the required `Core` feature with Graph `RoleManagement.Read.Directory`.
+
 ## [0.6.0] – 2026-11-04
 
 ### Changed (breaking)

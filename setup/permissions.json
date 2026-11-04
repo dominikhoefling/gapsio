@@ -31,6 +31,11 @@
           "resource": "graph",
           "value": "User.ReadBasic.All",
           "why": "People picker in the portal: assign a finding to an Entra user (name and e-mail only)"
+        },
+        {
+          "resource": "graph",
+          "value": "RoleManagement.Read.Directory",
+          "why": "Portal sign-in fallback: resolve direct app-role assignments when the roles claim is missing"
         }
       ]
     },
