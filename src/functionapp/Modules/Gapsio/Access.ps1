@@ -511,6 +511,102 @@ function Get-GapsioDefenderAuditFindings {
 }
 #endregion
 
+function Get-GapsioPermissionUsage {
+    <#
+    .SYNOPSIS
+    Which unified RBAC permission each person actually used in the last 30 days, derived from what they did:
+    - Response actions (MDE machineactions, requestor)            -> Response / live response   (feature Response: Machine.Read.All)
+    - Alert triage (MDE alerts: assigned, status, comments)      -> Alerts (manage)            (feature Response: Alert.Read.All)
+    - Portal operations (unified audit log, record mdatpAudit)    -> settings, indicators, ...  (feature Audit: AuditLogsQuery.Read.All)
+    Returns one row per person and permission: upn, permission, actions (operation -> count), count, first, last, source.
+    Read access (viewing data, hunting) leaves no trace in these sources; the portal sign-in date covers it.
+    #>
+    param($AuditRecords, [int]$Days = 30)
+    $since = [DateTime]::UtcNow.AddDays(-$Days)
+    $acc = @{}
+    $add = {
+        param([string]$Upn, [string]$Permission, [string]$Action, $At, [string]$Source)
+        if (-not $Upn -or $Upn -notmatch '@') { return }   # system / automation requestors are not people
+        $when = $null; try { $when = ConvertTo-GapsioUtc $At } catch { return }
+        if ($when -lt $since) { return }
+        $k = "$($Upn.ToLowerInvariant())|$Permission"
+        if (-not $acc.ContainsKey($k)) { $acc[$k] = [pscustomobject]@{ upn = $Upn.ToLowerInvariant(); permission = $Permission; actions = @{}; count = 0; first = $when; last = $when; sources = @{} } }
+        $e = $acc[$k]; $e.count++; $e.actions[$Action] = 1 + [int]$e.actions[$Action]; $e.sources[$Source] = $true
+        if ($when -lt $e.first) { $e.first = $when }
+        if ($when -gt $e.last) { $e.last = $when }
+    }
+
+    if (Test-GapsioFeature -Name 'response') {
+        $res = 'https://api.securitycenter.microsoft.com'
+        $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+        $sinceText = $since.ToString('yyyy-MM-ddTHH:mm:ssZ')
+        $pull = {
+            param($Path, $Context)
+            $uri = "$base/$Path"
+            try {
+                while ($uri) {
+                    $r = Invoke-GapsioRest -Uri $uri -Resource $res
+                    foreach ($i in @($r.value)) { if ($i) { $i } }
+                    $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
+                }
+            }
+            catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)" }
+        }
+        foreach ($a in @(& $pull "machineactions?`$filter=creationDateTimeUtc ge $sinceText" 'Permission usage: response actions (Machine.Read.All)')) {
+            $type = [string]$a.type
+            $perm = switch -Regex ($type) {
+                '^LiveResponse' {
+                    $cmds = @(@(Get-GapsioProp $a 'commands') | ForEach-Object { [string](Get-GapsioProp (Get-GapsioProp $_ 'command') 'type') })
+                    if ($cmds -match 'RunScript|PutFile') { 'Advanced live response (manage)' } else { 'Basic live response (manage)' }
+                    break
+                }
+                'CollectInvestigationPackage|CollectFile' { 'File collection (manage)'; break }
+                'Offboard' { 'Core security settings (manage)'; break }
+                default { 'Response (manage)' }
+            }
+            & $add ([string](Get-GapsioProp $a 'requestor')) $perm $type (Get-GapsioProp $a 'creationDateTimeUtc') 'Response actions'
+        }
+        foreach ($al in @(& $pull "alerts?`$filter=lastUpdateTime ge $sinceText" 'Permission usage: alerts (Alert.Read.All)')) {
+            foreach ($c in @(Get-GapsioProp $al 'comments')) {
+                if ($c) { & $add ([string](Get-GapsioProp $c 'createdBy')) 'Alerts (manage)' 'Alert comment' (Get-GapsioProp $c 'createdTime') 'Alerts' }
+            }
+            $who = [string](Get-GapsioProp $al 'assignedTo')
+            if ($who) {
+                $act = if ([string](Get-GapsioProp $al 'status') -eq 'Resolved') { 'Alert resolved / classified' } else { 'Alert assigned' }
+                $at = Get-GapsioProp $al 'resolvedTime'; if (-not $at) { $at = Get-GapsioProp $al 'lastUpdateTime' }
+                & $add $who 'Alerts (manage)' $act $at 'Alerts'
+            }
+        }
+    }
+
+    foreach ($r in @($AuditRecords)) {
+        if (-not $r) { continue }
+        $op = [string](Get-GapsioProp $r 'operation')
+        $perm = switch -Regex ($op.ToLowerInvariant()) {
+            'role|rbac|permission|machinegroup|devicegroup' { 'Authorization (manage)'; break }
+            'indicator|customdetection|detectionrule|suppression|alerttuning' { 'Detection tuning (manage)'; break }
+            'live ?response' { 'Basic live response (manage)'; break }
+            'isolat|quarantine|scan|restrict|investigationpackage' { 'Response (manage)'; break }
+            'onboard|offboard|advancedfeature|tamper|exclusion|setting|webcontent|asr' { 'Core security settings (manage)'; break }
+            'exception|remediation|vulnerab' { 'Vulnerability management (manage)'; break }
+            default { "Other: $op" }
+        }
+        & $add ([string](Get-GapsioProp $r 'userPrincipalName')) $perm $op (Get-GapsioProp $r 'createdDateTime') 'Audit log'
+    }
+
+    @($acc.Values | Sort-Object upn, permission | ForEach-Object {
+            [pscustomobject]@{
+                upn        = $_.upn
+                permission = $_.permission
+                count      = $_.count
+                first      = $_.first.ToString('o')
+                last       = $_.last.ToString('o')
+                actions    = @($_.actions.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object { [pscustomobject]@{ action = $_.Key; count = $_.Value } })
+                source     = (@($_.sources.Keys) | Sort-Object) -join ', '
+            }
+        })
+}
+
 function Invoke-GapsioAccessCollection {
     <#
     .SYNOPSIS
@@ -728,6 +824,18 @@ function Invoke-GapsioAccessCollection {
     $audit = Get-GapsioDefenderAuditFacts -Previous $prev
     #endregion
 
+    #region Permission usage: which permissions each person actually exercised (30 days)
+    $permUsage = @(Get-GapsioPermissionUsage -AuditRecords $(if ($audit) { $audit.records } else { $null }) -Days $signInDays)
+    $byUpn = @{}
+    foreach ($u in $permUsage) { if (-not $byUpn.ContainsKey($u.upn)) { $byUpn[$u.upn] = [System.Collections.Generic.List[string]]::new() }; $byUpn[$u.upn].Add($u.permission) }
+    foreach ($e in $ents) {
+        $k = ([string]$e.upn).ToLowerInvariant()
+        $e | Add-Member -NotePropertyName usedPermissions -NotePropertyValue $(if ($k -and $byUpn.ContainsKey($k)) { @($byUpn[$k]) } else { @() }) -Force
+    }
+    $permSources = @(@('Response actions', 'Alerts') | Where-Object { Test-GapsioFeature -Name 'response' })
+    if ($audit) { $permSources += 'Audit log' }
+    #endregion
+
     $findings = @(Get-GapsioAccessFindings -Entitlements $ents -Bypass @($bypass) -UnusedDays $unusedDays) + @(Get-GapsioPlatformAccessFindings -ApiApps $apiApps -Reviews $reviews -GroupGrants $groupGrants -PimRules $pimRules) + @(Get-GapsioDefenderAuditFindings -Audit $audit)
     $principals = @($ents | Select-Object -ExpandProperty principalId -Unique)
     $activeEnts = @($ents | Where-Object { $_.state -eq 'Active' })
@@ -766,6 +874,8 @@ function Invoke-GapsioAccessCollection {
         apiApps            = $apiApps
         auditQuery         = $(if ($audit) { $audit.query } else { $null })
         auditSummary       = $(if ($audit) { $audit.summary } else { $null })
+        permissionUsage    = $permUsage
+        permissionSources  = @($permSources)
         findings           = $findings
         warnings           = @(Get-GapsioWarnings)
     }
