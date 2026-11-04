@@ -7,7 +7,7 @@ App Service Authentication (Entra ID).
 
 | Who | Sees |
 |---|---|
-| **Wardline Administrator** (app role `Wardline.Admin`) | Everything; can start runs ("Collect now"); sees update notices |
+| **Gapsio Administrator** (app role `Gapsio.Admin`) | Everything; can start runs ("Collect now"); sees update notices |
 | Other users of the tenant | Only "My access" (when the Access feature is on). Use `-RestrictToAssignedUsers` to block everyone without an assignment. |
 
 ## Views

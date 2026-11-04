@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to Wardline are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-and Wardline uses [Semantic Versioning](https://semver.org/): a new **minor** version can add features and permissions,
-a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -ResourceGroup <resource group>`.
+All notable changes to Gapsio are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and Gapsio uses [Semantic Versioning](https://semver.org/): a new **minor** version can add features and permissions,
+a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -ResourceGroup <resource group>`.
 
 ## [Unreleased]
 
@@ -15,24 +15,24 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Wardline.ps1 -R
 - Installer writes `WL_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
 
 ### Changed
-- Documentation is published at https://wardline.cloud/docs/ (canonical); GitHub Pages remains as the build source.
+- Documentation is published at https://gapsio.cloud/docs/ (canonical); GitHub Pages remains as the build source.
 
 ## [0.5.0] – 2026-11-02
 
 ### Added
-- **Wardline Assistant (Enterprise, optional)**: install with `-Assistant` and Wardline creates an Azure OpenAI resource
+- **Gapsio Assistant (Enterprise, optional)**: install with `-Assistant` and Gapsio creates an Azure OpenAI resource
   (`gpt-4.1-mini` + `text-embedding-3-small`) **in your subscription**, keyless via managed identity. The portal gets a
   chat helper for admins that answers from your data with read-only tools: stored findings and devices of the last run,
   one device record, **live Microsoft Defender Advanced Hunting** (last seen, sensor health, alerts of the last 7 days,
-  failed secure-configuration checks – when the *hunting* feature is enabled) and a semantic search over the Wardline
+  failed secure-configuration checks – when the *hunting* feature is enabled) and a semantic search over the Gapsio
   documentation and the MDAV baseline rationale. Every answer lists the tools used and the doc sections cited.
   Requires an Enterprise licence; Community installations see the entry point with an upgrade hint.
   New installer parameters: `-Assistant`, `-AssistantEndpoint`, `-AssistantDeployment`, `-AssistantEmbeddingDeployment`,
   `-AssistantLocation`. See *Installation › Optional: portal assistant*.
-- **News agent**: `tools/Get-WardlineNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn,
+- **News agent**: `tools/Get-GapsioNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn,
   Tech Community, Microsoft 365 roadmap) into a Markdown digest; implementation rules for confirmed items in `AGENTS.md`.
 - GitHub social preview source (`.github/social-preview.html/.png`).
-- **Inventory findings for Linux audit-mode previews**: Wardline now flags assigned Linux policies that keep
+- **Inventory findings for Linux audit-mode previews**: Gapsio now flags assigned Linux policies that keep
   antivirus or tamper protection in *audit* mode (preview) as rollout hygiene findings.
 
 ### Changed
@@ -94,7 +94,7 @@ First version published on GitHub.
 - **Third-party AV/EDR**: `DeviceTvmSoftwareInventory` is queried for other AV/EDR vendors; devices show the products, a new
   device chart and filter `3pav:1`, a Medium finding per device where a third-party product runs alongside an active Defender
   Antivirus and an aggregated Low finding per tenant.
-- **Compliance mapping** (`docs/compliance.md`): how Wardline evidence maps to ISO 27001:2022 Annex A, NIST CSF 2.0, SOC 2 and
+- **Compliance mapping** (`docs/compliance.md`): how Gapsio evidence maps to ISO 27001:2022 Annex A, NIST CSF 2.0, SOC 2 and
   GDPR, plus an audit readiness checklist.
 - **Community edition without a licence key**: collection and storage are always complete, but without a valid licence the
   API serves every list (devices, findings, exclusions, agents, policies, entitlements, changes …) with only the first
@@ -110,7 +110,7 @@ First version published on GitHub.
   pages with a search index instead of inside the snapshot; the portal searches and filters devices on the server above
   10,000 devices (`api/devices`, `api/device`); identical per-device findings on more than `WL_FINDING_ROLLUP` devices are
   rolled up into one finding; the template deploys 4 GB instances (`instanceMemoryMB`).
-- **Assignments and unlimited exceptions**: every finding and exclusion can be assigned to an Entra user, a security group, a distribution list or a manually typed e-mail address (people picker in the detail row, backed by `User.ReadBasic.All` and `GroupMember.Read.All`; falls back to manual e-mail when the directory is not readable). Assigned items stay open, show the assignee in the findings list (with a filter) and in notifications (`wardline.findings[].assignee`) so a flow can e-mail them. Exceptions (formerly "accept risk") can now be unlimited (no expiry) or dated up to ten years; the one-year cap is gone. *History › Exceptions & assignments* adds an *Assignments* tab; assign/unassign actions go to the same audit log.
+- **Assignments and unlimited exceptions**: every finding and exclusion can be assigned to an Entra user, a security group, a distribution list or a manually typed e-mail address (people picker in the detail row, backed by `User.ReadBasic.All` and `GroupMember.Read.All`; falls back to manual e-mail when the directory is not readable). Assigned items stay open, show the assignee in the findings list (with a filter) and in notifications (`gapsio.findings[].assignee`) so a flow can e-mail them. Exceptions (formerly "accept risk") can now be unlimited (no expiry) or dated up to ten years; the one-year cap is gone. *History › Exceptions & assignments* adds an *Assignments* tab; assign/unassign actions go to the same audit log.
 - **macOS/Linux findings** (category *macOS / Linux*): Full Disk Access missing and system extensions not approved on Macs (from the secure configuration assessment), Defender agent builds 6+ months behind the fleet (`101.YYMM.x`, with an auditd note for Linux < 101.2408), and macOS/Linux fleets without any Intune Defender policy (Jamf-managed Macs are called out). Agent version is now collected from `DeviceTvmSoftwareInventory`.
 - **Response readiness** (feature `Response`, default on, category *Response*): automated investigations waiting for approval for 1+ day, Medium/High alerts untriaged for 7+ days, devices isolated for 7+ days without release, failed or stuck response actions, response capabilities never exercised in 90 days on fleets of 25+ Windows devices, and live response sessions that ran or uploaded scripts. Uses the Defender for Endpoint API (`Machine.Read.All`, `Alert.Read.All`). Automation level per device group and live-response tenant settings have no API and are documented as portal checks.
 - **Access module rebuilt around Defender XDR unified RBAC**: roles and assignments from `roleManagement/defender` only – who holds which Defender role directly, via group, eligible via PIM for groups or via access package; for which data sources (`/` = all, `Mde`, `Mdi` …); permission groups and a *response/config* tag for roles with response, live response, file collection or settings permissions. **Usage**: last interactive sign-in to the Defender portal per person (Entra sign-in logs, carried forward across runs) and last PIM-for-groups activation. Entra roles that bypass unified RBAC (Global/Security Administrator, Security Operator, Security Reader, Global Reader) are listed separately. New findings (category *Least privilege*): standing permission never used, eligible role never activated, Entra bypass roles, 3+ people with permanent response permissions on all data sources, assignments to individual users. Entra directory roles and Intune RBAC are no longer collected; permissions changed to `RoleManagement.Read.Defender`, `PrivilegedAssignmentSchedule.Read.AzureADGroup`, `AuditLog.Read.All` (added) and `RoleAssignmentSchedule.Read.Directory`, `RoleEligibilitySchedule.Read.Directory`, `DeviceManagementRBAC.Read.All` (removed). Device-group scoping of MDE roles is not exposed by any Microsoft API and is documented as a limitation.
@@ -124,9 +124,9 @@ First version published on GitHub.
 - **ASR rules** on three levels (target · configured · effective), per Defender device group and per device, including policy conflicts and per-rule exclusions.
 - **EDR exclusions** view (Linux global exclusions, allow indicators) and **Linux** exclusions, baseline checks and local `mdatp config` weakening.
 - **Least privilege per feature** (`-Features Core,Hunting,Indicators,Agents,Access,Inventory`); permissions that are no longer needed are removed.
-- **Separation of duties**: app registrations can be created up front by the identity team (`New-WardlineAppRegistrations.ps1`) and attached with `-PortalAppId` / `-DataAppId`; the data-access app is used via workload identity federation (no secret).
+- **Separation of duties**: app registrations can be created up front by the identity team (`New-GapsioAppRegistrations.ps1`) and attached with `-PortalAppId` / `-DataAppId`; the data-access app is used via workload identity federation (no secret).
 - **English/German portal** with a language switch; all scripts and installation output in English.
-- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `WL_UPDATE_CHECK=false` to disable) and `Update-Wardline.ps1` with checksum verification, permission and template change detection.
+- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `WL_UPDATE_CHECK=false` to disable) and `Update-Gapsio.ps1` with checksum verification, permission and template change detection.
 
 - **Device page**: protection state incl. network protection, controlled folder access and EDR in block mode, ASR per rule, local exclusions, findings, local AI agents, changes and links to Defender and Intune.
 - **Defender coverage gaps**: Intune devices not onboarded (feature `Coverage`), inactive or impaired sensors, discovered devices.

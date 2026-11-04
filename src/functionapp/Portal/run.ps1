@@ -1,7 +1,7 @@
 using namespace System.Net
 # Serves the portal (static files from www/) – signed-in users only.
 param($Request, $TriggerMetadata)
-Import-Module Wardline
+Import-Module Gapsio
 
 $securityHeaders = @{
     'X-Content-Type-Options'  = 'nosniff'
@@ -25,7 +25,7 @@ function Send-File {
 $principal = Get-WlPrincipal -Request $Request
 if (-not $principal.ok) {
     $msg = [System.Net.WebUtility]::HtmlEncode($principal.message)
-    Send-File -Status $principal.status -ContentType 'text/html; charset=utf-8' -Body "<!doctype html><html lang=`"de`"><meta charset=`"utf-8`"><title>Wardline</title><body><h1>Wardline</h1><p>$msg</p></body></html>"
+    Send-File -Status $principal.status -ContentType 'text/html; charset=utf-8' -Body "<!doctype html><html lang=`"de`"><meta charset=`"utf-8`"><title>Gapsio</title><body><h1>Gapsio</h1><p>$msg</p></body></html>"
     return
 }
 

@@ -1,8 +1,8 @@
 using namespace System.Net
-# Wardline API (portal only). Authentication via App Service Authentication (Entra ID).
-# Administrators = app role "Wardline.Admin" in the portal app registration.
+# Gapsio API (portal only). Authentication via App Service Authentication (Entra ID).
+# Administrators = app role "Gapsio.Admin" in the portal app registration.
 param($Request, $TriggerMetadata)
-Import-Module Wardline
+Import-Module Gapsio
 
 function Send-Response {
     param([int]$Status, $Body, [switch]$RawJson, [switch]$AsArray)
@@ -24,8 +24,8 @@ function Send-Response {
 function Test-WlCsrf {
     # State-changing calls: POST only, and a custom header that cross-site forms cannot set.
     if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return $false }
-    $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-wardline') { $csrf = $Request.Headers[$k] } }
-    if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Wardline is missing.'; return $false }
+    $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-gapsio') { $csrf = $Request.Headers[$k] } }
+    if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Gapsio is missing.'; return $false }
     $true
 }
 function Get-WlRequestJson {
@@ -42,7 +42,7 @@ $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
 $adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
-    Send-Response -Status 403 -Body 'This view requires the Wardline.Admin role.'
+    Send-Response -Status 403 -Body 'This view requires the Gapsio.Admin role.'
     return
 }
 $modules = Get-WlModules
@@ -200,8 +200,8 @@ try {
         'run' {
             if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return }
             # Simple CSRF protection: browser forms from other sites cannot set this header.
-            $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-wardline') { $csrf = $Request.Headers[$k] } }
-            if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Wardline is missing.'; return }
+            $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-gapsio') { $csrf = $Request.Headers[$k] } }
+            if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Gapsio is missing.'; return }
             $m = ([string]$Request.Query.module).ToLowerInvariant()
             if ($m -notin @($modules) + @('all')) { $m = 'all' }
             # Debounce: a second click within two minutes (double click, retry after a slow response) must not queue a second run.

@@ -7,7 +7,7 @@ Always on (feature `Core`); `Hunting`, `Indicators` and `Inventory` add data sou
 - From every source, for **Windows, macOS and Linux**: Intune / Security Settings Management (Settings Catalog, endpoint
   security templates, legacy device configuration) and allow indicators from Defender for Endpoint.
 - **Local exclusions on devices** (feature `Hunting`): Windows via registry events, macOS/Linux via `mdatp exclusion …` and
-  `mdatp threat allowed …` commands. Wardline keeps the history beyond the 30 days of Advanced Hunting and attributes the
+  `mdatp threat allowed …` commands. Gapsio keeps the history beyond the 30 days of Advanced Hunting and attributes the
   calling process and command line (e.g. `powershell.exe … Add-MpPreference`).
 - **Exclusions that also blind EDR** (own view): Linux global exclusions (policy or `mdatp … --scope global`) and allow
   indicators. Windows and macOS exclusions only affect antivirus.
@@ -16,7 +16,7 @@ Always on (feature `Core`); `Hunting`, `Indicators` and `Inventory` add data sou
 
 ## Unused exclusions
 
-Wardline checks in Advanced Hunting whether excluded processes, paths and file types showed **any process or file
+Gapsio checks in Advanced Hunting whether excluded processes, paths and file types showed **any process or file
 activity on any device in the last 30 days**. Exclusions without activity are flagged as "No activity (30 days)" – likely
 leftovers that nobody dares to delete. Values with wildcards or environment variables are not checked. (Exclusions only
 affect antivirus scanning; Defender's EDR sensor still records the activity, which is what makes this check possible.)
@@ -40,7 +40,7 @@ Defender portal and in Intune.
 
 ### Network protection
 
-Wardline reads network protection per device from Defender's secure configuration assessment (TVM). Devices without an
+Gapsio reads network protection per device from Defender's secure configuration assessment (TVM). Devices without an
 assessment fall back to network protection events of the last 30 days: block events mean it is on, audit events only
 mean audit mode (shown as off). Devices with neither stay "unknown" – the device page says which source was used.
 
@@ -103,7 +103,7 @@ The *Updates* category looks at how Defender itself is kept current:
 - **Signature age** – a device that was seen in the last 14 days but whose security intelligence was published
   three or more days ago (High from seven days). This catches devices where the "up to date" flag is misleading.
 - **Update rings** – `DisableGradualRelease`, the Critical (time-delay) platform/engine channel and security
-  intelligence on the Broad channel are flagged. In fleets of 10+ Windows devices Wardline also reports when no
+  intelligence on the Broad channel are flagged. In fleets of 10+ Windows devices Gapsio also reports when no
   platform/engine channel is configured at all or when no policy puts a pilot group on Beta/Preview.
 
 ## Inventory findings
@@ -117,11 +117,11 @@ and policy reach:
   (golden image onboarded before sysprep, reimaging without offboarding). Counts, grouping and per-device
   indicators are distorted and the stale record keeps showing an old protection state.
 - **No management channel** – onboarded Windows devices whose `ManagedBy` is unknown: neither Intune, ConfigMgr
-  nor security settings management reach them, so none of the Defender policies Wardline evaluates apply.
+  nor security settings management reach them, so none of the Defender policies Gapsio evaluates apply.
 - **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
   Audit is an evaluation step, not a protection state.
 - **Linux AV/Tamper in audit mode (preview)** – assigned Linux policies keep antivirus or tamper protection in
-  *audit* mode. Wardline reports this as rollout hygiene: useful for short pilots, but not a target state.
+  *audit* mode. Gapsio reports this as rollout hygiene: useful for short pilots, but not a target state.
 
 ## Fleet findings
 
@@ -196,12 +196,12 @@ installed but not actually working:
   (`101.YYMM.x`); devices six or more months behind the newest build in the fleet are listed. Linux builds before
   101.2408 still rely on auditd, which is no longer supported as event provider.
 - **Platform without an Intune Defender policy** (Medium; Low when all Macs are managed by another MDM such as
-  Jamf) – Wardline can only observe the device state then, not the intended configuration.
+  Jamf) – Gapsio can only observe the device state then, not the intended configuration.
 
 ## Response readiness
 
 Feature `Response` (default on; Defender for Endpoint API `Machine.Read.All`, `Alert.Read.All`). Protection
-settings are one half of Defender; whether anyone can and does respond is the other. Wardline reads the response
+settings are one half of Defender; whether anyone can and does respond is the other. Gapsio reads the response
 actions of the last 90 days and the alerts of the last 30 days with their automated-investigation state:
 
 - **Investigations waiting for approval** (High) – automated investigation found remediation actions, the device

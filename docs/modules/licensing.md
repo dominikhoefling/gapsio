@@ -3,7 +3,7 @@
 Off by default. Enable with the feature `Licensing` (it needs `Hunting` for the device mapping):
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,Licensing
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,Licensing
 ```
 
 The module answers one question for **Microsoft Defender for Endpoint only**: do the licences you bought and assigned match the devices that are actually onboarded? It is an **indication, not an audit** – Microsoft's licence terms are enforced contractually, not technically, and the only authoritative numbers are the ones in the Microsoft 365 admin center and your agreement.

@@ -1,11 +1,11 @@
-# Contributing to Wardline
+# Contributing to Gapsio
 
-Thank you for helping make Defender posture visible. Wardline is MIT-licensed; the checks, collectors, portal and
+Thank you for helping make Defender posture visible. Gapsio is MIT-licensed; the checks, collectors, portal and
 documentation are open to contributions. This page explains how to get a change merged quickly.
 
 ## Before you start
 
-- **Bugs**: open an issue with the Wardline version (portal sidebar), the component and steps to reproduce.
+- **Bugs**: open an issue with the Gapsio version (portal sidebar), the component and steps to reproduce.
   Never paste tenant data (device names, users, exclusion values, tokens). Sample data from `tests/` is fine.
 - **New checks or features**: open an issue or discussion first and describe the gap, the data source
   (Graph endpoint, Advanced Hunting table, Defender API) and the permission it needs. Checks must stay
@@ -15,10 +15,10 @@ documentation are open to contributions. This page explains how to get a change 
 ## Development setup
 
 ```powershell
-git clone https://github.com/dominikhoefling/wardline.git
-cd wardline
-pwsh ./tests/Test-Wardline.ps1          # all logic and end-to-end tests, no Azure or tenant needed
-pwsh ./build/New-WardlineDemo.ps1       # portal offline with sample data: dist/demo/index.html
+git clone https://github.com/dominikhoefling/gapsio.git
+cd gapsio
+pwsh ./tests/Test-Gapsio.ps1          # all logic and end-to-end tests, no Azure or tenant needed
+pwsh ./build/New-GapsioDemo.ps1       # portal offline with sample data: dist/demo/index.html
 ```
 
 PowerShell 7.4+, Azure CLI with Bicep and Node 20 (only for the demo build) are enough. Testing against a real
@@ -28,12 +28,12 @@ tenant: [docs/testing.md](docs/testing.md).
 
 | Path | What lives there |
 |---|---|
-| `src/functionapp/Modules/Wardline/*.ps1` | Collectors and checks: `Core.ps1` (shared, storage, findings), `Endpoint.ps1`, `Agents.ps1`, `Access.ps1` |
+| `src/functionapp/Modules/Gapsio/*.ps1` | Collectors and checks: `Core.ps1` (shared, storage, findings), `Endpoint.ps1`, `Agents.ps1`, `Access.ps1` |
 | `src/functionapp/config/mdav-baseline.json` | The MDAV baseline – every check with rationale, platforms and fix text (EN/DE) |
 | `src/functionapp/www/` | Portal (vanilla HTML/CSS/JS, no framework, strict CSP) |
 | `setup/` | Install, update, uninstall, app registrations; `permissions.json` is the single source of truth for permissions |
 | `deploy/main.bicep` | Infrastructure; `azuredeploy.json` is generated from it (CI checks drift) |
-| `tests/Test-Wardline.ps1` | Tests; add one for every behaviour you change |
+| `tests/Test-Gapsio.ps1` | Tests; add one for every behaviour you change |
 | `docs/` | MkDocs documentation (Material) |
 
 ## Rules for checks
@@ -50,7 +50,7 @@ tenant: [docs/testing.md](docs/testing.md).
 ## Pull requests
 
 - Branch from `main`, keep PRs focused, describe *what* and *why*. Link the issue.
-- Run `pwsh ./tests/Test-Wardline.ps1` – CI runs the same plus a parser pass over all `.ps1` files and a Bicep drift
+- Run `pwsh ./tests/Test-Gapsio.ps1` – CI runs the same plus a parser pass over all `.ps1` files and a Bicep drift
   check. If you changed `deploy/main.bicep`: `az bicep build -f deploy/main.bicep --outfile deploy/azuredeploy.json`.
 - Add a line to `CHANGELOG.md` under *Unreleased*.
 - Sign off your commits (`git commit -s`). By contributing you certify the

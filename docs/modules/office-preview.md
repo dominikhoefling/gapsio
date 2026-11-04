@@ -98,7 +98,7 @@ Key fields:
 Enable it via the install script feature `OfficePreview`:
 
 ```powershell
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
 ```
 
 This sets `WL_MODULES=...,officepreview`.

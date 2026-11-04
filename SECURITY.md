@@ -11,7 +11,7 @@ steps to reproduce and the impact you see.
 
 ## Supported versions
 
-Only the latest minor release receives security fixes. Update with `./setup/Update-Wardline.ps1 -ResourceGroup <resource group>`.
+Only the latest minor release receives security fixes. Update with `./setup/Update-Gapsio.ps1 -ResourceGroup <resource group>`.
 
 ## Design principles
 
@@ -19,7 +19,7 @@ Only the latest minor release receives security fixes. Update with `./setup/Upda
 - No secrets: managed identity, workload identity federation, App Service Authentication without a client secret.
 - Storage with Entra authentication only (shared keys disabled); all data stays in the customer's subscription.
 - The portal serves only its own files under a strict Content Security Policy; tenant data is rendered as text, never as HTML.
-- Wardline never updates itself. Release packages are checksummed and (for public releases) carry a build provenance attestation.
+- Gapsio never updates itself. Release packages are checksummed and (for public releases) carry a build provenance attestation.
 
 ## Security review
 

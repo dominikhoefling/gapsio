@@ -17,7 +17,7 @@ jobs:
 
       - name: Logic and end-to-end tests (no Azure needed)
         shell: pwsh
-        run: ./tests/Test-Wardline.ps1
+        run: ./tests/Test-Gapsio.ps1
 
       - name: Parse all PowerShell files
         shell: pwsh
@@ -43,15 +43,15 @@ jobs:
 
       - name: Build release assets
         shell: pwsh
-        run: ./build/New-WardlineRelease.ps1
+        run: ./build/New-GapsioRelease.ps1
 
       - name: Public demo is pseudonymised (fails on leaks)
         shell: pwsh
-        run: ./build/New-WardlineDemo.ps1
+        run: ./build/New-GapsioDemo.ps1
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wardline-release-assets
+          name: gapsio-release-assets
           path: dist/release/
           retention-days: 14
 

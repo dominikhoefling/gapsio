@@ -1,5 +1,5 @@
 {
-  "description": "Least-privilege permissions per Wardline feature. All permissions are read-only application permissions. Install-Wardline.ps1, Grant-WardlinePermissions.ps1 and New-WardlineAppRegistrations.ps1 grant exactly the permissions of the selected features – nothing more.",
+  "description": "Least-privilege permissions per Gapsio feature. All permissions are read-only application permissions. Install-Gapsio.ps1, Grant-GapsioPermissions.ps1 and New-GapsioAppRegistrations.ps1 grant exactly the permissions of the selected features – nothing more.",
   "resources": {
     "graph": {
       "appId": "00000003-0000-0000-c000-000000000000",
@@ -110,7 +110,7 @@
         {
           "resource": "graph",
           "value": "DeviceManagementScripts.Read.All",
-          "why": "Results of the Wardline detection script"
+          "why": "Results of the Gapsio detection script"
         },
         {
           "resource": "graph",

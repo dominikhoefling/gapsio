@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] `pwsh ./tests/Test-Wardline.ps1` passes locally
+- [ ] `pwsh ./tests/Test-Gapsio.ps1` passes locally
 - [ ] Read-only: no new write operations against Graph / Defender / Intune / Entra
 - [ ] New permission? → entry in `setup/permissions.json` with justification + `docs/permissions.md`
 - [ ] New or changed finding? → stable `id`, rationale and fix text in EN and DE, Learn URL

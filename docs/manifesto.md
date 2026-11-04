@@ -1,6 +1,6 @@
-# Wardline – the open-core promise
+# Gapsio – the open-core promise
 
-Wardline is open source (MIT) and has a paid Enterprise edition. This page says exactly what that means, so that
+Gapsio is open source (MIT) and has a paid Enterprise edition. This page says exactly what that means, so that
 nobody has to guess what might be taken away later.
 
 ## What is free, forever
@@ -11,16 +11,16 @@ nobody has to guess what might be taken away later.
 - **Complete data in your storage account.** Collection and history are always complete. The Community limit is a
   *display* limit: lists show their first 10 rows in clear, the rest is masked server-side. Counts, charts,
   severities, drift and notices are never masked.
-- **Self-hosting, offline licence check, no telemetry.** Wardline never calls home – not for licences, not for usage.
+- **Self-hosting, offline licence check, no telemetry.** Gapsio never calls home – not for licences, not for usage.
   That will not change.
 - **Updates and security fixes** for the Community edition, on the same schedule as Enterprise.
 - **Documentation**, the baseline definition, the permission model and the threat model.
 
 ## What Enterprise pays for
 
-The Enterprise licence (per tenant, [€19 per month or €199 per year](https://wardline.cloud/#pricing)) removes the
+The Enterprise licence (per tenant, [€19 per month or €199 per year](https://gapsio.cloud/#pricing)) removes the
 10-row display limit and unlocks governance: assigning findings, accepting risks with expiry and justification,
-the change history and notifications. In short: everything that an organisation needs to *run* Wardline as an
+the change history and notifications. In short: everything that an organisation needs to *run* Gapsio as an
 auditable control rather than look at it.
 
 The money funds the work that an open-source security tool otherwise does not get: keeping up with Microsoft's
@@ -43,7 +43,7 @@ again and the full view is back; or read the tables with your own tooling – th
 ## Could someone fork it and remove the limit?
 
 Yes – that is what MIT allows, and we chose MIT with that in mind. The display limit is a few lines in the API
-layer, not DRM. What a fork cannot do is call itself Wardline, issue Wardline licence keys, or receive our updates,
+layer, not DRM. What a fork cannot do is call itself Gapsio, issue Gapsio licence keys, or receive our updates,
 baseline maintenance and support. We think organisations will pay for a maintained product; if we are wrong, the
 licence was still the right choice for the people who use it.
 
@@ -53,6 +53,6 @@ licence was still the right choice for the people who use it.
   Certificate of Origin, no CLA. If the project grows, the maintainers will be listed in `CODEOWNERS`.
 - Releases are tagged, checksummed and carry build provenance; the updater verifies both. See
   [development](development.md) and [security review](trust.md).
-- Roadmap decisions are made in the open in GitHub Discussions and on the [public roadmap](https://wardline.cloud/roadmap).
-- If Wardline is ever discontinued, the last release stays MIT and the licence check will be published with a
+- Roadmap decisions are made in the open in GitHub Discussions and on the [public roadmap](https://gapsio.cloud/roadmap).
+- If Gapsio is ever discontinued, the last release stays MIT and the licence check will be published with a
   perpetual key for existing customers. Nobody should lose a security control because a vendor went away.

@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Wardline does not work as documented
+description: Something in Gapsio does not work as documented
 labels: [bug]
 body:
   - type: markdown
@@ -10,7 +10,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Wardline version
+      label: Gapsio version
       description: Shown in the portal sidebar, e.g. 0.4.2
     validations:
       required: true

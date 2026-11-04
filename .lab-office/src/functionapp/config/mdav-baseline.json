@@ -1,0 +1,2073 @@
+{
+  "name": {
+    "en": "Gapsio MDAV best practice",
+    "de": "Gapsio MDAV Best Practice"
+  },
+  "version": "2026.10.31",
+  "description": {
+    "en": "Recommended configuration for Microsoft Defender Antivirus (Windows) and Microsoft Defender for Endpoint (macOS, Linux). Customise per customer: edit this file and upload it to the storage account as config/mdav-baseline.json. Text fields can be a string or {\"en\": \"...\", \"de\": \"...\"}.",
+    "de": "Empfohlene Konfiguration für Microsoft Defender Antivirus (Windows) und Microsoft Defender for Endpoint (macOS). Werte können pro Kunde angepasst werden: diese Datei bearbeiten und als config/mdav-baseline.json in den Storage Account hochladen."
+  },
+  "checks": [
+    {
+      "id": "tamper-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Tamper Protection enabled",
+        "de": "Tamper Protection aktiv"
+      },
+      "severity": "Critical",
+      "effective": "scid-2003",
+      "expectText": {
+        "en": "Enabled on all devices",
+        "de": "Aktiv auf allen Geräten"
+      },
+      "rationale": {
+        "en": "Tamper Protection prevents Defender settings from being weakened locally – by administrators or malware. On by default since 2022, but it can be turned off.",
+        "de": "Tamper Protection verhindert, dass Defender-Einstellungen lokal – auch durch Administratoren oder Malware – abgeschwächt werden. Seit 2022 Standard, kann aber deaktiviert werden."
+      },
+      "remediation": {
+        "en": "Enable it tenant-wide in the Defender portal (Settings > Endpoints > Advanced features) or enforce it with Intune (Windows Security experience).",
+        "de": "Im Defender-Portal unter Einstellungen > Endpunkte > Erweiterte Features mandantenweit aktivieren oder per Intune (Windows-Sicherheitsfunktionen) erzwingen."
+      }
+    },
+    {
+      "id": "disable-local-admin-merge",
+      "platform": "Windows",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Local exclusions are ignored (DisableLocalAdminMerge)",
+        "de": "Lokale Exclusions werden ignoriert (DisableLocalAdminMerge)"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_defender_configuration_disablelocaladminmerge",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "Without this setting, locally set exclusions are merged with the managed ones. Tamper Protection only protects exclusions when DisableLocalAdminMerge is enabled and the exclusions come from Intune or Security Settings Management.",
+        "de": "Ohne diese Einstellung werden lokal gesetzte Exclusions mit den zentralen zusammengeführt. Tamper Protection schützt Exclusions nur, wenn DisableLocalAdminMerge aktiv ist und die Exclusions über Intune bzw. Security Settings Management kommen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Disable Local Admin Merge = Enabled.",
+        "de": "Settings Catalog > Defender > Disable Local Admin Merge = Enabled."
+      }
+    },
+    {
+      "id": "hide-exclusions-admins",
+      "platform": "Windows",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Hide exclusions from local administrators",
+        "de": "Exclusions vor lokalen Administratoren verbergen"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_defender_configuration_hideexclusionsfromlocaladmins",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "Attackers look for exclusions to drop their tools there.",
+        "de": "Angreifer suchen gezielt nach Exclusions, um ihre Werkzeuge dort abzulegen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Hide Exclusions From Local Admins = Enabled.",
+        "de": "Settings Catalog > Defender > Hide Exclusions From Local Admins = Enabled."
+      }
+    },
+    {
+      "id": "hide-exclusions-users",
+      "platform": "Windows",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Hide exclusions from local users",
+        "de": "Exclusions vor lokalen Benutzern verbergen"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_defender_configuration_hideexclusionsfromlocalusers",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "Regular users do not need to know the exclusions.",
+        "de": "Normale Benutzer müssen die Exclusions nicht kennen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Hide Exclusions From Local Users = Enabled.",
+        "de": "Settings Catalog > Defender > Hide Exclusions From Local Users = Enabled."
+      }
+    },
+    {
+      "id": "realtime-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "Real-time protection enforced",
+        "de": "Echtzeitschutz erzwungen"
+      },
+      "severity": "Critical",
+      "definitionId": "device_vendor_msft_policy_config_defender_allowrealtimemonitoring",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "effective": "scid-2012",
+      "expectText": {
+        "en": "Allowed / on",
+        "de": "Erlaubt / aktiv"
+      },
+      "rationale": {
+        "en": "Without real-time protection files are not scanned on access.",
+        "de": "Ohne Echtzeitschutz werden Dateien beim Zugriff nicht geprüft."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Allow Realtime Monitoring = Allowed.",
+        "de": "Settings Catalog > Defender > Allow Realtime Monitoring = Allowed."
+      }
+    },
+    {
+      "id": "behavior-monitoring",
+      "platform": "Windows",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "Behavior monitoring enforced",
+        "de": "Verhaltensüberwachung erzwungen"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_policy_config_defender_allowbehaviormonitoring",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "effective": "scid-91",
+      "expectText": {
+        "en": "Allowed / on",
+        "de": "Erlaubt / aktiv"
+      },
+      "rationale": {
+        "en": "Detects malicious behavior even for unknown files.",
+        "de": "Erkennt bösartiges Verhalten auch bei unbekannten Dateien."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Allow Behavior Monitoring = Allowed.",
+        "de": "Settings Catalog > Defender > Allow Behavior Monitoring = Allowed."
+      }
+    },
+    {
+      "id": "ioav-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "Scan downloaded files and attachments (IOAV)",
+        "de": "Prüfung heruntergeladener Dateien und Anhänge (IOAV)"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_policy_config_defender_allowioavprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed",
+        "de": "Erlaubt"
+      },
+      "rationale": {
+        "en": "Scans downloads and attachments before they run.",
+        "de": "Prüft Downloads und Anhänge, bevor sie ausgeführt werden."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Allow IOAV Protection = Allowed.",
+        "de": "Settings Catalog > Defender > Allow IOAV Protection = Allowed."
+      }
+    },
+    {
+      "id": "script-scanning",
+      "platform": "Windows",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "Script scanning",
+        "de": "Skript-Prüfung"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_policy_config_defender_allowscriptscanning",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed",
+        "de": "Erlaubt"
+      },
+      "rationale": {
+        "en": "Scans scripts (AMSI) before they run.",
+        "de": "Prüft Skripte (AMSI) vor der Ausführung."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Allow Script Scanning = Allowed.",
+        "de": "Settings Catalog > Defender > Allow Script Scanning = Allowed."
+      }
+    },
+    {
+      "id": "cloud-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Cloud-delivered protection enabled",
+        "de": "Cloud-delivered Protection aktiv"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_policy_config_defender_allowcloudprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "effective": "scid-2016",
+      "expectText": {
+        "en": "Allowed / on",
+        "de": "Erlaubt / aktiv"
+      },
+      "rationale": {
+        "en": "Without cloud protection you lose Block at First Sight, indicators, emergency signatures and parts of the ASR rules.",
+        "de": "Ohne Cloud-Schutz fallen Block at First Sight, Indikatoren, Notfall-Signaturen und Teile der ASR-Regeln weg."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Allow Cloud Protection = Allowed.",
+        "de": "Settings Catalog > Defender > Allow Cloud Protection = Allowed."
+      }
+    },
+    {
+      "id": "sample-submission",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Sample submission enabled",
+        "de": "Sample-Übermittlung aktiv"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_policy_config_defender_submitsamplesconsent",
+      "expect": {
+        "op": "in",
+        "values": [
+          1,
+          3
+        ]
+      },
+      "expectText": {
+        "en": "Send safe samples (1) or send all samples (3)",
+        "de": "Sichere Samples senden (1) oder alle Samples senden (3)"
+      },
+      "rationale": {
+        "en": "Required for Block at First Sight. 'Never send' or 'Always prompt' weakens cloud protection considerably.",
+        "de": "Voraussetzung für Block at First Sight. 'Niemals senden' oder 'Immer fragen' schwächt den Cloud-Schutz deutlich."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Submit Samples Consent = Send all samples automatically (recommended) or Send safe samples automatically.",
+        "de": "Settings Catalog > Defender > Submit Samples Consent = Send all samples automatically (empfohlen) oder Send safe samples automatically."
+      }
+    },
+    {
+      "id": "sample-submission-all",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Send all samples (recommended)",
+        "de": "Alle Samples senden (empfohlen)"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_submitsamplesconsent",
+      "expect": {
+        "op": "eq",
+        "value": 3
+      },
+      "expectText": {
+        "en": "Send all samples automatically (3)",
+        "de": "Alle Samples automatisch senden (3)"
+      },
+      "rationale": {
+        "en": "Only then, for example, Office documents with macros are included in cloud analysis.",
+        "de": "Nur damit fallen z. B. Office-Dokumente mit Makros in die Cloud-Analyse."
+      },
+      "remediation": {
+        "en": "Submit Samples Consent = Send all samples automatically.",
+        "de": "Submit Samples Consent = Send all samples automatically."
+      }
+    },
+    {
+      "id": "cloud-block-level",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Cloud block level at least High",
+        "de": "Cloud Block Level mindestens High"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_policy_config_defender_cloudblocklevel",
+      "expect": {
+        "op": "gte",
+        "value": 2
+      },
+      "expectText": {
+        "en": "High (2); High Plus (4) or Zero Tolerance (6) for pilot/hardened devices",
+        "de": "High (2), für Pilot-/gehärtete Geräte High Plus (4) bzw. Zero Tolerance (6)"
+      },
+      "rationale": {
+        "en": "Start with High; move to High Plus after a pilot; Zero Tolerance for hardened devices such as PAWs. Some ASR rules only raise alerts from High or High Plus.",
+        "de": "Start mit High; nach Pilotierung High Plus; Zero Tolerance für besonders gehärtete Geräte wie PAWs. Einige ASR-Regeln erzeugen erst ab High bzw. High Plus Alerts."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Cloud Block Level = High or higher, staged by device persona.",
+        "de": "Settings Catalog > Defender > Cloud Block Level = High oder höher, gestaffelt nach Geräte-Persona."
+      }
+    },
+    {
+      "id": "cloud-extended-timeout",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Extended cloud timeout of 50 seconds",
+        "de": "Erweiterter Cloud-Timeout 50 Sekunden"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_policy_config_defender_cloudextendedtimeout",
+      "expect": {
+        "op": "gte",
+        "value": 50
+      },
+      "expectText": {
+        "en": "50 seconds",
+        "de": "50 Sekunden"
+      },
+      "rationale": {
+        "en": "Gives cloud analysis more time before a new file runs.",
+        "de": "Gibt der Cloud-Analyse mehr Zeit, bevor eine neue Datei ausgeführt wird."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Cloud Extended Timeout = 50.",
+        "de": "Settings Catalog > Defender > Cloud Extended Timeout = 50."
+      }
+    },
+    {
+      "id": "pua-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "PUA protection in block mode",
+        "de": "PUA-Schutz im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionId": "device_vendor_msft_policy_config_defender_puaprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "effective": "scid-2013",
+      "expectText": {
+        "en": "Block (1) – audit only as an interim step",
+        "de": "Blockieren (1) – Audit nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Potentially unwanted applications (adware, cryptominers, ...) should be blocked; audit is a stage, not the goal.",
+        "de": "Potenziell unerwünschte Anwendungen (Adware, Cryptominer usw.) sollten blockiert werden; Audit ist eine Etappe, kein Ziel."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > PUA Protection = PUA Protection on.",
+        "de": "Settings Catalog > Defender > PUA Protection = PUA Protection on."
+      }
+    },
+    {
+      "id": "network-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Network protection in block mode",
+        "de": "Network Protection im Block-Modus"
+      },
+      "severity": "High",
+      "definitionId": "device_vendor_msft_policy_config_defender_enablenetworkprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (block mode)",
+        "de": "Aktiviert (Block-Modus)"
+      },
+      "rationale": {
+        "en": "Required for network indicators, web content filtering and parts of web protection.",
+        "de": "Voraussetzung für Netzwerk-Indikatoren, Web Content Filtering und Teile des Web-Schutzes."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Enable Network Protection = Enabled (block mode).",
+        "de": "Settings Catalog > Defender > Enable Network Protection = Enabled (block mode)."
+      },
+      "effective": "NetworkProtection"
+    },
+    {
+      "id": "signature-update-interval",
+      "platform": "Windows",
+      "category": {
+        "en": "Updates",
+        "de": "Aktualität"
+      },
+      "title": {
+        "en": "Signature update interval of at most 4 hours",
+        "de": "Signatur-Update-Intervall höchstens 4 Stunden"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_signatureupdateinterval",
+      "expect": {
+        "op": "range",
+        "min": 1,
+        "max": 4
+      },
+      "expectText": {
+        "en": "1–4 hours",
+        "de": "1–4 Stunden"
+      },
+      "rationale": {
+        "en": "Checking for new signatures more often shortens the window for new threats.",
+        "de": "Häufigere Prüfung auf neue Signaturen verkürzt das Zeitfenster für neue Bedrohungen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Signature Update Interval = 1 to 4.",
+        "de": "Settings Catalog > Defender > Signature Update Interval = 1 bis 4."
+      }
+    },
+    {
+      "id": "antivirus-enabled",
+      "platform": "Windows",
+      "category": {
+        "en": "Device state",
+        "de": "Gerätezustand"
+      },
+      "title": {
+        "en": "Defender Antivirus active",
+        "de": "Defender Antivirus aktiv"
+      },
+      "severity": "Critical",
+      "effective": "scid-2010",
+      "expectText": {
+        "en": "Active on all devices",
+        "de": "Aktiv auf allen Geräten"
+      },
+      "rationale": {
+        "en": "Older policies (e.g. 'Turn off Windows Defender Antivirus') or golden-image leftovers can disable Defender.",
+        "de": "Ältere Richtlinien (z. B. 'Turn off Windows Defender Antivirus') oder Golden-Image-Reste können Defender deaktivieren."
+      },
+      "remediation": {
+        "en": "Remove conflicting GPOs/registry values; check the effective settings per device in the Defender portal.",
+        "de": "Konfliktierende GPOs/Registry-Werte entfernen; effektive Einstellungen pro Gerät im Defender-Portal prüfen."
+      }
+    },
+    {
+      "id": "signatures-current",
+      "platform": "Windows",
+      "category": {
+        "en": "Device state",
+        "de": "Gerätezustand"
+      },
+      "title": {
+        "en": "Signatures up to date",
+        "de": "Signaturen aktuell"
+      },
+      "severity": "Medium",
+      "effective": "scid-2011",
+      "expectText": {
+        "en": "Up to date on all devices",
+        "de": "Aktuell auf allen Geräten"
+      },
+      "rationale": {
+        "en": "Outdated signatures lower the detection rate.",
+        "de": "Veraltete Signaturen verringern die Erkennungsrate."
+      },
+      "remediation": {
+        "en": "Check update sources and rings (gradual rollout, WSUS/Intune).",
+        "de": "Update-Quellen und -Ringe prüfen (Gradual Rollout, WSUS/Intune)."
+      }
+    },
+    {
+      "id": "running-mode",
+      "platform": "Windows",
+      "category": {
+        "en": "Device state",
+        "de": "Gerätezustand"
+      },
+      "title": {
+        "en": "Running mode 'Active' (not passive)",
+        "de": "Running Mode 'Aktiv' (nicht passiv)"
+      },
+      "severity": "Critical",
+      "effective": "avmode",
+      "expectText": {
+        "en": "Active (AvMode 0)",
+        "de": "Aktiv (AvMode 0)"
+      },
+      "rationale": {
+        "en": "Clients can switch to passive mode automatically when another AV product registers – even a fake one (e.g. Defendnot). Monitor the running mode continuously.",
+        "de": "Clients können automatisch in den Passiv-Modus wechseln, wenn sich ein anderes AV-Produkt registriert – auch ein gefälschtes (z. B. Defendnot). Der Running Mode sollte daher laufend überwacht werden."
+      },
+      "remediation": {
+        "en": "Investigate unexpected passive mode; remove the third-party AV or switch Defender back to active.",
+        "de": "Unerwarteten Passiv-Modus untersuchen; Drittanbieter-AV entfernen bzw. Defender wieder aktiv schalten."
+      }
+    },
+    {
+      "id": "edr-sensor",
+      "platform": "Windows",
+      "category": {
+        "en": "Device state",
+        "de": "Gerätezustand"
+      },
+      "title": {
+        "en": "EDR sensor communicates without issues",
+        "de": "EDR-Sensor kommuniziert ungestört"
+      },
+      "severity": "High",
+      "effective": "scid-2002",
+      "expectText": {
+        "en": "No impaired communication",
+        "de": "Keine gestörte Kommunikation"
+      },
+      "rationale": {
+        "en": "Without a connection to the back end there is no telemetry, no alerts and no response.",
+        "de": "Ohne Verbindung zum Backend fehlen Telemetrie, Alerts und Reaktionsmöglichkeiten."
+      },
+      "remediation": {
+        "en": "Check proxy/firewall and the required URLs; the sensor uses WinHTTP.",
+        "de": "Proxy/Firewall und erforderliche URLs prüfen; der Sensor nutzt WinHTTP."
+      }
+    },
+    {
+      "id": "mac-tamper-protection",
+      "platform": "macOS",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "macOS: Tamper Protection in block mode",
+        "de": "macOS: Tamper Protection im Block-Modus"
+      },
+      "severity": "Critical",
+      "definitionId": "com.apple.managedclient.preferences_enforcementlevel_tamperprotection",
+      "expect": {
+        "op": "eq",
+        "value": 2
+      },
+      "effective": "TamperProtection",
+      "expectText": {
+        "en": "tamperProtection/enforcementLevel = block",
+        "de": "tamperProtection/enforcementLevel = block"
+      },
+      "rationale": {
+        "en": "Prevents tampering with Defender (uninstalling, disabling, changing the configuration). \"audit\" only logs.",
+        "de": "Verhindert die Manipulation von Defender (Deinstallation, Abschalten, Ändern der Konfiguration). „audit“ protokolliert nur."
+      },
+      "remediation": {
+        "en": "Settings Catalog (macOS) › Microsoft Defender › Tamper Protection › Enforcement Level = block.",
+        "de": "Settings Catalog (macOS) › Microsoft Defender › Tamper Protection › Enforcement Level = block."
+      }
+    },
+    {
+      "id": "mac-enforcement-level",
+      "platform": "macOS",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "macOS: antivirus in real-time mode",
+        "de": "macOS: Antivirus im Echtzeitmodus"
+      },
+      "severity": "Critical",
+      "definitionId": "com.apple.managedclient.preferences_enforcementlevel_antivirusengine",
+      "expect": {
+        "op": "eq",
+        "value": 2
+      },
+      "effective": "RealtimeProtection",
+      "expectText": {
+        "en": "antivirusEngine/enforcementLevel = real_time",
+        "de": "antivirusEngine/enforcementLevel = real_time"
+      },
+      "rationale": {
+        "en": "Only \"real_time\" scans files on access; \"on_demand\" and \"passive\" weaken protection massively.",
+        "de": "Nur „real_time“ prüft Dateien beim Zugriff; „on_demand“ und „passive“ schwächen den Schutz massiv."
+      },
+      "remediation": {
+        "en": "Settings Catalog (macOS) › Microsoft Defender › Antivirus engine › Enforcement level = real_time.",
+        "de": "Settings Catalog (macOS) › Microsoft Defender › Antivirus engine › Enforcement level = real_time."
+      }
+    },
+    {
+      "id": "mac-passive-mode",
+      "platform": "macOS",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "macOS: passive mode off",
+        "de": "macOS: Passiv-Modus aus"
+      },
+      "severity": "High",
+      "definitionId": "com.apple.managedclient.preferences_passivemode",
+      "expect": {
+        "op": "eq",
+        "value": "false"
+      },
+      "expectText": {
+        "en": "antivirusEngine/passiveMode = Disabled",
+        "de": "antivirusEngine/passiveMode = Disabled"
+      },
+      "rationale": {
+        "en": "In passive mode Defender does not block.",
+        "de": "Im Passiv-Modus blockiert Defender nicht."
+      },
+      "remediation": {
+        "en": "Passive mode = Disabled.",
+        "de": "Passive mode = Disabled."
+      }
+    },
+    {
+      "id": "mac-exclusions-merge-policy",
+      "platform": "macOS",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "macOS: managed exclusions only (admin_only)",
+        "de": "macOS: Nur verwaltete Exclusions (admin_only)"
+      },
+      "severity": "High",
+      "definitionId": "com.apple.managedclient.preferences_exclusionsmergepolicy",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "antivirusEngine/exclusionsMergePolicy = admin_only",
+        "de": "antivirusEngine/exclusionsMergePolicy = admin_only"
+      },
+      "rationale": {
+        "en": "Equivalent to DisableLocalAdminMerge on Windows: otherwise local \"mdatp exclusion\" entries are merged with the managed ones.",
+        "de": "Entspricht DisableLocalAdminMerge unter Windows: lokale „mdatp exclusion“-Einträge werden sonst mit den verwalteten zusammengeführt."
+      },
+      "remediation": {
+        "en": "Settings Catalog (macOS) › Microsoft Defender › Exclusions merge = admin_only.",
+        "de": "Settings Catalog (macOS) › Microsoft Defender › Exclusions merge = admin_only."
+      }
+    },
+    {
+      "id": "mac-threat-merge-policy",
+      "platform": "macOS",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "macOS: threat type settings managed centrally only (admin_only)",
+        "de": "macOS: Bedrohungstyp-Einstellungen nur zentral (admin_only)"
+      },
+      "severity": "Medium",
+      "definitionId": "com.apple.managedclient.preferences_threattypesettingsmergepolicy",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "antivirusEngine/threatTypeSettingsMergePolicy = admin_only",
+        "de": "antivirusEngine/threatTypeSettingsMergePolicy = admin_only"
+      },
+      "rationale": {
+        "en": "Prevents PUA, for example, from being set to \"off\" locally.",
+        "de": "Verhindert, dass lokal z. B. PUA auf „off“ gestellt wird."
+      },
+      "remediation": {
+        "en": "Threat type settings merge = admin_only.",
+        "de": "Threat type settings merge = admin_only."
+      }
+    },
+    {
+      "id": "mac-behavior-monitoring",
+      "platform": "macOS",
+      "category": {
+        "en": "Real-time protection",
+        "de": "Echtzeitschutz"
+      },
+      "title": {
+        "en": "macOS: behavior monitoring enabled",
+        "de": "macOS: Verhaltensüberwachung aktiv"
+      },
+      "severity": "High",
+      "definitionId": "com.apple.managedclient.preferences_behaviormonitoring",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "effective": "BehaviorMonitoring",
+      "expectText": {
+        "en": "features/behaviorMonitoring = enabled",
+        "de": "features/behaviorMonitoring = enabled"
+      },
+      "rationale": {
+        "en": "Detects malicious behavior even for unknown files.",
+        "de": "Erkennt bösartiges Verhalten auch bei unbekannten Dateien."
+      },
+      "remediation": {
+        "en": "Settings Catalog (macOS) › Microsoft Defender › Behavior monitoring = enabled.",
+        "de": "Settings Catalog (macOS) › Microsoft Defender › Behavior monitoring = enabled."
+      }
+    },
+    {
+      "id": "mac-cloud",
+      "platform": "macOS",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "macOS: cloud-delivered protection enabled",
+        "de": "macOS: Cloud-delivered Protection aktiv"
+      },
+      "severity": "High",
+      "definitionId": "com.apple.managedclient.preferences_enabled",
+      "expect": {
+        "op": "eq",
+        "value": "true"
+      },
+      "effective": "CloudProtection",
+      "expectText": {
+        "en": "cloudService/enabled = Enabled",
+        "de": "cloudService/enabled = Enabled"
+      },
+      "rationale": {
+        "en": "Required for fast detection of new threats.",
+        "de": "Voraussetzung für schnelle Erkennung neuer Bedrohungen."
+      },
+      "remediation": {
+        "en": "Cloud delivered protection preferences › Enabled.",
+        "de": "Cloud delivered protection preferences › Enabled."
+      }
+    },
+    {
+      "id": "mac-cloud-block-level",
+      "platform": "macOS",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "macOS: cloud block level at least high",
+        "de": "macOS: Cloud Block Level mindestens high"
+      },
+      "severity": "Medium",
+      "definitionId": "com.apple.managedclient.preferences_cloudblocklevel",
+      "expect": {
+        "op": "gte",
+        "value": 2
+      },
+      "expectText": {
+        "en": "cloudService/cloudBlockLevel = high (or high_plus/zero_tolerance)",
+        "de": "cloudService/cloudBlockLevel = high (oder high_plus/zero_tolerance)"
+      },
+      "rationale": {
+        "en": "As on Windows: start with high, move to high_plus after a pilot.",
+        "de": "Wie unter Windows: mit high starten, nach Pilotierung high_plus."
+      },
+      "remediation": {
+        "en": "Cloud block level = high.",
+        "de": "Cloud block level = high."
+      }
+    },
+    {
+      "id": "mac-sample-submission",
+      "platform": "macOS",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "macOS: automatic sample submission",
+        "de": "macOS: Automatische Sample-Übermittlung"
+      },
+      "severity": "Medium",
+      "definitionId": "com.apple.managedclient.preferences_automaticsamplesubmissionconsent",
+      "expect": {
+        "op": "in",
+        "values": [
+          1,
+          2
+        ]
+      },
+      "expectText": {
+        "en": "cloudService/automaticSampleSubmissionConsent = safe or all",
+        "de": "cloudService/automaticSampleSubmissionConsent = safe oder all"
+      },
+      "rationale": {
+        "en": "Without sample submission cloud analysis remains incomplete.",
+        "de": "Ohne Sample-Übermittlung bleibt die Cloud-Analyse unvollständig."
+      },
+      "remediation": {
+        "en": "Automatic sample submission consent = safe or all.",
+        "de": "Automatic sample submission consent = safe bzw. all."
+      }
+    },
+    {
+      "id": "mac-pua",
+      "platform": "macOS",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "macOS: block PUA",
+        "de": "macOS: PUA blockieren"
+      },
+      "severity": "Medium",
+      "definitionId": "com.apple.managedclient.preferences_threattypesettings_item_value",
+      "groupFilter": {
+        "definitionId": "com.apple.managedclient.preferences_threattypesettings_item_key",
+        "expect": {
+          "op": "eq",
+          "value": 0
+        }
+      },
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "effective": "PUAProtection",
+      "expectText": {
+        "en": "threatTypeSettings: potentially_unwanted_application = block",
+        "de": "threatTypeSettings: potentially_unwanted_application = block"
+      },
+      "rationale": {
+        "en": "Audit is a stage, not the goal.",
+        "de": "Audit ist eine Etappe, kein Ziel."
+      },
+      "remediation": {
+        "en": "Threat type settings › potentially_unwanted_application = block.",
+        "de": "Threat type settings › potentially_unwanted_application = block."
+      }
+    },
+    {
+      "id": "mac-network-protection",
+      "platform": "macOS",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "macOS: network protection in block mode",
+        "de": "macOS: Network Protection im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionId": "com.apple.managedclient.preferences_enforcementlevel",
+      "expect": {
+        "op": "eq",
+        "value": 2
+      },
+      "expectText": {
+        "en": "networkProtection/enforcementLevel = block",
+        "de": "networkProtection/enforcementLevel = block"
+      },
+      "rationale": {
+        "en": "Required for network indicators and web protection on macOS.",
+        "de": "Voraussetzung für Netzwerk-Indikatoren und Web-Schutz auf macOS."
+      },
+      "remediation": {
+        "en": "Network protection › Enforcement level = block.",
+        "de": "Network protection › Enforcement level = block."
+      },
+      "effective": "NetworkProtection"
+    },
+    {
+      "id": "linux-enforcement-level",
+      "platform": "Linux",
+      "category": {
+        "en": "Core protection",
+        "de": "Kernschutz"
+      },
+      "title": {
+        "en": "Linux: real-time protection (enforcementLevel = real_time)",
+        "de": "Linux: Echtzeitschutz (enforcementLevel = real_time)"
+      },
+      "severity": "Critical",
+      "definitionId": "linux_mdatp_managed_antivirusengine_enforcementlevel",
+      "definitionIdPattern": "^linux_.*antivirusengine_enforcementlevel$",
+      "expect": {
+        "op": "display",
+        "pattern": "real.?time"
+      },
+      "expectText": {
+        "en": "antivirusEngine/enforcementLevel = real_time",
+        "de": "antivirusEngine/enforcementLevel = real_time"
+      },
+      "rationale": {
+        "en": "\"passive\" and \"on_demand\" turn off real-time protection; Defender then only scans on demand.",
+        "de": "„passive“ und „on_demand“ schalten den Echtzeitschutz ab; Defender scannt dann nur auf Anforderung."
+      },
+      "remediation": {
+        "en": "Settings Catalog or Defender portal (Linux) › Antivirus engine › Enforcement level = real_time.",
+        "de": "Settings Catalog bzw. Defender-Portal (Linux) › Antivirus engine › Enforcement level = real_time."
+      },
+      "effective": "RealtimeProtection"
+    },
+    {
+      "id": "linux-tamper-protection",
+      "platform": "Linux",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Linux: Tamper Protection in block mode",
+        "de": "Linux: Tamper Protection im Block-Modus"
+      },
+      "severity": "High",
+      "expectText": {
+        "en": "Enabled on all Linux devices",
+        "de": "Aktiv auf allen Linux-Geräten"
+      },
+      "rationale": {
+        "en": "Prevents Defender from being stopped, uninstalled or reconfigured on the server. The Intune Settings Catalog has no tamperProtection setting for Linux, so only the device state is rated here.",
+        "de": "Verhindert, dass Defender auf dem Server gestoppt, deinstalliert oder umkonfiguriert wird. Der Intune Settings Catalog hat für Linux keine tamperProtection-Einstellung, daher wird hier nur der Gerätezustand bewertet."
+      },
+      "remediation": {
+        "en": "Enable tenant-wide in the Defender portal or set tamperProtection/enforcementLevel = block in mdatp_managed.json (Defender for Endpoint security settings management or configuration management).",
+        "de": "Mandantenweit im Defender-Portal aktivieren oder tamperProtection/enforcementLevel = block in mdatp_managed.json setzen (Defender for Endpoint Security Settings Management bzw. Konfigurationsmanagement)."
+      },
+      "effective": "TamperProtection"
+    },
+    {
+      "id": "linux-exclusions-merge-policy",
+      "platform": "Linux",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Linux: managed exclusions only (admin_only)",
+        "de": "Linux: Nur verwaltete Exclusions (admin_only)"
+      },
+      "severity": "High",
+      "definitionId": "linux_mdatp_managed_antivirusengine_exclusionsmergepolicy",
+      "definitionIdPattern": "^linux_.*exclusion.*mergepolicy$",
+      "expect": {
+        "op": "display",
+        "pattern": "admin.?only"
+      },
+      "expectText": {
+        "en": "exclusionSettings/mergePolicy = admin_only",
+        "de": "exclusionSettings/mergePolicy = admin_only"
+      },
+      "rationale": {
+        "en": "Otherwise local \"mdatp exclusion\" entries also apply – including global exclusions that blind EDR as well.",
+        "de": "Sonst gelten zusätzlich lokale „mdatp exclusion“-Einträge – inklusive globaler Exclusions, die auch EDR blind machen."
+      },
+      "remediation": {
+        "en": "Linux policy › Exclusions › Merge policy = admin_only.",
+        "de": "Linux-Richtlinie › Exclusions › Merge policy = admin_only."
+      }
+    },
+    {
+      "id": "linux-threat-merge-policy",
+      "platform": "Linux",
+      "category": {
+        "en": "Configuration protection",
+        "de": "Schutz der Konfiguration"
+      },
+      "title": {
+        "en": "Linux: threat types managed centrally only (admin_only)",
+        "de": "Linux: Bedrohungstypen nur zentral (admin_only)"
+      },
+      "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettingsmergepolicy",
+      "definitionIdPattern": "^linux_.*threattype.*mergepolicy$",
+      "expect": {
+        "op": "display",
+        "pattern": "admin.?only"
+      },
+      "expectText": {
+        "en": "threatTypeSettingsMergePolicy = admin_only",
+        "de": "threatTypeSettingsMergePolicy = admin_only"
+      },
+      "rationale": {
+        "en": "Prevents PUA, for example, from being set to \"off\" locally.",
+        "de": "Verhindert, dass lokal z. B. PUA auf „off“ gestellt wird."
+      },
+      "remediation": {
+        "en": "Linux policy › Threat type settings merge = admin_only.",
+        "de": "Linux-Richtlinie › Threat type settings merge = admin_only."
+      }
+    },
+    {
+      "id": "linux-behavior-monitoring",
+      "platform": "Linux",
+      "category": {
+        "en": "Core protection",
+        "de": "Kernschutz"
+      },
+      "title": {
+        "en": "Linux: behavior monitoring enabled",
+        "de": "Linux: Verhaltensüberwachung aktiv"
+      },
+      "severity": "High",
+      "definitionId": "linux_mdatp_managed_antivirusengine_behaviormonitoring",
+      "definitionIdPattern": "^linux_.*behaviormonitoring$",
+      "expect": {
+        "op": "display",
+        "pattern": "enabled|aktiv|true"
+      },
+      "expectText": {
+        "en": "behaviorMonitoring = enabled",
+        "de": "behaviorMonitoring = enabled"
+      },
+      "rationale": {
+        "en": "Detects attacks by behavior, not only by signatures.",
+        "de": "Erkennt Angriffe anhand des Verhaltens, nicht nur über Signaturen."
+      },
+      "remediation": {
+        "en": "Linux policy › Behavior monitoring = enabled.",
+        "de": "Linux-Richtlinie › Behavior monitoring = enabled."
+      },
+      "effective": "BehaviorMonitoring"
+    },
+    {
+      "id": "linux-cloud",
+      "platform": "Linux",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Linux: cloud protection enabled",
+        "de": "Linux: Cloud-Schutz aktiv"
+      },
+      "severity": "High",
+      "definitionId": "linux_mdatp_managed_cloudservice_enabled",
+      "definitionIdPattern": "^linux_.*cloudservice_enabled$",
+      "expect": {
+        "op": "display",
+        "pattern": "true|enabled|aktiv"
+      },
+      "expectText": {
+        "en": "cloudService/enabled = true",
+        "de": "cloudService/enabled = true"
+      },
+      "rationale": {
+        "en": "Without cloud protection there are no fast verdicts on new files.",
+        "de": "Ohne Cloud-Schutz keine schnellen Urteile über neue Dateien."
+      },
+      "remediation": {
+        "en": "Linux policy › Cloud-delivered protection = enabled.",
+        "de": "Linux-Richtlinie › Cloud-delivered protection = enabled."
+      },
+      "effective": "CloudProtection"
+    },
+    {
+      "id": "linux-cloud-block-level",
+      "platform": "Linux",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Linux: cloud block level at least high",
+        "de": "Linux: Cloud-Blockierstufe mindestens hoch"
+      },
+      "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_cloudservice_cloudblocklevel",
+      "definitionIdPattern": "^linux_.*cloudblocklevel$",
+      "expect": {
+        "op": "display",
+        "pattern": "high|tolerance"
+      },
+      "expectText": {
+        "en": "cloudService/cloudBlockLevel = high or higher",
+        "de": "cloudService/cloudBlockLevel = high oder höher"
+      },
+      "rationale": {
+        "en": "Higher levels block unknown files earlier.",
+        "de": "Höhere Stufen blockieren unbekannte Dateien früher."
+      },
+      "remediation": {
+        "en": "Linux policy › Cloud block level = high.",
+        "de": "Linux-Richtlinie › Cloud block level = high."
+      }
+    },
+    {
+      "id": "linux-sample-submission",
+      "platform": "Linux",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Linux: automatic sample submission",
+        "de": "Linux: Automatische Probenübermittlung"
+      },
+      "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_cloudservice_automaticsamplesubmissionconsent",
+      "definitionIdPattern": "^linux_.*automaticsamplesubmissionconsent$",
+      "expect": {
+        "op": "display",
+        "pattern": "safe|all"
+      },
+      "expectText": {
+        "en": "automaticSampleSubmissionConsent = safe or all",
+        "de": "automaticSampleSubmissionConsent = safe oder all"
+      },
+      "rationale": {
+        "en": "Without samples cloud analysis remains incomplete.",
+        "de": "Ohne Proben bleibt die Cloud-Analyse unvollständig."
+      },
+      "remediation": {
+        "en": "Linux policy › Automatic sample submission = safe.",
+        "de": "Linux-Richtlinie › Automatic sample submission = safe."
+      }
+    },
+    {
+      "id": "linux-pua",
+      "platform": "Linux",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Linux: block PUA",
+        "de": "Linux: PUA blockieren"
+      },
+      "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettings_item_value",
+      "definitionIdPattern": "^linux_.*threattypesettings.*_value$",
+      "expect": {
+        "op": "display",
+        "pattern": "block"
+      },
+      "expectText": {
+        "en": "threatTypeSettings: potentially_unwanted_application = block",
+        "de": "threatTypeSettings: potentially_unwanted_application = block"
+      },
+      "rationale": {
+        "en": "Unwanted applications are rarely legitimate on servers.",
+        "de": "Unerwünschte Anwendungen sind auf Servern selten legitim."
+      },
+      "remediation": {
+        "en": "Linux policy › Threat type settings › potentially_unwanted_application = block.",
+        "de": "Linux-Richtlinie › Threat type settings › potentially_unwanted_application = block."
+      },
+      "effective": "PUAProtection",
+      "groupFilter": {
+        "definitionId": "linux_mdatp_managed_antivirusengine_threattypesettings_item_key",
+        "definitionIdPattern": "^linux_.*threattypesettings.*_key$",
+        "expect": {
+          "op": "display",
+          "pattern": "potentially"
+        }
+      }
+    },
+    {
+      "id": "linux-network-protection",
+      "platform": "Linux",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Linux: network protection blocks",
+        "de": "Linux: Network Protection blockiert"
+      },
+      "severity": "Medium",
+      "definitionId": "linux_mdatp_managed_networkprotection_enforcementlevel",
+      "definitionIdPattern": "^linux_.*networkprotection_enforcementlevel$",
+      "expect": {
+        "op": "display",
+        "pattern": "block"
+      },
+      "expectText": {
+        "en": "networkProtection/enforcementLevel = block",
+        "de": "networkProtection/enforcementLevel = block"
+      },
+      "rationale": {
+        "en": "Blocks connections to malicious destinations outside the browser too.",
+        "de": "Blockiert Verbindungen zu bösartigen Zielen auch außerhalb des Browsers."
+      },
+      "remediation": {
+        "en": "Linux policy › Network protection › Enforcement level = block.",
+        "de": "Linux-Richtlinie › Network protection › Enforcement level = block."
+      },
+      "effective": "NetworkProtection"
+    },
+    {
+      "id": "threat-default-action",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Threat default actions never 'Allow'",
+        "de": "Standardaktionen für Bedrohungen nie 'Zulassen'"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_threatseveritydefaultaction_(low|moderate|high|severe)severitythreats$",
+      "expect": {
+        "op": "notmatch",
+        "pattern": "allow|noaction"
+      },
+      "expectText": {
+        "en": "Default (recommended action) or Quarantine/Remove/Block per severity",
+        "de": "Standard (empfohlene Aktion) oder Quarantäne/Entfernen/Blockieren je Schweregrad"
+      },
+      "rationale": {
+        "en": "'Allow' as the default action for a severity level detects threats and then lets them run – a silent exception for every malware family of that level. Microsoft recommends leaving the threat actions at their default; tamper protection protects them.",
+        "de": "'Zulassen' als Standardaktion für einen Schweregrad erkennt Bedrohungen und lässt sie dann laufen – eine stille Ausnahme für jede Malware-Familie dieses Schweregrads. Microsoft empfiehlt, die Aktionen auf dem Standard zu lassen; Tamper Protection schützt sie."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Threat Severity Default Action: remove the setting or choose Quarantine/Remove.",
+        "de": "Settings Catalog > Defender > Threat Severity Default Action: Einstellung entfernen oder Quarantäne/Entfernen wählen."
+      }
+    },
+    {
+      "id": "brute-force-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Brute-force protection (RDP/SMB) in block mode",
+        "de": "Brute-Force-Schutz (RDP/SMB) im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "bruteforceprotectionconfiguredstate$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Block (1); audit (2) only as an interim step",
+        "de": "Blockieren (1); Audit (2) nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Behavioural network blocking stops password-guessing over RDP and SMB after repeated failures from the same source. Not configured leaves it at the product default.",
+        "de": "Behavioural Network Blocking stoppt das Erraten von Passwörtern über RDP und SMB nach wiederholten Fehlversuchen derselben Quelle. Nicht konfiguriert belässt es beim Produktstandard."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Brute Force Protection Configured State = Block; exclusions only for known scanners or jump hosts.",
+        "de": "Settings Catalog > Defender > Brute Force Protection Configured State = Block; Ausnahmen nur für bekannte Scanner oder Jump-Hosts."
+      }
+    },
+    {
+      "id": "remote-encryption-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Remote encryption protection in block mode",
+        "de": "Schutz vor Remote-Verschlüsselung im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "remoteencryptionprotectionconfiguredstate$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Block (1)",
+        "de": "Blockieren (1)"
+      },
+      "rationale": {
+        "en": "Blocks a remote device that encrypts files over SMB shares on this device (human-operated ransomware from an unmanaged host).",
+        "de": "Blockiert ein entferntes Gerät, das Dateien über SMB-Freigaben auf diesem Gerät verschlüsselt (Human-operated Ransomware von einem unverwalteten Host)."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block.",
+        "de": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block."
+      }
+    },
+    {
+      "id": "np-protocol-parsing",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "Network protection inspects all protocols",
+        "de": "Network Protection prüft alle Protokolle"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_configuration_disable(tls|http|dns|dnsovertcp|ssh|rdp|ftp|smtp)parsing$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "No Disable…Parsing setting enabled",
+        "de": "Keine Disable…Parsing-Einstellung aktiviert"
+      },
+      "rationale": {
+        "en": "Each Disable…Parsing switch blinds network protection for one protocol – TLS (SNI) and DNS are the basis for URL indicators, web content filtering and C2 blocking.",
+        "de": "Jeder Disable…Parsing-Schalter macht Network Protection für ein Protokoll blind – TLS (SNI) und DNS sind die Grundlage für URL-Indikatoren, Web Content Filtering und C2-Blockierung."
+      },
+      "remediation": {
+        "en": "Remove the Disable…Parsing settings; solve performance issues with process exclusions for network inspection instead.",
+        "de": "Disable…Parsing-Einstellungen entfernen; Performance-Probleme stattdessen gezielt lösen."
+      }
+    },
+    {
+      "id": "np-inbound-filtering",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "Inbound connection filtering not disabled",
+        "de": "Eingehende Verbindungsfilterung nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableinboundconnectionfiltering$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Inbound filtering lets network protection inspect connections to the device (e.g. exploitation of exposed services).",
+        "de": "Die eingehende Filterung lässt Network Protection Verbindungen zum Gerät prüfen (z. B. Ausnutzung exponierter Dienste)."
+      },
+      "remediation": {
+        "en": "Remove DisableInboundConnectionFiltering.",
+        "de": "DisableInboundConnectionFiltering entfernen."
+      }
+    },
+    {
+      "id": "np-datagram",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "UDP inspection not disabled",
+        "de": "UDP-Prüfung nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "_defender_configuration_disabledatagramprocessing$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Without datagram processing, DNS over UDP and QUIC are not inspected by network protection.",
+        "de": "Ohne Datagram Processing prüft Network Protection weder DNS über UDP noch QUIC."
+      },
+      "remediation": {
+        "en": "Remove DisableDatagramProcessing.",
+        "de": "DisableDatagramProcessing entfernen."
+      }
+    },
+    {
+      "id": "np-dns-sinkhole",
+      "platform": "Windows",
+      "category": {
+        "en": "Network protection",
+        "de": "Network Protection"
+      },
+      "title": {
+        "en": "DNS sinkhole not disabled",
+        "de": "DNS-Sinkhole nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "enablednssinkhole$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled or not configured",
+        "de": "Aktiviert oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "The sinkhole stops DNS-based exfiltration and resolution of known malicious domains.",
+        "de": "Das Sinkhole stoppt DNS-basierte Exfiltration und die Auflösung bekannter bösartiger Domains."
+      },
+      "remediation": {
+        "en": "Remove the setting or set Enable Dns Sinkhole = 1.",
+        "de": "Einstellung entfernen oder Enable Dns Sinkhole = 1 setzen."
+      }
+    },
+    {
+      "id": "on-access-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "On-access protection not disabled",
+        "de": "On-Access-Schutz nicht deaktiviert"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_allowonaccessprotection",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed (1) or not configured",
+        "de": "Erlaubt (1) oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "With on-access protection off, files are no longer scanned when they are opened – real-time protection is reduced to process monitoring.",
+        "de": "Ohne On-Access-Schutz werden Dateien beim Öffnen nicht mehr gescannt – der Echtzeitschutz schrumpft auf Prozessüberwachung."
+      },
+      "remediation": {
+        "en": "Remove Allow On Access Protection = Not allowed.",
+        "de": "Allow On Access Protection = Not allowed entfernen."
+      }
+    },
+    {
+      "id": "archive-scanning",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Archive scanning not disabled",
+        "de": "Archiv-Scan nicht deaktiviert"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_allowarchivescanning",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Allowed (1) or not configured",
+        "de": "Erlaubt (1) oder nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "Malware is routinely delivered in ZIP/RAR/ISO containers; without archive scanning it is only found once extracted.",
+        "de": "Malware wird regelmäßig in ZIP/RAR/ISO-Containern zugestellt; ohne Archiv-Scan wird sie erst nach dem Entpacken gefunden."
+      },
+      "remediation": {
+        "en": "Remove Allow Archive Scanning = Not allowed.",
+        "de": "Allow Archive Scanning = Not allowed entfernen."
+      }
+    },
+    {
+      "id": "realtime-scan-direction",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Real-time protection scans both directions",
+        "de": "Echtzeitschutz prüft beide Richtungen"
+      },
+      "severity": "Medium",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_realtimescandirection",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Incoming and outgoing (0)",
+        "de": "Ein- und ausgehend (0)"
+      },
+      "rationale": {
+        "en": "Incoming-only or outgoing-only scanning is a server performance tweak that leaves half of the file activity unscanned; use it only on documented high-throughput servers.",
+        "de": "Nur ein- oder nur ausgehend zu prüfen ist eine Server-Performance-Optimierung, die die Hälfte der Dateiaktivität ungeprüft lässt; nur auf dokumentierten Hochlast-Servern verwenden."
+      },
+      "remediation": {
+        "en": "Real Time Scan Direction = Monitor all files (0), or restrict the policy to the servers that need it.",
+        "de": "Real Time Scan Direction = Monitor all files (0) oder die Richtlinie auf die Server beschränken, die es brauchen."
+      }
+    },
+    {
+      "id": "block-at-first-sight",
+      "platform": "Windows",
+      "category": {
+        "en": "Cloud protection",
+        "de": "Cloud-Schutz"
+      },
+      "title": {
+        "en": "Block at first sight not disabled",
+        "de": "Block at First Sight nicht deaktiviert"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableblockatfirstsee?n?$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Block at first sight holds new executables until the cloud has rated them – the main protection against fresh, never-seen malware.",
+        "de": "Block at First Sight hält neue ausführbare Dateien zurück, bis die Cloud sie bewertet hat – der wichtigste Schutz gegen frische, unbekannte Malware."
+      },
+      "remediation": {
+        "en": "Remove the Disable Block At First Seen setting.",
+        "de": "Einstellung Disable Block At First Seen entfernen."
+      }
+    },
+    {
+      "id": "av-not-disabled-by-policy",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Defender Antivirus not switched off by policy",
+        "de": "Defender Antivirus nicht per Richtlinie abgeschaltet"
+      },
+      "severity": "Critical",
+      "weakeningOnly": true,
+      "definitionIdPattern": "(disableantispywaredefender|_disableantivirus)$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not configured",
+        "de": "Nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "'Turn off Microsoft Defender Antivirus' is a legacy setting from third-party AV migrations; where it still applies, Defender does not protect at all (servers) or the device depends on another product.",
+        "de": "'Microsoft Defender Antivirus deaktivieren' ist eine Altlast aus Migrationen zu Fremd-AV; wo es noch greift, schützt Defender gar nicht (Server) oder das Gerät hängt an einem anderen Produkt."
+      },
+      "remediation": {
+        "en": "Remove the setting (Intune ADMX or GPO) and verify the running mode afterwards.",
+        "de": "Einstellung entfernen (Intune-ADMX oder GPO) und danach den Running Mode prüfen."
+      }
+    },
+    {
+      "id": "auto-exclusions",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "Automatic server-role exclusions not disabled",
+        "de": "Automatische Serverrollen-Ausschlüsse nicht deaktiviert"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionIdPattern": "disableautoexclusions$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not disabled",
+        "de": "Nicht deaktiviert"
+      },
+      "rationale": {
+        "en": "Windows Server 2016+ excludes role-specific paths (AD DS, DNS, DHCP, Hyper-V …) automatically. Switching this off is only right when the same exclusions are maintained by hand – otherwise domain controllers run into performance issues.",
+        "de": "Windows Server 2016+ schließt rollenspezifische Pfade (AD DS, DNS, DHCP, Hyper-V …) automatisch aus. Das abzuschalten ist nur richtig, wenn dieselben Ausschlüsse manuell gepflegt werden – sonst drohen Performance-Probleme auf Domänencontrollern."
+      },
+      "remediation": {
+        "en": "Remove Disable Auto Exclusions, or document the manual replacement exclusions.",
+        "de": "Disable Auto Exclusions entfernen oder die manuellen Ersatz-Ausschlüsse dokumentieren."
+      }
+    },
+    {
+      "id": "scheduled-scan-day",
+      "platform": "Windows",
+      "category": {
+        "en": "Scans",
+        "de": "Scans"
+      },
+      "title": {
+        "en": "Scheduled scan not set to 'Never'",
+        "de": "Geplanter Scan nicht auf 'Nie'"
+      },
+      "severity": "Low",
+      "weakeningOnly": true,
+      "definitionId": "device_vendor_msft_policy_config_defender_schedulescanday",
+      "expect": {
+        "op": "ne",
+        "value": 8
+      },
+      "expectText": {
+        "en": "Every day or a fixed weekday",
+        "de": "Täglich oder fester Wochentag"
+      },
+      "rationale": {
+        "en": "Without scheduled scans, dormant files are only found when they are accessed – and the scan history Defender uses for remediation stays empty.",
+        "de": "Ohne geplante Scans werden ruhende Dateien erst beim Zugriff gefunden – und die Scan-Historie, die Defender für die Bereinigung nutzt, bleibt leer."
+      },
+      "remediation": {
+        "en": "Schedule Scan Day = Every day (quick scan) with randomisation.",
+        "de": "Schedule Scan Day = Every day (Schnellscan) mit Randomisierung."
+      }
+    },
+    {
+      "id": "signatures-before-scan",
+      "platform": "Windows",
+      "category": {
+        "en": "Scans",
+        "de": "Scans"
+      },
+      "title": {
+        "en": "Check for new security intelligence before a scan",
+        "de": "Vor dem Scan auf neue Security Intelligence prüfen"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_checkforsignaturesbeforerunningscan",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "Scheduled scans then run with current definitions instead of whatever the device had at the last update.",
+        "de": "Geplante Scans laufen dann mit aktuellen Definitionen statt mit dem Stand des letzten Updates."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Defender > Check For Signatures Before Running Scan = Enabled.",
+        "de": "Settings Catalog > Defender > Check For Signatures Before Running Scan = Enabled."
+      }
+    },
+    {
+      "id": "controlled-folder-access",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Controlled folder access in block mode",
+        "de": "Controlled Folder Access im Block-Modus"
+      },
+      "severity": "Low",
+      "definitionId": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess",
+      "expect": {
+        "op": "in",
+        "values": [
+          1,
+          3
+        ]
+      },
+      "effective": "ControlledFolderAccess",
+      "expectText": {
+        "en": "Enabled (1) or block disk modification (3); audit (2/4) only as an interim step",
+        "de": "Aktiviert (1) oder Block Disk Modification (3); Audit (2/4) nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Controlled folder access stops untrusted processes from changing protected folders – a last line against ransomware. Audit mode that is never switched on protects nothing.",
+        "de": "Controlled Folder Access hindert nicht vertrauenswürdige Prozesse daran, geschützte Ordner zu ändern – eine letzte Linie gegen Ransomware. Ein Audit-Modus, der nie scharf geschaltet wird, schützt nichts."
+      },
+      "remediation": {
+        "en": "Run in audit, add allowed apps from the audit events (DeviceEvents, ControlledFolderAccessViolationAudited), then switch to Enabled – at least for high-value devices.",
+        "de": "Im Audit laufen lassen, erlaubte Apps aus den Audit-Ereignissen (DeviceEvents, ControlledFolderAccessViolationAudited) ergänzen, dann auf Enabled stellen – zumindest für hochwertige Geräte."
+      }
+    },
+    {
+      "id": "smartscreen-shell",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "SmartScreen for apps and files (Windows)",
+        "de": "SmartScreen für Apps und Dateien (Windows)"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "_smartscreen_enablesmartscreeninshell$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "SmartScreen checks downloaded executables against reputation before they run (Mark of the Web) and complements Defender's cloud protection.",
+        "de": "SmartScreen prüft heruntergeladene ausführbare Dateien vor dem Start auf Reputation (Mark of the Web) und ergänzt den Cloud-Schutz von Defender."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Smart Screen > Enable Smart Screen In Shell = Enabled.",
+        "de": "Settings Catalog > Smart Screen > Enable Smart Screen In Shell = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-no-override-shell",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Users cannot bypass SmartScreen warnings (Windows)",
+        "de": "Benutzer können SmartScreen-Warnungen nicht übergehen (Windows)"
+      },
+      "severity": "Low",
+      "definitionIdPattern": "_smartscreen_preventoverrideforfilesinshell$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled (1)",
+        "de": "Aktiviert (1)"
+      },
+      "rationale": {
+        "en": "A warning that can be clicked away is a speed bump; blocking keeps the reputation verdict authoritative.",
+        "de": "Eine wegklickbare Warnung ist nur eine Bremsschwelle; Blockieren macht das Reputationsurteil verbindlich."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Smart Screen > Prevent Override For Files In Shell = Enabled.",
+        "de": "Settings Catalog > Smart Screen > Prevent Override For Files In Shell = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-edge",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Microsoft Edge: SmartScreen enabled",
+        "de": "Microsoft Edge: SmartScreen aktiv"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "microsoft_edge.*_smartscreenenabled$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "SmartScreen in Edge delivers Defender URL indicators with full-URL precision and the block page for web content filtering.",
+        "de": "SmartScreen in Edge liefert Defender-URL-Indikatoren mit voller URL-Genauigkeit und die Sperrseite für Web Content Filtering."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Microsoft Edge > SmartScreen settings > Configure Microsoft Defender SmartScreen = Enabled.",
+        "de": "Settings Catalog > Microsoft Edge > SmartScreen settings > Configure Microsoft Defender SmartScreen = Enabled."
+      }
+    },
+    {
+      "id": "smartscreen-edge-no-override",
+      "platform": "Windows",
+      "category": {
+        "en": "Web protection",
+        "de": "Web-Schutz"
+      },
+      "title": {
+        "en": "Microsoft Edge: SmartScreen warnings cannot be bypassed",
+        "de": "Microsoft Edge: SmartScreen-Warnungen nicht übergehbar"
+      },
+      "severity": "Low",
+      "definitionIdPattern": "microsoft_edge.*_preventsmartscreenpromptoverride$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Enabled",
+        "de": "Aktiviert"
+      },
+      "rationale": {
+        "en": "Without it, users can continue to a site Defender or SmartScreen flagged as malicious.",
+        "de": "Ohne diese Einstellung können Benutzer eine von Defender oder SmartScreen als bösartig markierte Seite trotzdem aufrufen."
+      },
+      "remediation": {
+        "en": "Settings Catalog > Microsoft Edge > SmartScreen settings > Prevent bypassing Microsoft Defender SmartScreen prompts for sites = Enabled.",
+        "de": "Settings Catalog > Microsoft Edge > SmartScreen settings > Prevent bypassing Microsoft Defender SmartScreen prompts for sites = Enabled."
+      }
+    },
+    {
+      "id": "threat-id-default-action",
+      "platform": "Windows",
+      "category": {
+        "en": "Antivirus",
+        "de": "Antivirus"
+      },
+      "title": {
+        "en": "No per-threat 'allow' overrides (ThreatIdDefaultAction)",
+        "de": "Keine Freigabe einzelner Bedrohungen (ThreatIdDefaultAction)"
+      },
+      "severity": "High",
+      "weakeningOnly": true,
+      "definitionIdPattern": "threats_threatiddefaultaction$",
+      "expect": {
+        "op": "eq",
+        "value": 0
+      },
+      "expectText": {
+        "en": "Not configured",
+        "de": "Nicht konfiguriert"
+      },
+      "rationale": {
+        "en": "'Specify threats upon which default action should not be taken' turns individual detections (by threat ID) into allowed software – an exclusion that no exclusion report lists.",
+        "de": "'Bedrohungen angeben, bei denen keine Standardaktion ausgeführt werden soll' macht einzelne Erkennungen (per Bedrohungs-ID) zu erlaubter Software – ein Ausschluss, den kein Ausschlussbericht zeigt."
+      },
+      "remediation": {
+        "en": "Remove the setting; handle false positives with a submission to Microsoft or a narrow SHA256 allow indicator with an expiry date.",
+        "de": "Einstellung entfernen; False Positives per Einsendung an Microsoft oder mit einem engen SHA256-Allow-Indikator mit Ablaufdatum behandeln."
+      }
+    }
+  ],
+  "asrRules": [
+    {
+      "id": "vulnerable-driver",
+      "minimum": "Block",
+      "recommended": "Block",
+      "severity": "High",
+      "note": {
+        "en": "Standard protection – Microsoft recommends block without an audit phase.",
+        "de": "Standardschutz – Microsoft empfiehlt Block ohne Audit-Phase."
+      }
+    },
+    {
+      "id": "lsass",
+      "minimum": "Block",
+      "recommended": "Block",
+      "severity": "High",
+      "note": {
+        "en": "Standard protection – protects credentials against theft from lsass.exe.",
+        "de": "Standardschutz – schützt Anmeldeinformationen vor Diebstahl aus lsass.exe."
+      }
+    },
+    {
+      "id": "wmi-persistence",
+      "minimum": "Block",
+      "recommended": "Block",
+      "severity": "High",
+      "note": {
+        "en": "Standard protection – prevents persistence through WMI event subscriptions.",
+        "de": "Standardschutz – verhindert Persistenz über WMI-Ereignisabonnements."
+      }
+    },
+    {
+      "id": "email-exec",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Rarely disruptive, well suited for block.",
+        "de": "Selten störend, gut für Block geeignet."
+      }
+    },
+    {
+      "id": "office-child",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Add-ins often need exclusions – audit first.",
+        "de": "Häufig Ausnahmen für Add-ins nötig – erst auditieren."
+      }
+    },
+    {
+      "id": "office-exec",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "office-inject",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "script-download",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "obfuscated",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "macro-win32",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "prevalence",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Low",
+      "note": {
+        "en": "Can block new internal software – use indicators instead of exclusions.",
+        "de": "Kann neue interne Software blockieren – Ausnahmen über Indikatoren statt Exclusions."
+      }
+    },
+    {
+      "id": "ransomware",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Requires cloud protection.",
+        "de": "Benötigt Cloud-Schutz."
+      }
+    },
+    {
+      "id": "psexec-wmi",
+      "minimum": "Audit",
+      "recommended": "Audit",
+      "severity": "Low",
+      "note": {
+        "en": "Not compatible with Configuration Manager – keep it in audit there.",
+        "de": "Nicht mit Configuration Manager kompatibel – dort im Audit belassen."
+      }
+    },
+    {
+      "id": "usb",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "office-comm",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Low"
+    },
+    {
+      "id": "adobe-child",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium"
+    },
+    {
+      "id": "webshell",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Only relevant on servers running Exchange/IIS.",
+        "de": "Nur auf Servern mit Exchange/IIS relevant."
+      }
+    },
+    {
+      "id": "copied-tools",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Newer rule – audit first.",
+        "de": "Neuere Regel – erst auditieren."
+      }
+    },
+    {
+      "id": "safemode-reboot",
+      "minimum": "Audit",
+      "recommended": "Block",
+      "severity": "Medium",
+      "note": {
+        "en": "Newer rule – audit first.",
+        "de": "Neuere Regel – erst auditieren."
+      }
+    }
+  ]
+}

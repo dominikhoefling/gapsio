@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Reads (read-only) the macOS Defender definitions from the Intune Settings Catalog and writes them to
-    mac-defender-settings.json – to check the Wardline baseline (option _0/_1/_2 -> meaning).
+    mac-defender-settings.json – to check the Gapsio baseline (option _0/_1/_2 -> meaning).
 #>
 param([Parameter(Mandatory)][string]$TenantId, [string]$OutFile = (Join-Path (Get-Location) 'mac-defender-settings.json'))
 $ErrorActionPreference = 'Stop'

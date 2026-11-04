@@ -1,10 +1,10 @@
 # Updates
 
-Wardline **never updates itself**. You decide when a new version goes into your tenant.
+Gapsio **never updates itself**. You decide when a new version goes into your tenant.
 
 ## How you learn about a new release
 
-- Once a day the Function App asks the GitHub releases API for the latest Wardline release. It is an anonymous GET
+- Once a day the Function App asks the GitHub releases API for the latest Gapsio release. It is an anonymous GET
   request – **no tenant data is sent**. The result is stored in your storage account.
 - Administrators see **"Update available: x.y.z"** in the portal sidebar, linked to the release notes.
 - Turn the check off with the app setting `WL_UPDATE_CHECK=false` (or the Bicep parameter `updateCheck=false`).
@@ -14,19 +14,19 @@ Wardline **never updates itself**. You decide when a new version goes into your 
 
 ```powershell
 az login
-./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -CheckOnly   # what would change
-./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline              # update to the latest release
-./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -Version 0.5.0
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -CheckOnly   # what would change
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio              # update to the latest release
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.5.0
 ```
 
 Role needed: Contributor (or Website Contributor) on the resource group. The script
 
-1. finds the Wardline Function App and reads the installed version and features,
+1. finds the Gapsio Function App and reads the installed version and features,
 2. downloads the release assets from GitHub,
 3. verifies the **SHA256 checksums** – and the **build provenance attestation** if the GitHub CLI (`gh`) is installed,
 4. checks whether the release needs **additional permissions** for your features (reported; granted only with
    `-GrantPermissions`, which needs Privileged Role Administrator),
-5. checks whether the release **changes the Azure resources** – if so, it tells you to run `Install-Wardline.ps1` from
+5. checks whether the release **changes the Azure resources** – if so, it tells you to run `Install-Gapsio.ps1` from
    the new release with your usual parameters (idempotent, keeps data and settings),
 6. deploys the new function package. Data, history, settings and permissions stay as they are.
 
@@ -34,23 +34,23 @@ If the deployment fails, the previous version keeps running.
 
 ## Offline / air-gapped
 
-Download `wardline-functionapp.zip`, `SHA256SUMS`, `permissions.json` and `release.json` from the release into one
+Download `gapsio-functionapp.zip`, `SHA256SUMS`, `permissions.json` and `release.json` from the release into one
 folder and run:
 
 ```powershell
-./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline -PackagePath ./release/wardline-functionapp.zip
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -PackagePath ./release/gapsio-functionapp.zip
 ```
 
 ## Verify a release yourself
 
 ```powershell
-gh attestation verify wardline-functionapp.zip --repo dominikhoefling/wardline
-Get-FileHash -Algorithm SHA256 wardline-functionapp.zip   # compare with SHA256SUMS
+gh attestation verify gapsio-functionapp.zip --repo dominikhoefling/gapsio
+Get-FileHash -Algorithm SHA256 gapsio-functionapp.zip   # compare with SHA256SUMS
 ```
 
 ## Versioning
 
-Wardline uses [semantic versioning](https://semver.org/):
+Gapsio uses [semantic versioning](https://semver.org/):
 
 | Change | Example | What to expect |
 |---|---|---|
@@ -62,8 +62,8 @@ Release assets (same names in every release, so `releases/latest/download/<name>
 
 | Asset | Used for |
 |---|---|
-| `wardline.zip` | New installation (setup scripts, template, function package) |
-| `wardline-functionapp.zip` | Code update, Deploy to Azure button |
+| `gapsio.zip` | New installation (setup scripts, template, function package) |
+| `gapsio-functionapp.zip` | Code update, Deploy to Azure button |
 | `azuredeploy.json` | Deploy to Azure button, template change detection |
 | `permissions.json` | Permission check of the update script |
 | `release.json` | Version and template hash |

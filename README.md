@@ -1,21 +1,21 @@
-# Wardline
+# Gapsio
 
-[![CI](https://github.com/dominikhoefling/wardline/actions/workflows/ci.yml/badge.svg)](https://github.com/dominikhoefling/wardline/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/dominikhoefling/wardline?display_name=tag&sort=semver)](https://github.com/dominikhoefling/wardline/releases/latest)
+[![CI](https://github.com/dominikhoefling/gapsio/actions/workflows/ci.yml/badge.svg)](https://github.com/dominikhoefling/gapsio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/dominikhoefling/gapsio?display_name=tag&sort=semver)](https://github.com/dominikhoefling/gapsio/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-teal.svg)](LICENSE)
-[![Website](https://img.shields.io/badge/wardline.cloud-docs%20%26%20demo-0b6e82)](https://wardline.cloud)
+[![Website](https://img.shields.io/badge/gapsio.cloud-docs%20%26%20demo-0b6e82)](https://gapsio.cloud)
 
-**Configured isn't protected.** Wardline shows where protection in Microsoft Defender and for AI agents **actually** has
-gaps – not just what is configured. Tools like Maester test what you set in the tenant; Wardline measures what is in
+**Configured isn't protected.** Gapsio shows where protection in Microsoft Defender and for AI agents **actually** has
+gaps – not just what is configured. Tools like Maester test what you set in the tenant; Gapsio measures what is in
 effect on the device: exclusions from every source, ASR rules in their effective mode, the Defender Antivirus baseline
 with drift, Conditional Access coverage for AI agents and the real permission paths into Defender XDR.
 
 It runs entirely in your own Azure subscription (self-hosted): no data leaves your tenant, no secrets, no
 storage keys, read-only permissions only – granted per feature. Open source (MIT); the
-[Enterprise key](https://wardline.cloud/#pricing) lifts the 10-row display limit and adds governance – every check
+[Enterprise key](https://gapsio.cloud/#pricing) lifts the 10-row display limit and adds governance – every check
 stays free, see the [open-core promise](docs/manifesto.md).
 
-**Documentation:** see [`docs/`](docs/index.md) (published with MkDocs). **Website and demo:** [wardline.cloud](https://wardline.cloud).
+**Documentation:** see [`docs/`](docs/index.md) (published with MkDocs). **Website and demo:** [gapsio.cloud](https://gapsio.cloud).
 
 ## What it shows
 
@@ -33,22 +33,22 @@ stays free, see the [open-core promise](docs/manifesto.md).
 ## Quick start (Azure Cloud Shell, PowerShell)
 
 ```powershell
-Invoke-WebRequest https://github.com/dominikhoefling/wardline/releases/latest/download/wardline.zip -OutFile wardline.zip
-Expand-Archive wardline.zip -DestinationPath . -Force; cd wardline
-./setup/Install-Wardline.ps1 -ShowPermissions                       # what will be granted
-./setup/Install-Wardline.ps1 -ResourceGroup rg-wardline -Location westeurope
+Invoke-WebRequest https://github.com/dominikhoefling/gapsio/releases/latest/download/gapsio.zip -OutFile gapsio.zip
+Expand-Archive gapsio.zip -DestinationPath . -Force; cd gapsio
+./setup/Install-Gapsio.ps1 -ShowPermissions                       # what will be granted
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Location westeurope
 ```
 
 Large organisations: the identity team can create the app registrations up front
-(`setup/New-WardlineAppRegistrations.ps1`), the Azure team only attaches them – see
+(`setup/New-GapsioAppRegistrations.ps1`), the Azure team only attaches them – see
 [separation of duties](docs/separation-of-duties.md).
 
 ## Updates
 
-The portal shows when a new release is available. Wardline never updates itself:
+The portal shows when a new release is available. Gapsio never updates itself:
 
 ```powershell
-./setup/Update-Wardline.ps1 -ResourceGroup rg-wardline
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio
 ```
 
 Checksums are verified, new permissions and template changes are reported before anything changes – see [updates](docs/updates.md).
@@ -56,9 +56,9 @@ Checksums are verified, new permissions and template changes are reported before
 ## Development
 
 ```powershell
-pwsh ./tests/Test-Wardline.ps1          # tests, no Azure needed
-pwsh ./build/New-WardlineDemo.ps1       # portal offline with sample data: dist/demo/index.html
-pwsh ./build/New-WardlineRelease.ps1    # release assets: dist/release
+pwsh ./tests/Test-Gapsio.ps1          # tests, no Azure needed
+pwsh ./build/New-GapsioDemo.ps1       # portal offline with sample data: dist/demo/index.html
+pwsh ./build/New-GapsioRelease.ps1    # release assets: dist/release
 ```
 
 Releases are published by tagging (`git tag v0.4.0 && git push origin v0.4.0`) – see [development](docs/development.md).
@@ -70,6 +70,6 @@ Security review (threat model, data flows, SBOM): [docs/trust.md](docs/trust.md)
 Contributions are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md) (DCO, no CLA) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Working with an AI coding agent? Point it at [AGENTS.md](AGENTS.md).
 
-Wardline is released under the [MIT License](LICENSE). "Wardline" and the logo are trademarks of Dominik Hoefling;
-Microsoft, Microsoft Defender, Entra and Intune are trademarks of the Microsoft group of companies. Wardline is an
+Gapsio is released under the [MIT License](LICENSE). "Gapsio" and the logo are trademarks of Dominik Hoefling;
+Microsoft, Microsoft Defender, Entra and Intune are trademarks of the Microsoft group of companies. Gapsio is an
 independent project and not affiliated with Microsoft.

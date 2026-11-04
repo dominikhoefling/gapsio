@@ -1,0 +1,976 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.48.1.52935",
+      "templateHash": "13784775598516772615"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region. Flex Consumption must be available in the region (e.g. westeurope, northeurope, swedencentral, germanywestcentral)."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "gapsio",
+      "minLength": 3,
+      "maxLength": 10,
+      "metadata": {
+        "description": "Short name for all resources (3–10 lowercase letters/digits)."
+      }
+    },
+    "customFunctionAppName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom Function App name (instead of <namePrefix>-<suffix>)."
+      }
+    },
+    "customDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom domain of the portal (e.g. gapsio.contoso.com). Hostname binding and certificate are set up by setup/Install-Gapsio.ps1 -CustomDomain."
+      }
+    },
+    "customStorageAccountName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom storage account name (3–24 lowercase letters/digits, globally unique)."
+      }
+    },
+    "customRunnerIdentityName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom name of the runner managed identity."
+      }
+    },
+    "customDeployIdentityName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom name of the deploy managed identity (Deploy to Azure path)."
+      }
+    },
+    "customPlanName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom App Service plan name."
+      }
+    },
+    "customLogWorkspaceName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom Log Analytics workspace name."
+      }
+    },
+    "customAppInsightsName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional custom Application Insights name."
+      }
+    },
+    "ssoClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Client ID of the portal app registration (set by setup/Install-Gapsio.ps1). Empty = the portal stays locked."
+      }
+    },
+    "retentionDays": {
+      "type": "int",
+      "defaultValue": 365,
+      "minValue": 30,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention of snapshots and change history in days (used when the specific values below are 0)."
+      }
+    },
+    "snapshotRetentionDays": {
+      "type": "int",
+      "defaultValue": 0,
+      "minValue": 0,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention of dated snapshots in days (storage lifecycle and immutability period). 0 = retentionDays."
+      }
+    },
+    "changeRetentionDays": {
+      "type": "int",
+      "defaultValue": 0,
+      "minValue": 0,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention of the change history (drift between runs) in days. 0 = retentionDays."
+      }
+    },
+    "instanceMemoryMB": {
+      "type": "int",
+      "defaultValue": 4096,
+      "allowedValues": [
+        2048,
+        4096
+      ],
+      "metadata": {
+        "description": "Memory per Function instance in MB. 4096 is recommended for large fleets (more than ~50,000 devices); 2048 is enough for small tenants."
+      }
+    },
+    "enableImmutability": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Store snapshots immutably (WORM, time-based retention). The policy is not locked initially."
+      }
+    },
+    "packageUri": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional: public URL of the function package (zip). If set, the code is deployed as well (Deploy to Azure button)."
+      }
+    },
+    "deviceInventory": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Optional device inventory: Gapsio also reads the results of the detection script from Intune Remediations (created by Install-Gapsio.ps1 -DeviceInventory). Off = Advanced Hunting only."
+      }
+    },
+    "enableAgents": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Module \"Agents\": inventory of AI agents (Entra Agent ID, Agent 365, local agents) and Conditional Access coverage."
+      }
+    },
+    "features": {
+      "type": "string",
+      "defaultValue": "hunting,indicators",
+      "metadata": {
+        "description": "Endpoint features (comma-separated): hunting (Advanced Hunting), indicators (Defender for Endpoint indicators), inventory (Intune Remediations). Only selected features are queried – matching the permissions granted."
+      }
+    },
+    "dataAppId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional: app ID of a pre-created data-access app registration. The managed identity signs in to it via workload identity federation (no secret). Empty = the managed identity itself holds the permissions."
+      }
+    },
+    "enableAccess": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Module \"Access\" (PIM, roles, access packages). Optional, off by default."
+      }
+    },
+    "enableLicensing": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Module \"Licensing\" (Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices). Optional, off by default."
+      }
+    },
+    "updateCheck": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Daily check for a newer Gapsio release (anonymous GET to the GitHub releases API, no tenant data). Gapsio never updates itself."
+      }
+    },
+    "notifyWebhook": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional webhook for notifications about new findings (Teams workflow, Power Automate or any HTTPS endpoint accepting JSON)."
+      }
+    },
+    "notifyMinSeverity": {
+      "type": "string",
+      "defaultValue": "High",
+      "allowedValues": [
+        "Critical",
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "metadata": {
+        "description": "Minimum severity of new findings that trigger a notification."
+      }
+    },
+    "licenseKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Gapsio licence key (bound to this tenant). It can also be entered later in the portal."
+      }
+    },
+    "scheduleAgents": {
+      "type": "string",
+      "defaultValue": "0 32 2 * * *",
+      "metadata": {
+        "description": "Schedule of the agents module (NCRONTAB, UTC)."
+      }
+    },
+    "scheduleEndpoint": {
+      "type": "string",
+      "defaultValue": "0 17 2 * * *",
+      "metadata": {
+        "description": "Schedule of the endpoint module (NCRONTAB, UTC)."
+      }
+    },
+    "scheduleAccess": {
+      "type": "string",
+      "defaultValue": "0 47 2 * * *",
+      "metadata": {
+        "description": "Schedule of the access module (NCRONTAB, UTC)."
+      }
+    },
+    "scheduleLicensing": {
+      "type": "string",
+      "defaultValue": "0 17 3 * * *",
+      "metadata": {
+        "description": "Schedule of the licensing module (NCRONTAB, UTC)."
+      }
+    },
+    "enableAssistant": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Optional Gapsio Assistant: a chat helper in the portal that explains findings and navigates. Uses an Azure OpenAI deployment in your own subscription via managed identity (no keys). Off by default."
+      }
+    },
+    "assistantEndpoint": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional: endpoint of an existing Azure OpenAI / AI Foundry resource (https://<name>.openai.azure.com/). Empty = Gapsio creates one in the resource group. With an existing resource, grant the runner identity \"Cognitive Services OpenAI User\" yourself."
+      }
+    },
+    "assistantDeployment": {
+      "type": "string",
+      "defaultValue": "gpt-4.1-mini",
+      "metadata": {
+        "description": "Model deployment name used by the assistant (created when Gapsio creates the resource)."
+      }
+    },
+    "assistantModel": {
+      "type": "string",
+      "defaultValue": "gpt-4.1-mini",
+      "metadata": {
+        "description": "Model name and version for the created deployment."
+      }
+    },
+    "assistantModelVersion": {
+      "type": "string",
+      "defaultValue": "2025-04-14"
+    },
+    "assistantLocation": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Region for the created Azure OpenAI resource (model availability differs by region). Empty = same as location."
+      }
+    },
+    "assistantCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant."
+      }
+    },
+    "assistantEmbeddingDeployment": {
+      "type": "string",
+      "defaultValue": "text-embedding-3-small",
+      "metadata": {
+        "description": "Embedding model deployment used for semantic search in the Gapsio docs / baseline rationale. Empty = keyword search only."
+      }
+    },
+    "assistantEmbeddingModel": {
+      "type": "string",
+      "defaultValue": "text-embedding-3-small"
+    },
+    "assistantEmbeddingModelVersion": {
+      "type": "string",
+      "defaultValue": "1"
+    },
+    "storageSku": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS"
+      ],
+      "metadata": {
+        "description": "Redundancy of the storage account."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "product": "Gapsio"
+      }
+    }
+  },
+  "variables": {
+    "snapshotDays": "[if(greater(parameters('snapshotRetentionDays'), 0), parameters('snapshotRetentionDays'), parameters('retentionDays'))]",
+    "changeDays": "[if(greater(parameters('changeRetentionDays'), 0), parameters('changeRetentionDays'), parameters('retentionDays'))]",
+    "suffix": "[uniqueString(resourceGroup().id, parameters('namePrefix'))]",
+    "cleanPrefix": "[toLower(replace(parameters('namePrefix'), '-', ''))]",
+    "storageName": "[if(empty(parameters('customStorageAccountName')), take(format('{0}{1}', variables('cleanPrefix'), variables('suffix')), 24), toLower(parameters('customStorageAccountName')))]",
+    "functionAppName": "[if(empty(parameters('customFunctionAppName')), format('{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customFunctionAppName'))]",
+    "runnerIdentityName": "[if(empty(parameters('customRunnerIdentityName')), format('id-{0}-runner', parameters('namePrefix')), parameters('customRunnerIdentityName'))]",
+    "deployIdentityName": "[if(empty(parameters('customDeployIdentityName')), format('id-{0}-deploy', parameters('namePrefix')), parameters('customDeployIdentityName'))]",
+    "planName": "[if(empty(parameters('customPlanName')), format('plan-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customPlanName'))]",
+    "logWorkspaceName": "[if(empty(parameters('customLogWorkspaceName')), format('log-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customLogWorkspaceName'))]",
+    "appInsightsName": "[if(empty(parameters('customAppInsightsName')), format('appi-{0}-{1}', parameters('namePrefix'), variables('suffix')), parameters('customAppInsightsName'))]",
+    "modules": "[format('endpoint{0}{1}{2}', if(parameters('enableAgents'), ',agents', ''), if(parameters('enableAccess'), ',access', ''), if(parameters('enableLicensing'), ',licensing', ''))]",
+    "createAi": "[and(parameters('enableAssistant'), empty(parameters('assistantEndpoint')))]",
+    "aiName": "[take(format('oai-{0}-{1}', parameters('namePrefix'), variables('suffix')), 64)]",
+    "aiLocation": "[if(empty(parameters('assistantLocation')), parameters('location'), parameters('assistantLocation'))]",
+    "aiEndpoint": "[if(variables('createAi'), format('https://{0}.openai.azure.com/', variables('aiName')), parameters('assistantEndpoint'))]",
+    "roles": {
+      "storageBlobDataOwner": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+      "storageQueueDataContributor": "974c5e8b-45b9-4653-ba55-5f855dd0fb88",
+      "storageTableDataContributor": "0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3",
+      "monitoringMetricsPublisher": "3913510d-42f4-4e42-8a64-420c390055eb",
+      "websiteContributor": "de139f84-1756-47ae-9be6-808fbbe84772",
+      "cognitiveServicesOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('runnerIdentityName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'runner'))]"
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'storage'))]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "[parameters('storageSku')]"
+      },
+      "properties": {
+        "accessTier": "Hot",
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "defaultToOAuthAuthentication": true,
+        "allowCrossTenantReplication": false,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', variables('storageName'), 'default')]",
+      "properties": {
+        "deleteRetentionPolicy": {
+          "enabled": true,
+          "days": 14
+        },
+        "containerDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 14
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "containers",
+        "count": "[length(createArray('deploymentpackage', 'snapshots', 'state', 'config'))]"
+      },
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', variables('storageName'), 'default', createArray('deploymentpackage', 'snapshots', 'state', 'config')[copyIndex()])]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageName'), 'default')]"
+      ]
+    },
+    {
+      "condition": "[parameters('enableImmutability')]",
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers/immutabilityPolicies",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/default/snapshots/default', variables('storageName'))]",
+      "properties": {
+        "immutabilityPeriodSinceCreationInDays": "[variables('snapshotDays')]",
+        "allowProtectedAppendWrites": false
+      },
+      "dependsOn": [
+        "containers",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/queueServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', variables('storageName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', variables('storageName'), 'default', 'wl-run')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/queueServices', variables('storageName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', variables('storageName'), 'default')]",
+      "properties": {
+        "policy": {
+          "rules": [
+            {
+              "name": "snapshots-lifecycle",
+              "enabled": true,
+              "type": "Lifecycle",
+              "definition": {
+                "filters": {
+                  "blobTypes": [
+                    "blockBlob"
+                  ],
+                  "prefixMatch": [
+                    "snapshots/"
+                  ]
+                },
+                "actions": {
+                  "baseBlob": {
+                    "tierToCool": {
+                      "daysAfterModificationGreaterThan": 30
+                    },
+                    "delete": {
+                      "daysAfterModificationGreaterThan": "[variables('snapshotDays')]"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('logWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'logs'))]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'appinsights'))]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logWorkspaceName'))]",
+        "DisableLocalAuth": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageBlobDataOwner)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').storageBlobDataOwner)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageQueueDataContributor)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').storageQueueDataContributor)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageTableDataContributor)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').storageTableDataContributor)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+      "name": "[guid(resourceId('Microsoft.Insights/components', variables('appInsightsName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').monitoringMetricsPublisher)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').monitoringMetricsPublisher)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]"
+      ]
+    },
+    {
+      "condition": "[variables('createAi')]",
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2024-10-01",
+      "name": "[variables('aiName')]",
+      "location": "[variables('aiLocation')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'assistant'))]",
+      "kind": "OpenAI",
+      "sku": {
+        "name": "S0"
+      },
+      "properties": {
+        "customSubDomainName": "[variables('aiName')]",
+        "disableLocalAuth": true,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "condition": "[variables('createAi')]",
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('aiName'), parameters('assistantDeployment'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": "[parameters('assistantCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('assistantModel')]",
+          "version": "[parameters('assistantModelVersion')]"
+        },
+        "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiName'))]"
+      ]
+    },
+    {
+      "condition": "[and(variables('createAi'), not(empty(parameters('assistantEmbeddingDeployment'))))]",
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('aiName'), parameters('assistantEmbeddingDeployment'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": "[parameters('assistantCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('assistantEmbeddingModel')]",
+          "version": "[parameters('assistantEmbeddingModelVersion')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('aiName'), parameters('assistantDeployment'))]"
+      ]
+    },
+    {
+      "condition": "[variables('createAi')]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiName'))]",
+      "name": "[guid(variables('aiName'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').cognitiveServicesOpenAIUser)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').cognitiveServicesOpenAIUser)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-04-01",
+      "name": "[variables('planName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'plan'))]",
+      "kind": "functionapp",
+      "sku": {
+        "name": "FC1",
+        "tier": "FlexConsumption"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-04-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'functionapp'))]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "minTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "http20Enabled": true,
+          "cors": {
+            "allowedOrigins": "[concat(createArray(format('https://{0}.azurewebsites.net', variables('functionAppName'))), if(empty(parameters('customDomain')), createArray(), createArray(format('https://{0}', parameters('customDomain')))))]",
+            "supportCredentials": true
+          },
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage__accountName",
+              "value": "[variables('storageName')]"
+            },
+            {
+              "name": "AzureWebJobsStorage__credential",
+              "value": "managedidentity"
+            },
+            {
+              "name": "AzureWebJobsStorage__clientId",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').clientId]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_AUTHENTICATION_STRING",
+              "value": "[format('ClientId={0};Authorization=AAD', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').clientId)]"
+            },
+            {
+              "name": "PSWorkerInProcConcurrencyUpperBound",
+              "value": "4"
+            },
+            {
+              "name": "WL_CLIENT_ID",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').clientId]"
+            },
+            {
+              "name": "WL_TENANT_ID",
+              "value": "[tenant().tenantId]"
+            },
+            {
+              "name": "WL_STORAGE_ACCOUNT",
+              "value": "[variables('storageName')]"
+            },
+            {
+              "name": "WL_STORAGE_SUFFIX",
+              "value": "[environment().suffixes.storage]"
+            },
+            {
+              "name": "WL_SCHEDULE_ENDPOINT",
+              "value": "[parameters('scheduleEndpoint')]"
+            },
+            {
+              "name": "WL_SCHEDULE_ACCESS",
+              "value": "[parameters('scheduleAccess')]"
+            },
+            {
+              "name": "WL_SCHEDULE_LICENSING",
+              "value": "[parameters('scheduleLicensing')]"
+            },
+            {
+              "name": "WL_CHANGE_RETENTION_DAYS",
+              "value": "[string(variables('changeDays'))]"
+            },
+            {
+              "name": "WL_SNAPSHOT_RETENTION_DAYS",
+              "value": "[string(variables('snapshotDays'))]"
+            },
+            {
+              "name": "WL_DEVICE_INVENTORY",
+              "value": "[if(parameters('deviceInventory'), 'true', 'false')]"
+            },
+            {
+              "name": "WL_MODULES",
+              "value": "[variables('modules')]"
+            },
+            {
+              "name": "WL_FEATURES",
+              "value": "[parameters('features')]"
+            },
+            {
+              "name": "WL_DATA_APP_ID",
+              "value": "[parameters('dataAppId')]"
+            },
+            {
+              "name": "WL_UPDATE_CHECK",
+              "value": "[string(parameters('updateCheck'))]"
+            },
+            {
+              "name": "WL_NOTIFY_WEBHOOK",
+              "value": "[parameters('notifyWebhook')]"
+            },
+            {
+              "name": "WL_NOTIFY_MIN_SEVERITY",
+              "value": "[parameters('notifyMinSeverity')]"
+            },
+            {
+              "name": "WL_LICENSE_KEY",
+              "value": "[parameters('licenseKey')]"
+            },
+            {
+              "name": "WL_SCHEDULE_AGENTS",
+              "value": "[parameters('scheduleAgents')]"
+            },
+            {
+              "name": "WL_ASSISTANT",
+              "value": "[if(parameters('enableAssistant'), 'true', 'false')]"
+            },
+            {
+              "name": "WL_AI_ENDPOINT",
+              "value": "[if(parameters('enableAssistant'), variables('aiEndpoint'), '')]"
+            },
+            {
+              "name": "WL_AI_DEPLOYMENT",
+              "value": "[if(parameters('enableAssistant'), parameters('assistantDeployment'), '')]"
+            },
+            {
+              "name": "WL_AI_EMBEDDING_DEPLOYMENT",
+              "value": "[if(parameters('enableAssistant'), parameters('assistantEmbeddingDeployment'), '')]"
+            }
+          ]
+        },
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('{0}deploymentpackage', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').primaryEndpoints.blob)]",
+              "authentication": {
+                "type": "UserAssignedIdentity",
+                "userAssignedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]"
+              }
+            }
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": 40,
+            "instanceMemoryMB": "[parameters('instanceMemoryMB')]"
+          },
+          "runtime": {
+            "name": "powershell",
+            "version": "7.4"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "containers",
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageBlobDataOwner))]",
+        "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageQueueDataContributor))]",
+        "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), variables('roles').storageTableDataContributor))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('ssoClientId')))]",
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2024-04-01",
+      "name": "[format('{0}/{1}', variables('functionAppName'), 'authsettingsV2')]",
+      "properties": {
+        "platform": {
+          "enabled": true
+        },
+        "globalValidation": {
+          "requireAuthentication": true,
+          "unauthenticatedClientAction": "RedirectToLoginPage",
+          "redirectToProvider": "azureactivedirectory"
+        },
+        "identityProviders": {
+          "azureActiveDirectory": {
+            "enabled": true,
+            "registration": {
+              "openIdIssuer": "[format('{0}{1}/v2.0', environment().authentication.loginEndpoint, tenant().tenantId)]",
+              "clientId": "[parameters('ssoClientId')]"
+            },
+            "validation": {
+              "allowedAudiences": [
+                "[parameters('ssoClientId')]",
+                "[format('api://{0}', parameters('ssoClientId'))]"
+              ]
+            }
+          }
+        },
+        "login": {
+          "tokenStore": {
+            "enabled": false
+          }
+        },
+        "httpSettings": {
+          "requireHttps": true
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('packageUri')))]",
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('deployIdentityName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('gapsio-component', 'deployer'))]"
+    },
+    {
+      "condition": "[not(empty(parameters('packageUri')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
+      "name": "[guid(resourceId('Microsoft.Web/sites', variables('functionAppName')), variables('deployIdentityName'), variables('roles').websiteContributor)]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roles').websiteContributor)]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployIdentityName'))]",
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('packageUri')))]",
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "[format('deploy-{0}-code', parameters('namePrefix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "AzureCLI",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "azCliVersion": "2.63.0",
+        "retentionInterval": "PT1H",
+        "cleanupPreference": "OnSuccess",
+        "timeout": "PT30M",
+        "environmentVariables": [
+          {
+            "name": "PACKAGE_URI",
+            "value": "[parameters('packageUri')]"
+          },
+          {
+            "name": "RG",
+            "value": "[resourceGroup().name]"
+          },
+          {
+            "name": "APP",
+            "value": "[variables('functionAppName')]"
+          }
+        ],
+        "scriptContent": "set -e\ncurl -fsSL -o /tmp/gapsio.zip \"$PACKAGE_URI\"\n# Role assignments take a while to take effect – hence several attempts.\nfor i in 1 2 3 4 5 6 7 8 9 10; do\n  if az functionapp deployment source config-zip -g \"$RG\" -n \"$APP\" --src /tmp/gapsio.zip; then exit 0; fi\n  echo \"Attempt $i failed, waiting 30 s ...\"; sleep 30\ndone\nexit 1\n"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployIdentityName'))]",
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
+        "[extensionResourceId(resourceId('Microsoft.Web/sites', variables('functionAppName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Web/sites', variables('functionAppName')), variables('deployIdentityName'), variables('roles').websiteContributor))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('functionAppName')]"
+    },
+    "defaultHostName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01').defaultHostName]"
+    },
+    "portalUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01').defaultHostName)]"
+    },
+    "runnerPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').principalId]"
+    },
+    "runnerClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('runnerIdentityName')), '2023-01-31').clientId]"
+    },
+    "modules": {
+      "type": "string",
+      "value": "[variables('modules')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageName')]"
+    },
+    "assistantEndpoint": {
+      "type": "string",
+      "value": "[if(parameters('enableAssistant'), variables('aiEndpoint'), '')]"
+    }
+  }
+}

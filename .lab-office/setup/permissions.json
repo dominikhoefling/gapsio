@@ -1,0 +1,250 @@
+{
+  "description": "Least-privilege permissions per Gapsio feature. All permissions are read-only application permissions. Install-Gapsio.ps1, Grant-GapsioPermissions.ps1 and New-GapsioAppRegistrations.ps1 grant exactly the permissions of the selected features – nothing more.",
+  "resources": {
+    "graph": {
+      "appId": "00000003-0000-0000-c000-000000000000",
+      "name": "Microsoft Graph"
+    },
+    "mde": {
+      "appId": "fc780465-2017-40d4-a0c5-307022471b92",
+      "name": "WindowsDefenderATP (Microsoft Defender for Endpoint API)"
+    }
+  },
+  "features": [
+    {
+      "id": "Core",
+      "required": true,
+      "module": "endpoint",
+      "name": "Endpoint: policies, exclusions, ASR configuration and MDAV baseline from Intune",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "DeviceManagementConfiguration.Read.All",
+          "why": "Intune policies: exclusions, ASR rules, Defender settings (Windows, macOS, Linux)"
+        },
+        {
+          "resource": "graph",
+          "value": "GroupMember.Read.All",
+          "why": "Display names of the groups policies are assigned to; group and distribution-list search for assignments in the portal"
+        },
+        {
+          "resource": "graph",
+          "value": "User.ReadBasic.All",
+          "why": "People picker in the portal: assign a finding to an Entra user (name and e-mail only)"
+        }
+      ]
+    },
+    {
+      "id": "Hunting",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: device state, local exclusions, effective ASR mode, Linux/macOS drift, local AI agents (Advanced Hunting)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "ThreatHunting.Read.All",
+          "why": "Advanced Hunting queries (DeviceInfo, TVM, DeviceRegistryEvents, DeviceProcessEvents, AgentsInfo)"
+        }
+      ]
+    },
+    {
+      "id": "Indicators",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: allow indicators from Defender for Endpoint",
+      "permissions": [
+        {
+          "resource": "mde",
+          "value": "Ti.Read.All",
+          "why": "Read custom indicators (allow/block)"
+        }
+      ]
+    },
+    {
+      "id": "Response",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: response readiness – response actions of the last 90 days, investigations waiting for approval, forgotten isolations, untriaged alerts",
+      "permissions": [
+        {
+          "resource": "mde",
+          "value": "Machine.Read.All",
+          "why": "Read response actions (isolation, live response, investigation package …)"
+        },
+        {
+          "resource": "mde",
+          "value": "Alert.Read.All",
+          "why": "Read alerts with their automated-investigation state"
+        }
+      ]
+    },
+    {
+      "id": "Coverage",
+      "default": true,
+      "module": "endpoint",
+      "name": "Endpoint: Defender coverage gaps – Intune-managed devices that are not onboarded to Defender for Endpoint; Intune connector, device risk in compliance and Conditional Access",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "DeviceManagementManagedDevices.Read.All",
+          "why": "Compare Intune-managed devices with Defender devices (name, OS, Entra device ID, last sync)"
+        },
+        {
+          "resource": "graph",
+          "value": "DeviceManagementServiceConfig.Read.All",
+          "why": "Intune connector for Defender for Endpoint (state, platforms, heartbeat)"
+        },
+        {
+          "resource": "graph",
+          "value": "Policy.Read.All",
+          "why": "Conditional Access policies that require a compliant device (device risk enforcement)"
+        }
+      ]
+    },
+    {
+      "id": "Inventory",
+      "default": false,
+      "module": "endpoint",
+      "name": "Endpoint: optional device inventory via Intune Remediations (detection script only)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "DeviceManagementScripts.Read.All",
+          "why": "Results of the Gapsio detection script"
+        },
+        {
+          "resource": "graph",
+          "value": "DeviceManagementManagedDevices.Read.All",
+          "why": "Map Intune devices to Defender devices"
+        }
+      ]
+    },
+    {
+      "id": "Agents",
+      "default": true,
+      "module": "agents",
+      "name": "Agents: Entra Agent ID, Agent 365 package catalog and Conditional Access coverage",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "AgentIdentityBlueprint.Read.All",
+          "why": "Agent identity blueprints"
+        },
+        {
+          "resource": "graph",
+          "value": "AgentIdentityBlueprintPrincipal.Read.All",
+          "why": "Blueprint principals in the tenant"
+        },
+        {
+          "resource": "graph",
+          "value": "AgentIdentity.Read.All",
+          "why": "Agent identities and their sponsors"
+        },
+        {
+          "resource": "graph",
+          "value": "User.ReadBasic.All",
+          "why": "Agent users and sponsors (basic profile only)"
+        },
+        {
+          "resource": "graph",
+          "value": "CopilotPackages.Read.All",
+          "why": "Agent 365 package catalog (optional, needs the Agent 365 licence)"
+        },
+        {
+          "resource": "graph",
+          "value": "AgentInstance.Read.All",
+          "why": "Legacy Agent 365 registry (optional, retired from May 2026)"
+        },
+        {
+          "resource": "graph",
+          "value": "Policy.Read.All",
+          "why": "Conditional Access policies and security defaults"
+        }
+      ]
+    },
+    {
+      "id": "Access",
+      "default": false,
+      "module": "access",
+      "name": "Access: Defender XDR unified RBAC – who holds which role (direct, group, PIM eligible, access package), for which data sources, and whether it was ever used; API apps with Defender permissions (credentials, owners), access reviews, PIM activation rules",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "RoleManagement.Read.Defender",
+          "why": "Defender XDR unified RBAC role definitions and assignments"
+        },
+        {
+          "resource": "graph",
+          "value": "RoleManagement.Read.Directory",
+          "why": "Entra roles that bypass unified RBAC (Global/Security Administrator, Security Operator/Reader, Global Reader)"
+        },
+        {
+          "resource": "graph",
+          "value": "PrivilegedEligibilitySchedule.Read.AzureADGroup",
+          "why": "PIM for groups: who is eligible for a role-holding group"
+        },
+        {
+          "resource": "graph",
+          "value": "PrivilegedAssignmentSchedule.Read.AzureADGroup",
+          "why": "PIM for groups: when an eligible membership was last activated"
+        },
+        {
+          "resource": "graph",
+          "value": "EntitlementManagement.Read.All",
+          "why": "Access packages that grant a role-holding group"
+        },
+        {
+          "resource": "graph",
+          "value": "AuditLog.Read.All",
+          "why": "Sign-ins to the Defender portal – when a permission was last actually used"
+        },
+        {
+          "resource": "graph",
+          "value": "Directory.Read.All",
+          "why": "Resolve role holders of any type (users, groups, service principals)"
+        },
+        {
+          "resource": "graph",
+          "value": "AccessReview.Read.All",
+          "why": "Which Defender role groups are covered by an access review"
+        },
+        {
+          "resource": "graph",
+          "value": "RoleManagementPolicy.Read.AzureADGroup",
+          "why": "PIM for Groups activation rules (MFA, justification, approval, duration) of Defender role groups"
+        }
+      ]
+    },
+    {
+      "id": "Audit",
+      "default": false,
+      "module": "access",
+      "name": "Access: Defender for Endpoint portal activity from the Purview unified audit log (offboarding package downloads, live response, setting changes)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "AuditLogsQuery.Read.All",
+          "why": "Audit log query API (record type mdatpAudit), last 30 days"
+        }
+      ]
+    },
+    {
+      "id": "Licensing",
+      "default": false,
+      "module": "licensing",
+      "name": "Licensing: Defender for Endpoint licence indication – purchased vs. assigned plans, licensed users, onboarded client devices without a licensed user (needs Hunting for the device mapping)",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "Organization.Read.All",
+          "why": "Subscribed SKUs: purchased and assigned Defender for Endpoint units"
+        },
+        {
+          "resource": "graph",
+          "value": "User.Read.All",
+          "why": "Assigned service plans per user (which users hold an MDE P1/P2 or Defender for Business plan)"
+        }
+      ]
+    }
+  ]
+}

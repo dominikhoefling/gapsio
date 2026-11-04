@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in Gapsio does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Never paste tenant data** (device or user names, exclusion values, tenant IDs, tokens).
+        Security problems: use *Security › Report a vulnerability* instead of an issue.
+  - type: input
+    id: version
+    attributes:
+      label: Gapsio version
+      description: Shown in the portal sidebar, e.g. 0.4.2
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [Install / update scripts, Collection run (Function App), Portal, API, Documentation, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Feature
+      multiple: true
+      options: [Endpoint – exclusions, Endpoint – ASR, Endpoint – baseline, Endpoint – devices/hygiene, AI agents, Access, Licensing, History/notifications, Licence key]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, what did you see? Include the notices of the last run (overview › notices) if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Platforms involved (Windows/macOS/Linux), Intune/GPO/SSM, Defender plan, anything unusual

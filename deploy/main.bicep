@@ -1,4 +1,4 @@
-// Wardline – infrastructure in the customer's Azure subscription (self-hosted).
+// Gapsio – infrastructure in the customer's Azure subscription (self-hosted).
 // Everything runs with a user-assigned managed identity: no secrets, no storage keys.
 targetScope = 'resourceGroup'
 
@@ -8,12 +8,12 @@ param location string = resourceGroup().location
 @description('Short name for all resources (3–10 lowercase letters/digits).')
 @minLength(3)
 @maxLength(10)
-param namePrefix string = 'wardline'
+param namePrefix string = 'gapsio'
 
 @description('Optional custom Function App name (instead of <namePrefix>-<suffix>).')
 param customFunctionAppName string = ''
 
-@description('Optional custom domain of the portal (e.g. wardline.contoso.com). Hostname binding and certificate are set up by setup/Install-Wardline.ps1 -CustomDomain.')
+@description('Optional custom domain of the portal (e.g. gapsio.contoso.com). Hostname binding and certificate are set up by setup/Install-Gapsio.ps1 -CustomDomain.')
 param customDomain string = ''
 
 @description('Optional custom storage account name (3–24 lowercase letters/digits, globally unique).')
@@ -34,7 +34,7 @@ param customLogWorkspaceName string = ''
 @description('Optional custom Application Insights name.')
 param customAppInsightsName string = ''
 
-@description('Client ID of the portal app registration (set by setup/Install-Wardline.ps1). Empty = the portal stays locked.')
+@description('Client ID of the portal app registration (set by setup/Install-Gapsio.ps1). Empty = the portal stays locked.')
 param ssoClientId string = ''
 
 @description('Retention of snapshots and change history in days (used when the specific values below are 0).')
@@ -65,7 +65,7 @@ param enableImmutability bool = false
 @description('Optional: public URL of the function package (zip). If set, the code is deployed as well (Deploy to Azure button).')
 param packageUri string = ''
 
-@description('Optional device inventory: Wardline also reads the results of the detection script from Intune Remediations (created by Install-Wardline.ps1 -DeviceInventory). Off = Advanced Hunting only.')
+@description('Optional device inventory: Gapsio also reads the results of the detection script from Intune Remediations (created by Install-Gapsio.ps1 -DeviceInventory). Off = Advanced Hunting only.')
 param deviceInventory bool = false
 
 @description('Module "Agents": inventory of AI agents (Entra Agent ID, Agent 365, local agents) and Conditional Access coverage.')
@@ -83,7 +83,7 @@ param enableAccess bool = false
 @description('Module "Licensing" (Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices). Optional, off by default.')
 param enableLicensing bool = false
 
-@description('Daily check for a newer Wardline release (anonymous GET to the GitHub releases API, no tenant data). Wardline never updates itself.')
+@description('Daily check for a newer Gapsio release (anonymous GET to the GitHub releases API, no tenant data). Gapsio never updates itself.')
 param updateCheck bool = true
 
 @description('Optional webhook for notifications about new findings (Teams workflow, Power Automate or any HTTPS endpoint accepting JSON).')
@@ -94,7 +94,7 @@ param notifyWebhook string = ''
 @allowed(['Critical', 'High', 'Medium', 'Low'])
 param notifyMinSeverity string = 'High'
 
-@description('Optional Wardline licence key (bound to this tenant). It can also be entered later in the portal.')
+@description('Optional Gapsio licence key (bound to this tenant). It can also be entered later in the portal.')
 @secure()
 param licenseKey string = ''
 
@@ -110,13 +110,13 @@ param scheduleAccess string = '0 47 2 * * *'
 @description('Schedule of the licensing module (NCRONTAB, UTC).')
 param scheduleLicensing string = '0 17 3 * * *'
 
-@description('Optional Wardline Assistant: a chat helper in the portal that explains findings and navigates. Uses an Azure OpenAI deployment in your own subscription via managed identity (no keys). Off by default.')
+@description('Optional Gapsio Assistant: a chat helper in the portal that explains findings and navigates. Uses an Azure OpenAI deployment in your own subscription via managed identity (no keys). Off by default.')
 param enableAssistant bool = false
 
-@description('Optional: endpoint of an existing Azure OpenAI / AI Foundry resource (https://<name>.openai.azure.com/). Empty = Wardline creates one in the resource group. With an existing resource, grant the runner identity "Cognitive Services OpenAI User" yourself.')
+@description('Optional: endpoint of an existing Azure OpenAI / AI Foundry resource (https://<name>.openai.azure.com/). Empty = Gapsio creates one in the resource group. With an existing resource, grant the runner identity "Cognitive Services OpenAI User" yourself.')
 param assistantEndpoint string = ''
 
-@description('Model deployment name used by the assistant (created when Wardline creates the resource).')
+@description('Model deployment name used by the assistant (created when Gapsio creates the resource).')
 param assistantDeployment string = 'gpt-4.1-mini'
 
 @description('Model name and version for the created deployment.')
@@ -129,7 +129,7 @@ param assistantLocation string = ''
 @description('Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant.')
 param assistantCapacity int = 10
 
-@description('Embedding model deployment used for semantic search in the Wardline docs / baseline rationale. Empty = keyword search only.')
+@description('Embedding model deployment used for semantic search in the Gapsio docs / baseline rationale. Empty = keyword search only.')
 param assistantEmbeddingDeployment string = 'text-embedding-3-small'
 param assistantEmbeddingModel string = 'text-embedding-3-small'
 param assistantEmbeddingModelVersion string = '1'
@@ -139,7 +139,7 @@ param assistantEmbeddingModelVersion string = '1'
 param storageSku string = 'Standard_LRS'
 
 param tags object = {
-  product: 'Wardline'
+  product: 'Gapsio'
 }
 
 var suffix = uniqueString(resourceGroup().id, namePrefix)
@@ -170,14 +170,14 @@ var roles = {
 resource runner 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: runnerIdentityName
   location: location
-  tags: union(tags, { 'wardline-component': 'runner' })
+  tags: union(tags, { 'gapsio-component': 'runner' })
 }
 
 // ---------- Storage (Entra authentication only) ----------
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
   location: location
-  tags: union(tags, { 'wardline-component': 'storage' })
+  tags: union(tags, { 'gapsio-component': 'storage' })
   kind: 'StorageV2'
   sku: {
     name: storageSku
@@ -274,7 +274,7 @@ resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logWorkspaceName
   location: location
-  tags: union(tags, { 'wardline-component': 'logs' })
+  tags: union(tags, { 'gapsio-component': 'logs' })
   properties: {
     sku: {
       name: 'PerGB2018'
@@ -286,7 +286,7 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
   location: location
-  tags: union(tags, { 'wardline-component': 'appinsights' })
+  tags: union(tags, { 'gapsio-component': 'appinsights' })
   kind: 'web'
   properties: {
     Application_Type: 'web'
@@ -336,11 +336,11 @@ resource raMetrics 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// ---------- Optional: Wardline Assistant (Azure OpenAI in the customer's subscription, keyless) ----------
+// ---------- Optional: Gapsio Assistant (Azure OpenAI in the customer's subscription, keyless) ----------
 resource ai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (createAi) {
   name: aiName
   location: aiLocation
-  tags: union(tags, { 'wardline-component': 'assistant' })
+  tags: union(tags, { 'gapsio-component': 'assistant' })
   kind: 'OpenAI'
   sku: {
     name: 'S0'
@@ -400,7 +400,7 @@ resource raAi 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createA
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: planName
   location: location
-  tags: union(tags, { 'wardline-component': 'plan' })
+  tags: union(tags, { 'gapsio-component': 'plan' })
   kind: 'functionapp'
   sku: {
     name: 'FC1'
@@ -414,7 +414,7 @@ resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
-  tags: union(tags, { 'wardline-component': 'functionapp' })
+  tags: union(tags, { 'gapsio-component': 'functionapp' })
   kind: 'functionapp,linux'
   identity: {
     type: 'UserAssigned'
@@ -542,7 +542,7 @@ resource auth 'Microsoft.Web/sites/config@2024-04-01' = if (!empty(ssoClientId))
 resource deployer 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (!empty(packageUri)) {
   name: deployIdentityName
   location: location
-  tags: union(tags, { 'wardline-component': 'deployer' })
+  tags: union(tags, { 'gapsio-component': 'deployer' })
 }
 
 resource raDeploy 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(packageUri)) {
@@ -578,10 +578,10 @@ resource deployCode 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (!em
     ]
     scriptContent: '''
 set -e
-curl -fsSL -o /tmp/wardline.zip "$PACKAGE_URI"
+curl -fsSL -o /tmp/gapsio.zip "$PACKAGE_URI"
 # Role assignments take a while to take effect – hence several attempts.
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if az functionapp deployment source config-zip -g "$RG" -n "$APP" --src /tmp/wardline.zip; then exit 0; fi
+  if az functionapp deployment source config-zip -g "$RG" -n "$APP" --src /tmp/gapsio.zip; then exit 0; fi
   echo "Attempt $i failed, waiting 30 s ..."; sleep 30
 done
 exit 1
