@@ -236,7 +236,7 @@ function Invoke-GapsioGraph {
     while ($uri) {
         $r = Invoke-GapsioRest -Uri $uri -Resource 'https://graph.microsoft.com' -Headers $Headers
         if ($r.PSObject.Properties['value']) { foreach ($i in @($r.value)) { if ($null -ne $i) { $items.Add($i) } } }
-        $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
+        $uri = Get-GapsioNextLink -Response $r
     }
     $items.ToArray()
 }
@@ -282,6 +282,46 @@ function Get-GapsioErrorText {
     }
     $hint += ' Permissions granted after that take effect with the next token (up to 24 hours). Re-running ./setup/Grant-GapsioPermissions.ps1 -PrincipalId <managed identity> -Features … shows what is granted.'
     "$hint [$short]"
+}
+
+function Get-GapsioNextLink {
+    <#
+    .SYNOPSIS
+    The @odata.nextLink of a Microsoft API page, or $null. Throws when the link leaves https://*.microsoft.com – the
+    next request carries a bearer token, which must never go to another host.
+    #>
+    param($Response)
+    if (-not $Response -or -not $Response.PSObject.Properties['@odata.nextLink']) { return $null }
+    $next = [string]$Response.'@odata.nextLink'
+    if (-not $next) { return $null }
+    $u = $null
+    if (-not [uri]::TryCreate($next, [UriKind]::Absolute, [ref]$u) -or $u.Scheme -ne 'https' -or -not ($u.Host -eq 'microsoft.com' -or $u.Host.EndsWith('.microsoft.com'))) {
+        throw "unexpected paging link to '$(if ($u) { $u.Host } else { 'invalid URI' })'"
+    }
+    $next
+}
+
+function Get-GapsioMdeItems {
+    <#
+    .SYNOPSIS
+    Pages through an MDE API collection. Returns @{ items; ok } – ok is $false when any page failed, so callers can tell
+    "no data" from "could not read". Follows @odata.nextLink only to https://*.microsoft.com, so the bearer token is
+    never sent to another host.
+    #>
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Context)
+    $res = 'https://api.securitycenter.microsoft.com'
+    $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+    $items = [System.Collections.Generic.List[object]]::new()
+    $uri = "$base/$Path"
+    try {
+        while ($uri) {
+            $r = Invoke-GapsioRest -Uri $uri -Resource $res
+            foreach ($i in @($r.value)) { if ($null -ne $i) { $items.Add($i) } }
+            $uri = Get-GapsioNextLink -Response $r
+        }
+    }
+    catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)"; return [pscustomobject]@{ items = $items.ToArray(); ok = $false } }
+    [pscustomobject]@{ items = $items.ToArray(); ok = $true }
 }
 
 function Invoke-GapsioGraphSafe {

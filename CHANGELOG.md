@@ -26,6 +26,17 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 - Access: a failed read of the audit log records no longer looks like "no activity".
 - Access: paging links of the Defender for Endpoint API are only followed to `https://*.microsoft.com`.
 - Docs: the findings table on the Access page was split by an empty line.
+- Security: paging links are checked for every Microsoft API call (Graph and Defender for Endpoint), not only in Access –
+  a link to a host outside `https://*.microsoft.com` stops the read instead of receiving the bearer token.
+- API: the device search page size is capped at 1,000; the Office and Purview preview routes answer 404 when the module
+  is not enabled (as the other modules do).
+- Portal: Office and Purview preview findings showed raw dictionary keys (`x.severity`, `x.detail` …) as column headers
+  and the exclusions page title instead of "Finding"; the Office page labelled the collection time "Loading"; the header
+  showed no data timestamp on the preview pages; cmdlet names in the anti-phish drift wrapped mid-word.
+- Setup: `Update-Gapsio.ps1` and `Uninstall-Gapsio.ps1` also find installations without the `gapsio-component` tag
+  (older installations: tag `wl-component`, or the only Function App tagged `product=Gapsio`); an update sets the tag.
+- Demo: Office and Purview preview data (fictitious) and the Access module are part of the demo; display names now
+  match the pseudonymised UPNs, and dictionary keys are pseudonymised as well.
 
 ## [0.6.0] – 2026-11-04
 

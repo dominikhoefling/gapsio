@@ -13,7 +13,7 @@
 param([Parameter(Mandatory)][string]$ResourceGroup)
 $ErrorActionPreference = 'Stop'
 
-$fn = (& az functionapp list -g $ResourceGroup --query "[?tags.\"gapsio-component\"=='functionapp'].name | [0]" -o tsv --only-show-errors)
+$fn = (& az functionapp list -g $ResourceGroup --query "[?tags.\"gapsio-component\"=='functionapp' || tags.\"wl-component\"=='functionapp' || tags.product=='Gapsio'].name | [0]" -o tsv --only-show-errors)
 if ($fn) {
     $name = "Gapsio Portal ($fn)"
     $apps = & az ad app list --display-name $name --query '[].id' -o tsv --only-show-errors

@@ -53,22 +53,7 @@ function Get-GapsioResponseFacts {
     are forgotten.
     #>
     if (-not (Test-GapsioFeature -Name 'response')) { return $null }
-    $res = 'https://api.securitycenter.microsoft.com'
-    $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
-    $pull = {
-        param($Path, $Context)
-        $items = [System.Collections.Generic.List[object]]::new()
-        $uri = "$base/$Path"
-        try {
-            while ($uri) {
-                $r = Invoke-GapsioRest -Uri $uri -Resource $res
-                foreach ($i in @($r.value)) { if ($i) { $items.Add($i) } }
-                $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
-            }
-        }
-        catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)" }
-        $items.ToArray()
-    }
+    $pull = { param($Path, $Context) (Get-GapsioMdeItems -Path $Path -Context $Context).items }
     $since90 = [DateTime]::UtcNow.AddDays(-90).ToString('yyyy-MM-ddTHH:mm:ssZ')
     $since30 = [DateTime]::UtcNow.AddDays(-30).ToString('yyyy-MM-ddTHH:mm:ssZ')
     $actions = @(& $pull "machineactions?`$filter=creationDateTimeUtc ge $since90" 'MDE response actions (Machine.Read.All)')
@@ -490,20 +475,9 @@ function Get-GapsioEndpointPolicies {
 $script:GapsioIndicatorFacts = $null
 function Get-GapsioAllowIndicators {
     if (-not (Test-GapsioFeature -Name 'indicators')) { return }
-    $res = 'https://api.securitycenter.microsoft.com'
-    $uri = Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators'
-    $items = [System.Collections.Generic.List[object]]::new()
-    try {
-        while ($uri) {
-            $r = Invoke-GapsioRest -Uri $uri -Resource $res
-            foreach ($i in @($r.value)) { if ($i) { $items.Add($i) } }
-            $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
-        }
-    }
-    catch {
-        Add-GapsioWarning "MDE indicators: $($_.Exception.Message)"
-        return
-    }
+    $got = Get-GapsioMdeItems -Path 'indicators' -Context 'MDE indicators'
+    if (-not $got.ok) { return }
+    $items = $got.items
     # Facts about all indicators (any action) for the dependency checks: which types exist, and values that carry
     # both an Allow and a Block/Warn action (SmartScreen then picks whichever was created first).
     $types = @{}; $byValue = @{}
@@ -810,19 +784,8 @@ DeviceTvmSoftwareInventory
 
     $inactive = @()
     if (Test-GapsioFeature -Name 'response') {
-        $res = 'https://api.securitycenter.microsoft.com'
-        $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
         $since = $now.AddDays(-90).ToString('yyyy-MM-ddTHH:mm:ssZ')
-        $items = [System.Collections.Generic.List[object]]::new()
-        $uri = "$base/machines?`$filter=healthStatus eq 'Inactive' and lastSeen lt $since"
-        try {
-            while ($uri) {
-                $r = Invoke-GapsioRest -Uri $uri -Resource $res
-                foreach ($i in @($r.value)) { if ($i) { $items.Add($i) } }
-                $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
-            }
-        }
-        catch { Add-GapsioWarning "MDE inactive devices (Machine.Read.All): $($_.Exception.Message)" }
+        $items = (Get-GapsioMdeItems -Path "machines?`$filter=healthStatus eq 'Inactive' and lastSeen lt $since" -Context 'MDE inactive devices (Machine.Read.All)').items
         $inactive = @($items | ForEach-Object {
                 [pscustomobject]@{ deviceId = [string]$_.id; deviceName = [string](Get-GapsioProp $_ 'computerDnsName'); os = [string](Get-GapsioProp $_ 'osPlatform'); lastSeen = [string](Get-GapsioProp $_ 'lastSeen')
                     group = [string](Get-GapsioProp $_ 'rbacGroupName'); onboardingStatus = [string](Get-GapsioProp $_ 'onboardingStatus') }

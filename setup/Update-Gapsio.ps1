@@ -49,7 +49,7 @@ if (-not $Repository) { $Repository = $script:GapsioRepository }
 Write-Step 'Reading the installation'
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) { throw 'Azure CLI (az) not found.' }
 if ($SubscriptionId) { Invoke-Az -Arguments @('account', 'set', '--subscription', $SubscriptionId) | Out-Null }
-$fa = (Invoke-Az -Arguments @('functionapp', 'list', '-g', $ResourceGroup, '--query', "[?tags.""gapsio-component""=='functionapp'] | [0].{name:name, id:id, tags:tags}", '-o', 'json')) | ConvertFrom-Json
+$fa = Find-GapsioFunctionApp -ResourceGroup $ResourceGroup
 if (-not $fa) { throw "No Gapsio Function App found in resource group '$ResourceGroup'." }
 $installed = if ($fa.tags.PSObject.Properties['gapsio-version']) { $fa.tags.'gapsio-version' } else { $null }
 $installedTemplate = if ($fa.tags.PSObject.Properties['gapsio-template']) { $fa.tags.'gapsio-template' } else { $null }
