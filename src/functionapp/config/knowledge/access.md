@@ -29,14 +29,15 @@ the permission against what the person actually did in the last 30 days. Each ro
 | Not used | Every source that can reveal the use was read successfully and shows nothing |
 | Not measurable | No source can show the use, or a needed source was not read (feature off, query still running, error). Gapsio never claims *not used* in this case |
 
-Which source proves which permission (names as in [Microsoft's permission reference](https://learn.microsoft.com/defender-xdr/custom-permissions-details)):
+Which source proves which permission (names as in [Microsoft's permission reference](https://learn.microsoft.com/defender-xdr/custom-permissions-details); actions are assigned via Microsoft's [legacy-to-unified mapping](https://learn.microsoft.com/defender-xdr/compare-rbac-roles)):
 
 | Permission | Proven by | Feature |
 |---|---|---|
 | Alerts (manage) | Alert comments, alerts in progress/resolved by their assignee, antivirus scans, investigation packages | `Response` |
 | Response (manage) | Isolate, restrict app execution, stop and quarantine (machine actions) | `Response` |
 | Basic / Advanced live response | Live response sessions; *advanced* when `RunScript` or `PutFile` was used | `Response` |
-| Authorization, Detection tuning, Core security settings (manage) | Unified audit log (`mdatpAudit`): role and device-group changes, indicators and custom detections, settings | `Audit` |
+| Core security settings (manage) | Device offboarding (machine action, feature `Response`) and settings changes in the unified audit log – Microsoft maps “onboard and offboard devices” to this permission | `Response`, `Audit` |
+| Authorization, Detection tuning (manage) | Unified audit log (`mdatpAudit`): role and device-group changes, indicators and custom detections | `Audit` |
 | Read permissions | Defender portal sign-in or any recorded action | – |
 | File collection, System settings, Vulnerability management (manage), Email & collaboration actions | No Microsoft API exposes their use | *not measurable* |
 

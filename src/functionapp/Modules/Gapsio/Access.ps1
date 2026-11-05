@@ -562,10 +562,14 @@ function Get-GapsioPermissionUsage {
     <#
     .SYNOPSIS
     Which unified RBAC permission each person actually used in the last $Days days, derived from what they did
-    (mapping per https://learn.microsoft.com/defender-xdr/custom-permissions-details):
+    Mapping per https://learn.microsoft.com/defender-xdr/custom-permissions-details and the legacy-to-unified table in
+    https://learn.microsoft.com/defender-xdr/compare-rbac-roles (legacy permission texts:
+    https://learn.microsoft.com/defender-endpoint/user-roles):
     - MDE machine actions (requestor)    feature Response: Machine.Read.All
-        isolate / restrict / quarantine -> Response; antivirus scan, investigation package -> Alerts;
-        live response -> Basic, or Advanced when RunScript/PutFile was used; offboard -> Core security settings
+        isolate / restrict / quarantine -> Response ("Active remediation actions")
+        antivirus scan, investigation package -> Alerts ("Alerts investigation: run scans, collect investigation packages")
+        live response -> Basic, or Advanced when RunScript/PutFile was used
+        offboard -> Core security settings ("Manage security settings in Security Center: onboard and offboard devices")
     - MDE alerts (comments; assignee of alerts in progress or resolved)    feature Response: Alert.Read.All -> Alerts
       An alert that is only assigned (status New) is not counted: somebody else may have assigned it.
     - Unified audit log (record type mdatpAudit)    feature Audit: AuditLogsQuery.Read.All -> settings, indicators, roles …
