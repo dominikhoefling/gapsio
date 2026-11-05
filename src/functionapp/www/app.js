@@ -16,7 +16,7 @@
   /* Dictionary: key -> [English, German]. {0}, {1} … are placeholders. */
   const L = {
     // general
-    'loading': ['Loading …', 'Lade …'], 'data.as.of': ['Data as of {0}', 'Datenstand {0}'], 'reload': ['Reload', 'Neu laden'],
+    'loading': ['Loading …', 'Lade …'], 'office.collected': ['Collected', 'Erfasst'], 'data.as.of': ['Data as of {0}', 'Datenstand {0}'], 'reload': ['Reload', 'Neu laden'],
     'version': ['Version {0}', 'Version {0}'], 'update.available': ['Update available: {0}', 'Update verfügbar: {0}'],
     'run.now': ['Collect now', 'Jetzt erfassen'], 'reloaded': ['Data reloaded.', 'Daten neu geladen.'], 'signout': ['Sign out', 'Abmelden'],
     'role.admin': ['Gapsio administrator', 'Gapsio-Administrator'], 'role.user': ['User', 'Benutzer'], 'signed.in': ['Signed in', 'Angemeldet'],
@@ -73,7 +73,7 @@
     'ov.priv': ['people with permanent response/config permissions', 'Personen mit dauerhaften Response-/Konfigurationsrechten'], 'ov.elig': ['eligible permissions (PIM for groups)', 'eligible Berechtigungen (PIM für Gruppen)'],
     'ov.unusedAcc': ['people whose permissions were never used', 'Personen, deren Berechtigungen nie genutzt wurden'], 'ov.bypass': ['people bypassing unified RBAC via Entra roles', 'Personen umgehen Unified RBAC über Entra-Rollen'],
     'ov.openPkg': ['packages requestable by all users', 'Pakete für alle Benutzer beantragbar'], 'ov.runs': ['Recent runs', 'Letzte Läufe'],
-    'col.time': ['Time', 'Zeitpunkt'], 'col.module': ['Module', 'Modul'], 'col.changes': ['Changes', 'Änderungen'], 'col.notices': ['Notices', 'Hinweise'], 'col.duration': ['Duration', 'Dauer'],
+    'col.time': ['Time', 'Zeitpunkt'], 'col.title': ['Title', 'Titel'], 'col.users': ['Users', 'Benutzer'], 'col.module': ['Module', 'Modul'], 'col.changes': ['Changes', 'Änderungen'], 'col.notices': ['Notices', 'Hinweise'], 'col.duration': ['Duration', 'Dauer'],
     // findings
     'f.lede': ['Everything that weakens protection – individually and in combination. Check combined findings first: they show where several small gaps add up to a big one.', 'Alles, was den Schutz schwächt – einzeln und in Kombination. Kombinierte Befunde zuerst prüfen: Sie zeigen, wo mehrere kleine Lücken zusammen eine große ergeben.'],
     'f.severity': ['Severity', 'Schweregrad'], 'f.category': ['Category', 'Kategorie'], 'f.finding': ['Finding', 'Befund'], 'f.device': ['Device', 'Gerät'],
@@ -1193,7 +1193,7 @@
           columns: [
             { title: t('ap.col.when'), text: r => fmtDate(r.ts) },
             { title: t('ap.col.policy'), text: r => r.policy || '–' },
-            { title: t('ap.col.cmdlet'), cell: r => h('span', { class: 'mono' }, r.cmdlet || '–'), text: r => r.cmdlet || '' },
+            { title: t('ap.col.cmdlet'), cell: r => h('span', { class: 'mono nowrap' }, r.cmdlet || '–'), text: r => r.cmdlet || '' },
             { title: t('ap.col.actor'), text: r => r.actor || '–' },
             { title: t('ap.col.direction'), cell: r => dirBadge(evDir(r)), text: r => t(`ap.dir.${evDir(r)}`) },
             { title: t('ap.col.changes'), cell: r => arr(r.diffs).length ? h('ul', { class: 'plain small' }, arr(r.diffs).map(diffLine)) : h('span', { class: 'muted' }, '–'), text: r => arr(r.diffs).map(d => `${d.setting}: ${d.before ?? ''} → ${d.after}`).join('; ') }
@@ -1332,7 +1332,7 @@
           columns: [
             { title: t('office.map.domain'), text: r => r.Domain || '–' },
             { title: t('office.map.events'), text: r => num(r.events || 0) },
-            { title: t('x.users'), text: r => num(r.users || 0) },
+            { title: t('col.users'), text: r => num(r.users || 0) },
             { title: t('office.map.policies'), text: r => num(r.policies || 0) },
             { title: t('office.map.actions'), text: r => arr(r.actions).join(', ') || '–' },
             { title: t('office.map.policySet'), text: r => arr(r.policySet).join(', ') || '–' }
@@ -2104,12 +2104,12 @@
           main.append(dataTable({
             name: 'purview-findings', rows: findings,
             search: f => `${tx(f.title)} ${tx(f.detail)} ${f.severity || ''}`,
-            filters: [{ label: t('x.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
+            filters: [{ label: t('f.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
             columns: [
-              { title: t('x.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
-              { title: t('x.title'), text: f => tx(f.title) },
-              { title: t('x.detail'), text: f => tx(f.detail) },
-              { title: t('x.recommendation'), text: f => tx(f.recommendation) }
+              { title: t('f.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
+              { title: t('f.finding'), text: f => tx(f.title) },
+              { title: t('f.description'), text: f => tx(f.detail) },
+              { title: t('f.recommendation'), text: f => tx(f.recommendation) }
             ]
           }));
         }
@@ -2125,7 +2125,7 @@
         }
         const alerts = res('dlp_alerts');
         if (alerts.length) main.append(dataTable({ name: 'purview-alerts', rows: alerts, search: r => `${r.Title} ${r.Severity}`,
-          columns: [{ title: t('x.severity'), text: r => r.Severity || '' }, { title: t('x.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.LastEvent) }] }));
+          columns: [{ title: t('f.severity'), text: r => r.Severity || '' }, { title: t('col.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.LastEvent) }] }));
         main.append(h('h3', null, t('pv.labels')));
         if (o.labels == null) main.append(h('p', { class: 'muted small' }, t('pv.labels.na')));
         else main.append(dataTable({ name: 'purview-labels', rows: arr(o.labels), search: l => `${l.name} ${l.parent}`,
@@ -2216,7 +2216,7 @@
       const findings = arr(o.findings);
       if (!rows.length) { main.append(h('div', { class: 'empty' }, t('office.empty'))); return; }
       main.append(h('div', { class: 'facts' },
-        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('loading').replace(' …', ''))),
+        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('office.collected'))),
         h('div', { class: 'fact' }, h('b', null, t('office.window', num(o.windowDays || 0))), h('span', null, t('office.probes', num(o.ok || 0), num(o.errors || 0))))));
       if (section === 'antiphish') { renderAntiPhish(main, o, params); return; }
       if (section === 'policymap') { renderPolicyMap(main, rows); return; }
@@ -2310,12 +2310,12 @@
         main.append(dataTable({
           name: 'office-preview-findings', rows: findings,
           search: f => `${tx(f.title)} ${tx(f.detail)} ${f.severity || ''} ${f.category || ''}`,
-          filters: [{ label: t('x.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
+          filters: [{ label: t('f.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
           columns: [
-            { title: t('x.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
-            { title: t('x.title'), text: f => tx(f.title) },
-            { title: t('x.detail'), text: f => tx(f.detail) },
-            { title: t('x.recommendation'), text: f => tx(f.recommendation) }
+            { title: t('f.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
+            { title: t('f.finding'), text: f => tx(f.title) },
+            { title: t('f.description'), text: f => tx(f.detail) },
+            { title: t('f.recommendation'), text: f => tx(f.recommendation) }
           ]
         }));
       }
@@ -3163,8 +3163,8 @@
   }
 
   function updateMeta() {
-    const ep = state.endpoint, ac = state.access, mi = state.mine, ag = state.agents, li = state.licensing;
-    const ts = [ep && ep.generatedAt, ag && ag.generatedAt, ac && ac.generatedAt, mi && mi.generatedAt, li && li.generatedAt].filter(Boolean).sort().pop();
+    const ts = [state.endpoint, state.agents, state.access, state.mine, state.licensing, state.officePreview, state.purview]
+      .map(x => x && x.generatedAt).filter(Boolean).sort().pop();
     $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Gapsio';
   }
 

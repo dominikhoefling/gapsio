@@ -251,6 +251,22 @@ function Add-GapsioCustomDomain {
     Write-Ok "Managed certificate bound (renews automatically): https://$Domain"
 }
 
+function Find-GapsioFunctionApp {
+    <#
+    .SYNOPSIS
+    The Gapsio Function App of a resource group: tag gapsio-component=functionapp; for older installations the tag of
+    the previous product name (wl-component) or – if it is the only one – a Function App tagged product=Gapsio.
+    Returns { name, id, tags } or $null.
+    #>
+    param([Parameter(Mandatory)][string]$ResourceGroup)
+    $all = @((Invoke-Az -Arguments @('functionapp', 'list', '-g', $ResourceGroup, '--query', '[].{name:name, id:id, tags:tags}', '-o', 'json')) | ConvertFrom-Json)
+    $tag = { param($a, $n) if ($a.tags -and $a.tags.PSObject.Properties[$n]) { [string]$a.tags.$n } else { $null } }
+    $hit = @($all | Where-Object { (& $tag $_ 'gapsio-component') -eq 'functionapp' })
+    if (-not $hit.Count) { $hit = @($all | Where-Object { (& $tag $_ 'wl-component') -eq 'functionapp' }) }
+    if (-not $hit.Count) { $hit = @($all | Where-Object { (& $tag $_ 'product') -eq 'Gapsio' }); if ($hit.Count -gt 1) { $hit = @() } }
+    if ($hit.Count) { $hit[0] } else { $null }
+}
+
 function Set-GapsioVersionTags {
     <#
     .SYNOPSIS
@@ -258,7 +274,7 @@ function Set-GapsioVersionTags {
     #>
     param([Parameter(Mandatory)][string]$ResourceGroup, [Parameter(Mandatory)][string]$FunctionAppName, [string]$Version, [string]$TemplateSha256)
     $id = (Invoke-Az -Arguments @('functionapp', 'show', '-g', $ResourceGroup, '-n', $FunctionAppName, '--query', 'id', '-o', 'tsv')).Trim()
-    $tags = @()
+    $tags = @('gapsio-component=functionapp')   # lets older installations (without the tag) be found directly next time
     if ($Version) { $tags += "gapsio-version=$Version" }
     if ($TemplateSha256) { $tags += "gapsio-template=$TemplateSha256" }
     if ($tags) { Invoke-Az -Arguments (@('tag', 'update', '--resource-id', $id, '--operation', 'Merge', '--tags') + $tags + @('-o', 'none')) -AllowFailure | Out-Null }

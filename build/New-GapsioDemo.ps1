@@ -28,6 +28,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'Protect-GapsioDemoData.ps1')
+. (Join-Path $PSScriptRoot 'Get-GapsioPreviewDemoData.ps1')
 if (Test-Path $DenyTermsFile) { $DenyTerms += @(Get-Content $DenyTermsFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') }) }
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "gapsio-demo-$([guid]::NewGuid().ToString('n'))"
 if ($StateDir) {
@@ -42,10 +43,11 @@ New-Item -ItemType Directory -Force -Path $demo | Out-Null
 Copy-Item -Path (Join-Path $root 'src/functionapp/www/*') -Destination $demo -Recurse -Force
 $read = { param($n) $p = Join-Path $tmp $n; if (Test-Path $p) { Get-Content -Raw $p | ConvertFrom-Json -Depth 64 } else { $null } }
 $data = [ordered]@{
-    me       = [ordered]@{ oid = 'u-alice'; upn = 'alice.demo@contoso.example'; displayName = 'Alice (Demo)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents', 'licensing'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Gapsio/Gapsio.psd1')).ModuleVersion }
+    me       = [ordered]@{ oid = 'u-demo'; upn = 'demo@contoso.example'; displayName = 'Demo account (Contoso)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Gapsio/Gapsio.psd1')).ModuleVersion }
     endpoint = & $read 'endpoint-latest.json'
     agents   = & $read 'agents-latest.json'
     licensing = & $read 'licensing-latest.json'
+    access   = & $read 'access-latest.json'
     runs     = @(& $read 'runs.json')
     changes  = @(& $read 'endpoint-changes.json')
     acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }
@@ -56,6 +58,10 @@ $data = [ordered]@{
             [pscustomobject]@{ type = 'group'; id = '00000000-0000-0000-0000-00000000d002'; displayName = 'SecOps (Demo)'; mail = $null },
             [pscustomobject]@{ type = 'distributionList'; id = '00000000-0000-0000-0000-00000000d003'; displayName = 'Workplace team (Demo)'; mail = 'workplace.demo@contoso.example' }); notices = @() }
 }
+# Demo: private-preview modules (Advanced Hunting only – not simulated by the test tenant); real state files win
+$preview = Get-GapsioPreviewDemoData
+$data.officepreview = $(if ($x = & $read 'office-preview-latest.json') { $x } else { $preview.officepreview })
+$data.purviewpreview = $(if ($x = & $read 'purview-preview-latest.json') { $x } else { $preview.purviewpreview })
 # Demo: 30 days of history so the trend and drift charts have something to show
 $rand = [Random]::new(42)
 $now = [DateTime]::UtcNow
@@ -100,8 +106,8 @@ $keep = @(Get-ChildItem -Recurse -File -Path (Join-Path $root 'src/functionapp/M
     ForEach-Object { [regex]::Matches((Get-Content -Raw $_.FullName), $script:GuidRx) | ForEach-Object Value } | Sort-Object -Unique)
 $tree = $data | ConvertTo-Json -Depth 64 -Compress | ConvertFrom-Json -AsHashtable -Depth 64
 $mapper = Protect-GapsioDemoData -Data $tree -DenyTerms $DenyTerms -KeepGuids $keep
-$tree.me.upn = 'alice.demo@contoso.example'; $tree.me.displayName = 'Alice (Demo)'
-$tree.license = [ordered]@{ status = 'Valid'; licenseId = 'GP-DEMO'; customer = 'Contoso (Demo)'; plan = 'Annual'; tenantId = $tree.me.tenantId; issued = [DateTime]::UtcNow.AddMonths(-2).ToString('yyyy-MM-dd'); expires = $tree.me.license.expires; daysLeft = 300; source = 'Portal'; setBy = 'alice.demo@contoso.example'; setAt = [DateTime]::UtcNow.AddMonths(-2).ToString('o') }
+$tree.me.upn = 'demo@contoso.example'; $tree.me.displayName = 'Demo account (Contoso)'
+$tree.license = [ordered]@{ status = 'Valid'; licenseId = 'GP-DEMO'; customer = 'Contoso (Demo)'; plan = 'Annual'; tenantId = $tree.me.tenantId; issued = [DateTime]::UtcNow.AddMonths(-2).ToString('yyyy-MM-dd'); expires = $tree.me.license.expires; daysLeft = 300; source = 'Portal'; setBy = 'demo@contoso.example'; setAt = [DateTime]::UtcNow.AddMonths(-2).ToString('o') }
 $json = $tree | ConvertTo-Json -Depth 64 -Compress
 $leaks = @(Test-GapsioDemoLeaks -Json $json -Mapper $mapper -DenyTerms $DenyTerms)
 if ($leaks.Count) { Remove-Item $tmp -Recurse -Force; throw "Demo data not clean – nothing written:`n  $($leaks -join "`n  ")" }
