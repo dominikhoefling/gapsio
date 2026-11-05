@@ -1117,7 +1117,8 @@ $fixtures.machineActions = @(
     [pscustomobject]@{ id = 'ma1'; type = 'Isolate'; status = 'Succeeded'; requestor = 'Alice@contoso.com'; creationDateTimeUtc = (T 3); machineId = 'd-win1'; computerDnsName = 'WIN-01' },
     [pscustomobject]@{ id = 'ma2'; type = 'RunAntiVirusScan'; status = 'Succeeded'; requestor = 'erin@contoso.com'; creationDateTimeUtc = (T 4); machineId = 'd-win2'; computerDnsName = 'WIN-02' },
     [pscustomobject]@{ id = 'ma3'; type = 'LiveResponse'; status = 'Succeeded'; requestor = 'Automation'; creationDateTimeUtc = (T 5); machineId = 'd-win2'; computerDnsName = 'WIN-02'; commands = @([pscustomobject]@{ command = [pscustomobject]@{ type = 'RunScript' } }) },
-    [pscustomobject]@{ id = 'ma4'; type = 'Isolate'; status = 'Succeeded'; requestor = 'carol@contoso.com'; creationDateTimeUtc = (T 45); machineId = 'd-win2'; computerDnsName = 'WIN-02' }
+    [pscustomobject]@{ id = 'ma4'; type = 'Isolate'; status = 'Succeeded'; requestor = 'carol@contoso.com'; creationDateTimeUtc = (T 45); machineId = 'd-win2'; computerDnsName = 'WIN-02' },
+    [pscustomobject]@{ id = 'ma5'; type = 'Offboard'; status = 'Succeeded'; requestor = 'alice@contoso.com'; creationDateTimeUtc = (T 6); machineId = 'd-old9'; computerDnsName = 'OLD-09' }
 )
 $fixtures.mdeAlerts = @(
     [pscustomobject]@{ id = 'al1'; status = 'Resolved'; assignedTo = 'alice@contoso.com'; resolvedTime = (T 2); lastUpdateTime = (T 2); comments = @([pscustomobject]@{ createdBy = 'alice@contoso.com'; createdTime = (T 2); comment = 'benign' }) },
@@ -1182,6 +1183,7 @@ Assert (@($ac.permissionUsage | Where-Object { $_.upn -eq 'carol@contoso.com' })
 Assert ((Cov 'bob@contoso.com' 'read').status -eq 'Unused' -and (Cov 'bob@contoso.com' 'read').reason -eq 'signIn') 'Bob: read access judged by portal sign-in'
 Assert (@((Cov 'gina@contoso.com' 'response').states) -contains 'Eligible') 'Eligible permissions are listed'
 Assert (@($cov | Where-Object { $_.upn -eq 'hank@contoso.com' }).Count -eq 0) 'Requestable permissions are not held'
+Assert (@($ac.permissionUsage | Where-Object { $_.upn -eq 'alice@contoso.com' -and $_.permissionId -eq 'coresettings' -and @($_.actions | Where-Object action -eq 'Offboard').Count -eq 1 }).Count -eq 1 -and (Cov 'alice@contoso.com' 'coresettings') -eq $null) 'Offboarding counts as Core security settings (Microsoft: "onboard and offboard devices"); not held by Alice, so usage only'
 Assert (@($ac.permissionUsage | Where-Object { $_.upn -notmatch '@' }).Count -eq 0 -and @($ac.permissionUsage | Where-Object { $_.upn -eq 'alice@contoso.com' -and $_.permission -eq 'Response (manage)' }).Count -eq 1) 'Usage table: catalog names, no automation requestors'
 $pf = @($ac.findings | Where-Object { $_.title.en -like 'Defender permissions held but not used:*' })
 Assert (@($pf | Where-Object { $_.title.en -like '*: Alice' -and $_.severity -eq 'Medium' -and $_.detail.en -match 'Basic live response' -and $_.detail.en -cnotmatch 'Alerts \(manage\)|Response \(manage\)' }).Count -eq 1) 'Finding: Alice holds live response but did not use it (Medium)'
