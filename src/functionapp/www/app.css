@@ -110,6 +110,7 @@ h2 { font: 600 19px/1.3 var(--sans); margin: 34px 0 10px; letter-spacing: -.01em
 h3 { font: 600 15px/1.35 var(--sans); margin: 18px 0 6px; }
 .lede { color: var(--ink-2); max-width: 74ch; margin: 0 0 22px; font-size: 15px; }
 .mono, code { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.mono.nowrap { white-space: nowrap; overflow-wrap: normal; }
 .muted { color: var(--muted); }
 .small { font-size: 12.5px; }
 

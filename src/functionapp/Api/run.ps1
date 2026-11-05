@@ -46,7 +46,7 @@ if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     return
 }
 $modules = Get-GapsioModules
-$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } '^licensing$' { 'licensing' } default { $null } }
+$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } '^licensing$' { 'licensing' } '^officepreview$' { 'officepreview' } '^purviewpreview$' { 'purviewpreview' } default { $null } }
 if ($routeModule -and $modules -notcontains $routeModule) {
     Send-Response -Status 404 -Body "The module '$routeModule' is not enabled in this installation."
     return
@@ -94,7 +94,7 @@ try {
                 Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson; return
             }
             if ($route -eq 'coverage') { Send-Response -Status 400 -Body 'Parameter page is required.'; return }
-            $size = 200; if ([string]$Request.Query.size -match '^\d+$') { $size = [int]$Request.Query.size }
+            $size = 200; if ([string]$Request.Query.size -match '^\d{1,4}$') { $size = [Math]::Min(1000, [Math]::Max(1, [int]$Request.Query.size)) }
             $pg = 0; if ($pageQ -match '^\d+$') { $pg = [int]$pageQ }
             $res = Search-GapsioDevices -Query ([string]$Request.Query.q) -Os ([string]$Request.Query.os) -Group ([string]$Request.Query.group) -IssuesOnly:([string]$Request.Query.issues -eq '1') `
                 -Chart ([string]$Request.Query.chart) -AsrBelow:([string]$Request.Query.asrBelow -eq '1') -Page $pg -Size $size
@@ -199,10 +199,7 @@ try {
             Send-Response -Status 200 -Body (Search-GapsioDirectory -Query ([string]$Request.Query.q))
         }
         'run' {
-            if ($method -ne 'POST') { Send-Response -Status 405 -Body 'POST only.'; return }
-            # Simple CSRF protection: browser forms from other sites cannot set this header.
-            $csrf = $null; foreach ($k in @($Request.Headers.Keys)) { if ($k -ieq 'x-gapsio') { $csrf = $Request.Headers[$k] } }
-            if ($csrf -ne '1') { Send-Response -Status 400 -Body 'Header X-Gapsio is missing.'; return }
+            if (-not (Test-GapsioCsrf)) { return }
             $m = ([string]$Request.Query.module).ToLowerInvariant()
             if ($m -notin @($modules) + @('all')) { $m = 'all' }
             # Debounce: a second click within two minutes (double click, retry after a slow response) must not queue a second run.
