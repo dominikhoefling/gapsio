@@ -6,6 +6,22 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Added
+- **Office preview: policy changes for all protection policies.** Every audited change to anti-spam, anti-malware,
+  Safe Links, Safe Attachments, Tenant Allow/Block List, transport rules, quarantine policies, DKIM, Teams protection
+  and advanced delivery – with who made it and the values set. Changes that set a weak value (ZAP off, an allow entry,
+  click-through allowed, a rule disabled …) raise the finding *Policy changes weakened Defender for Office 365
+  protection* (High). Gapsio keeps the changes for 400 days.
+- **Office preview: quarantine.** Releases, release requests, denials and deletions, who released, and the finding
+  *Messages with a phishing or malware verdict were released from quarantine* (Medium, High with malware).
+- **Office preview: Teams protection.** Teams messages rated phishing or malware – blocked, delivered, removed by
+  ZAP – with senders and URL domains, and the finding *Teams messages rated phishing or malware were delivered and
+  not removed* (High).
+- Checks whose hunting table does not exist in the tenant are shown as *not available* instead of failed.
+
+No new permissions. The three additions use `ThreatHunting.Read.All`; quarantine and policy changes need the
+Microsoft 365 connector of Defender for Cloud Apps, Teams needs Defender for Office 365 Plan 2.
+
 ## [0.7.1] – 2026-11-10
 
 No new permissions.

@@ -16,7 +16,7 @@
       - every term from -DenyTerms (e.g. company name) -> Contoso
 
     Then it scans the result: any original value, any deny term, any IP outside the documentation ranges or any e-mail
-    outside contoso.example makes the check fail.
+    outside contoso.example (other addresses under the reserved .example domain are fine) makes the check fail.
 
     Dot-source this file to get Protect-GapsioDemoData and Test-GapsioDemoLeaks.
 #>
@@ -213,7 +213,9 @@ function Test-GapsioDemoLeaks {
         if ($Json -match "(?i)(?<![A-Za-z0-9])$([regex]::Escape($o))(?![A-Za-z0-9])") { $issues.Add("Original value still present: $o") }
     }
     foreach ($e in [regex]::Matches($Json, $script:EmailRx) | ForEach-Object Value | Sort-Object -Unique) {
-        if ($e -notmatch "@$([regex]::Escape($script:DemoDomain))$" -and $e -notmatch '^[^@]+@\d') { $issues.Add("E-mail outside $($script:DemoDomain): $e") }
+        # Addresses under the reserved .example top-level domain (RFC 2606) cannot belong to a real tenant – the test
+        # data uses them for external senders.
+        if ($e -notmatch "@$([regex]::Escape($script:DemoDomain))$" -and $e -notmatch '\.example$' -and $e -notmatch '^[^@]+@\d') { $issues.Add("E-mail outside $($script:DemoDomain): $e") }
     }
     foreach ($ip in [regex]::Matches($Json, $script:Ipv4Rx) | ForEach-Object Value | Sort-Object -Unique) {
         if ($ip -notmatch '^(192\.0\.2|198\.51\.100|203\.0\.113)\.|^127\.|^0\.0\.0\.0$') {
