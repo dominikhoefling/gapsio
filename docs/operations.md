@@ -14,7 +14,7 @@ Set by the install script; change them in the Function App configuration or via 
 | Setting | Default | Meaning |
 |---|---|---|
 | `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`) – derived from `-Features` |
-| `GAPSIO_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `inventory`) – derived from `-Features` |
+| `GAPSIO_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `coverage`, `response`, `detections`, `inventory`, `audit`) – derived from `-Features` |
 | `GAPSIO_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `GAPSIO_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
 | `GAPSIO_SCHEDULE_ACCESS` | `0 47 2 * * *` | Schedule of the access collection |

@@ -176,6 +176,51 @@
     'c.effect': ['Effect', 'Wirkung'], 'c.covers': ['Covers', 'Erfasst'], 'c.coversN': ['{0} agent(s), {1} agent user(s)', '{0} Agent(s), {1} Agent-User'], 'c.none': ['No Conditional Access policy targets agents.', 'Keine Conditional-Access-Richtlinie adressiert Agents.'],
     'c.weak': ['Not effectively protected', 'Nicht wirksam geschützt'], 'c.weak.lede': ['Agent identities and agent users that are not covered by an enabled policy – report-only counts as unprotected here.', 'Agent-Identitäten und Agent-User, die von keiner aktiven Richtlinie erfasst werden – auch Report-only zählt hier als ungeschützt.'],
     'c.allOk': ['All cloud agents with Entra Agent ID are covered by Conditional Access.', 'Alle Cloud-Agents mit Entra Agent ID sind durch Conditional Access erfasst.'],
+    // posture checks: policy conflicts, device control, attack disruption, detection rules, audit evidence
+    'v.conflicts': ['Policy conflicts', 'Policy-Konflikte'], 'v.devicecontrol': ['Device control', 'Device Control'], 'v.disruption': ['Attack disruption', 'Attack Disruption'], 'v.detections': ['Detection rules', 'Detection-Regeln'], 'v.evidence': ['Audit evidence', 'Audit-Nachweis'],
+    'cat.Conflict': ['Policy conflict', 'Policy-Konflikt'], 'cat.DeviceControl': ['Device control', 'Device Control'], 'cat.Detection': ['Detection rules', 'Detection-Regeln'],
+    'coll.policyConflicts': ['Policy conflict', 'Policy-Konflikt'], 'coll.detectionRules': ['Detection rule', 'Detection-Regel'],
+    'posture.rerun': ['This view needs a newer endpoint run – start one with “Collect now”.', 'Diese Ansicht braucht einen neueren Endpoint-Lauf – mit „Jetzt erfassen“ starten.'],
+    'pcf.lede': ['Settings that reach the same devices from two or more Intune policies with different values. Intune treats all policy types as equal: a setting in conflict may not be applied at all, and a conflicting ASR rule is left out of the merged rule set. Microsoft shows this per device – here it is the whole fleet.', 'Einstellungen, die dieselben Geräte aus zwei oder mehr Intune-Richtlinien mit unterschiedlichen Werten erreichen. Intune behandelt alle Richtlinientypen gleichrangig: Eine Einstellung im Konflikt wird möglicherweise gar nicht angewendet, und eine ASR-Regel im Konflikt fehlt im zusammengeführten Regelsatz. Microsoft zeigt das pro Gerät – hier ist es die ganze Flotte.'],
+    'pcf.fact.settings': ['settings in conflict', 'Einstellungen im Konflikt'], 'pcf.fact.asr': ['of them ASR rules', 'davon ASR-Regeln'], 'pcf.fact.devices': ['devices in the largest conflict', 'Geräte im größten Konflikt'],
+    'pcf.onlyAsr': ['ASR rules only', 'Nur ASR-Regeln'], 'pcf.values': ['Values and policies', 'Werte und Richtlinien'], 'pcf.devices': ['Devices', 'Geräte'], 'pcf.byAssignment': ['shared assignment', 'gemeinsame Zuweisung'],
+    'pcf.effect': ['Effect', 'Wirkung'], 'pcf.effect.asr': ['The conflicting rule is not added to the merged ASR rule set of these devices – it may not be active at all.', 'Die Regel im Konflikt wird nicht in den zusammengeführten ASR-Regelsatz dieser Geräte übernommen – sie ist möglicherweise gar nicht aktiv.'],
+    'pcf.effect.setting': ['Intune flags the setting as conflicted; it may fail to apply. Which value a device ends up with is not defined.', 'Intune markiert die Einstellung als Konflikt; sie wird möglicherweise nicht angewendet. Welcher Wert am Gerät ankommt, ist nicht definiert.'],
+    'pcf.policies': ['Policies', 'Richtlinien'], 'pcf.none': ['No setting reaches the same devices with different values.', 'Keine Einstellung erreicht dieselben Geräte mit unterschiedlichen Werten.'],
+    'pcf.note': ['Compared are single-value settings (choices, switches, numbers) of assigned Settings Catalog and endpoint security policies. Lists such as exclusions merge and are not conflicts. Without device data (feature Hunting off) the overlap is judged by the assignments.', 'Verglichen werden Einzelwert-Einstellungen (Auswahl, Schalter, Zahlen) zugewiesener Settings-Catalog- und Endpunktsicherheits-Richtlinien. Listen wie Exclusions werden zusammengeführt und sind keine Konflikte. Ohne Gerätedaten (Feature Hunting aus) wird die Überschneidung anhand der Zuweisungen beurteilt.'],
+    'dvc.lede': ['Where USB storage is actually used – and whether a device control policy reaches those devices. Defender reports USB mounts for onboarded devices by default; device control decides what a drive may do.', 'Wo USB-Speicher tatsächlich genutzt wird – und ob eine Device-Control-Richtlinie diese Geräte erreicht. Defender meldet USB-Einbindungen onboardeter Geräte standardmäßig; Device Control entscheidet, was ein Laufwerk darf.'],
+    'dvc.fact.policies': ['assigned device control policies', 'zugewiesene Device-Control-Richtlinien'], 'dvc.fact.usb': ['devices with USB storage in use (30 days)', 'Geräte mit genutztem USB-Speicher (30 Tage)'], 'dvc.fact.nopolicy': ['of them without a device control policy', 'davon ohne Device-Control-Richtlinie'], 'dvc.fact.denied': ['denied accesses (30 days)', 'verweigerte Zugriffe (30 Tage)'],
+    'dvc.usage.off': ['USB usage needs the feature “Hunting” (ThreatHunting.Read.All). Only the policies are shown.', 'Die USB-Nutzung braucht das Feature „Hunting“ (ThreatHunting.Read.All). Es werden nur die Richtlinien gezeigt.'], 'dvc.usage.failed': ['USB usage could not be read in the last run – see the notices of the run.', 'Die USB-Nutzung konnte im letzten Lauf nicht gelesen werden – siehe Hinweise des Laufs.'],
+    'dvc.col.mounts': ['USB mounts (30 d)', 'USB-Einbindungen (30 T)'], 'dvc.col.drives': ['Drives', 'Laufwerke'], 'dvc.col.last': ['Last mount', 'Zuletzt eingebunden'], 'dvc.col.policy': ['Device control policy', 'Device-Control-Richtlinie'], 'dvc.col.events': ['Policy events', 'Richtlinien-Ereignisse'], 'dvc.col.settings': ['Settings', 'Einstellungen'],
+    'dvc.pol.yes': ['policy applies', 'Richtlinie greift'], 'dvc.pol.no': ['no policy', 'keine Richtlinie'], 'dvc.pol.unsupported': ['not supported (server/Linux)', 'nicht unterstützt (Server/Linux)'], 'dvc.pol.unknown': ['device unknown', 'Gerät unbekannt'],
+    'dvc.events': ['{0} events, {1} denied', '{0} Ereignisse, {1} verweigert'], 'dvc.onlyOpen': ['USB in use without policy only', 'Nur USB-Nutzung ohne Richtlinie'],
+    'dvc.none': ['No USB storage was mounted on any device in the last 30 days.', 'In den letzten 30 Tagen wurde auf keinem Gerät USB-Speicher eingebunden.'], 'dvc.none.nodata': ['No usage data.', 'Keine Nutzungsdaten.'],
+    'dvc.policies': ['Device control policies in Intune', 'Device-Control-Richtlinien in Intune'], 'dvc.policies.none': ['No Intune policy configures device control or removable storage.', 'Keine Intune-Richtlinie konfiguriert Device Control oder Wechseldatenträger.'],
+    'dvc.note': ['Device control is supported on Windows 10/11 and macOS, not on servers. Policy events are only written for policies with an audit entry, and Microsoft caps them at 300 per device and day. Device control configured by Group Policy is not visible here.', 'Device Control wird auf Windows 10/11 und macOS unterstützt, nicht auf Servern. Richtlinien-Ereignisse entstehen nur bei Richtlinien mit Audit-Eintrag, und Microsoft begrenzt sie auf 300 pro Gerät und Tag. Per Gruppenrichtlinie konfiguriertes Device Control ist hier nicht sichtbar.'],
+    'dis.lede': ['Automatic attack disruption contains compromised users and devices within minutes – if its prerequisites are met. Gapsio checks what can be verified and names what Microsoft only shows in the portal, so nothing is assumed.', 'Automatic Attack Disruption dämmt kompromittierte Benutzer und Geräte binnen Minuten ein – wenn die Voraussetzungen stimmen. Gapsio prüft, was sich prüfen lässt, und benennt, was Microsoft nur im Portal zeigt, damit nichts unterstellt wird.'],
+    'dis.fact.gaps': ['gaps found', 'Lücken gefunden'], 'dis.fact.ok': ['checks passed', 'Prüfungen bestanden'], 'dis.fact.manual': ['to check in the portal', 'im Portal zu prüfen'], 'dis.fact.events': ['disruption events (30 days)', 'Disruption-Ereignisse (30 Tage)'],
+    'diss.Gap': ['gap', 'Lücke'], 'diss.OK': ['OK', 'OK'], 'diss.Review': ['review', 'prüfen'], 'diss.NotMeasurable': ['not measurable', 'nicht messbar'],
+    'dis.col.check': ['Prerequisite', 'Voraussetzung'], 'dis.col.result': ['Result', 'Ergebnis'], 'dis.col.where': ['Where to check', 'Wo prüfen'], 'dis.col.action': ['Action', 'Aktion'], 'dis.col.report': ['Outcome', 'Ausgang'],
+    'dis.events': ['What disruption did (30 days)', 'Was Disruption getan hat (30 Tage)'], 'dis.events.lede': ['Outcomes of containment on the devices: blocked sign-ins, SMB and RPC access of contained users. The actions themselves are in the Action center.', 'Auswirkungen der Eindämmung auf den Geräten: blockierte Anmeldungen, SMB- und RPC-Zugriffe eingedämmter Benutzer. Die Aktionen selbst stehen im Action Center.'],
+    'dis.events.none': ['No disruption events in the last 30 days.', 'Keine Disruption-Ereignisse in den letzten 30 Tagen.'], 'dis.events.off': ['Needs the feature “Hunting”.', 'Braucht das Feature „Hunting“.'], 'dis.events.unavailable': ['The table DisruptionAndResponseEvents is not available in this tenant.', 'Die Tabelle DisruptionAndResponseEvents ist in diesem Mandanten nicht verfügbar.'],
+    'dis.note': ['Sources: Microsoft Learn “Configure automatic attack disruption” (minimum Sense agent {0} for Contain User), Advanced Hunting (DeviceInfo, IdentityDirectoryEvents, DisruptionAndResponseEvents). Device discovery mode, remediation levels and exclusions have no API.', 'Quellen: Microsoft Learn „Configure automatic attack disruption“ (Sense-Agent mindestens {0} für Contain User), Advanced Hunting (DeviceInfo, IdentityDirectoryEvents, DisruptionAndResponseEvents). Für Gerätesuche-Modus, Automatisierungsstufen und Ausnahmen gibt es keine API.'],
+    'det.lede': ['Custom detection rules are your own detections – and nobody tells you when one stops. Defender switches failing rules off automatically; disabled rules stay in the list. This view shows which rules really run, which act on their own and who changed them.', 'Custom-Detection-Regeln sind eure eigenen Erkennungen – und niemand sagt Bescheid, wenn eine aufhört. Defender schaltet fehlschlagende Regeln automatisch ab; deaktivierte Regeln bleiben in der Liste. Diese Ansicht zeigt, welche Regeln wirklich laufen, welche selbst handeln und wer sie geändert hat.'],
+    'det.off': ['The feature “Detections” (CustomDetection.Read.All) is not enabled in this installation. Add it to the features and grant the permission:', 'Das Feature „Detections“ (CustomDetection.Read.All) ist in dieser Installation nicht aktiviert. Zu den Features hinzufügen und die Berechtigung erteilen:'], 'det.failed': ['The custom detection rules could not be read in the last run – see the notices of the run (permission CustomDetection.Read.All).', 'Die Custom-Detection-Regeln konnten im letzten Lauf nicht gelesen werden – siehe Hinweise des Laufs (Berechtigung CustomDetection.Read.All).'],
+    'det.fact.rules': ['custom detection rules', 'Custom-Detection-Regeln'], 'det.fact.auto': ['switched off automatically', 'automatisch abgeschaltet'], 'det.fact.disabled': ['disabled', 'deaktiviert'], 'det.fact.actions': ['act automatically', 'handeln automatisch'],
+    'dets.enabled': ['enabled', 'aktiv'], 'dets.disabled': ['disabled', 'deaktiviert'], 'dets.autoDisabled': ['switched off automatically', 'automatisch abgeschaltet'], 'dets.unknown': ['unknown', 'unbekannt'],
+    'det.col.rule': ['Rule', 'Regel'], 'det.col.schedule': ['Runs', 'Läuft'], 'det.col.actions': ['Automatic actions', 'Automatische Aktionen'], 'det.col.alerts': ['Alerts (30 d)', 'Alerts (30 T)'], 'det.col.groups': ['Device groups', 'Gerätegruppen'], 'det.groups.all': ['all devices', 'alle Geräte'],
+    'det.nrt': ['continuously', 'fortlaufend'], 'det.every.h': ['every {0} h', 'alle {0} Std.'], 'det.every.min': ['every {0} min', 'alle {0} Min.'], 'det.onlyActions': ['With device/user/mail actions only', 'Nur mit Geräte-/Benutzer-/Mail-Aktionen'],
+    'det.lastRun': ['Last run', 'Letzter Lauf'], 'det.lastRun.none': ['not reported by the API', 'von der API nicht geliefert'], 'det.lastRunFailed': ['last run failed', 'letzter Lauf fehlgeschlagen'], 'det.lastAlert': ['Last alert', 'Letzter Alert'],
+    'det.alerts.unknown': ['The alert title is dynamic or alerts could not be read – no number.', 'Der Alert-Titel ist dynamisch oder Alerts waren nicht lesbar – keine Zahl.'], 'det.none': ['No custom detection rules.', 'Keine Custom-Detection-Regeln.'],
+    'det.note': ['Alerts are matched by the rule’s alert title (AlertInfo, 30 days); rules with a dynamic title show no number. Microsoft no longer returns the run history through the API – a missing “last run” does not mean the rule ran fine.', 'Alerts werden über den Alert-Titel der Regel zugeordnet (AlertInfo, 30 Tage); Regeln mit dynamischem Titel zeigen keine Zahl. Microsoft liefert die Lauf-Historie nicht mehr über die API – ein fehlender „letzter Lauf“ heißt nicht, dass die Regel fehlerfrei lief.'],
+    'ev.lede': ['Open findings and accepted risks, sorted by the controls an auditor asks about: ISO/IEC 27001:2022 Annex A and NIS2 Article 21(2). Print the page or export the list as evidence of what is checked continuously – and what is still open.', 'Offene Befunde und akzeptierte Risiken, sortiert nach den Kontrollen, nach denen ein Auditor fragt: ISO/IEC 27001:2022 Anhang A und NIS2 Artikel 21 Abs. 2. Die Seite drucken oder die Liste exportieren – als Nachweis, was laufend geprüft wird und was noch offen ist.'],
+    'ev.fact.asof': ['data as of (Gapsio {0})', 'Datenstand (Gapsio {0})'], 'ev.fact.open': ['controls with open findings', 'Kontrollen mit offenen Befunden'], 'ev.fact.clear': ['controls without findings', 'Kontrollen ohne Befunde'], 'ev.fact.accepted': ['controls with accepted risks only', 'Kontrollen nur mit akzeptierten Risiken'], 'ev.fact.na': ['controls not assessed', 'Kontrollen nicht bewertet'],
+    'ev.print': ['Print / save as PDF', 'Drucken / als PDF speichern'], 'ev.community': ['Community edition: the lists are cut to the first rows, so the counts here are incomplete.', 'Community-Edition: Die Listen sind auf die ersten Zeilen gekürzt, die Zahlen hier sind deshalb unvollständig.'],
+    'evs.Open': ['findings open', 'Befunde offen'], 'evs.Clear': ['no findings', 'keine Befunde'], 'evs.Accepted': ['risks accepted', 'Risiken akzeptiert'], 'evs.NotAssessed': ['not assessed', 'nicht bewertet'],
+    'ev.col.framework': ['Framework', 'Rahmenwerk'], 'ev.col.control': ['Control', 'Kontrolle'], 'ev.col.open': ['Open findings', 'Offene Befunde'], 'ev.col.accepted': ['Accepted', 'Akzeptiert'], 'ev.col.areas': ['What Gapsio checks', 'Was Gapsio prüft'], 'ev.col.exception': ['Exception', 'Ausnahme'],
+    'ev.na.detail': ['The module that provides evidence for this control is not enabled.', 'Das Modul, das Nachweise für diese Kontrolle liefert, ist nicht aktiviert.'], 'ev.clear.detail': ['No finding in the last run.', 'Kein Befund im letzten Lauf.'],
+    'ev.flat': ['Findings per control', 'Befunde pro Kontrolle'], 'ev.flat.lede': ['One row per control and finding – export it as CSV for the audit file.', 'Eine Zeile pro Kontrolle und Befund – als CSV für die Audit-Akte exportieren.'], 'ev.flat.none': ['No findings.', 'Keine Befunde.'],
+    'ov.conflicts': ['settings in a policy conflict', 'Einstellungen im Policy-Konflikt'], 'ov.usb': ['devices using USB storage without device control', 'Geräte mit USB-Speicher ohne Device Control'], 'ov.disruption': ['gaps in attack disruption readiness', 'Lücken bei der Attack-Disruption-Readiness'], 'ov.detections': ['custom detection rules not running', 'Custom-Detection-Regeln laufen nicht'],
     // access (optional module)
     'r.lede': ['Defender XDR unified RBAC: who holds which Defender role – directly, via group, eligible through PIM for groups or requestable via an access package – for which data sources, and when the person last actually used the Defender portal. Device-group scoping for Defender for Endpoint is configured on the device groups page and is not exposed by the API.', 'Defender XDR Unified RBAC: Wer welche Defender-Rolle hat – direkt, über Gruppe, eligible per PIM für Gruppen oder über ein Access Package beantragbar –, für welche Datenquellen, und wann die Person das Defender-Portal zuletzt tatsächlich genutzt hat. Das Gerätegruppen-Scoping für Defender for Endpoint wird auf der Gerätegruppen-Seite konfiguriert und ist per API nicht sichtbar.'],
     'r.person': ['Person', 'Person'], 'r.role': ['Role', 'Rolle'], 'r.platform': ['Platform', 'Plattform'], 'r.state': ['State', 'Zustand'], 'r.path': ['Path', 'Weg'], 'r.scope': ['Data sources', 'Datenquellen'], 'r.ends': ['Ends', 'Endet'],
@@ -1381,7 +1426,11 @@
           s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null,
           s.fleet ? fact(num(s.fleet.tampering30d), t('ov.tampering')) : null, s.fleet ? fact(num(s.fleet.internetFacingHigh), t('ov.inetHigh')) : null,
           s.fleet && s.fleet.inactive90d !== null && s.fleet.inactive90d !== undefined ? fact(num(s.fleet.inactive90d), t('ov.inactive')) : null,
-          s.fleet && s.fleet.thirdPartyAv ? fact(num(s.fleet.thirdPartyAv), t('ov.thirdParty')) : null));
+          s.fleet && s.fleet.thirdPartyAv ? fact(num(s.fleet.thirdPartyAv), t('ov.thirdParty')) : null,
+          s.policyConflicts ? fact(num(s.policyConflicts), t('ov.conflicts')) : null,
+          s.usbWithoutPolicy ? fact(num(s.usbWithoutPolicy), t('ov.usb')) : null,
+          s.disruptionGaps ? fact(num(s.disruptionGaps), t('ov.disruption')) : null,
+          s.detectionRulesOff ? fact(t('ov.of', s.detectionRulesOff, s.detectionRules || 0), t('ov.detections')) : null));
       } else {
         main.append(noData(epErr, 'endpoint'));
       }
@@ -2557,6 +2606,238 @@
       }));
     },
 
+    // ---------- Posture checks (back end: Posture.ps1) ----------
+    async conflicts(main) {
+      main.append(h('h1', null, t('v.conflicts')), h('p', { class: 'lede' }, t('pcf.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      if (!Array.isArray(ep.policyConflicts)) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const rows = ep.policyConflicts;
+      const fact = (b, s) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, s));
+      const noDev = r => r.devices === null || r.devices === undefined;
+      main.append(h('div', { class: 'facts' },
+        fact(num(rows.length), t('pcf.fact.settings')), fact(num(rows.filter(r => r.isAsrRule).length), t('pcf.fact.asr')),
+        fact(num(rows.reduce((m, r) => Math.max(m, r.devices || 0), 0)), t('pcf.fact.devices'))));
+      main.append(dataTable({
+        name: 'policy-conflicts', rows,
+        search: r => `${r.setting} ${r.definitionId} ${arr(r.values).map(v => `${v.value} ${arr(v.policies).map(p => p.name).join(' ')}`).join(' ')}`,
+        filters: [
+          { label: t('x.platform'), options: [...new Set(rows.map(r => r.platform))].sort(), test: (r, v) => r.platform === v },
+          { type: 'check', label: t('pcf.onlyAsr'), test: r => r.isAsrRule === true }],
+        columns: [
+          { title: t('x.setting'), cell: r => h('span', null, r.setting, h('br'), h('span', { class: 'muted small mono' }, r.definitionId)), text: r => r.setting },
+          { title: t('x.platform'), text: r => r.platform },
+          { title: t('pcf.values'), cell: r => h('ul', { class: 'plain small' }, arr(r.values).map(v => h('li', null, h('b', null, String(v.value)), ' – ', arr(v.policies).map(p => p.name).join(', ')))), text: r => arr(r.values).map(v => `${v.value}: ${arr(v.policies).map(p => p.name).join(', ')}`).join(' | ') },
+          { title: t('pcf.devices'), cell: r => noDev(r) ? h('span', { class: 'muted small' }, t('pcf.byAssignment')) : h('span', { title: arr(r.deviceNames).join(', ') }, num(r.devices)), text: r => noDev(r) ? t('pcf.byAssignment') : String(r.devices) }],
+        detail: r => h('div', null, dl([
+          [t('pcf.effect'), r.isAsrRule ? t('pcf.effect.asr') : t('pcf.effect.setting')],
+          [t('pcf.policies'), h('ul', null, arr(r.values).flatMap(v => arr(v.policies).map(p => h('li', null, `${p.name}: ${v.value} (${arr(p.assignments).map(assignText).join(', ')})`))))],
+          [t('f.device'), arr(r.deviceNames).length ? arr(r.deviceNames).join(', ') + (r.devices > arr(r.deviceNames).length ? ' …' : '') : null]])),
+        empty: t('pcf.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('pcf.note')));
+    },
+
+    async devicecontrol(main) {
+      main.append(h('h1', null, t('v.devicecontrol')), h('p', { class: 'lede' }, t('dvc.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const dc = ep.deviceControl;
+      if (!dc) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const s = dc.summary || {};
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(s.assignedPolicies), t('dvc.fact.policies')), fact(num(s.usbDevices), t('dvc.fact.usb')),
+        fact(num(s.usbWithoutPolicy), t('dvc.fact.nopolicy')), fact(num(s.denied), t('dvc.fact.denied'))));
+      if (dc.usage !== 'ok') main.append(h('p', { class: 'muted small' }, t(dc.usage === 'off' ? 'dvc.usage.off' : 'dvc.usage.failed')));
+      const polState = r => r.hasPolicy === true ? 'yes' : r.supported === false ? 'unsupported' : r.hasPolicy === false ? 'no' : 'unknown';
+      const polCell = r => {
+        const st = polState(r);
+        if (st === 'yes') return h('span', null, h('span', { class: 'tag' }, t('dvc.pol.yes')), h('br'), h('span', { class: 'muted small' }, arr(r.policies).join(', ')));
+        return h('span', { class: st === 'no' ? 'tag warn' : 'tag muted' }, t(`dvc.pol.${st}`));
+      };
+      const devices = arr(dc.devices);
+      main.append(dataTable({
+        name: 'device-control', rows: devices,
+        search: r => `${r.deviceName} ${r.os || ''} ${arr(r.policies).join(' ')} ${arr(r.triggeredPolicies).join(' ')}`,
+        filters: [
+          { label: t('dvc.col.policy'), options: ['no', 'yes', 'unsupported', 'unknown'], optionLabel: v => t(`dvc.pol.${v}`), test: (r, v) => polState(r) === v },
+          { type: 'check', label: t('dvc.onlyOpen'), test: r => polState(r) === 'no' && r.mounts > 0 }],
+        columns: [
+          { title: t('f.device'), cell: r => h('span', null, deviceLink(r.deviceId, r.deviceName), r.os ? [h('br'), h('span', { class: 'muted small' }, r.os)] : null), text: r => r.deviceName },
+          { title: t('dvc.col.mounts'), text: r => num(r.mounts) },
+          { title: t('dvc.col.drives'), text: r => num(r.drives) },
+          { title: t('dvc.col.last'), text: r => r.lastMount ? fmtDate(r.lastMount) : '–' },
+          { title: t('dvc.col.policy'), cell: polCell, text: r => t(`dvc.pol.${polState(r)}`) },
+          { title: t('dvc.col.events'), cell: r => r.triggers ? h('span', { title: arr(r.triggeredPolicies).join(', ') }, t('dvc.events', num(r.triggers), num(r.denied))) : h('span', { class: 'muted' }, '–'), text: r => r.triggers ? t('dvc.events', r.triggers, r.denied) : '–' }],
+        empty: t(dc.usage === 'ok' ? 'dvc.none' : 'dvc.none.nodata')
+      }));
+      main.append(h('h2', null, t('dvc.policies')));
+      main.append(dataTable({
+        name: 'device-control-policies', rows: arr(dc.policies),
+        search: r => `${r.name} ${arr(r.assignments).join(' ')}`,
+        columns: [
+          { title: t('x.policy'), text: r => r.name },
+          { title: t('x.platform'), text: r => r.platform },
+          { title: t('x.assignment'), cell: r => r.assigned ? arr(r.assignments).map(assignText).join(', ') : h('span', { class: 'tag warn' }, t('x.unassigned')), text: r => r.assigned ? arr(r.assignments).map(assignText).join(', ') : t('x.unassigned') },
+          { title: t('dvc.col.settings'), text: r => num(r.settings) }],
+        empty: t('dvc.policies.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('dvc.note')));
+    },
+
+    async disruption(main) {
+      main.append(h('h1', null, t('v.disruption')), h('p', { class: 'lede' }, t('dis.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const d = ep.disruption;
+      if (!d) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const s = d.summary || {};
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(s.gaps), t('dis.fact.gaps')), fact(num(s.ok), t('dis.fact.ok')), fact(num((s.notMeasurable || 0) + (s.review || 0)), t('dis.fact.manual')),
+        fact(d.eventsStatus === 'ok' ? num(s.events30d) : '–', t('dis.fact.events'))));
+      const cls = { Gap: 'tag warn', OK: 'tag', Review: 'tag warn', NotMeasurable: 'tag muted' };
+      const rank = { Gap: 0, Review: 1, NotMeasurable: 2, OK: 3 };
+      main.append(dataTable({
+        name: 'disruption-checks', rows: arr(d.checks), sort: (a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9),
+        search: r => `${tx(r.title)} ${tx(r.detail)} ${tx(r.where)}`,
+        filters: [{ label: t('pc.status'), options: ['Gap', 'Review', 'NotMeasurable', 'OK'], optionLabel: v => code('diss', v), test: (r, v) => r.status === v }],
+        columns: [
+          { title: t('dis.col.check'), cell: r => h('span', null, tx(r.title), r.source ? [h('br'), h('span', { class: 'muted small mono nowrap' }, r.source)] : null), text: r => tx(r.title) },
+          { title: t('pc.status'), cell: r => h('span', { class: cls[r.status] || 'tag muted' }, code('diss', r.status)), text: r => code('diss', r.status) },
+          { title: t('dis.col.result'), cell: r => h('span', { class: 'small' }, tx(r.detail)), text: r => tx(r.detail) },
+          { title: t('dis.col.where'), cell: r => r.where ? h('span', { class: 'small' }, tx(r.where)) : h('span', { class: 'muted' }, '–'), text: r => tx(r.where) || '–' }],
+        detail: r => arr(r.devices).length ? h('div', null, dl([[t('f.device'), list(arr(r.devices))]])) : h('div', { class: 'muted small' }, tx(r.detail))
+      }));
+      main.append(h('h2', null, t('dis.events')), h('p', { class: 'lede' }, t('dis.events.lede')));
+      if (d.eventsStatus !== 'ok') main.append(h('p', { class: 'muted small' }, t(d.eventsStatus === 'off' ? 'dis.events.off' : 'dis.events.unavailable')));
+      else main.append(dataTable({
+        name: 'disruption-events', rows: arr(d.events),
+        search: r => `${r.actionType} ${r.reportType}`,
+        columns: [
+          { title: t('dis.col.action'), cell: r => h('span', { class: 'mono' }, r.actionType), text: r => r.actionType },
+          { title: t('dis.col.report'), text: r => r.reportType || '–' },
+          { title: t('pu.count'), text: r => num(r.events) },
+          { title: t('pcf.devices'), text: r => num(r.devices) },
+          { title: t('pu.last'), text: r => fmtDate(r.last) }],
+        empty: t('dis.events.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('dis.note', d.minSense || '10.8470')));
+    },
+
+    async detections(main) {
+      main.append(h('h1', null, t('v.detections')), h('p', { class: 'lede' }, t('det.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const st = ep.detectionRulesStatus;
+      if (st === undefined) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      if (st !== 'ok') { main.append(h('div', { class: 'empty' }, h('p', null, t(st === 'off' ? 'det.off' : 'det.failed')), st === 'off' ? h('p', { class: 'mono small' }, './setup/Install-Gapsio.ps1 -ResourceGroup <rg> -Features <…>,Detections') : null)); return; }
+      const rows = arr(ep.detectionRules);
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(rows.length), t('det.fact.rules')), fact(num(rows.filter(r => r.status === 'autoDisabled').length), t('det.fact.auto')),
+        fact(num(rows.filter(r => r.status === 'disabled').length), t('det.fact.disabled')), fact(num(rows.filter(r => r.status === 'enabled' && arr(r.impactActions).length).length), t('det.fact.actions'))));
+      const freq = (f) => {
+        const x = String(f || ''); let m;
+        if (x === '0' || /^PT0[SMH]$/.test(x)) return t('det.nrt');
+        if ((m = /^PT(\d+)H$/.exec(x)) || (m = /^(\d+)H$/.exec(x))) return t('det.every.h', m[1]);
+        if ((m = /^PT(\d+)M$/.exec(x))) return t('det.every.min', m[1]);
+        if ((m = /^P(\d+)D$/.exec(x))) return t('det.every.h', String(Number(m[1]) * 24));
+        return x || '–';
+      };
+      const cls = { autoDisabled: 'tag warn', disabled: 'tag muted', enabled: 'tag' };
+      main.append(dataTable({
+        name: 'detection-rules', rows,
+        search: r => `${r.name} ${r.alertTitle || ''} ${r.status} ${arr(r.actions).join(' ')} ${r.lastModifiedBy || ''} ${r.createdBy || ''}`,
+        filters: [
+          { label: t('pc.status'), options: [...new Set(rows.map(r => r.status))], optionLabel: v => code('dets', v), test: (r, v) => r.status === v },
+          { label: t('f.severity'), options: [...new Set(rows.map(r => r.severity).filter(Boolean))], test: (r, v) => r.severity === v },
+          { type: 'check', label: t('det.onlyActions'), test: r => arr(r.impactActions).length > 0 }],
+        columns: [
+          { title: t('det.col.rule'), cell: r => h('span', null, r.name, r.alertTitle && r.alertTitle !== r.name ? [h('br'), h('span', { class: 'muted small' }, r.alertTitle)] : null), text: r => r.name },
+          { title: t('pc.status'), cell: r => h('span', null, h('span', { class: cls[r.status] || 'tag muted' }, code('dets', r.status)), r.lastRun && /failed/i.test(r.lastRun.status) ? [' ', h('span', { class: 'tag warn' }, t('det.lastRunFailed'))] : null), text: r => code('dets', r.status) },
+          { title: t('det.col.schedule'), text: r => freq(r.frequency) },
+          { title: t('f.severity'), text: r => r.severity || '–' },
+          { title: t('det.col.actions'), cell: r => arr(r.actions).length ? h('span', { class: 'small' }, arr(r.actions).map((a, i) => [i ? ', ' : null, arr(r.impactActions).includes(a) ? h('b', null, a) : a])) : h('span', { class: 'muted' }, '–'), text: r => arr(r.actions).join(', ') || '–' },
+          { title: t('det.col.alerts'), cell: r => r.alerts30d === null || r.alerts30d === undefined ? h('span', { class: 'muted', title: t('det.alerts.unknown') }, '–') : num(r.alerts30d), text: r => r.alerts30d === null || r.alerts30d === undefined ? '–' : String(r.alerts30d) },
+          { title: t('x.modified'), cell: r => h('span', null, fmtDay(r.lastModified), r.lastModifiedBy ? [h('br'), h('span', { class: 'muted small' }, r.lastModifiedBy)] : null), text: r => `${fmtDay(r.lastModified)} ${r.lastModifiedBy || ''}` }],
+        detail: r => h('div', null, dl([
+          [t('x.createdBy'), r.createdBy], [t('det.col.groups'), arr(r.deviceGroups).join(', ') || t('det.groups.all')],
+          [t('det.lastRun'), r.lastRun ? `${r.lastRun.status}${r.lastRun.errorCode ? ` (${r.lastRun.errorCode})` : ''} · ${fmtDate(r.lastRun.at)}${r.lastRun.failureReason ? ` · ${r.lastRun.failureReason}` : ''}` : t('det.lastRun.none')],
+          [t('det.lastAlert'), r.lastAlert ? fmtDate(r.lastAlert) : null]])),
+        empty: t('det.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('det.note')));
+    },
+
+    async evidence(main) {
+      main.append(h('h1', null, t('v.evidence')), h('p', { class: 'lede' }, t('ev.lede')));
+      let map; try { map = await api('controls'); } catch (e) { main.append(h('div', { class: 'empty' }, t('load.failed', e.message))); return; }
+      const snaps = { endpoint: null, agents: null, access: null, licensing: null };
+      await Promise.all([loadEndpoint().then(x => { snaps.endpoint = x; }).catch(() => null),
+        hasMod('agents') ? loadAgents().then(x => { snaps.agents = x; }).catch(() => null) : null,
+        hasMod('access') ? loadAccess().then(x => { snaps.access = x; }).catch(() => null) : null,
+        hasMod('licensing') ? loadLicensing().then(x => { snaps.licensing = x; }).catch(() => null) : null]);
+      await loadAcceptances();
+      const acc = acceptedMap();
+      const all = Object.entries(snaps).flatMap(([m, s]) => arr(s && s.findings).filter(f => f && f.category).map(f => ({ ...f, module: m, accepted: acc[f.key] || null })));
+      const rows = arr(map.frameworks).flatMap(fw => arr(fw.controls).map(c => {
+        const match = arr(c.match);
+        const mods = [...new Set(match.filter(x => x.includes(':')).map(x => x.split(':')[0]))];
+        const assessed = mods.length ? mods.some(m => snaps[m]) : Object.values(snaps).some(Boolean);
+        const fs = all.filter(f => match.includes(`${f.module}:${f.category}`) || match.includes(f.category)).sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
+        const open = fs.filter(f => !f.accepted), accepted = fs.filter(f => f.accepted);
+        return { framework: fw.name, fwShort: fw.short || fw.name, id: c.id, title: tx(c.title), areas: [...new Set(match.map(x => x.split(':').pop()))], mods, open, accepted, findings: fs,
+          status: !assessed ? 'NotAssessed' : open.length ? 'Open' : accepted.length ? 'Accepted' : 'Clear' };
+      }));
+      const ts = Object.values(snaps).map(s => s && s.generatedAt).filter(Boolean).sort().pop();
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      const count = s => num(rows.filter(r => r.status === s).length);
+      main.append(h('div', { class: 'facts' },
+        fact(ts ? fmtDay(ts) : '–', t('ev.fact.asof', (state.me && state.me.version) || '')), fact(count('Open'), t('ev.fact.open')),
+        fact(count('Clear'), t('ev.fact.clear')), fact(count('Accepted'), t('ev.fact.accepted')), fact(count('NotAssessed'), t('ev.fact.na'))));
+      main.append(h('p', { class: 'muted small' }, tx(map.note)),
+        h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'primary', onclick: () => window.print() }, t('ev.print'))));
+      if (Object.values(snaps).some(s => s && s.tier === 'Community')) main.append(h('p', { class: 'muted small' }, t('ev.community')));
+      const cls = { Open: 'tag warn', Clear: 'tag', Accepted: 'tag accepted', NotAssessed: 'tag muted' };
+      const rank = { Open: 0, Accepted: 1, Clear: 2, NotAssessed: 3 };
+      const sevText = fs => SEV.map(s => [s, fs.filter(f => f.severity === s).length]).filter(([, n]) => n).map(([s, n]) => `${n} ${code('sev', s)}`).join(' · ');
+      const devText = f => f.deviceCount ? t('f.devicesN', num(f.deviceCount)) : (f.deviceName || '–');
+      main.append(dataTable({
+        name: 'evidence-controls', rows,
+        search: r => `${r.framework} ${r.id} ${r.title} ${r.areas.map(a => code('cat', a)).join(' ')}`,
+        filters: [
+          { label: t('ev.col.framework'), options: [...new Set(rows.map(r => r.framework))], test: (r, v) => r.framework === v },
+          { label: t('pc.status'), options: ['Open', 'Accepted', 'Clear', 'NotAssessed'], optionLabel: v => code('evs', v), test: (r, v) => r.status === v }],
+        columns: [
+          { title: t('ev.col.framework'), cell: r => h('span', { title: r.framework }, r.fwShort), text: r => r.framework },
+          { title: t('ev.col.control'), cell: r => h('span', null, h('b', null, r.id), ' ', r.title), text: r => `${r.id} ${r.title}` },
+          { title: t('pc.status'), cell: r => h('span', { class: cls[r.status] }, code('evs', r.status)), text: r => code('evs', r.status) },
+          { title: t('ev.col.open'), text: r => r.open.length ? sevText(r.open) : '–' },
+          { title: t('ev.col.accepted'), text: r => r.accepted.length ? num(r.accepted.length) : '–' },
+          { title: t('ev.col.areas'), cell: r => h('span', { class: 'small' }, r.areas.map(a => code('cat', a)).join(', ')), text: r => r.areas.map(a => code('cat', a)).join(', ') }],
+        detail: r => r.findings.length ? h('ul', { class: 'plain' }, r.findings.map(f => h('li', null, sevCell(f.severity), ' ', tx(f.title), f.deviceName || f.deviceCount ? ` · ${devText(f)}` : '',
+          f.accepted ? [' ', h('span', { class: 'tag accepted' }, f.accepted.expires ? t('acc.until', fmtDay(f.accepted.expires)) : t('acc.unlimited')), ` ${f.accepted.owner || ''}`] : null)))
+          : h('span', { class: 'muted small' }, t(r.status === 'NotAssessed' ? 'ev.na.detail' : 'ev.clear.detail'))
+      }));
+      // Flat list for the auditor: one row per control and finding (CSV export)
+      const flat = rows.flatMap(r => r.findings.map(f => ({ r, f })));
+      main.append(h('h2', null, t('ev.flat')), h('p', { class: 'lede' }, t('ev.flat.lede')));
+      main.append(dataTable({
+        name: 'evidence-findings', rows: flat, sort: (a, b) => String(a.r.framework).localeCompare(String(b.r.framework)) || String(a.r.id).localeCompare(String(b.r.id), undefined, { numeric: true }) || sevRank(a.f.severity) - sevRank(b.f.severity),
+        search: x => `${x.r.framework} ${x.r.id} ${x.r.title} ${tx(x.f.title)} ${x.f.deviceName || ''}`,
+        filters: [
+          { label: t('ev.col.framework'), options: [...new Set(flat.map(x => x.r.framework))], test: (x, v) => x.r.framework === v },
+          { label: t('f.severity'), options: SEV, optionLabel: s => code('sev', s), test: (x, v) => x.f.severity === v },
+          { type: 'check', label: t('acc.hide'), test: x => !x.f.accepted }],
+        columns: [
+          { title: t('ev.col.framework'), cell: x => h('span', { title: x.r.framework }, x.r.fwShort), text: x => x.r.framework },
+          { title: t('ev.col.control'), text: x => `${x.r.id} ${x.r.title}` },
+          { title: t('f.severity'), cell: x => sevCell(x.f.severity), text: x => code('sev', x.f.severity) },
+          { title: t('f.finding'), text: x => tx(x.f.title) },
+          { title: t('f.device'), text: x => devText(x.f) },
+          { title: t('ev.col.exception'), text: x => x.f.accepted ? `${x.f.accepted.expires ? t('acc.until', fmtDay(x.f.accepted.expires)) : t('acc.unlimited')} · ${x.f.accepted.owner || ''}${x.f.accepted.ticket ? ` · ${x.f.accepted.ticket}` : ''}` : '–' }],
+        empty: t('ev.flat.none')
+      }));
+    },
+
     async access(main) {
       main.append(h('h1', null, t('nav.access')), h('p', { class: 'lede' }, t('r.lede')));
       let ac; try { ac = await loadAccess(); } catch (e) { main.append(noData(e, 'access')); return; }
@@ -3025,14 +3306,14 @@
   };
 
   const NAV = [
-    { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline'] },
+    { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline', 'conflicts', 'devicecontrol', 'disruption', 'detections'] },
     { group: 'nav.office', admin: true, module: 'officepreview', items: ['officepreview', 'officeantiphish', 'officepolicymap'] },
     { group: 'nav.purview', admin: true, module: 'purviewpreview', items: ['purview', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
-    { group: 'nav.history', admin: true, items: ['changes', 'accepted'] },
+    { group: 'nav.history', admin: true, items: ['changes', 'accepted', 'evidence'] },
     { group: 'nav.settings', admin: true, items: ['license'] }
   ];
   const VIEW_MODULE = {

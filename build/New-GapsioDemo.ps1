@@ -48,6 +48,7 @@ $data = [ordered]@{
     agents   = & $read 'agents-latest.json'
     licensing = & $read 'licensing-latest.json'
     access   = & $read 'access-latest.json'
+    controls = Get-Content -Raw (Join-Path $root 'src/functionapp/config/control-mapping.json') | ConvertFrom-Json -Depth 16
     runs     = @(& $read 'runs.json')
     changes  = @(& $read 'endpoint-changes.json')
     acceptances = [ordered]@{ acceptances = @(& $read 'acceptances.json' | Where-Object { $_ } | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (-not $_.revokedAt) -Force -PassThru }) }
