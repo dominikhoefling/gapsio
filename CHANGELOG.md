@@ -6,6 +6,8 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.0] – 2026-11-10
+
 ### Added
 - **Office preview: policy changes for all protection policies.** Every audited change to anti-spam, anti-malware,
   Safe Links, Safe Attachments, Tenant Allow/Block List, transport rules, quarantine policies, DKIM, Teams protection
