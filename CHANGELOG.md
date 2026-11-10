@@ -6,6 +6,25 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.7.1] – 2026-11-10
+
+No new permissions.
+
+### Changed
+- **Devices that no longer report are labelled.** Defender keeps the last configuration assessment of a device that
+  stopped reporting, so Gapsio listed it like a current device. Such devices now appear under *Coverage gaps* as
+  *sensor inactive*, are labelled **not reporting** in the device list and on the device page, and their findings
+  carry the label **last known state**. Severity is unchanged. Summary field `devicesNotReporting`.
+- Attack disruption readiness says why the Sense agent version cannot be measured (Hunting off, no Windows devices,
+  or none of them reported in the lookback).
+- A hunting table that the tenant does not have (product or add-on not licensed) is reported as a short notice
+  instead of the raw HTTP 400.
+
+### Fixed
+- **High-risk browser extensions were never found.** The query read a `DeviceName` column that
+  `DeviceTvmBrowserExtensions` does not have, so it failed in every tenant that has the table. Device names now come
+  from the device list.
+
 ## [0.7.0] – 2026-11-10
 
 New optional feature `Detections` with one read-only permission (`CustomDetection.Read.All`); everything else in
