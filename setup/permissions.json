@@ -107,6 +107,19 @@
       ]
     },
     {
+      "id": "Detections",
+      "default": false,
+      "module": "endpoint",
+      "name": "Endpoint: custom detection rules – rules that Defender switched off automatically, disabled rules, rules that act automatically, and who changed them",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "CustomDetection.Read.All",
+          "why": "Read the custom detection rules of Defender XDR (status, schedule, automated actions, last change)"
+        }
+      ]
+    },
+    {
       "id": "Inventory",
       "default": false,
       "module": "endpoint",
@@ -270,11 +283,31 @@
       "module": "purviewpreview",
       "name": "Purview DLP preview (private preview): Endpoint DLP device coverage, Purview licences, DLP/label/audit activity and role holders",
       "permissions": [
-        { "resource": "graph", "value": "ThreatHunting.Read.All", "why": "Advanced Hunting: DeviceInfo, DeviceFileEvents, CloudAppEvents (Purview audit records), AlertInfo" },
-        { "resource": "graph", "value": "Organization.Read.All", "why": "Subscribed SKUs: Purview / DLP service plans" },
-        { "resource": "graph", "value": "User.Read.All", "why": "Number of users holding Endpoint DLP / Information Protection plans" },
-        { "resource": "graph", "value": "RoleManagement.Read.Directory", "why": "Entra role holders with Purview / DLP reach (active and eligible)" },
-        { "resource": "graph", "value": "InformationProtectionPolicy.Read.All", "why": "Sensitivity labels" }
+        {
+          "resource": "graph",
+          "value": "ThreatHunting.Read.All",
+          "why": "Advanced Hunting: DeviceInfo, DeviceFileEvents, CloudAppEvents (Purview audit records), AlertInfo"
+        },
+        {
+          "resource": "graph",
+          "value": "Organization.Read.All",
+          "why": "Subscribed SKUs: Purview / DLP service plans"
+        },
+        {
+          "resource": "graph",
+          "value": "User.Read.All",
+          "why": "Number of users holding Endpoint DLP / Information Protection plans"
+        },
+        {
+          "resource": "graph",
+          "value": "RoleManagement.Read.Directory",
+          "why": "Entra role holders with Purview / DLP reach (active and eligible)"
+        },
+        {
+          "resource": "graph",
+          "value": "InformationProtectionPolicy.Read.All",
+          "why": "Sensitivity labels"
+        }
       ]
     }
   ]

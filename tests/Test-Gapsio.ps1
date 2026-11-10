@@ -118,7 +118,11 @@ $fixtures = @{
         [pscustomobject]@{ id = 'pol-edge'; name = 'Edge Settings'; platforms = 'windows10'; technologies = 'mdm'; lastModifiedDateTime = '2026-07-01T10:00:00Z'; templateReference = $null },
         [pscustomobject]@{ id = 'pol-asr'; name = 'ASR Clients'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-06-10T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Attack Surface Reduction Rules' } },
         [pscustomobject]@{ id = 'pol-asr2'; name = 'ASR Pilot'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-11T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Attack Surface Reduction Rules' } },
-        [pscustomobject]@{ id = 'pol-lnx2'; name = 'Linux AV'; platforms = 'linux'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-12T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Antivirus' } }
+        [pscustomobject]@{ id = 'pol-lnx2'; name = 'Linux AV'; platforms = 'linux'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-09-12T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Antivirus' } },
+        # Posture checks: two policies for all devices that disagree (conflict), one device control policy for a pilot group
+        [pscustomobject]@{ id = 'pol-scan1'; name = 'MDAV Scan Settings'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-05-02T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Antivirus' } },
+        [pscustomobject]@{ id = 'pol-scan2'; name = 'MDAV Scan Settings Pilot'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-10-20T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Microsoft Defender Antivirus' } },
+        [pscustomobject]@{ id = 'pol-dc'; name = 'Device Control Pilot'; platforms = 'windows10'; technologies = 'mdm,microsoftSense'; lastModifiedDateTime = '2026-10-01T10:00:00Z'; templateReference = [pscustomobject]@{ templateDisplayName = 'Device Control' } }
     )
     definitions = @{
         'linux_mdatp_managed_antivirusengine_enforcementlevel' = [pscustomobject]@{ id = 'linux_mdatp_managed_antivirusengine_enforcementlevel'; options = @(
@@ -174,6 +178,9 @@ $fixtures = @{
             (FxG 'linux_mdatp_managed_exclusions' @(@((FxSi 'linux_mdatp_managed_exclusions_path' '/opt/agent'), (FxCi 'linux_mdatp_managed_exclusions_scope' 'linux_mdatp_managed_exclusions_scope_global'))))
         )
         'pol-edge' = @((FxC 'device_vendor_msft_policy_config_microsoft_edge_homepage' 'x'))
+        'pol-scan1' = @((FxC "${p}allowfullscanremovabledrivescanning" "${p}allowfullscanremovabledrivescanning_1"), (FxS "${p}avgcpuloadfactor" 50), (FxC "${p}allowarchivescanning" "${p}allowarchivescanning_1"))
+        'pol-scan2' = @((FxC "${p}allowfullscanremovabledrivescanning" "${p}allowfullscanremovabledrivescanning_0"), (FxS "${p}avgcpuloadfactor" 20), (FxC "${p}allowarchivescanning" "${p}allowarchivescanning_1"))
+        'pol-dc' = @((FxC 'device_vendor_msft_defender_configuration_devicecontrolenabled' 'device_vendor_msft_defender_configuration_devicecontrolenabled_1'), (FxC 'device_vendor_msft_defender_configuration_defaultenforcement' 'device_vendor_msft_defender_configuration_defaultenforcement_2'))
         'pol-asr' = @(
             (FxG "${p}attacksurfacereductionrules" @(@(
                         (FxCi "${p}attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem" "${p}attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem_block"),
@@ -199,7 +206,24 @@ $fixtures = @{
                         (FxLi 'linux_mdatp_managed_exclusionsettings_exclusions_item_scopes' @('epp')))))
         )
     }
-    assignmentsByPolicy = @{ 'pol-lnx' = @() }
+    assignmentsByPolicy = @{
+        'pol-lnx'   = @()
+        'pol-scan1' = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.allDevicesAssignmentTarget' } })
+        'pol-scan2' = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.allDevicesAssignmentTarget' } })
+        'pol-dc'    = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.groupAssignmentTarget'; groupId = 'g-dc' } })
+    }
+    detectionRules = @(
+        [pscustomobject]@{ id = 'dr-1'; displayName = 'Encoded PowerShell from Office'; status = 'enabled'; createdBy = 'alice@contoso.com'; lastModifiedBy = 'alice@contoso.com'; lastModifiedDateTime = '2026-09-25T10:15:00Z'
+            schedule = [pscustomobject]@{ frequency = 'PT1H' }; queryCondition = [pscustomobject]@{ queryText = 'DeviceProcessEvents | where FileName == "powershell.exe"' }
+            detectionAction = [pscustomobject]@{ alertTemplate = [pscustomobject]@{ title = 'Encoded PowerShell from Office'; severity = 'high' }; automatedActions = [pscustomobject]@{ isolateDevices = @([pscustomobject]@{ deviceIdColumn = 'DeviceId'; isolationType = 'full' }); initiateInvestigations = @([pscustomobject]@{ deviceIdColumn = 'DeviceId' }) } } },
+        [pscustomobject]@{ id = 'dr-2'; displayName = 'LSASS access by unsigned process'; status = 'autoDisabled'; createdBy = 'bob@contoso.com'; lastModifiedBy = 'bob@contoso.com'; lastModifiedDateTime = '2026-03-02T08:00:00Z'
+            schedule = [pscustomobject]@{ frequency = 'PT3H' }; detectionAction = [pscustomobject]@{ alertTemplate = [pscustomobject]@{ title = 'LSASS access by unsigned process'; severity = 'medium' }; automatedActions = [pscustomobject]@{} } },
+        [pscustomobject]@{ id = 'dr-3'; displayName = 'USB copy of finance files'; status = 'disabled'; createdBy = 'alice@contoso.com'; lastModifiedBy = 'carol@contoso.com'; lastModifiedDateTime = '2026-08-14T13:30:00Z'
+            schedule = [pscustomobject]@{ frequency = 'P1D' }; detectionAction = [pscustomobject]@{ alertTemplate = [pscustomobject]@{ title = 'USB copy of finance files'; severity = 'low' } } },
+        [pscustomobject]@{ id = 'dr-4'; displayName = 'New local administrator on server'; isEnabled = $true; createdBy = 'alice@contoso.com'; lastModifiedBy = 'alice@contoso.com'; lastModifiedDateTime = '2026-06-01T09:00:00Z'
+            schedule = [pscustomobject]@{ period = '24H' }; lastRunDetails = [pscustomobject]@{ status = 'failed'; lastRunDateTime = (Get-Date).ToUniversalTime().AddHours(-5).ToString('o'); errorCode = 'queryTimeout'; failureReason = 'Query timed out' }
+            detectionAction = [pscustomobject]@{ alertTemplate = [pscustomobject]@{ title = 'New local administrator on {{DeviceName}}'; severity = 'medium' }; organizationalScope = [pscustomobject]@{ deviceGroups = @('Server') } } }
+    )
     managedDevices = @(
         [pscustomobject]@{ id = 'int-win1'; deviceName = 'WIN-01'; operatingSystem = 'Windows'; azureADDeviceId = 'AAD-WIN1'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-1).ToString("o")); userPrincipalName = 'alice@contoso.com' },
         [pscustomobject]@{ id = 'int-gap1'; deviceName = 'LAPTOP-NEW'; operatingSystem = 'Windows'; azureADDeviceId = 'AAD-GAP1'; lastSyncDateTime = ([DateTime]::UtcNow.AddDays(-2).ToString("o")); userPrincipalName = 'bob@contoso.com' },
@@ -225,7 +249,7 @@ $fixtures = @{
         [pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.groupAssignmentTarget'; groupId = 'g-clients' } },
         [pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.exclusionGroupAssignmentTarget'; groupId = 'g-servers' } }
     )
-    groups = @{ 'g-clients' = 'All clients'; 'g-servers' = 'Server'; 'g1' = 'Helpdesk-Team'; 'g2' = 'PIM-SecOps'; 'g4' = 'Service desk candidates' }
+    groups = @{ 'g-clients' = 'All clients'; 'g-servers' = 'Server'; 'g1' = 'Helpdesk-Team'; 'g2' = 'PIM-SecOps'; 'g4' = 'Service desk candidates'; 'g-dc' = 'USB pilot devices' }
     deviceConfigurations = @(
         [pscustomobject]@{ id = 'dc-1'; displayName = 'Legacy Endpoint Protection'; '@odata.type' = '#microsoft.graph.windows10EndpointProtectionConfiguration'; lastModifiedDateTime = '2024-01-01T00:00:00Z'; defenderProcessesToExclude = @('cmd.exe') }
     )
@@ -248,6 +272,21 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-mac1'; DeviceName = 'MAC-01'; OSPlatform = 'macOS'; OSVersion = '15.6'; MachineGroup = 'Mac'; DeviceType = 'Workstation'; LastSeen = (T 0) },
         [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; ConnectivityType = 'Standard'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0); IsInternetFacing = 'true'; ExposureLevel = 'High'; AssetValue = 'High'; RegistryDeviceTag = 'DMZ' },
         [pscustomobject]@{ DeviceId = 'd-lnx1'; DeviceName = 'LNX-01'; OSPlatform = 'Linux'; OSVersion = 'Ubuntu 24.04'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) }
+    )
+    UsbMounts = @(
+        [pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; Mounts = 12; Drives = 3; LastMount = (T 1) },
+        [pscustomobject]@{ DeviceId = 'd-win2'; Name = 'WIN-02'; Mounts = 5; Drives = 2; LastMount = (T 3) },
+        [pscustomobject]@{ DeviceId = 'd-mac1'; Name = 'MAC-01'; Mounts = 2; Drives = 1; LastMount = (T 9) }
+    )
+    DeviceControl = @([pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; Triggers = 7; Denied = 3; Policies = @('Block unapproved USB'); LastTrigger = (T 1) })
+    Mdi = @([pscustomobject]@{ Events = 1250 })
+    Disruption = @(
+        [pscustomobject]@{ ActionType = 'ContainedUserLogonBlocked'; ReportType = 'Prevented'; Events = 14; Devices = 2; Last = (T 6) },
+        [pscustomobject]@{ ActionType = 'ContainedUserSmbFileOpenBlocked'; ReportType = 'Prevented'; Events = 3; Devices = 1; Last = (T 6) }
+    )
+    DetectionAlerts = @(
+        [pscustomobject]@{ Title = 'encoded powershell from office'; Alerts = 4; Last = (T 2) },
+        [pscustomobject]@{ Title = 'Some built-in alert'; Alerts = 9; Last = (T 1) }
     )
     Troubleshooting = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Starts = 4; Name = 'WIN-01'; Timestamp = (T 2); Reason = 'Troubleshooting mode ended' },
@@ -430,6 +469,7 @@ $agentFx = @{
         [pscustomobject]@{ id = 'ca-4'; displayName = 'Agents: high risk (disabled)'; state = 'disabled'; conditions = [pscustomobject]@{ clientApplications = [pscustomobject]@{ includeAgentIdServicePrincipals = @('All') }; agentIdRiskLevels = @('high') }; grantControls = [pscustomobject]@{ builtInControls = @('block') } }
     )
 }
+foreach ($cv in @(@('d-win1', '10.8750.26100.4061'), @('d-win2', '10.8295.22621.1'), @('d-win3', '10.8760.20348.1'))) { $hunting.DeviceInfo | Where-Object DeviceId -eq $cv[0] | Add-Member -NotePropertyName ClientVersion -NotePropertyValue $cv[1] -Force }
 $hunting.AgentsInfo = @(
     [pscustomobject]@{ AgentId = 'mde-1'; Name = 'Report Agent'; Platform = 'Microsoft Foundry'; EntraAgentId = 'ai-2'; EntraBlueprintId = 'bp-app-1'; PublishedStatus = 'Published'; LifecycleStatus = 'Active'
         Model = 'gpt-5'; Guardrails = '[]'; Endpoints = '[{"url":"https://agent.contoso.com/api","transport":"https","isExternal":true}]'; Owners = '[{"displayName":"Bob","userPrincipalName":"bob@contoso.com"}]'
@@ -439,6 +479,7 @@ $hunting.AgentsInfo = @(
         LocalMcps = '[{"name":"filesystem","commandName":"npx","commandArgs":["-y","@modelcontextprotocol/server-filesystem"]},{"name":"pinned","commandName":"npx","commandArgs":["tool@1.2.3"]}]'; McpServers = '[]' }
 )
 $fixtures.agents = $agentFx
+$access.members['g-dc'] = @([pscustomobject]@{ id = 'dev-obj-win1'; deviceId = 'AAD-WIN1' })
 
 Write-Host '== HTTP layer (real local server)' -ForegroundColor Cyan
 # Checks Invoke-GapsioRest with the real cmdlets (Invoke-WebRequest/-RestMethod) – parameter errors only show up this way.
@@ -562,7 +603,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
     param($Fx, $Hunt, $Acc, $Users, $Blobs, $Queue)
     $script:Fx = $Fx; $script:Hunt = $Hunt; $script:Acc = $Acc; $script:Users = $Users; $script:Blobs = $Blobs; $script:Queue = $Queue
     $script:HuntQueries = [System.Collections.Generic.List[string]]::new()
-    $env:GAPSIO_STORAGE_ACCOUNT = 'teststorage'; $env:GAPSIO_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:GAPSIO_FEATURES = 'hunting,indicators,coverage,response'
+    $env:GAPSIO_STORAGE_ACCOUNT = 'teststorage'; $env:GAPSIO_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:GAPSIO_FEATURES = 'hunting,indicators,coverage,response,detections'
 
     function script:V { param($Items) [pscustomobject]@{ value = @($Items) } }
 
@@ -580,6 +621,11 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $q = [string]$Body.Query
             $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
+            elseif ($q -match '// GapsioUsbMounts') { $script:Hunt.UsbMounts }
+            elseif ($q -match '// GapsioDeviceControl') { $script:Hunt.DeviceControl }
+            elseif ($q -match '// GapsioMdi') { if ($script:Hunt.MdiMissing) { throw "Failed to resolve table expression named 'IdentityDirectoryEvents'" }; $script:Hunt.Mdi }
+            elseif ($q -match '// GapsioDisruption') { $script:Hunt.Disruption }
+            elseif ($q -match '// GapsioDetectionAlerts') { $script:Hunt.DetectionAlerts }
             elseif ($q -match '// GapsioAsrTelemetry') { $script:Hunt.AsrTelemetry }
             elseif ($q -match '// GapsioWsl') { $script:Hunt.Wsl }
             elseif ($q -match '// GapsioBrowserExtensions') { $script:Hunt.BrowserExtensions }
@@ -631,6 +677,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-GapsioHttpException -Status 404 -Message 'HTTP 404 Not Found') }; return (V $script:Fx.agents.registry) }
             '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
             '^subscribedSkus' { return (V $script:Fx.skus) }
+            '^security/rules/detectionRules' { if ($Uri -notmatch '/v1\.0/') { throw 'detection rules must be read from v1.0 first' }; return (V $script:Fx.detectionRules) }
             '^users\?\$select=id,userPrincipalName,displayName,accountEnabled,userType,assignedPlans' { return (V @($script:Users.Values)) }
             '^identity/conditionalAccess/policies' { return (V $script:Fx.agents.policies) }
             '^policies/identitySecurityDefaultsEnforcementPolicy' { return [pscustomobject]@{ isEnabled = $false } }
@@ -879,6 +926,34 @@ $viaPs = @($le | Where-Object { $_.value -eq 'C:\Users\Public\GapsioTest' })
 Assert ($viaPs.Count -eq 1 -and $viaPs[0].addedBy.process -eq 'powershell.exe' -and $viaPs[0].addedBy.commandLine -match 'Add-MpPreference') "Caller of Add-MpPreference detected instead of MsMpEng.exe (is: $($viaPs[0].addedBy.process))"
 Assert (@($pe | Where-Object { $_.platform -eq 'Linux' -and $_.assigned -eq $false }).Count -eq 1) 'Unassigned Linux policy detected'
 Assert (@($pe | Where-Object { $_.platform -eq 'Windows' -and $_.assigned -eq $true }).Count -ge 1) 'Windows policy detected as assigned'
+
+# Posture checks (Posture.ps1): policy conflicts, device control, attack disruption readiness, detection rules
+$epf = @($ep.findings)
+$pc = @($ep.policyConflicts)
+Assert ($pc.Count -eq 2 -and $ep.summary.policyConflicts -eq 2) "Two settings in conflict (same devices, different values), found $($pc.Count)"
+$c1 = @($pc | Where-Object { $_.setting -eq 'avgcpuloadfactor' })[0]
+Assert ($c1.devices -eq 3 -and $c1.overlap -eq 'Devices' -and @($c1.values).Count -eq 2 -and (@($c1.values | ForEach-Object value) -join ',') -eq '20,50' -and $c1.values[0].policies[0].name -eq 'MDAV Scan Settings Pilot') 'Conflict: number setting, 3 Windows devices, both policies named'
+Assert (@($pc | Where-Object { $_.setting -match 'allowarchivescanning|cloudblocklevel|attacksurfacereduction' }).Count -eq 0) 'Same value in both policies, or policies for different devices: no conflict'
+Assert (@($epf | Where-Object { $_.category -eq 'Conflict' -and $_.severity -eq 'Medium' -and $_.title.en -eq '2 Defender setting(s) reach the same devices with different values' -and $_.detail.en -match 'might|may not be applied' }).Count -eq 1) 'Conflict finding (one, aggregated)'
+$dcx = $ep.deviceControl
+Assert ($dcx.usage -eq 'ok' -and $dcx.summary.assignedPolicies -eq 1 -and $dcx.summary.usbDevices -eq 3 -and $dcx.summary.usbWithoutPolicy -eq 2 -and $dcx.summary.denied -eq 3) "Device control summary ($($dcx.summary | ConvertTo-Json -Compress))"
+Assert (@($dcx.devices | Where-Object { $_.deviceName -eq 'WIN-01' -and $_.hasPolicy -eq $true -and $_.policies -contains 'Device Control Pilot' -and $_.triggers -eq 7 }).Count -eq 1) 'WIN-01 is in the pilot group: device control policy reaches it'
+Assert (@($dcx.devices | Where-Object { $_.deviceName -eq 'WIN-02' -and $_.hasPolicy -eq $false -and $_.mounts -eq 5 }).Count -eq 1) 'WIN-02 mounts USB drives without a policy'
+Assert (@($epf | Where-Object { $_.category -eq 'DeviceControl' -and $_.title.en -eq 'USB storage used on 2 device(s) without a device control policy' -and $_.detail.en -match 'WIN-02 \(5\)' -and $_.detail.en -notmatch 'WIN-01' }).Count -eq 1) 'Device control finding lists only devices without a policy'
+Assert (@($ep.policies | Where-Object { $_.name -eq 'Device Control Pilot' }).Count -eq 1) 'Device control policy is collected'
+$dis = $ep.disruption
+function Chk { param($id) @($dis.checks | Where-Object { $_.id -eq $id })[0] }
+Assert ((Chk 'sense').status -eq 'Gap' -and (Chk 'sense').count -eq 1 -and (Chk 'sense').total -eq 3 -and (Chk 'sense').devices[0] -match '^WIN-02 \(10\.8295') 'Disruption: one of three Windows devices below Sense 10.8470'
+Assert ((Chk 'mdi').status -eq 'OK' -and (Chk 'onboarding').status -eq 'Gap') 'Disruption: Defender for Identity signals present, coverage gaps reported'
+Assert (@($dis.checks | Where-Object { $_.status -eq 'NotMeasurable' } | ForEach-Object id) -join ',' -eq 'discovery,automation,exclusions' -and (Chk 'exclusions').where.en -match 'Automated response') 'Disruption: what Microsoft does not expose is "not measurable" with the portal path'
+Assert ($dis.eventsStatus -eq 'ok' -and $dis.summary.events30d -eq 17 -and $dis.events[0].actionType -eq 'ContainedUserLogonBlocked') 'Disruption events of the last 30 days'
+Assert (@($epf | Where-Object { $_.category -eq 'Response' -and $_.title.en -eq 'Contain User cannot be enforced on 1 Windows device(s)' }).Count -eq 1) 'Disruption finding for old Sense agents'
+$dr = @($ep.detectionRules)
+function Rule { param($n) @($dr | Where-Object { $_.name -eq $n })[0] }
+Assert ($ep.detectionRulesStatus -eq 'ok' -and $dr.Count -eq 4 -and $dr[0].status -eq 'autoDisabled' -and $ep.summary.detectionRulesOff -eq 2) 'Detection rules: four rules, automatically disabled first'
+Assert ((Rule 'Encoded PowerShell from Office').alerts30d -eq 4 -and ((Rule 'Encoded PowerShell from Office').impactActions -join ',') -eq 'isolateDevices' -and (Rule 'Encoded PowerShell from Office').frequency -eq 'PT1H') 'Detection rule: alerts matched by title (case-insensitive), impact actions, frequency'
+Assert ($null -eq (Rule 'New local administrator on server').alerts30d -and (Rule 'New local administrator on server').status -eq 'enabled' -and (Rule 'New local administrator on server').lastRun.errorCode -eq 'queryTimeout' -and ((Rule 'New local administrator on server').deviceGroups -join ',') -eq 'Server') 'Detection rule: dynamic title gives no alert count; isEnabled and lastRunDetails still understood'
+Assert (@($epf | Where-Object { $_.category -eq 'Detection' }).Count -eq 4 -and @($epf | Where-Object { $_.category -eq 'Detection' -and $_.severity -eq 'High' -and $_.title.en -match 'switched off automatically' -and $_.detail.en -match 'LSASS' }).Count -eq 1) 'Detection findings: auto-disabled (High), failed, disabled, automatic actions'
 
 Write-Host '== End-to-end: protection features, coverage, exclusion usage' -ForegroundColor Cyan
 $dWin2 = @($ep.devices | Where-Object { $_.deviceId -eq 'd-win2' })[0]
@@ -1303,6 +1378,13 @@ $userP = New-Principal -Roles @() -Oid 'u-hank'
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).isAdmin) 'api/me Admin'
 $r = Call 'endpoint' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on endpoint'
 $r = Call 'endpoint' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'endpoint') 'Admin gets endpoint'
+$r = Call 'controls' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on the control mapping'
+$r = Call 'controls' -Principal $adminP; $cm = $r.Body | ConvertFrom-Json -Depth 16
+Assert ([int]$r.StatusCode -eq 200 -and $cm.source -eq 'default' -and (@($cm.frameworks | ForEach-Object id) -join ',') -eq 'iso27001,nis2' -and $cm.note.de) 'api/controls: shipped control mapping (ISO 27001, NIS2)'
+$epCats = @(($blobs['state/endpoint-latest.json'] | ConvertFrom-Json -Depth 64).findings | ForEach-Object { "endpoint:$($_.category)" } | Sort-Object -Unique)
+$mapped = @($cm.frameworks | ForEach-Object { $_.controls } | ForEach-Object { $_.match } | Sort-Object -Unique)
+Assert (@($epCats | Where-Object { $_ -notin $mapped }).Count -eq 0) "Every endpoint finding category is mapped to a control (missing: $(@($epCats | Where-Object { $_ -notin $mapped }) -join ', '))"
+Assert (@($cm.frameworks | ForEach-Object { $_.controls } | Where-Object { -not $_.id -or -not $_.title.en -or -not $_.title.de -or -not @($_.match).Count }).Count -eq 0) 'Every control has an ID, a title in both languages and at least one category'
 $r = Call 'devices' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on devices'
 $r = Call 'devices' -Principal $adminP -Query @{ page = '0' }; $pg0 = @($r.Body | ConvertFrom-Json -Depth 64); Assert ([int]$r.StatusCode -eq 200 -and $pg0.Count -eq 5 -and @($pg0 | Where-Object { $_.deviceName -eq 'WIN-01' })[0].checks.TamperProtection) "devices?page=0 returns the stored page ($($pg0.Count))"
 $r = Call 'devices' -Principal $adminP -Query @{ page = '7' }; Assert ([int]$r.StatusCode -eq 200 -and $r.Body -eq '[]') 'devices: missing page is an empty list'
@@ -1572,6 +1654,53 @@ Write-Host '== Permission usage and coverage (unit)' -ForegroundColor Cyan
     }
     finally { ${function:script:Invoke-GapsioRest} = $orig }
 } ${function:Assert} ${function:T}
+
+Write-Host '== Posture checks (unit)' -ForegroundColor Cyan
+& $mod {
+    param($A)
+    $sv = { param($pol, $def, $val, $assign, $kind = 'choice', $plat = 'Windows') [pscustomobject]@{ policyId = $pol; policyName = "Policy $pol"; platform = $plat; definitionId = $def; value = $val; display = $null; kind = $kind; group = ''; assignments = @($assign) } }
+    $asr = 'device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutionofpotentiallyobfuscatedscripts'
+    # No device data: overlap judged by the assignment texts
+    $c = @(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' $asr "${asr}_block" 'All devices'), (& $sv 'b' $asr "${asr}_audit" 'Group: Pilot')) -Devices @{} -Targets @{})
+    & $A ($c.Count -eq 1 -and $c[0].isAsrRule -and $c[0].setting -like 'ASR:*' -and $null -eq $c[0].devices -and $c[0].overlap -eq 'Assignment' -and (@($c[0].values | ForEach-Object value) -join ',') -eq 'audit,block') 'Conflict without device data: ASR rule, "All devices" overlaps every group'
+    $cf = @(Get-GapsioPolicyConflictFindings -Conflicts $c)
+    & $A ($cf.Count -eq 1 -and $cf[0].detail.en -match 'left out of the merged rule set') 'Conflict finding explains the ASR merge behaviour'
+    & $A (@(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' $asr "${asr}_block" 'Group: Ring 1'), (& $sv 'b' $asr "${asr}_audit" 'Group: Ring 2')) -Devices @{} -Targets @{}).Count -eq 0) 'Different groups (rings): no conflict'
+    & $A (@(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' $asr "${asr}_block" 'All devices'), (& $sv 'b' $asr "${asr}_audit" 'Excluded: Servers')) -Devices @{} -Targets @{}).Count -eq 0) 'A policy with only an exclusion group is not assigned: no conflict'
+    & $A (@(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' 'x_excl' 'C:\a' 'All devices' 'simple'), (& $sv 'b' 'x_excl' 'C:\b' 'All devices' 'simple')) -Devices @{} -Targets @{}).Count -eq 0) 'Text values (lists such as exclusions) are not compared'
+    & $A (@(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' 'x_n' '1' 'All devices' 'simple'), (& $sv 'a' 'x_n' '2' 'All devices' 'simple'), (& $sv 'b' 'x_n' '3' 'All devices' 'simple')) -Devices @{} -Targets @{}).Count -eq 0) 'A setting repeated inside one policy is a list entry and ignored'
+    & $A (@(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' 'x_n' '1' 'All devices' 'simple' 'Windows'), (& $sv 'b' 'x_n' '2' 'All devices' 'simple' 'macOS')) -Devices @{} -Targets @{}).Count -eq 0) 'Different platforms never conflict'
+    # With devices: the policies must reach the same device
+    $devs = @{ d1 = @{ deviceId = 'd1'; deviceName = 'PC-1'; os = 'Windows11'; aadDeviceId = $null; lastUser = $null; clientVersion = '10.8470.1.1' }; d2 = @{ deviceId = 'd2'; deviceName = 'MAC-1'; os = 'macOS'; aadDeviceId = $null; lastUser = $null; clientVersion = '101.25' } }
+    $all = @([pscustomobject]@{ target = [pscustomobject]@{ '@odata.type' = '#microsoft.graph.allDevicesAssignmentTarget' } })
+    $c2 = @(Get-GapsioPolicyConflicts -SettingValues @((& $sv 'a' 'x_n' '1' 'All devices' 'simple'), (& $sv 'b' 'x_n' '2' 'All devices' 'simple')) -Devices $devs -Targets @{ a = $all; b = $all })
+    & $A ($c2.Count -eq 1 -and $c2[0].devices -eq 1 -and $c2[0].deviceNames[0] -eq 'PC-1') 'Conflict with device data counts Windows devices only for a Windows policy'
+
+    # Attack disruption: version comparison and "not measurable"
+    $saved = $env:GAPSIO_FEATURES
+    try {
+        $env:GAPSIO_FEATURES = 'indicators'
+        $r = Get-GapsioDisruptionReadiness -Devices $devs -Coverage @()
+        & $A (@($r.checks | Where-Object { $_.status -eq 'NotMeasurable' }).Count -eq 6 -and $r.eventsStatus -eq 'off' -and @(Get-GapsioDisruptionFindings -Readiness $r).Count -eq 0) 'Disruption without Hunting: nothing is claimed'
+        & $A ($null -eq (Get-GapsioDetectionRules)) 'Detection rules: feature off returns nothing'
+        $dc = Get-GapsioDeviceControl -SettingValues @() -Devices $devs -Targets @{}
+        & $A ($dc.usage -eq 'off' -and @(Get-GapsioDeviceControlFindings -DeviceControl $dc).Count -eq 0) 'Device control without Hunting: no usage data, no finding'
+    }
+    finally { $env:GAPSIO_FEATURES = $saved }
+    $script:Hunt.MdiMissing = $true
+    try {
+        $r = Get-GapsioDisruptionReadiness -Devices $devs -Coverage @()
+        & $A (@($r.checks | Where-Object id -eq 'sense')[0].status -eq 'OK' -and @($r.checks | Where-Object id -eq 'sense')[0].total -eq 1) 'Sense 10.8470.x meets the minimum; macOS agent versions are not compared'
+        & $A (@($r.checks | Where-Object id -eq 'mdi')[0].status -eq 'Review' -and @(Get-GapsioWarnings | Where-Object { $_ -match 'IdentityDirectoryEvents' }).Count -eq 0) 'Missing Defender for Identity table: "review", not a run warning'
+    }
+    finally { $script:Hunt.MdiMissing = $false }
+    # Device control is not supported on servers: USB use there is listed but not a finding
+    $dcs = [pscustomobject]@{ usage = 'ok'; summary = @{ assignedPolicies = 0 }; devices = @([pscustomobject]@{ deviceName = 'SRV-1'; mounts = 4; hasPolicy = $false; supported = $false }) }
+    & $A (@(Get-GapsioDeviceControlFindings -DeviceControl $dcs).Count -eq 0) 'USB on a server: no device control finding'
+    $dcc = [pscustomobject]@{ usage = 'ok'; summary = @{ assignedPolicies = 0 }; devices = @([pscustomobject]@{ deviceName = 'PC-1'; mounts = 4; hasPolicy = $false; supported = $true }) }
+    & $A (@(Get-GapsioDeviceControlFindings -DeviceControl $dcc)[0].detail.en -match 'No such policy is assigned in Intune at all') 'No device control policy at all is called out'
+    & $A (@(Get-GapsioDetectionRuleFindings -Detections ([pscustomobject]@{ status = 'failed'; rules = @() })).Count -eq 0) 'Detection rules could not be read: no findings'
+} ${function:Assert}
 
 Write-Host '== macOS/Linux platform (unit)' -ForegroundColor Cyan
 & $mod {

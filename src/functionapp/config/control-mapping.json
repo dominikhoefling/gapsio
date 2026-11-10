@@ -1,0 +1,44 @@
+{
+  "version": "2026-11",
+  "note": {
+    "en": "Mapping aid, not a certification: it shows which Gapsio findings are relevant evidence for a control. It does not prove that a control is fulfilled and is not legal advice. Control titles are abbreviated.",
+    "de": "Zuordnungshilfe, keine Zertifizierung: Sie zeigt, welche Gapsio-Befunde als Nachweis für eine Kontrolle relevant sind. Sie belegt nicht, dass eine Kontrolle erfüllt ist, und ist keine Rechtsberatung. Kontrolltitel sind gekürzt."
+  },
+  "frameworks": [
+    {
+      "id": "iso27001",
+      "name": "ISO/IEC 27001:2022 Annex A",
+      "short": "ISO 27001",
+      "controls": [
+        { "id": "A.5.9", "title": { "en": "Inventory of information and other associated assets", "de": "Inventar der Informationen und anderen damit verbundenen Werte" }, "match": ["endpoint:Inventory", "endpoint:Coverage", "agents:Agent", "agents:Accountability"] },
+        { "id": "A.5.15", "title": { "en": "Access control", "de": "Zugangssteuerung" }, "match": ["access:LeastPrivilege", "agents:ConditionalAccess"] },
+        { "id": "A.5.18", "title": { "en": "Access rights", "de": "Zugangsrechte" }, "match": ["access:LeastPrivilege"] },
+        { "id": "A.5.23", "title": { "en": "Information security for use of cloud services", "de": "Informationssicherheit für die Nutzung von Cloud-Diensten" }, "match": ["agents:Agent", "agents:ConditionalAccess"] },
+        { "id": "A.5.24", "title": { "en": "Incident management planning and preparation", "de": "Planung und Vorbereitung der Handhabung von Informationssicherheitsvorfällen" }, "match": ["endpoint:Response"] },
+        { "id": "A.5.26", "title": { "en": "Response to information security incidents", "de": "Reaktion auf Informationssicherheitsvorfälle" }, "match": ["endpoint:Response"] },
+        { "id": "A.7.10", "title": { "en": "Storage media", "de": "Speichermedien" }, "match": ["endpoint:DeviceControl"] },
+        { "id": "A.8.1", "title": { "en": "User endpoint devices", "de": "Endpunktgeräte des Benutzers" }, "match": ["endpoint:Device", "endpoint:Fleet", "endpoint:Coverage", "endpoint:Combined", "endpoint:Platform"] },
+        { "id": "A.8.2", "title": { "en": "Privileged access rights", "de": "Privilegierte Zugangsrechte" }, "match": ["access:LeastPrivilege", "access:Platform"] },
+        { "id": "A.8.7", "title": { "en": "Protection against malware", "de": "Schutz gegen Schadsoftware" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Baseline", "endpoint:Combined", "endpoint:Dependency"] },
+        { "id": "A.8.8", "title": { "en": "Management of technical vulnerabilities", "de": "Handhabung von technischen Schwachstellen" }, "match": ["endpoint:Updates"] },
+        { "id": "A.8.9", "title": { "en": "Configuration management", "de": "Konfigurationsmanagement" }, "match": ["endpoint:Baseline", "endpoint:Conflict", "endpoint:Dependency", "endpoint:Hygiene"] },
+        { "id": "A.8.12", "title": { "en": "Data leakage prevention", "de": "Verhinderung von Datenlecks" }, "match": ["endpoint:DeviceControl"] },
+        { "id": "A.8.16", "title": { "en": "Monitoring activities", "de": "Überwachung von Aktivitäten" }, "match": ["endpoint:Detection", "endpoint:Coverage"] },
+        { "id": "A.8.19", "title": { "en": "Installation of software on operational systems", "de": "Installation von Software auf Systemen im Betrieb" }, "match": ["agents:LocalAgent"] }
+      ]
+    },
+    {
+      "id": "nis2",
+      "name": "NIS2 Art. 21(2)",
+      "short": "NIS2",
+      "controls": [
+        { "id": "(b)", "title": { "en": "Incident handling", "de": "Bewältigung von Sicherheitsvorfällen" }, "match": ["endpoint:Response", "endpoint:Detection"] },
+        { "id": "(e)", "title": { "en": "Security in acquisition, development and maintenance, including vulnerability handling", "de": "Sicherheit bei Erwerb, Entwicklung und Wartung, einschließlich Management von Schwachstellen" }, "match": ["endpoint:Updates"] },
+        { "id": "(f)", "title": { "en": "Assessing the effectiveness of cybersecurity risk-management measures", "de": "Bewertung der Wirksamkeit von Risikomanagementmaßnahmen" }, "match": ["endpoint:Baseline", "endpoint:Conflict", "endpoint:Dependency", "endpoint:Combined", "endpoint:Coverage"] },
+        { "id": "(g)", "title": { "en": "Basic cyber hygiene practices", "de": "Grundlegende Verfahren der Cyberhygiene" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Device", "endpoint:Hygiene", "endpoint:DeviceControl", "endpoint:Fleet"] },
+        { "id": "(i)", "title": { "en": "Access control policies and asset management", "de": "Konzepte für die Zugriffskontrolle und Management von Anlagen" }, "match": ["access:LeastPrivilege", "access:Platform", "endpoint:Inventory", "agents:Agent", "agents:Accountability"] },
+        { "id": "(j)", "title": { "en": "Multi-factor or continuous authentication", "de": "Multi-Faktor-Authentifizierung oder kontinuierliche Authentifizierung" }, "match": ["agents:ConditionalAccess"] }
+      ]
+    }
+  ]
+}

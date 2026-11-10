@@ -390,3 +390,14 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .ai-actions { display: flex; justify-content: space-between; gap: 8px; }
 .ai-foot { margin: 0; padding: 6px 14px 10px; font-size: 11.5px; }
 @media (max-width: 600px) { .ai-panel { right: 8px; left: 8px; width: auto; bottom: 76px; } }
+
+/* Printing (audit evidence): content only, no navigation or controls */
+@media print {
+  .side, .top, .mobile-bar, .scrim, .toast, .notice-bar, .toolbar, button { display: none !important; }
+  html, body, .content, main { background: #fff !important; color: #000 !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  .fact, table { box-shadow: none !important; }
+  table { font-size: 11px; }
+  tr, .fact { break-inside: avoid; }
+  a { color: inherit !important; text-decoration: none !important; }
+}

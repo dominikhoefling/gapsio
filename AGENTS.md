@@ -31,7 +31,9 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 
 ## Where things are
 
-- Checks/collectors: `src/functionapp/Modules/Gapsio/{Core,Endpoint,Agents,Access}.ps1`
+- Checks/collectors: `src/functionapp/Modules/Gapsio/{Core,Endpoint,Posture,Agents,Access}.ps1` (`Posture.ps1`: policy conflicts,
+  device control, attack disruption readiness, custom detection rules – part of the endpoint run)
+- Control mapping for the audit evidence view: `src/functionapp/config/control-mapping.json` (finding category → ISO 27001 / NIS2)
 - MDAV baseline definition: `src/functionapp/config/mdav-baseline.json` (id, platforms, target, severity, rationale, fix, learn URL)
 - Portal: `src/functionapp/www/` (`index.html`, `app.js`, `app.css`)
 - Setup/update: `setup/*.ps1`, permission model `setup/permissions.json`

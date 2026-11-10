@@ -25,6 +25,15 @@
 - **GPO-only settings** (e.g. *Turn off Microsoft Defender Antivirus*, `ThreatIdDefaultAction`) are only visible when
   they are delivered through Intune ADMX or show up as registry changes in the last 30 days.
 - **Effective settings in the Defender portal** (per device): no public API; Gapsio uses Advanced Hunting instead.
+- **Policy conflicts** are derived from the Intune policies and their assignments, not from the conflict state Intune
+  reports per device. Devices without an Entra device ID are only matched by "all devices/users" assignments, and
+  assignment filters are not evaluated – a conflict can therefore be missed or, with filters, over-reported.
+- **Attack disruption**: the device discovery mode, the remediation level of device groups and the exclusions from
+  automated response have no API. Gapsio lists them as "not measurable" and names the portal page.
+- **Custom detection rules**: Microsoft no longer returns the run history through the API; alert counts per rule are
+  matched by alert title and are missing for rules with a dynamic title.
+- **Device control**: only Intune policies are visible (not Group Policy); USB mounts come from Defender's media
+  usage events, policy events are capped by Microsoft at 300 per device and day.
 - **macOS with third-party MDM** (e.g. Jamf): profiles deployed there are not visible via Graph; local `mdatp` changes are.
 - **Origin of local exclusions** (Windows): entries under `…\Policies\…` count as GPO, all others under
   `…\Windows Defender\Exclusions` as local. Exclusions set from script files only show the script call.

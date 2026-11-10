@@ -14,10 +14,10 @@ App Service Authentication (Entra ID).
 
 | Area | Views |
 |---|---|
-| Endpoint | Overview, Findings, Exclusions (policy, local, indicators, EDR), ASR rules (rules, device groups, devices, exclusions), Devices, Baseline |
+| Endpoint | Overview, Findings, Exclusions (policy, local, indicators, EDR), ASR rules (rules, device groups, devices, exclusions), Devices, Baseline, Policy conflicts, Device control, Attack disruption, Detection rules |
 | AI agents | Agents (cloud / local), Conditional Access |
 | Access | Roles, Who can do what?, My access |
-| History | Changes between runs, exceptions and assignments |
+| History | Changes between runs, exceptions and assignments, Audit evidence (findings by ISO 27001 / NIS2 control, printable) |
 
 Every table can be filtered and exported as CSV. Device names link to the device page.
 

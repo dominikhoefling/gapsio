@@ -40,7 +40,7 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'assistant', 'changes', 'runs', 'baseline', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'assistant', 'changes', 'runs', 'baseline', 'controls', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Gapsio.Admin role.'
     return
@@ -73,7 +73,7 @@ try {
                     oid = $principal.oid; upn = $principal.upn; displayName = $principal.displayName
                     isAdmin = $principal.isAdmin; roles = $principal.roles; modules = @($modules)
                     tier = $tier; communityRows = $(if ($community) { Get-GapsioCommunityRows } else { $null })
-                    features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response') | Where-Object { Test-GapsioFeature -Name $_ })
+                    features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response', 'detections', 'audit') | Where-Object { Test-GapsioFeature -Name $_ })
                     tenantId = Get-GapsioSetting -Name 'GAPSIO_TENANT_ID'; version = (Get-GapsioVersion)
                     assistant = $(if ($principal.isAdmin) { [bool](Test-GapsioAssistant) } else { $false })
                     update = $(if ($principal.isAdmin) { try { Get-GapsioBlob -Container 'state' -Name 'release.json' } catch { $null } })
@@ -157,6 +157,9 @@ try {
         }
         'baseline' {
             Send-Response -Status 200 -Body (Get-GapsioBaseline)
+        }
+        'controls' {
+            Send-Response -Status 200 -Body (Get-GapsioControlMapping)
         }
         'acceptances' {
             if ($method -eq 'GET') {

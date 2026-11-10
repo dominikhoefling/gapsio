@@ -12,7 +12,7 @@
         'Get-GapsioToken', 'Invoke-GapsioRest', 'Invoke-GapsioGraph', 'Invoke-GapsioGraphSafe', 'Invoke-GapsioGraphV1First', 'Invoke-GapsioHunting',
         'Get-GapsioBlob', 'Get-GapsioBlobText', 'Set-GapsioBlob', 'Remove-GapsioBlob', 'Add-GapsioQueueMessage', 'Get-GapsioPage', 'Get-GapsioPagedMeta', 'Get-GapsioPagedCollection', 'Get-GapsioPagedIndex', 'Get-GapsioPagedIndexRaw', 'Search-GapsioDevices', 'Get-GapsioDevice',
         'Get-GapsioHash', 'Get-GapsioSettingValues', 'Get-GapsioExclusionRisk', 'Get-GapsioIndicatorRisk',
-        'Compare-GapsioCollection', 'Save-GapsioSnapshot', 'Get-GapsioPrincipal', 'Get-GapsioBaseline', 'Test-GapsioBaselineValue',
+        'Compare-GapsioCollection', 'Save-GapsioSnapshot', 'Get-GapsioPrincipal', 'Get-GapsioBaseline', 'Get-GapsioControlMapping', 'Test-GapsioBaselineValue',
         'Invoke-GapsioEndpointCollection', 'Invoke-GapsioAccessCollection', 'Invoke-GapsioAgentsCollection', 'Invoke-GapsioLicensingCollection', 'Get-GapsioLicensingModel', 'Get-GapsioSkuDisplayName', 'Invoke-GapsioCollection',
         'Get-GapsioModules', 'Test-GapsioModuleEnabled', 'Test-GapsioFeature', 'Get-GapsioVersion', 'Compare-GapsioVersion', 'Update-GapsioReleaseInfo', 'Get-GapsioAcceptances', 'Test-GapsioAcceptanceActive', 'Set-GapsioAcceptance', 'Get-GapsioAssignments', 'Set-GapsioAssignment', 'Search-GapsioDirectory', 'Send-GapsioNotification', 'Test-GapsioLicenseKey', 'Get-GapsioLicense', 'Set-GapsioLicense', 'Get-GapsioLicenseTier', 'Get-GapsioCommunityRows', 'Get-GapsioPageSize', 'Protect-GapsioCommunity', 'Protect-GapsioCommunityList', 'Hide-GapsioItem',
         'Update-GapsioLocalExclusionState', 'Get-GapsioEndpointFindings', 'Test-GapsioBaseline',
