@@ -1,13 +1,13 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Fictitious snapshots for the private-preview modules (officepreview, purviewpreview) used by New-GapsioDemo.ps1.
+    Fictitious snapshot for the Purview DLP preview module used by New-GapsioDemo.ps1.
 
 .DESCRIPTION
-    Both modules read Advanced Hunting only, which the test tenant in tests/Test-Gapsio.ps1 does not simulate. These
-    snapshots follow the shape the collectors write (Invoke-GapsioOfficePreviewCollection with the anti-phish history,
-    Invoke-GapsioPurviewPreviewCollection), with dates relative to now and a fixed random seed, so the demo and the
-    website screenshots are reproducible. All names are made up; mail addresses use contoso.example.
+    The Purview module reads Advanced Hunting tables the test tenant in tests/Test-Gapsio.ps1 does not simulate. The
+    snapshot follows the shape Invoke-GapsioPurviewPreviewCollection writes, with dates relative to now and a fixed
+    random seed, so the demo and the website screenshots are reproducible. All names are made up; mail addresses use
+    contoso.example. (The Office module is simulated by the tests and comes from their output.)
 #>
 
 function Get-GapsioPreviewDemoData {
@@ -16,145 +16,6 @@ function Get-GapsioPreviewDemoData {
     $iso = { param([DateTime]$d) $d.ToString('o') }
     $days = @(29..0 | ForEach-Object { $Now.Date.AddDays(-$_) })
     $T = { param($en, $de) [ordered]@{ en = $en; de = $de } }
-
-    # ---------------------------------------------------------------- Office preview (Defender for Office 365)
-    $threatDaily = foreach ($d in $days) {
-        foreach ($b in @(@{ k = 'Phish'; n = 38 }, @{ k = 'Malware'; n = 6 }, @{ k = 'Spam'; n = 410 }, @{ k = 'Bulk'; n = 190 })) {
-            $spike = if ($b.k -eq 'Phish' -and $d -ge $Now.Date.AddDays(-9) -and $d -le $Now.Date.AddDays(-6)) { 2.6 } else { 1 }
-            [ordered]@{ day = (& $iso $d); bucket = $b.k; events = [int]([Math]::Max(0, $b.n * $spike + $rand.Next(-[int]($b.n / 4), [int]($b.n / 4) + 1))) }
-        }
-    }
-    $actionDaily = foreach ($d in $days) {
-        $weak = $d -ge $Now.Date.AddDays(-12)
-        foreach ($b in @(@{ k = 'Block'; n = 120 }, @{ k = 'Quarantine'; n = $(if ($weak) { 22 } else { 41 }) }, @{ k = 'Junk'; n = 380 }, @{ k = 'Allow'; n = $(if ($weak) { 2310 } else { 2240 }) })) {
-            [ordered]@{ day = (& $iso $d); bucket = $b.k; events = [int]($b.n + $rand.Next(-[int]($b.n / 6), [int]($b.n / 6) + 1)) }
-        }
-    }
-    $policies = @('Strict Preset Security Policy', 'Office365 AntiPhish Default (Default)', 'Contoso Executives')
-    $changeTs = $Now.Date.AddDays(-12).AddHours(9).AddMinutes(41)
-    $hardenTs = $Now.Date.AddDays(-47).AddHours(14).AddMinutes(5)
-    $daily = [System.Collections.Generic.List[object]]::new()
-    foreach ($d in @(89..0 | ForEach-Object { $Now.Date.AddDays(-$_) })) {
-        foreach ($p in $policies) {
-            $base = switch ($p) { 'Contoso Executives' { 9 } 'Strict Preset Security Policy' { 4 } default { 26 } }
-            $deliveredShare = if ($p -eq 'Contoso Executives' -and $d -ge $changeTs.Date) { 0.31 } elseif ($p -eq 'Contoso Executives') { 0.06 } else { 0.08 }
-            $n = [Math]::Max(0, $base + $rand.Next(-3, 4))
-            $del = [int][Math]::Round($n * $deliveredShare)
-            $q = [int][Math]::Round(($n - $del) * 0.7); $j = $n - $del - $q
-            foreach ($o in @(@{ k = 'Delivered'; v = $del }, @{ k = 'Quarantine'; v = $q }, @{ k = 'Junk'; v = $j })) {
-                if ($o.v -gt 0) { $daily.Add([ordered]@{ policy = $p; day = $d.ToString('yyyy-MM-dd'); method = $(if ($p -eq 'Contoso Executives') { 'Impersonation user' } else { 'Spoof DMARC' }); confidence = $(if ($rand.Next(0, 3) -eq 0) { 'High' } else { 'Normal' }); outcome = $o.k; events = $o.v }) }
-            }
-        }
-    }
-    $win = {
-        param($p, [DateTime]$from, [DateTime]$to)
-        $rows = @($daily | Where-Object { $_.policy -eq $p -and [DateTime]$_.day -ge $from.Date -and [DateTime]$_.day -lt $to.Date })
-        $m = [ordered]@{ events = 0; Quarantine = 0; Junk = 0; Delivered = 0; Block = 0; Other = 0 }
-        foreach ($r in $rows) { $m.events += $r.events; $m[$r.outcome] += $r.events }
-        $m.deliveredPct = if ($m.events) { [Math]::Round(100.0 * $m.Delivered / $m.events, 1) } else { $null }
-        $m
-    }
-    $changes = @(
-        [ordered]@{ ts = (& $iso $changeTs); policy = 'Contoso Executives'; cmdlet = 'Set-AntiPhishPolicy'; actor = 'lena.keller@contoso.example'; result = 'True'; weaker = 2; stronger = 0
-            diffs = @(
-                [ordered]@{ setting = 'PhishThresholdLevel'; before = '3'; after = '1'; direction = 'weaker'; tracked = $true },
-                [ordered]@{ setting = 'TargetedUserProtectionAction'; before = 'Quarantine'; after = 'MoveToJmf'; direction = 'weaker'; tracked = $true }) }
-        [ordered]@{ ts = (& $iso $Now.Date.AddDays(-12).AddHours(9).AddMinutes(44)); policy = 'Contoso Executives'; cmdlet = 'Set-AntiPhishRule'; actor = 'lena.keller@contoso.example'; result = 'True'; weaker = 0; stronger = 0
-            diffs = @([ordered]@{ setting = 'Priority'; before = '0'; after = '1'; direction = 'neutral'; tracked = $false }) }
-        [ordered]@{ ts = (& $iso $hardenTs); policy = 'Office365 AntiPhish Default'; cmdlet = 'Set-AntiPhishPolicy'; actor = 'sven.roth@contoso.example'; result = 'True'; weaker = 0; stronger = 2
-            diffs = @(
-                [ordered]@{ setting = 'EnableMailboxIntelligenceProtection'; before = 'False'; after = 'True'; direction = 'stronger'; tracked = $true },
-                [ordered]@{ setting = 'PhishThresholdLevel'; before = '1'; after = '2'; direction = 'stronger'; tracked = $true }) }
-        [ordered]@{ ts = (& $iso $Now.Date.AddDays(-63).AddHours(11)); policy = 'Contoso Executives'; cmdlet = 'New-AntiPhishPolicy'; actor = 'sven.roth@contoso.example'; result = 'True'; weaker = 0; stronger = 0
-            diffs = @(
-                [ordered]@{ setting = 'PhishThresholdLevel'; before = $null; after = '3'; direction = 'neutral'; tracked = $true },
-                [ordered]@{ setting = 'TargetedUserProtectionAction'; before = $null; after = 'Quarantine'; direction = 'neutral'; tracked = $true },
-                [ordered]@{ setting = 'EnableTargetedUserProtection'; before = $null; after = 'True'; direction = 'neutral'; tracked = $true }) }
-    )
-    $effects = @(
-        [ordered]@{ ts = $changes[0].ts; policy = 'Contoso Executives'; cmdlet = 'Set-AntiPhishPolicy'; actor = $changes[0].actor; scope = 'policy'
-            changed = @('PhishThresholdLevel: 3 → 1', 'TargetedUserProtectionAction: Quarantine → MoveToJmf'); weaker = 2; stronger = 0
-            before = (& $win 'Contoso Executives' $changeTs.AddDays(-7) $changeTs); after = (& $win 'Contoso Executives' $changeTs $changeTs.AddDays(7)); afterComplete = $true }
-        [ordered]@{ ts = $changes[2].ts; policy = 'Office365 AntiPhish Default'; cmdlet = 'Set-AntiPhishPolicy'; actor = $changes[2].actor; scope = 'policy'
-            changed = @('EnableMailboxIntelligenceProtection: False → True', 'PhishThresholdLevel: 1 → 2'); weaker = 0; stronger = 2
-            before = (& $win 'Office365 AntiPhish Default (Default)' $hardenTs.AddDays(-7) $hardenTs); after = (& $win 'Office365 AntiPhish Default (Default)' $hardenTs $hardenTs.AddDays(7)); afterComplete = $true }
-    )
-    foreach ($e in $effects) { $e.deliveredDelta = if ($null -ne $e.before.deliveredPct -and $null -ne $e.after.deliveredPct) { [Math]::Round($e.after.deliveredPct - $e.before.deliveredPct, 1) } else { $null } }
-    $since30 = $Now.Date.AddDays(-30)
-    $matrix = @($daily | Where-Object { [DateTime]$_.day -ge $since30 } | Group-Object { "$($_.policy)|$($_.method)" } | ForEach-Object {
-            $m = [ordered]@{ policy = $_.Group[0].policy; method = $_.Group[0].method; events = 0; Quarantine = 0; Junk = 0; Delivered = 0; Block = 0; Other = 0; high = 0 }
-            foreach ($x in $_.Group) { $m.events += $x.events; $m[$x.outcome] += $x.events; if ($x.confidence -eq 'High') { $m.high += $x.events } }
-            $m.deliveredPct = if ($m.events) { [Math]::Round(100.0 * $m.Delivered / $m.events, 1) } else { $null }
-            $m
-        } | Sort-Object { -$_.events })
-    $periods = @(
-        [ordered]@{ policy = 'Contoso Executives'; from = $Now.Date.AddDays(-89).ToString('yyyy-MM-dd'); to = $changeTs.Date.AddDays(-1).ToString('yyyy-MM-dd'); current = $false; threshold = '3'
-            settings = [ordered]@{ PhishThresholdLevel = '3'; TargetedUserProtectionAction = 'Quarantine'; EnableTargetedUserProtection = 'True' }; outcomes = (& $win 'Contoso Executives' $Now.Date.AddDays(-89) $changeTs.Date) }
-        [ordered]@{ policy = 'Contoso Executives'; from = $changeTs.Date.ToString('yyyy-MM-dd'); to = $Now.Date.ToString('yyyy-MM-dd'); current = $true; threshold = '1'
-            settings = [ordered]@{ PhishThresholdLevel = '1'; TargetedUserProtectionAction = 'MoveToJmf'; EnableTargetedUserProtection = 'True' }; outcomes = (& $win 'Contoso Executives' $changeTs.Date $Now.Date.AddDays(1)) }
-        [ordered]@{ policy = 'Office365 AntiPhish Default (Default)'; from = $hardenTs.Date.ToString('yyyy-MM-dd'); to = $Now.Date.ToString('yyyy-MM-dd'); current = $true; threshold = '2'
-            settings = [ordered]@{ PhishThresholdLevel = '2'; EnableMailboxIntelligenceProtection = 'True' }; outcomes = (& $win 'Office365 AntiPhish Default (Default)' $hardenTs.Date $Now.Date.AddDays(1)) }
-    )
-    $ex = $effects[0]
-    $office = [ordered]@{
-        generatedAt = (& $iso $Now.AddMinutes(-18)); windowDays = 30; ok = 19; errors = 0
-        results = @(
-            [ordered]@{ key = 'override_exposure'; title = 'Threat overrides that delivered mail'; workload = 'Email'; status = 'ok'; result = @([ordered]@{ rows = 84210; overridden = 37; dmarcFail = 412 }) }
-            [ordered]@{ key = 'safelinks_clickthrough'; title = 'Safe Links click-through events'; workload = 'Email'; status = 'ok'; result = @([ordered]@{ rows = 1830; clickThrough = 23; uniqueUsers = 17; uniqueUrls = 21 }) }
-            [ordered]@{ key = 'threat_trend_daily'; title = 'Threat trend (daily)'; workload = 'Dashboard'; status = 'ok'; result = @($threatDaily) }
-            [ordered]@{ key = 'action_trend_daily'; title = 'Action outcomes (daily)'; workload = 'Dashboard'; status = 'ok'; result = @($actionDaily) }
-            [ordered]@{ key = 'action_values_top'; title = 'Raw action values (top)'; workload = 'Dashboard'; status = 'ok'; result = @(
-                    [ordered]@{ EffectiveAction = 'delivered to inbox'; events = 67210 }, [ordered]@{ EffectiveAction = 'moved to junk folder'; events = 11380 },
-                    [ordered]@{ EffectiveAction = 'blocked'; events = 3604 }, [ordered]@{ EffectiveAction = 'quarantine'; events = 941 }) }
-            [ordered]@{ key = 'campaign_top'; title = 'Top campaigns / themes'; workload = 'Dashboard'; status = 'ok'; result = @(
-                    [ordered]@{ Campaign = 'Invoice overdue – shared document'; events = 312; recipients = 141 }, [ordered]@{ Campaign = 'Payroll update (credential phish)'; events = 188; recipients = 96 },
-                    [ordered]@{ Campaign = 'Threat: Phish'; events = 121; recipients = 77 }, [ordered]@{ Campaign = 'Parcel delivery notice'; events = 64; recipients = 59 }) }
-            [ordered]@{ key = 'zap_blind_spots'; title = 'Likely ZAP blind spots'; workload = 'Email'; status = 'ok'; result = @([ordered]@{ rows = 84210; withoutPost = 61 }) }
-            [ordered]@{ key = 'own_domain_auth_posture'; title = 'Inbound mail with weak auth posture'; workload = 'Email auth'; status = 'ok'; result = @([ordered]@{ rows = 84210; dmarcFail = 412; spfFail = 958; dkimFail = 233 }) }
-            [ordered]@{ key = 'first_contact_risk'; title = 'First-contact messages with URLs/attachments'; workload = 'Email'; status = 'ok'; result = @([ordered]@{ rows = 84210; firstContact = 5120; withThreat = 344 }) }
-            [ordered]@{ key = 'encrypted_attachment_volume'; title = 'Encrypted/password-protected attachments'; workload = 'Email attachments'; status = 'ok'; result = @([ordered]@{ rows = 9112; encrypted = 58; uniqueSenders = 31 }) }
-            [ordered]@{ key = 'tabl_ioc_coverage'; title = 'Tenant allow/block list and indicators'; workload = 'TABL'; status = 'ok'; result = @([ordered]@{ total = 64; active = 51; expiring14d = 6 }) }
-            [ordered]@{ key = 'tabl_ioc_actions'; title = 'Indicator actions by type'; workload = 'TABL'; status = 'ok'; result = @(
-                    [ordered]@{ IndicatorType = 'Domain'; Action = 'Block'; indicators = 28 }, [ordered]@{ IndicatorType = 'Url'; Action = 'Block'; indicators = 17 },
-                    [ordered]@{ IndicatorType = 'EmailSender'; Action = 'Allow'; indicators = 12 }, [ordered]@{ IndicatorType = 'FileHash'; Action = 'Block'; indicators = 7 }) }
-            [ordered]@{ key = 'effective_policy_map_users'; title = 'Effective policy map (recipients)'; workload = 'Policy map'; status = 'ok'; result = @(
-                    [ordered]@{ Recipient = 'ceo@contoso.example'; events = 412; policies = 2; actions = @('quarantine', 'moved to junk folder'); policySet = @('Contoso Executives', 'Office365 AntiPhish Default (Default)') },
-                    [ordered]@{ Recipient = 'cfo@contoso.example'; events = 377; policies = 2; actions = @('delivered to inbox', 'quarantine'); policySet = @('Contoso Executives', 'Office365 AntiPhish Default (Default)') },
-                    [ordered]@{ Recipient = 'payroll@contoso.example'; events = 260; policies = 1; actions = @('moved to junk folder'); policySet = @('Office365 AntiPhish Default (Default)') }) }
-            [ordered]@{ key = 'effective_policy_map_domains'; title = 'Effective policy map (domains)'; workload = 'Policy map'; status = 'ok'; result = @(
-                    [ordered]@{ Domain = 'contoso.example'; events = 9810; users = 412; policies = 3; actions = @('delivered to inbox', 'quarantine', 'moved to junk folder'); policySet = $policies }) }
-            [ordered]@{ key = 'antiphish_policy_changes'; title = 'Anti-phish policy and rule changes'; workload = 'Anti-phish'; status = 'ok'; result = @([ordered]@{ rows = $changes.Count; newChanges = 2; tracked = 3 }) }
-            [ordered]@{ key = 'antiphish_outcomes'; title = 'Phish outcomes per policy (daily)'; workload = 'Anti-phish'; status = 'ok'; result = @([ordered]@{ rows = $daily.Count; days = 90; policies = $policies.Count }) }
-        )
-        findings = @(
-            [ordered]@{ id = 'office.antiphish_weakened'; severity = 'High'; category = 'mdo'; subject = 'antiphish'
-                title = (& $T 'Anti-phish protection was weakened' 'Anti-Phishing-Schutz wurde abgeschwächt')
-                detail = (& $T '1 change(s) in 30 days lowered protection on: Contoso Executives (PhishThresholdLevel 3→1; TargetedUserProtectionAction Quarantine→MoveToJmf).' '1 Änderung(en) in 30 Tagen haben den Schutz gesenkt bei: Contoso Executives (PhishThresholdLevel 3→1; TargetedUserProtectionAction Quarantine→MoveToJmf).')
-                recommendation = (& $T 'Confirm the change was intended (change ticket) and compare delivered-phish rate before/after in the drift view.' 'Prüfen, ob die Änderung beabsichtigt war (Change-Ticket) und die Zustellrate vor/nach in der Drift-Ansicht vergleichen.') }
-            [ordered]@{ id = 'office.antiphish_delivery_up'; severity = 'Medium'; category = 'mdo'; subject = 'antiphish'
-                title = (& $T 'More phish delivered after a policy change' 'Nach einer Policy-Änderung wurde mehr Phishing zugestellt')
-                detail = (& $T "'Contoso Executives' (Set-AntiPhishPolicy, $($changeTs.ToString('yyyy-MM-dd'))): delivered share $($ex.before.deliveredPct)% → $($ex.after.deliveredPct)% (7 days before/after, $($ex.after.events) phish messages after)." "'Contoso Executives' (Set-AntiPhishPolicy, $($changeTs.ToString('yyyy-MM-dd'))): Zustellanteil $($ex.before.deliveredPct)% → $($ex.after.deliveredPct)% (7 Tage vorher/nachher, $($ex.after.events) Phishing-Nachrichten danach).")
-                recommendation = (& $T 'Review the changed settings (threshold, impersonation/spoof actions, exclusions) and roll back or tune.' 'Geänderte Einstellungen (Threshold, Impersonation-/Spoof-Aktionen, Ausnahmen) prüfen und zurückrollen oder nachjustieren.') }
-        )
-        antiphish = [ordered]@{
-            historySince = (& $iso $Now.Date.AddDays(-214)); historyDays = 214
-            changes = $changes
-            policies = @(
-                [ordered]@{ policy = 'Contoso Executives'; lastChange = $changes[0].ts; removed = $false; settings = [ordered]@{
-                        PhishThresholdLevel = [ordered]@{ value = '1'; since = $changes[0].ts; actor = 'lena.keller@contoso.example' }
-                        TargetedUserProtectionAction = [ordered]@{ value = 'MoveToJmf'; since = $changes[0].ts; actor = 'lena.keller@contoso.example' }
-                        EnableTargetedUserProtection = [ordered]@{ value = 'True'; since = $changes[3].ts; actor = 'sven.roth@contoso.example' } } }
-                [ordered]@{ policy = 'Office365 AntiPhish Default'; lastChange = $changes[2].ts; removed = $false; settings = [ordered]@{
-                        PhishThresholdLevel = [ordered]@{ value = '2'; since = $changes[2].ts; actor = 'sven.roth@contoso.example' }
-                        EnableMailboxIntelligenceProtection = [ordered]@{ value = 'True'; since = $changes[2].ts; actor = 'sven.roth@contoso.example' } } }
-            )
-            effects = $effects; periods = $periods; matrix = $matrix
-            daily = @($daily | Where-Object { [DateTime]$_.day -ge $Now.Date.AddDays(-90) })
-            caveats = @(
-                'Policy names in mail telemetry (OrgLevelPolicy/UserLevelPolicy) are matched to audit object names heuristically; preset policies may appear under a different label.'
-                'Threshold 1 = Standard, 2 = Aggressive, 3 = More aggressive, 4 = Most aggressive. Effects are measured as 7 days before vs. 7 days after a change on phish-classified mail only.')
-        }
-    }
 
     # ---------------------------------------------------------------- Purview DLP preview
     $devNames = @('ws-1042', 'ws-1077', 'ws-1103', 'ws-1150', 'ws-1188', 'ws-1201', 'ws-1243', 'ws-1290', 'mbp-2011', 'mbp-2034', 'mbp-2052', 'ws-1311', 'ws-1325', 'ws-1340')
@@ -245,5 +106,5 @@ function Get-GapsioPreviewDemoData {
             'Purview role groups (Compliance portal) have no Microsoft Graph API – only Entra roles are listed.'
             'Endpoint DLP device onboarding switch and DLP policies themselves are only readable via Security & Compliance PowerShell (Get-DlpCompliancePolicy).')
     }
-    [ordered]@{ officepreview = $office; purviewpreview = $purview }
+    [ordered]@{ purviewpreview = $purview }
 }

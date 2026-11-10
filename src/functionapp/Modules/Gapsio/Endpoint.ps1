@@ -103,7 +103,7 @@ function Get-GapsioResponseFindings {
     if ($stale.Count) {
         $f.Add((New-GapsioFinding -Severity 'Medium' -Category 'Response' -Title (& $T "$($stale.Count) alert(s) untouched for 7+ days" "$($stale.Count) Alert(s) seit 7+ Tagen unbearbeitet") `
                     -Detail (& $T "Medium or high severity alerts are still in state New after a week – nobody has looked at them: $((@($stale | Sort-Object at | Select-Object -First 5 | ForEach-Object { "$($_.title) ($($_.deviceName))" })) -join '; ')$(if ($stale.Count -gt 5) { ' …' })." `
-                        "Alerts mittlerer oder hoher Schwere stehen nach einer Woche noch auf „Neu“ – niemand hat sie angesehen: $((@($stale | Sort-Object at | Select-Object -First 5 | ForEach-Object { "$($_.title) ($($_.deviceName))" })) -join '; ')$(if ($stale.Count -gt 5) { ' …' }).") `
+                        "Alerts mittlerer oder hoher Schwere stehen nach einer Woche noch auf `„Neu`“ – niemand hat sie angesehen: $((@($stale | Sort-Object at | Select-Object -First 5 | ForEach-Object { "$($_.title) ($($_.deviceName))" })) -join '; ')$(if ($stale.Count -gt 5) { ' …' }).") `
                     -Recommendation (& $T 'Triage and assign the alerts. Check whether the SOC has a working queue and notification for Defender alerts (e.g. email notifications or Sentinel).' 'Alerts triagieren und zuweisen. Prüfen, ob das SOC eine funktionierende Warteschlange und Benachrichtigung für Defender-Alerts hat (E-Mail-Benachrichtigung oder Sentinel).') -Subject 'resp|stale-alerts' -StableKey))
     }
 
@@ -143,7 +143,7 @@ function Get-GapsioResponseFindings {
         $who = @($scripts | ForEach-Object { $_.requestor } | Where-Object { $_ } | Sort-Object -Unique)
         $f.Add((New-GapsioFinding -Severity 'Low' -Category 'Response' -Title (& $T "$($scripts.Count) live response session(s) ran or uploaded scripts" "$($scripts.Count) Live-Response-Sitzung(en) mit Skriptausführung oder -upload") `
                     -Detail (& $T "Scripts were run or uploaded through live response by: $($who -join ', '). Live response with script execution is the most powerful action in Defender – make sure 'unsigned script execution' is off and the scripts in the library are reviewed." `
-                        "Über Live Response wurden Skripte ausgeführt oder hochgeladen von: $($who -join ', '). Live Response mit Skriptausführung ist die mächtigste Aktion in Defender – sicherstellen, dass „Ausführung nicht signierter Skripte“ aus ist und die Skripte in der Bibliothek geprüft sind.") `
+                        "Über Live Response wurden Skripte ausgeführt oder hochgeladen von: $($who -join ', '). Live Response mit Skriptausführung ist die mächtigste Aktion in Defender – sicherstellen, dass `„Ausführung nicht signierter Skripte`“ aus ist und die Skripte in der Bibliothek geprüft sind.") `
                     -Recommendation (& $T 'Keep the live response library curated and signed; restrict live-response permissions (unified RBAC: liveresponse-advanced) to the IR team.' 'Live-Response-Bibliothek kuratiert und signiert halten; Live-Response-Rechte (Unified RBAC: liveresponse-advanced) auf das IR-Team begrenzen.') -Subject 'resp|scripts' -StableKey))
     }
     @($f)

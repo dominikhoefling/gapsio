@@ -525,7 +525,7 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
         }
         Write-Ok "Runs started ($(($fns -replace '^Collect', '') -join ', ')). Results appear in the portal within a few minutes."
     }
-    catch { Write-Note "Could not start the run directly ($($_.Exception.Message)). Click “Collect now” in the portal." }
+    catch { Write-Note "Could not start the run directly ($($_.Exception.Message)). Click `“Collect now`” in the portal." }
 }
 
 # ---------------------------------------------------------------- Summary
