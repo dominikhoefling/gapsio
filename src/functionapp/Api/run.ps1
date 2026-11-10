@@ -56,13 +56,16 @@ if ($routeModule -and $modules -notcontains $routeModule) {
 $tier = Get-GapsioLicenseTier
 $community = $tier -eq 'Community'
 function Send-Snapshot {
-    param([string]$Name)
+    # -Fallback: an earlier file name of the same snapshot (read only when $Name does not exist yet)
+    param([string]$Name, [string]$Fallback)
     if ($community) {
         $s = Get-GapsioBlob -Container 'state' -Name $Name
+        if (-not $s -and $Fallback) { $s = Get-GapsioBlob -Container 'state' -Name $Fallback }
         if ($s) { Send-Response -Status 200 -Body (Protect-GapsioCommunity -Snapshot $s) } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
         return
     }
     $t = Get-GapsioBlobText -Container 'state' -Name $Name
+    if (-not $t -and $Fallback) { $t = Get-GapsioBlobText -Container 'state' -Name $Fallback }
     if ($t) { Send-Response -Status 200 -Body $t -RawJson } else { Send-Response -Status 404 -Body 'No data yet. Start a run.' }
 }
 
@@ -110,7 +113,8 @@ try {
         'agents' { Send-Snapshot -Name 'agents-latest.json' }
         'access' { Send-Snapshot -Name 'access-latest.json' }
         'licensing' { Send-Snapshot -Name 'licensing-latest.json' }
-        'officepreview' { Send-Snapshot -Name 'office-preview-latest.json' }
+        # The office module wrote office-preview-latest.json before it got a change history; read that until the next run
+        'officepreview' { Send-Snapshot -Name 'officepreview-latest.json' -Fallback 'office-preview-latest.json' }
         'purviewpreview' { Send-Snapshot -Name 'purview-preview-latest.json' }
         'assistant' {
             # Optional chat helper (GAPSIO_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.

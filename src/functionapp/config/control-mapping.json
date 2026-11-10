@@ -19,7 +19,7 @@
         { "id": "A.7.10", "title": { "en": "Storage media", "de": "Speichermedien" }, "match": ["endpoint:DeviceControl"] },
         { "id": "A.8.1", "title": { "en": "User endpoint devices", "de": "Endpunktgeräte des Benutzers" }, "match": ["endpoint:Device", "endpoint:Fleet", "endpoint:Coverage", "endpoint:Combined", "endpoint:Platform"] },
         { "id": "A.8.2", "title": { "en": "Privileged access rights", "de": "Privilegierte Zugangsrechte" }, "match": ["access:LeastPrivilege", "access:Platform"] },
-        { "id": "A.8.7", "title": { "en": "Protection against malware", "de": "Schutz gegen Schadsoftware" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Baseline", "endpoint:Combined", "endpoint:Dependency"] },
+        { "id": "A.8.7", "title": { "en": "Protection against malware", "de": "Schutz gegen Schadsoftware" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Baseline", "endpoint:Combined", "endpoint:Dependency", "officepreview:Office"] },
         { "id": "A.8.8", "title": { "en": "Management of technical vulnerabilities", "de": "Handhabung von technischen Schwachstellen" }, "match": ["endpoint:Updates"] },
         { "id": "A.8.9", "title": { "en": "Configuration management", "de": "Konfigurationsmanagement" }, "match": ["endpoint:Baseline", "endpoint:Conflict", "endpoint:Dependency", "endpoint:Hygiene"] },
         { "id": "A.8.12", "title": { "en": "Data leakage prevention", "de": "Verhinderung von Datenlecks" }, "match": ["endpoint:DeviceControl"] },
@@ -35,7 +35,7 @@
         { "id": "(b)", "title": { "en": "Incident handling", "de": "Bewältigung von Sicherheitsvorfällen" }, "match": ["endpoint:Response", "endpoint:Detection"] },
         { "id": "(e)", "title": { "en": "Security in acquisition, development and maintenance, including vulnerability handling", "de": "Sicherheit bei Erwerb, Entwicklung und Wartung, einschließlich Management von Schwachstellen" }, "match": ["endpoint:Updates"] },
         { "id": "(f)", "title": { "en": "Assessing the effectiveness of cybersecurity risk-management measures", "de": "Bewertung der Wirksamkeit von Risikomanagementmaßnahmen" }, "match": ["endpoint:Baseline", "endpoint:Conflict", "endpoint:Dependency", "endpoint:Combined", "endpoint:Coverage"] },
-        { "id": "(g)", "title": { "en": "Basic cyber hygiene practices", "de": "Grundlegende Verfahren der Cyberhygiene" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Device", "endpoint:Hygiene", "endpoint:DeviceControl", "endpoint:Fleet"] },
+        { "id": "(g)", "title": { "en": "Basic cyber hygiene practices", "de": "Grundlegende Verfahren der Cyberhygiene" }, "match": ["endpoint:Exclusion", "endpoint:Indicator", "endpoint:ASR", "endpoint:Device", "endpoint:Hygiene", "endpoint:DeviceControl", "endpoint:Fleet", "officepreview:Office"] },
         { "id": "(i)", "title": { "en": "Access control policies and asset management", "de": "Konzepte für die Zugriffskontrolle und Management von Anlagen" }, "match": ["access:LeastPrivilege", "access:Platform", "endpoint:Inventory", "agents:Agent", "agents:Accountability"] },
         { "id": "(j)", "title": { "en": "Multi-factor or continuous authentication", "de": "Multi-Faktor-Authentifizierung oder kontinuierliche Authentifizierung" }, "match": ["agents:ConditionalAccess"] }
       ]

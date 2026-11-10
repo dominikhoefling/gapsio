@@ -273,6 +273,44 @@ $hunting = @{
         [pscustomobject]@{ DeviceId = 'd-win3'; DeviceName = 'SRV-01'; OSPlatform = 'WindowsServer2022'; OSVersion = '10.0.20348'; ConnectivityType = 'Standard'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0); IsInternetFacing = 'true'; ExposureLevel = 'High'; AssetValue = 'High'; RegistryDeviceTag = 'DMZ' },
         [pscustomobject]@{ DeviceId = 'd-lnx1'; DeviceName = 'LNX-01'; OSPlatform = 'Linux'; OSVersion = 'Ubuntu 24.04'; MachineGroup = 'Server'; DeviceType = 'Server'; LastSeen = (T 0) }
     )
+    # Defender for Office 365 (office module): one fixture per probe key
+    Office = @{
+        threat_in_inbox = @([pscustomobject]@{ messages = 412; inInbox = 7; inboxPhish = 6; inboxMalware = 1; inboxRecipients = 5; deliveredThenRemoved = 38 })
+        threat_allowed = @([pscustomobject]@{ messages = 23; delivered = 19; byOrgPolicy = 15; byMailboxPolicy = 8; recipients = 11 })
+        threat_allowed_policies = @(
+            [pscustomobject]@{ Level = 'Organisation'; Policy = 'Tenant Allow/Block List: partner-portal.example'; messages = 12; delivered = 12; recipients = 6 },
+            [pscustomobject]@{ Level = 'Mailbox'; Policy = 'Safe senders list'; messages = 8; delivered = 5; recipients = 4 },
+            [pscustomobject]@{ Level = 'Organisation'; Policy = 'Transport rule: Skip filtering for scanner'; messages = 3; delivered = 2; recipients = 2 })
+        safelinks_clicks = @([pscustomobject]@{ clicks = 1830; threatClicks = 41; clickedThrough = 9; clickThroughUsers = 6; clickThroughUrls = 8 })
+        safelinks_by_workload = @([pscustomobject]@{ Workload = 'Email'; clicks = 1510; threatClicks = 36; clickedThrough = 7 }, [pscustomobject]@{ Workload = 'Teams'; clicks = 260; threatClicks = 5; clickedThrough = 2 }, [pscustomobject]@{ Workload = 'Office'; clicks = 60; threatClicks = 0; clickedThrough = 0 })
+        own_domain_spoof = @([pscustomobject]@{ messages = 96; dmarcFail = 14; dmarcFailDelivered = 3; domains = 1; recipients = 3 })
+        post_delivery = @([pscustomobject]@{ events = 61; messages = 44; phishZap = 31; malwareZap = 7; manual = 23 })
+        threat_trend_daily = @(foreach ($d in 29..0) { [pscustomobject]@{ day = (T $d); bucket = 'Phish'; events = 9 + ($d % 5) * 3 }; [pscustomobject]@{ day = (T $d); bucket = 'Malware'; events = 1 + ($d % 3) }; [pscustomobject]@{ day = (T $d); bucket = 'Spam'; events = 60 + ($d % 7) * 8 } })
+        action_trend_daily = @(foreach ($d in 29..0) { [pscustomobject]@{ day = (T $d); bucket = 'Allow'; events = 900 + ($d % 6) * 40 }; [pscustomobject]@{ day = (T $d); bucket = 'Junk'; events = 70 + ($d % 4) * 9 }; [pscustomobject]@{ day = (T $d); bucket = 'Quarantine'; events = 12 + ($d % 5) * 2 }; [pscustomobject]@{ day = (T $d); bucket = 'Block'; events = 25 + ($d % 3) * 5 } })
+        threat_themes = @(
+            [pscustomobject]@{ ThreatTypes = 'Phish'; ThreatClassification = 'Invoice'; events = 131; delivered = 4; recipients = 77 },
+            [pscustomobject]@{ ThreatTypes = 'Phish'; ThreatClassification = 'Payroll'; events = 88; delivered = 2; recipients = 51 },
+            [pscustomobject]@{ ThreatTypes = 'Malware'; ThreatClassification = ''; events = 44; delivered = 1; recipients = 30 })
+        policy_actions = @(
+            [pscustomobject]@{ EmailActionPolicy = 'Antispam'; EmailAction = 'Move message to junk mail folder'; messages = 2210; recipients = 380 },
+            [pscustomobject]@{ EmailActionPolicy = 'Anti-phishing spoof'; EmailAction = 'Send to quarantine'; messages = 190; recipients = 95 },
+            [pscustomobject]@{ EmailActionPolicy = 'Safe Attachments'; EmailAction = 'Send to quarantine'; messages = 31; recipients = 22 })
+        org_policies = @(
+            [pscustomobject]@{ OrgLevelPolicy = 'Tenant Allow/Block List: partner-portal.example'; OrgLevelAction = 'Allow'; messages = 240; withThreat = 12; delivered = 240; recipients = 60 },
+            [pscustomobject]@{ OrgLevelPolicy = 'Tenant Allow/Block List: bad-sender.example'; OrgLevelAction = 'Block'; messages = 75; withThreat = 40; delivered = 0; recipients = 31 })
+        mailbox_policies = @(
+            [pscustomobject]@{ UserLevelPolicy = 'Safe senders list'; UserLevelAction = 'Allow'; messages = 510; withThreat = 8; delivered = 505; recipients = 90 },
+            [pscustomobject]@{ UserLevelPolicy = 'Blocked senders list'; UserLevelAction = 'Block'; messages = 120; withThreat = 3; delivered = 0; recipients = 41 })
+        antiphish_changes = @(
+            [pscustomobject]@{ Timestamp = $now.AddDays(-20); ActionType = 'New-AntiPhishPolicy'; Policy = 'Executives'; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Name'; Value = 'Executives' }, @{ Name = 'PhishThresholdLevel'; Value = '3' }, @{ Name = 'TargetedUserProtectionAction'; Value = 'Quarantine' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-10); ActionType = 'Set-AntiPhishPolicy'; Policy = 'Executives'; Actor = 'carol@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Executives' }, @{ Name = 'PhishThresholdLevel'; Value = '1' }, @{ Name = 'TargetedUserProtectionAction'; Value = 'MoveToJmf' }) | ConvertTo-Json -Compress) })
+        antiphish_outcomes = @(foreach ($d in 29..0) {
+                $del = if ($d -le 10) { 9 } else { 2 }
+                [pscustomobject]@{ day = $now.Date.AddDays(-$d); Policy = 'Executives'; Method = 'Impersonation user'; Outcome = 'Delivered'; Confidence = 'Normal'; events = $del }
+                [pscustomobject]@{ day = $now.Date.AddDays(-$d); Policy = 'Executives'; Method = 'Impersonation user'; Outcome = 'Quarantine'; Confidence = 'High'; events = 6 }
+            })
+    }
+    OfficeFail = @()
     UsbMounts = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; Mounts = 12; Drives = 3; LastMount = (T 1) },
         [pscustomobject]@{ DeviceId = 'd-win2'; Name = 'WIN-02'; Mounts = 5; Drives = 2; LastMount = (T 3) },
@@ -603,6 +641,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
     param($Fx, $Hunt, $Acc, $Users, $Blobs, $Queue)
     $script:Fx = $Fx; $script:Hunt = $Hunt; $script:Acc = $Acc; $script:Users = $Users; $script:Blobs = $Blobs; $script:Queue = $Queue
     $script:HuntQueries = [System.Collections.Generic.List[string]]::new()
+    $script:GapsioHuntingCallsPerMinute = 1000000   # the hunting API is simulated: do not wait for the real 45-calls-per-minute budget
     $env:GAPSIO_STORAGE_ACCOUNT = 'teststorage'; $env:GAPSIO_TENANT_ID = '00000000-0000-0000-0000-000000000001'; $env:GAPSIO_FEATURES = 'hunting,indicators,coverage,response,detections'
 
     function script:V { param($Items) [pscustomobject]@{ value = @($Items) } }
@@ -621,6 +660,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $q = [string]$Body.Query
             $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
+            elseif ($q -match '// GapsioOffice:(\w+)') { $ok = $Matches[1]; if ($script:Hunt.OfficeFail -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message "Failed to resolve table for $ok") }; $script:Hunt.Office[$ok] }
             elseif ($q -match '// GapsioUsbMounts') { $script:Hunt.UsbMounts }
             elseif ($q -match '// GapsioDeviceControl') { $script:Hunt.DeviceControl }
             elseif ($q -match '// GapsioMdi') { if ($script:Hunt.MdiMissing) { throw "Failed to resolve table expression named 'IdentityDirectoryEvents'" }; $script:Hunt.Mdi }
@@ -1356,6 +1396,71 @@ $null = Invoke-GapsioLicensingCollection 6>$null
     & $A (@($mx.findings | Where-Object subject -eq 'clients-shared').Count -eq 1) 'Info finding for shared-like clients'
 } ${function:Assert}
 
+Write-Host '== Typographic quotes do not end strings' -ForegroundColor Cyan
+# For PowerShell, typographic double quotes are string delimiters: inside a double-quoted string they end it and the
+# rest of the text is silently lost (German finding texts were cut off this way). Allowed: in single-quoted strings,
+# here-strings and comments, or escaped with a backtick.
+$tq = '[' + (-join ([char]0x201C, [char]0x201D, [char]0x201E)) + ']'
+$tqBad = @(foreach ($file in Get-ChildItem -Recurse -Filter *.ps1 -Path (Join-Path $root 'src'), (Join-Path $root 'setup'), (Join-Path $root 'build'), (Join-Path $root 'tools')) {
+        $text = [IO.File]::ReadAllText($file.FullName)
+        if ($text -notmatch $tq) { continue }
+        $tokens = $null
+        [void][System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$null)
+        # Tokens and matches are both in text order: one pass with a moving token index
+        $safe = [System.Collections.Generic.List[object]]::new()
+        foreach ($tok in $tokens) { if ($tok.Kind -in 'StringLiteral', 'HereStringLiteral', 'HereStringExpandable', 'Comment') { $safe.Add($tok.Extent) } }
+        $si = 0
+        foreach ($m in [regex]::Matches($text, $tq)) {
+            if ($m.Index -gt 0 -and $text[$m.Index - 1] -eq '`') { continue }
+            while ($si -lt $safe.Count -and $safe[$si].EndOffset -le $m.Index) { $si++ }
+            if ($si -ge $safe.Count -or $m.Index -lt $safe[$si].StartOffset) { "$($file.Name):$(($text.Substring(0, $m.Index) -split "`n").Count)" }
+        }
+    })
+Assert ($tqBad.Count -eq 0) "Typographic quotes end a double-quoted string in: $(($tqBad | Select-Object -Unique -First 8) -join ', ')"
+
+Write-Host '== Function entry points call exported functions only' -ForegroundColor Cyan
+# The Function App scripts (timers, queue, HTTP) import the module and can only call what it exports.
+$exported = @((Get-Module Gapsio).ExportedFunctions.Keys)
+foreach ($entry in Get-ChildItem (Join-Path $root 'src/functionapp') -Recurse -Filter run.ps1) {
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($entry.FullName, [ref]$null, [ref]$null)
+    $called = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true) | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ -match '^[A-Za-z]+-Gapsio' } | Sort-Object -Unique)
+    $local = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | ForEach-Object { $_.Name })
+    $missing = @($called | Where-Object { $_ -notin $exported -and $_ -notin $local })
+    Assert ($missing.Count -eq 0) "$($entry.Directory.Name)/run.ps1 calls functions the module does not export: $($missing -join ', ')"
+}
+
+Write-Host '== End-to-end: office preview (Defender for Office 365)' -ForegroundColor Cyan
+$env:GAPSIO_MODULES = 'endpoint,agents,access,licensing,officepreview'
+$ro = Invoke-GapsioOfficePreviewCollection 6>$null
+$of = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($of.module -eq 'officepreview' -and $of.schema -eq 4 -and $of.errors -eq 0 -and $of.ok -ge 15 -and $of.warnings.Count -eq 0) "Office snapshot written with change history naming (ok $($of.ok), errors $($of.errors))"
+Assert ($of.summary.threatsInInbox -eq 7 -and $of.summary.threatsAllowed -eq 23 -and $of.summary.clickThroughs -eq 9 -and $of.summary.ownDomainSpoofDelivered -eq 3 -and $of.summary.zapActions -eq 38) 'Office summary from the probes'
+$offi = @($of.findings)
+Assert (@($offi | Where-Object { -not $_.key -or -not $_.fp -or $_.category -ne 'Office' }).Count -eq 0 -and $offi.Count -eq 6) "Office findings carry key and fingerprint like every other finding ($($offi.Count))"
+Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -eq '7 message(s) rated phish or malware are still in inboxes' -and $_.detail.de -match 'Posteingang' }).Count -eq 1) 'Finding: threats still in inboxes (High, bilingual)'
+Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -like 'Allows let 23 message(s)*' -and $_.detail.en -match 'partner-portal.example \[Organisation\]: 12' -and $_.detail.en -match '8 through the recipient' }).Count -eq 1) 'Finding: allows that delivered threats, organisation and mailbox level kept apart'
+Assert (@($offi | Where-Object { $_.title.en -like 'Users clicked through the Safe Links warning 9 time(s)' }).Count -eq 1 -and @($offi | Where-Object { $_.title.en -like '3 message(s) spoofing your own domains were delivered' }).Count -eq 1) 'Findings: Safe Links click-through and own-domain spoofing'
+Assert (@($offi | Where-Object { $_.title.en -eq 'Anti-phish protection was weakened' }).Count -eq 1 -and $of.antiphish.changes.Count -eq 2) 'Anti-phish drift is part of the run and its findings are converted'
+Assert (@($of.results | Where-Object { $_.key -match 'tabl|overlap|precedence|encrypted|first_contact' }).Count -eq 0) 'Probes on undocumented or misread columns are gone'
+Assert (@(($blobs['state/runs.json'] | ConvertFrom-Json) | Where-Object { $_.module -eq 'officepreview' }).Count -eq 1) 'Office run is in the run index'
+# A probe that fails is an error – not "no data" – and removes nothing silently
+$hunting.OfficeFail = @('threat_in_inbox', 'own_domain_spoof')
+$null = Invoke-GapsioOfficePreviewCollection 6>$null
+$of2 = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($of2.errors -eq 2 -and @($of2.results | Where-Object { $_.key -eq 'threat_in_inbox' -and $_.status -eq 'error' -and $_.error }).Count -eq 1 -and $null -eq $of2.summary.threatsInInbox) 'Failed probe: status error with text, summary value missing (not 0)'
+Assert (@($of2.findings | Where-Object { $_.title.en -match 'still in inboxes|spoofing your own' }).Count -eq 0 -and @($of2.findings).Count -eq 4) 'Failed probe produces no finding'
+Assert ($of2.changesSincePrevious -ge 2 -and @(($blobs['state/officepreview-changes.json'] | ConvertFrom-Json) | Where-Object { $_.change -eq 'Removed' }).Count -ge 2) 'Change history records what changed between office runs'
+$hunting.OfficeFail = @()
+$saved = $env:GAPSIO_FEATURES
+try {
+    $env:GAPSIO_FEATURES = 'indicators'
+    $null = Invoke-GapsioOfficePreviewCollection 6>$null
+    $of3 = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
+    Assert ($of3.errors -eq 1 -and $of3.results[0].key -eq 'hunting' -and @($of3.findings).Count -eq 0) 'Office without the Hunting feature: one clear error, no findings'
+}
+finally { $env:GAPSIO_FEATURES = $saved }
+$null = Invoke-GapsioOfficePreviewCollection 6>$null
+
 Write-Host '== API' -ForegroundColor Cyan
 Add-Type -TypeDefinition 'public class HttpResponseContext { public object StatusCode; public object Body; public string ContentType; public System.Collections.Hashtable Headers; }' -ErrorAction SilentlyContinue
 $script:resp = $null
@@ -1378,6 +1483,10 @@ $userP = New-Principal -Roles @() -Oid 'u-hank'
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).isAdmin) 'api/me Admin'
 $r = Call 'endpoint' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on endpoint'
 $r = Call 'endpoint' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'endpoint') 'Admin gets endpoint'
+$r = Call 'officepreview' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json -Depth 64).schema -eq 4) 'api/officepreview serves the office snapshot'
+$keep = $blobs['state/officepreview-latest.json']; $blobs.Remove('state/officepreview-latest.json'); $blobs['state/office-preview-latest.json'] = '{"version":3,"results":[]}'
+$r = Call 'officepreview' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).version -eq 3) 'api/officepreview falls back to the earlier file name until the module has run'
+$blobs['state/officepreview-latest.json'] = $keep; $blobs.Remove('state/office-preview-latest.json')
 $r = Call 'controls' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on the control mapping'
 $r = Call 'controls' -Principal $adminP; $cm = $r.Body | ConvertFrom-Json -Depth 16
 Assert ([int]$r.StatusCode -eq 200 -and $cm.source -eq 'default' -and (@($cm.frameworks | ForEach-Object id) -join ',') -eq 'iso27001,nis2' -and $cm.note.de) 'api/controls: shipped control mapping (ISO 27001, NIS2)'
@@ -1407,6 +1516,7 @@ $env:GAPSIO_MODULES = 'endpoint,agents,access,licensing'
 $r = Call 'changes' -Principal $adminP -Query @{ module = 'agents' }; Assert ([int]$r.StatusCode -eq 200) 'changes?module=agents'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' }; Assert ([int]$r.StatusCode -eq 400) 'POST without X-Gapsio is rejected'
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Gapsio' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1) 'POST run creates a queue message'
+$r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Gapsio' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1 -and ($r.Body | ConvertFrom-Json).queued -eq $false) 'A second run request within two minutes is not queued again'
 
 Write-Host '== Community edition (no licence)' -ForegroundColor Cyan
 $r = Call 'me' -Principal $userP; $m = $r.Body | ConvertFrom-Json; Assert ($m.tier -eq 'Community' -and $m.communityRows -eq 10) 'api/me: tier Community with row limit for everyone'
@@ -1895,14 +2005,14 @@ Assert ((Get-GapsioAntiPhishChangeDirection -Name 'ExcludedDomains' -Before 'a.c
 Assert ((Test-GapsioAntiPhishPolicyMatch -AuditName 'Office365 AntiPhish Default' -EventPolicy 'Office365 AntiPhish Default (Default)') -and -not (Test-GapsioAntiPhishPolicyMatch -AuditName 'Strict' -EventPolicy 'Standard Preset')) 'Anti-phish: policy name matching tolerates suffixes'
 & (Get-Module Gapsio) {
     param($A)
-    $origHunt = ${function:Invoke-GapsioHuntingSafe}; $origGet = ${function:Get-GapsioBlob}; $origSet = ${function:Set-GapsioBlob}
+    $origHunt = ${function:Invoke-GapsioOfficeHunting}; $origGet = ${function:Get-GapsioBlob}; $origSet = ${function:Set-GapsioBlob}
     try {
         $script:apBlobs = @{}
         ${function:Get-GapsioBlob} = { param($Container, $Name) $script:apBlobs[$Name] }
         ${function:Set-GapsioBlob} = { param($Container, $Name, $Object, $Depth = 32, $ContentType) $script:apBlobs[$Name] = ($Object | ConvertTo-Json -Depth 16 | ConvertFrom-Json -Depth 16) }
         $script:apBase = [datetime]::UtcNow.Date
-        ${function:Invoke-GapsioHuntingSafe} = {
-            param($Query, $Context, $Timespan, $ShardColumn, [switch]$NoShard)
+        ${function:Invoke-GapsioOfficeHunting} = {
+            param($Query, $Context, $Timespan)
             if ($Context -like '*changes*') {
                 return @(
                     [pscustomobject]@{ Timestamp = $script:apBase.AddDays(-20); ActionType = 'New-AntiPhishPolicy'; Policy = 'Strict Phish'; Actor = 'admin@x'; Result = 'True'; Params = (@(@{Name = 'Name'; Value = 'Strict Phish' }, @{Name = 'PhishThresholdLevel'; Value = '3' }, @{Name = 'TargetedUserProtectionAction'; Value = 'Quarantine' }) | ConvertTo-Json -Compress) },
@@ -1932,12 +2042,12 @@ Assert ((Test-GapsioAntiPhishPolicyMatch -AuditName 'Office365 AntiPhish Default
         & $A (@($h1.changes).Count -eq 2 -and @($h2.changes).Count -eq 2 -and @($h2.daily).Count -eq @($h1.daily).Count) 'Anti-phish: re-run merges history without duplicates'
         & $A ($r2.rows[0].result[0].newChanges -eq 0 -and $h2.since -eq $h1.since) 'Anti-phish: second run adds no new changes and keeps history start'
     }
-    finally { ${function:Invoke-GapsioHuntingSafe} = $origHunt; ${function:Get-GapsioBlob} = $origGet; ${function:Set-GapsioBlob} = $origSet }
+    finally { ${function:Invoke-GapsioOfficeHunting} = $origHunt; ${function:Get-GapsioBlob} = $origGet; ${function:Set-GapsioBlob} = $origSet }
 } ${function:Assert}
 
 if ($OutDir) {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-    foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/licensing-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
+    foreach ($k in 'state/agents-latest.json', 'state/access-latest.json', 'state/licensing-latest.json', 'state/officepreview-latest.json', 'state/endpoint-changes.json', 'state/runs.json', 'state/acceptances.json', 'state/acceptances-log.json') { $blobs[$k] | Set-Content -Path (Join-Path $OutDir (Split-Path $k -Leaf)) -Encoding utf8 }
     # The demo is static: the paged device collections are written inline again
     (Get-EpSnapshot) | ConvertTo-Json -Depth 64 -Compress | Set-Content -Path (Join-Path $OutDir 'endpoint-latest.json') -Encoding utf8
     (Call 'access/me' -Principal $userP) | Out-Null
