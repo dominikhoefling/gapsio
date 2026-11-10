@@ -301,6 +301,26 @@ $hunting = @{
         mailbox_policies = @(
             [pscustomobject]@{ UserLevelPolicy = 'Safe senders list'; UserLevelAction = 'Allow'; messages = 510; withThreat = 8; delivered = 505; recipients = 90 },
             [pscustomobject]@{ UserLevelPolicy = 'Blocked senders list'; UserLevelAction = 'Block'; messages = 120; withThreat = 3; delivered = 0; recipients = 41 })
+        teams_threats = @([pscustomobject]@{ messages = 5400; threats = 14; phish = 11; malware = 3; blocked = 6; delivered = 8; stillThere = 3; external = 9; senders = 5 })
+        teams_post_delivery = @([pscustomobject]@{ events = 6; messages = 5; phishZap = 4; malwareZap = 1; manual = 1; quarantined = 5 })
+        teams_threat_senders = @(
+            [pscustomobject]@{ SenderEmailAddress = 'helpdesk@it-support.example'; SenderType = 'User'; ThreatTypes = 'Phish'; messages = 6; delivered = 4; external = 6; lastSeen = (T 2) },
+            [pscustomobject]@{ SenderEmailAddress = 'billing@invoice-portal.example'; SenderType = 'User'; ThreatTypes = 'Malware'; messages = 3; delivered = 1; external = 3; lastSeen = (T 5) })
+        teams_url_domains = @([pscustomobject]@{ UrlDomain = 'login-check.example'; ThreatTypes = 'Phish'; urls = 4; messages = 6 })
+        quarantine_actions = @([pscustomobject]@{ events = 96; released = 21; requested = 12; denied = 5; deleted = 30; previewed = 26; exported = 2 })
+        quarantine_released = @([pscustomobject]@{ releases = 21; matched = 19; phish = 4; malware = 1; spam = 11; actors = 2 })
+        quarantine_releasers = @(
+            [pscustomobject]@{ Actor = 'alice@contoso.com'; releases = 12; phish = 3; malware = 1; lastRelease = (T 1) },
+            [pscustomobject]@{ Actor = 'carol@contoso.com'; releases = 9; phish = 1; malware = 0; lastRelease = (T 6) })
+        policy_changes = @(
+            [pscustomobject]@{ Timestamp = $now.AddDays(-20); ActionType = 'New-TransportRule'; Target = 'Scanner bypass'; Actor = 'carol@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Name'; Value = 'Scanner bypass' }, @{ Name = 'SenderIpRanges'; Value = '203.0.113.10' }, @{ Name = 'SetSCL'; Value = '-1' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-12); ActionType = 'Set-HostedContentFilterPolicy'; Target = 'Default'; Actor = 'carol@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Default' }, @{ Name = 'ZapEnabled'; Value = 'False' }, @{ Name = 'AllowedSenderDomains'; Value = 'partner-portal.example' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-10); ActionType = 'Set-AntiPhishPolicy'; Target = 'Executives'; Actor = 'carol@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Executives' }, @{ Name = 'PhishThresholdLevel'; Value = '1' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-8); ActionType = 'Set-SafeAttachmentPolicy'; Target = 'Finance attachments'; Actor = 'alice@contoso.com'; Result = 'False'; Params = (@(@{ Name = 'Identity'; Value = 'Finance attachments' }, @{ Name = 'Action'; Value = 'Allow' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-6); ActionType = 'Set-SafeLinksPolicy'; Target = 'Standard links'; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Standard links' }, @{ Name = 'AllowClickThrough'; Value = 'True' }, @{ Name = 'ScanUrls'; Value = 'True' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-5); ActionType = 'Disable-SafeLinksRule'; Target = 'Pilot links'; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Pilot links' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-3); ActionType = 'New-TenantAllowBlockListItems'; Target = ''; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'ListType'; Value = 'Sender' }, @{ Name = 'Entries'; Value = 'partner-portal.example' }, @{ Name = 'Allow'; Value = 'True' }, @{ Name = 'NoExpiration'; Value = 'True' }) | ConvertTo-Json -Compress) },
+            [pscustomobject]@{ Timestamp = $now.AddDays(-2); ActionType = 'Set-MalwareFilterPolicy'; Target = 'Default'; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Default' }, @{ Name = 'EnableFileFilter'; Value = 'True' }) | ConvertTo-Json -Compress) })
         antiphish_changes = @(
             [pscustomobject]@{ Timestamp = $now.AddDays(-20); ActionType = 'New-AntiPhishPolicy'; Policy = 'Executives'; Actor = 'alice@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Name'; Value = 'Executives' }, @{ Name = 'PhishThresholdLevel'; Value = '3' }, @{ Name = 'TargetedUserProtectionAction'; Value = 'Quarantine' }) | ConvertTo-Json -Compress) },
             [pscustomobject]@{ Timestamp = $now.AddDays(-10); ActionType = 'Set-AntiPhishPolicy'; Policy = 'Executives'; Actor = 'carol@contoso.com'; Result = 'True'; Params = (@(@{ Name = 'Identity'; Value = 'Executives' }, @{ Name = 'PhishThresholdLevel'; Value = '1' }, @{ Name = 'TargetedUserProtectionAction'; Value = 'MoveToJmf' }) | ConvertTo-Json -Compress) })
@@ -311,6 +331,7 @@ $hunting = @{
             })
     }
     OfficeFail = @()
+    OfficeMissing = @()
     UsbMounts = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; Mounts = 12; Drives = 3; LastMount = (T 1) },
         [pscustomobject]@{ DeviceId = 'd-win2'; Name = 'WIN-02'; Mounts = 5; Drives = 2; LastMount = (T 3) },
@@ -663,7 +684,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             $q = [string]$Body.Query
             $script:HuntQueries.Add($q)
             $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
-            elseif ($q -match '// GapsioOffice:(\w+)') { $ok = $Matches[1]; if ($script:Hunt.OfficeFail -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message "Failed to resolve table for $ok") }; $script:Hunt.Office[$ok] }
+            elseif ($q -match '// GapsioOffice:(\w+)') { $ok = $Matches[1]; if ($script:Hunt.OfficeFail -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message "Failed to resolve table for $ok") }; if ($script:Hunt.OfficeMissing -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message 'HTTP 400 for POST https://graph.microsoft.com/v1.0/security/runHuntingQuery :: {"error":{"code":"BadRequest","message":"''where'' operator: Failed to resolve table expression named ''[\"MessageEvents\"]'' in the database. Fix semantic errors in your query."}}') }; $script:Hunt.Office[$ok] }
             elseif ($q -match '// GapsioUsbMounts') { $script:Hunt.UsbMounts }
             elseif ($q -match '// GapsioDeviceControl') { $script:Hunt.DeviceControl }
             elseif ($q -match '// GapsioMdi') { if ($script:Hunt.MdiMissing) { throw "Failed to resolve table expression named 'IdentityDirectoryEvents'" }; $script:Hunt.Mdi }
@@ -1436,24 +1457,43 @@ Write-Host '== End-to-end: office preview (Defender for Office 365)' -Foreground
 $env:GAPSIO_MODULES = 'endpoint,agents,access,licensing,officepreview'
 $ro = Invoke-GapsioOfficePreviewCollection 6>$null
 $of = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
-Assert ($of.module -eq 'officepreview' -and $of.schema -eq 4 -and $of.errors -eq 0 -and $of.ok -ge 15 -and $of.warnings.Count -eq 0) "Office snapshot written with change history naming (ok $($of.ok), errors $($of.errors))"
+Assert ($of.module -eq 'officepreview' -and $of.schema -eq 5 -and $of.errors -eq 0 -and $of.unavailable -eq 0 -and $of.ok -ge 23 -and $of.warnings.Count -eq 0) "Office snapshot written with change history naming (ok $($of.ok), errors $($of.errors))"
 Assert ($of.summary.threatsInInbox -eq 7 -and $of.summary.threatsAllowed -eq 23 -and $of.summary.clickThroughs -eq 9 -and $of.summary.ownDomainSpoofDelivered -eq 3 -and $of.summary.zapActions -eq 38) 'Office summary from the probes'
 $offi = @($of.findings)
-Assert (@($offi | Where-Object { -not $_.key -or -not $_.fp -or $_.category -ne 'Office' }).Count -eq 0 -and $offi.Count -eq 6) "Office findings carry key and fingerprint like every other finding ($($offi.Count))"
+Assert (@($offi | Where-Object { -not $_.key -or -not $_.fp -or $_.category -ne 'Office' }).Count -eq 0 -and $offi.Count -eq 9) "Office findings carry key and fingerprint like every other finding ($($offi.Count))"
 Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -eq '7 message(s) rated phish or malware are still in inboxes' -and $_.detail.de -match 'Posteingang' }).Count -eq 1) 'Finding: threats still in inboxes (High, bilingual)'
 Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -like 'Allows let 23 message(s)*' -and $_.detail.en -match 'partner-portal.example \[Organisation\]: 12' -and $_.detail.en -match '8 through the recipient' }).Count -eq 1) 'Finding: allows that delivered threats, organisation and mailbox level kept apart'
 Assert (@($offi | Where-Object { $_.title.en -like 'Users clicked through the Safe Links warning 9 time(s)' }).Count -eq 1 -and @($offi | Where-Object { $_.title.en -like '3 message(s) spoofing your own domains were delivered' }).Count -eq 1) 'Findings: Safe Links click-through and own-domain spoofing'
 Assert (@($offi | Where-Object { $_.title.en -eq 'Anti-phish protection was weakened' }).Count -eq 1 -and $of.antiphish.changes.Count -eq 2) 'Anti-phish drift is part of the run and its findings are converted'
 Assert (@($of.results | Where-Object { $_.key -match 'tabl|overlap|precedence|encrypted|first_contact' }).Count -eq 0) 'Probes on undocumented or misread columns are gone'
+# Teams, quarantine and policy changes
+Assert ($of.summary.teamsThreatsDelivered -eq 3 -and $of.summary.quarantineReleases -eq 21 -and $of.summary.quarantineThreatsReleased -eq 5 -and $of.summary.policyChanges30d -eq 8 -and $of.summary.policyWeakened30d -eq 5) "Office summary: Teams, quarantine, policy changes ($($of.summary.policyChanges30d)/$($of.summary.policyWeakened30d))"
+Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -eq '3 Teams message(s) rated phishing or malware were delivered and not removed' -and $_.detail.en -match '14 Teams message\(s\) from 5 sender\(s\)' -and $_.detail.de -match 'Teams-Nachricht' }).Count -eq 1) 'Finding: Teams threats delivered and not removed'
+Assert (@($offi | Where-Object { $_.severity -eq 'High' -and $_.title.en -eq '5 message(s) with a phishing or malware verdict were released from quarantine' -and $_.detail.en -match '19 could be matched' -and $_.detail.en -match 'alice@contoso.com: 4; carol@contoso.com: 1' }).Count -eq 1) 'Finding: threats released from quarantine, with who released them (High because of malware)'
+$pw = @($offi | Where-Object { $_.title.en -eq '5 policy change(s) weakened Defender for Office 365 protection' })
+Assert ($pw.Count -eq 1 -and $pw[0].severity -eq 'High' -and $pw[0].detail.en -match "SafeLinks 'Standard links': AllowClickThrough=True \(alice@contoso.com" -and $pw[0].detail.en -match 'AllowBlockList: NoExpiration=True' -and $pw[0].detail.en -match "TransportRule 'Scanner bypass': SetSCL=-1" -and $pw[0].detail.en -notmatch 'Executives|Finance attachments|MalwareFilter') 'Finding: policy changes that weaken protection; anti-phish, failed and harmless changes are not in it'
+$pcs = @($of.policyChanges.changes)
+Assert ($pcs.Count -eq 8 -and $pcs[0].cmdlet -eq 'Set-MalwareFilterPolicy' -and @($pcs[0].weaker).Count -eq 0 -and @($pcs | Where-Object { $_.family -eq 'AntiSpam' })[0].weaker.Count -eq 2 -and @($pcs | Where-Object { $_.cmdlet -eq 'Disable-SafeLinksRule' })[0].weaker[0].id -eq 'ruleDisabled') 'Policy changes: newest first, family and weakening reasons per change'
+Assert (@($pcs | Where-Object { $_.family -eq 'SafeAttachments' })[0].failed -eq $true -and @(@($pcs | Where-Object { $_.family -eq 'SafeAttachments' })[0].weaker).Count -eq 0 -and @(@($pcs | Where-Object { $_.family -eq 'AntiPhish' })[0].weaker).Count -eq 0 -and @($of.policyChanges.families | Where-Object { $_.family -eq 'SafeLinks' })[0].changes -eq 2) 'Policy changes: a failed call and anti-phish changes are listed but not rated'
+Assert (($blobs['state/office-policy-history.json'] | ConvertFrom-Json).changes.Count -eq 8) 'Policy change history is kept in its own blob'
 Assert (@(($blobs['state/runs.json'] | ConvertFrom-Json) | Where-Object { $_.module -eq 'officepreview' }).Count -eq 1) 'Office run is in the run index'
 # A probe that fails is an error – not "no data" – and removes nothing silently
 $hunting.OfficeFail = @('threat_in_inbox', 'own_domain_spoof')
 $null = Invoke-GapsioOfficePreviewCollection 6>$null
 $of2 = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
 Assert ($of2.errors -eq 2 -and @($of2.results | Where-Object { $_.key -eq 'threat_in_inbox' -and $_.status -eq 'error' -and $_.error }).Count -eq 1 -and $null -eq $of2.summary.threatsInInbox) 'Failed probe: status error with text, summary value missing (not 0)'
-Assert (@($of2.findings | Where-Object { $_.title.en -match 'still in inboxes|spoofing your own' }).Count -eq 0 -and @($of2.findings).Count -eq 4) 'Failed probe produces no finding'
+Assert (@($of2.findings | Where-Object { $_.title.en -match 'still in inboxes|spoofing your own' }).Count -eq 0 -and @($of2.findings).Count -eq 7) 'Failed probe produces no finding'
+Assert (@($of2.policyChanges.changes).Count -eq 8 -and @($of2.results | Where-Object key -eq 'policy_changes')[0].result[0].newChanges -eq 0) 'Second run: policy changes come from the history, none is counted twice'
 Assert ($of2.changesSincePrevious -ge 2 -and @(($blobs['state/officepreview-changes.json'] | ConvertFrom-Json) | Where-Object { $_.change -eq 'Removed' }).Count -ge 2) 'Change history records what changed between office runs'
 $hunting.OfficeFail = @()
+# Tables the tenant does not have (no Defender for Office 365 Plan 2, no Defender for Cloud Apps): unavailable, not failed
+$hunting.OfficeMissing = @('teams_threats', 'teams_post_delivery', 'teams_threat_senders', 'teams_url_domains', 'quarantine_actions', 'quarantine_released', 'quarantine_releasers', 'policy_changes', 'threat_allowed')
+$null = Invoke-GapsioOfficePreviewCollection 6>$null
+$ofm = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($ofm.unavailable -eq 8 -and $ofm.errors -eq 1 -and @($ofm.results | Where-Object { $_.status -eq 'unavailable' -and $_.error -match '^The Advanced Hunting table MessageEvents does not exist in this tenant' }).Count -eq 8 -and @($ofm.results | Where-Object key -eq 'threat_allowed')[0].status -eq 'error') "Missing optional tables are 'unavailable' with a calm text; a missing core table stays an error ($($ofm.unavailable)/$($ofm.errors))"
+Assert ($null -eq $ofm.summary.teamsThreatsDelivered -and $null -eq $ofm.summary.quarantineThreatsReleased -and $null -eq $ofm.summary.policyWeakened30d -and @($ofm.findings | Where-Object { $_.title.en -match 'Teams message|released from quarantine|policy change\(s\) weakened' }).Count -eq 0) 'Unavailable checks: no numbers, no findings'
+Assert (@($ofm.policyChanges.changes).Count -eq 8 -and @($ofm.policyChanges.changes | Where-Object { @($_.weaker).Count -gt 0 }).Count -eq 5) 'Policy change history stays readable when the table is unavailable – but raises no finding from old data'
+$hunting.OfficeMissing = @()
 $saved = $env:GAPSIO_FEATURES
 try {
     $env:GAPSIO_FEATURES = 'indicators'
@@ -1486,7 +1526,7 @@ $userP = New-Principal -Roles @() -Oid 'u-hank'
 $r = Call 'me' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).isAdmin) 'api/me Admin'
 $r = Call 'endpoint' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'Non-admin gets 403 on endpoint'
 $r = Call 'endpoint' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).module -eq 'endpoint') 'Admin gets endpoint'
-$r = Call 'officepreview' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json -Depth 64).schema -eq 4) 'api/officepreview serves the office snapshot'
+$r = Call 'officepreview' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json -Depth 64).schema -eq 5) 'api/officepreview serves the office snapshot'
 $keep = $blobs['state/officepreview-latest.json']; $blobs.Remove('state/officepreview-latest.json'); $blobs['state/office-preview-latest.json'] = '{"version":3,"results":[]}'
 $r = Call 'officepreview' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json).version -eq 3) 'api/officepreview falls back to the earlier file name until the module has run'
 $blobs['state/officepreview-latest.json'] = $keep; $blobs.Remove('state/office-preview-latest.json')
@@ -1830,6 +1870,15 @@ Write-Host '== Posture checks (unit)' -ForegroundColor Cyan
         & $A (@(Get-GapsioCoverage -Devices $ds2 | Where-Object { $_.deviceId -eq 'd-old1' }).Count -eq 0) 'DeviceInfo did not answer: no coverage gap is claimed for listed devices'
     }
     finally { $script:Hunt.Tvm = $savedTvm; $script:Hunt.DeviceInfoFail = $false }
+    # Office policy changes: which values count as weakening
+    $w = { param($family, $cmdlet, $settings) @(Get-GapsioOfficePolicyWeakening -Family $family -Cmdlet $cmdlet -Settings $settings | ForEach-Object { $_.id }) -join ',' }
+    & $A ((& $w 'AntiSpam' 'Set-HostedContentFilterPolicy' ([ordered]@{ HighConfidencePhishAction = 'MoveToJmf'; PhishSpamAction = 'Quarantine'; SpamAction = 'AddXHeader'; PhishZapEnabled = '$false' })) -eq 'hcPhishNotQuarantined,spamStaysInInbox,zapOff') 'Anti-spam: high confidence phish not quarantined, spam left in the inbox, ZAP off'
+    & $A ((& $w 'AntiSpam' 'Set-HostedContentFilterPolicy' ([ordered]@{ HighConfidencePhishAction = 'Quarantine'; PhishSpamAction = 'Quarantine'; SpamAction = 'MoveToJmf'; ZapEnabled = 'True'; AllowedSenders = '' })) -eq '') 'Anti-spam: recommended values are not weakening'
+    & $A ((& $w 'SafeLinks' 'New-SafeLinksPolicy' ([ordered]@{ EnableSafeLinksForTeams = 'False'; DoNotRewriteUrls = 'intranet.example/*' })) -eq 'safeLinksOff,safeLinksExcluded' -and (& $w 'SafeAttachments' 'Set-SafeAttachmentPolicy' ([ordered]@{ Action = 'Block'; Enable = 'True' })) -eq '') 'Safe Links and Safe Attachments rules'
+    & $A ((& $w 'AllowBlockList' 'New-TenantAllowBlockListItems' ([ordered]@{ ListType = 'Url'; Block = 'True' })) -eq '' -and (& $w 'AllowBlockList' 'New-TenantAllowBlockListItems' ([ordered]@{ ListType = 'Url'; Allow = 'True' })) -eq 'allowEntry') 'Tenant Allow/Block List: block entries are fine, allow entries are not'
+    & $A ((& $w 'TransportRule' 'Set-TransportRule' ([ordered]@{ SetHeaderName = 'X-MS-Exchange-Organization-SkipSafeLinksProcessing'; SetHeaderValue = '1' })) -eq 'safeBypassHeader' -and (& $w 'TransportRule' 'Remove-TransportRule' ([ordered]@{ SetSCL = '-1' })) -eq '' -and (& $w 'TransportRule' 'New-TransportRule' ([ordered]@{ SetSCL = '6' })) -eq '') 'Transport rules: bypass header and SCL -1 only on New/Set'
+    & $A ((& $w 'Teams' 'Set-TeamsProtectionPolicy' ([ordered]@{ ZapEnabled = 'False' })) -eq 'teamsZapOff' -and (& $w 'PresetPolicies' 'Disable-EOPProtectionPolicyRule' ([ordered]@{})) -eq 'ruleDisabled' -and (& $w 'Dkim' 'Set-DkimSigningConfig' ([ordered]@{ Enabled = 'True' })) -eq '' -and (& $w 'AdvancedDelivery' 'New-SecOpsOverridePolicy' ([ordered]@{})) -eq 'filterBypass') 'Teams ZAP, preset policies, DKIM, advanced delivery'
+    & $A ((Get-GapsioOfficePolicyFamily 'Set-AtpPolicyForO365') -eq 'GlobalSettings' -and (Get-GapsioOfficePolicyFamily 'New-QuarantinePolicy') -eq 'QuarantinePolicy' -and (Get-GapsioOfficePolicyFamily 'Set-Mailbox') -eq 'Other' -and $script:GapsioOfficePolicyChangesQuery -match 'TeamsProtectionPolicy\|' -and $script:GapsioOfficePolicyChangesQuery -notmatch 'Get-') 'Policy families from the cmdlet noun; the query covers every family'
     # Device control is not supported on servers: USB use there is listed but not a finding
     $dcs = [pscustomobject]@{ usage = 'ok'; summary = @{ assignedPolicies = 0 }; devices = @([pscustomobject]@{ deviceName = 'SRV-1'; mounts = 4; hasPolicy = $false; supported = $false }) }
     & $A (@(Get-GapsioDeviceControlFindings -DeviceControl $dcs).Count -eq 0) 'USB on a server: no device control finding'
