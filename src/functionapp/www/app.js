@@ -39,7 +39,7 @@
     'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.purview': ['Purview DLP (private preview)', 'Purview DLP (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'nav.menu': ['Menu', 'Menü'], 'nav.close': ['Close menu', 'Menü schließen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
-    'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['MDO private preview', 'MDO Private Preview'], 'v.officeantiphish': ['Anti-phish drift', 'Anti-Phishing-Drift'], 'v.officepolicymap': ['Policy map', 'Policy-Map'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
+    'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['MDO private preview', 'MDO Private Preview'], 'v.officeantiphish': ['Anti-phish drift', 'Anti-Phishing-Drift'], 'v.officepolicymap': ['Policy map', 'Policy-Map'], 'v.officechanges': ['Policy changes', 'Richtlinienänderungen'], 'v.officequarantine': ['Quarantine', 'Quarantäne'], 'v.officeteams': ['Teams protection', 'Teams-Schutz'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
     'nav.licensing': ['Licences', 'Lizenzen'], 'v.licensing': ['Licence indication', 'Lizenz-Indikation'],
     'li.product': ['Product', 'Produkt'], 'lp.MDE': ['Defender for Endpoint', 'Defender for Endpoint'], 'lp.MDO': ['Defender for Office 365', 'Defender for Office 365'],
@@ -381,7 +381,75 @@
     'office.kpi.overrides': ['Override deliveries (30d)', 'Override-Zustellungen (30T)'],
     'office.kpi.na': ['n/a', 'k. A.'],
     'office.probe': ['Probe', 'Probe'], 'office.workload': ['Workload', 'Workload'], 'office.result': ['Result', 'Ergebnis'],
-    'office.status.ok': ['ok', 'ok'], 'office.status.error': ['error', 'Fehler'],
+    'office.status.ok': ['ok', 'ok'], 'office.status.error': ['error', 'Fehler'], 'office.status.unavailable': ['not available', 'nicht verfügbar'],
+    'om.unavailableN': ['{0} check(s) are not available in this tenant', '{0} Prüfung(en) sind in diesem Tenant nicht verfügbar'],
+    'om.unavailable.box': ['This tenant does not have the Advanced Hunting table for this page (the product or add-on that provides it is not licensed or not deployed). Nothing is wrong in Gapsio.', 'Dieser Tenant hat die Advanced-Hunting-Tabelle für diese Seite nicht (das Produkt oder Add-on dafür ist nicht lizenziert oder nicht bereitgestellt). In Gapsio ist nichts falsch.'],
+    'om.kpi.teams': ['Teams messages with a threat delivered and not removed', 'zugestellte, nicht entfernte Teams-Nachrichten mit Bedrohung'], 'om.kpi.quarantine': ['phish/malware released from quarantine', 'Phishing/Malware aus der Quarantäne freigegeben'],
+    'om.kpi.weakened': ['policy changes that weakened protection', 'Richtlinienänderungen, die den Schutz abschwächen'],
+    'om.more': ['More pages', 'Weitere Seiten'],
+    'oc.page.title': ['Policy changes (private preview)', 'Richtlinienänderungen (Private Preview)'],
+    'oc.lede': ['Every change to the protection policies of Defender for Office 365 and Exchange Online Protection – anti-spam, anti-malware, Safe Links, Safe Attachments, allow lists, transport rules, quarantine policies, Teams – with who made it and what was set. From the Exchange admin audit trail; Gapsio keeps the history beyond the 30 days of Advanced Hunting.', 'Jede Änderung an den Schutzrichtlinien von Defender for Office 365 und Exchange Online Protection – Anti-Spam, Anti-Malware, Safe Links, Safe Attachments, Allow-Listen, Transportregeln, Quarantänerichtlinien, Teams – mit Urheber und gesetzten Werten. Aus dem Exchange-Admin-Audit-Trail; Gapsio bewahrt die Historie über die 30 Tage von Advanced Hunting hinaus auf.'],
+    'oc.kpi.changes': ['changes in 30 days', 'Änderungen in 30 Tagen'], 'oc.kpi.weakened': ['of them weakened protection', 'davon schwächen den Schutz ab'], 'oc.kpi.history': ['changes in the history (kept for {0} day(s) so far)', 'Änderungen in der Historie (bisher {0} Tag(e) aufbewahrt)'],
+    'oc.none': ['No policy changes recorded yet.', 'Noch keine Richtlinienänderungen verzeichnet.'],
+    'oc.col.when': ['When', 'Wann'], 'oc.col.family': ['Policy type', 'Richtlinienart'], 'oc.col.object': ['Policy / object', 'Richtlinie / Objekt'], 'oc.col.cmdlet': ['Action', 'Aktion'], 'oc.col.actor': ['Changed by', 'Geändert von'], 'oc.col.rating': ['Rating', 'Bewertung'],
+    'oc.weaker': ['weakens protection', 'schwächt den Schutz'], 'oc.failed': ['did not succeed', 'nicht erfolgreich'], 'oc.neutral': ['no weakening value', 'kein abschwächender Wert'], 'oc.driftView': ['rated in anti-phish drift', 'bewertet in Anti-Phishing-Drift'],
+    'oc.filter.weaker': ['Only changes that weaken protection', 'Nur Änderungen, die den Schutz abschwächen'], 'oc.filter.recent': ['Last 30 days only', 'Nur die letzten 30 Tage'],
+    'oc.detail.why': ['Why it weakens protection', 'Warum es den Schutz abschwächt'], 'oc.detail.settings': ['Values set', 'Gesetzte Werte'], 'oc.detail.result': ['Result', 'Ergebnis'],
+    'oc.note': ['The policy configuration itself is not readable through an API, so a change is not compared with the value before. A change counts as weakening only when the value it sets is weak in itself. Anti-phish policies are rated in the anti-phish drift view. Source: CloudAppEvents (Defender for Cloud Apps, Microsoft 365 connector).', 'Die Richtlinienkonfiguration selbst ist über keine API lesbar, daher wird eine Änderung nicht mit dem Wert davor verglichen. Als Abschwächung zählt eine Änderung nur, wenn der gesetzte Wert für sich genommen schwach ist. Anti-Phishing-Richtlinien werden in der Anti-Phishing-Drift-Ansicht bewertet. Quelle: CloudAppEvents (Defender for Cloud Apps, Microsoft-365-Connector).'],
+    'opf.AntiPhish': ['Anti-phishing', 'Anti-Phishing'], 'opf.AntiSpam': ['Anti-spam (inbound)', 'Anti-Spam (eingehend)'], 'opf.OutboundSpam': ['Outbound spam', 'Ausgehender Spam'], 'opf.ConnectionFilter': ['Connection filter', 'Verbindungsfilter'],
+    'opf.AntiMalware': ['Anti-malware', 'Anti-Malware'], 'opf.SafeAttachments': ['Safe Attachments', 'Safe Attachments'], 'opf.SafeLinks': ['Safe Links', 'Safe Links'], 'opf.GlobalSettings': ['Global settings', 'Globale Einstellungen'],
+    'opf.PresetPolicies': ['Preset security policies', 'Voreingestellte Sicherheitsrichtlinien'], 'opf.AllowBlockList': ['Tenant Allow/Block List', 'Tenant Allow/Block List'], 'opf.TransportRule': ['Transport rule', 'Transportregel'],
+    'opf.QuarantinePolicy': ['Quarantine policy', 'Quarantänerichtlinie'], 'opf.Dkim': ['DKIM', 'DKIM'], 'opf.Teams': ['Teams protection', 'Teams-Schutz'], 'opf.AdvancedDelivery': ['Advanced delivery', 'Erweiterte Zustellung'], 'opf.Other': ['Other', 'Sonstige'],
+    'opw.ruleDisabled': ['The rule was disabled, so its policy no longer applies to anyone.', 'Die Regel wurde deaktiviert, ihre Richtlinie gilt damit für niemanden mehr.'],
+    'opw.hcPhishNotQuarantined': ['High confidence phishing is no longer quarantined.', 'Phishing mit hoher Zuverlässigkeit wird nicht mehr in Quarantäne gestellt.'],
+    'opw.phishNotQuarantined': ['Phishing is delivered to the mailbox (junk folder or inbox) instead of quarantine.', 'Phishing wird ins Postfach (Junk-Ordner oder Posteingang) zugestellt statt in die Quarantäne.'],
+    'opw.spamStaysInInbox': ['Spam stays in the inbox (header or subject is changed only).', 'Spam bleibt im Posteingang (nur Header oder Betreff wird geändert).'],
+    'opw.zapOff': ['Zero-hour auto purge is off: mail is not removed when the verdict changes after delivery.', 'Zero-hour Auto Purge ist aus: Mail wird nicht entfernt, wenn sich das Urteil nach der Zustellung ändert.'],
+    'opw.allowedSenders': ['Allowed senders or domains in the anti-spam policy skip spam filtering.', 'Zugelassene Absender oder Domänen in der Anti-Spam-Richtlinie überspringen die Spamfilterung.'],
+    'opw.fileFilterOff': ['The common attachments filter is off.', 'Der Filter für gängige Anlagentypen ist aus.'],
+    'opw.safeAttachmentsOff': ['Safe Attachments is switched off in this policy.', 'Safe Attachments ist in dieser Richtlinie ausgeschaltet.'],
+    'opw.safeAttachmentsNoBlock': ['Safe Attachments no longer blocks: attachments are delivered whatever the scan finds.', 'Safe Attachments blockiert nicht mehr: Anlagen werden unabhängig vom Scanergebnis zugestellt.'],
+    'opw.safeLinksOff': ['A Safe Links protection was switched off.', 'Ein Safe-Links-Schutz wurde ausgeschaltet.'],
+    'opw.clickThroughAllowed': ['Users may click through the Safe Links warning to the original URL.', 'Benutzer dürfen die Safe-Links-Warnung zur ursprünglichen URL durchklicken.'],
+    'opw.safeLinksExcluded': ['URLs are excluded from Safe Links rewriting.', 'URLs sind vom Umschreiben durch Safe Links ausgenommen.'],
+    'opw.ipAllowList': ['IP addresses on the connection filter allow list skip spam filtering.', 'IP-Adressen auf der Zulassungsliste des Verbindungsfilters überspringen die Spamfilterung.'],
+    'opw.globalProtectionOff': ['A tenant-wide Defender for Office 365 protection was switched off.', 'Ein mandantenweiter Schutz von Defender for Office 365 wurde ausgeschaltet.'],
+    'opw.safeDocsBypass': ['Users may leave Protected View even when Safe Documents finds the file malicious.', 'Benutzer dürfen die geschützte Ansicht verlassen, auch wenn Safe Documents die Datei als schädlich erkennt.'],
+    'opw.allowEntry': ['An allow entry was added to the Tenant Allow/Block List.', 'Ein Allow-Eintrag wurde in die Tenant Allow/Block List aufgenommen.'],
+    'opw.allowEntryNoExpiry': ['An allow entry that never expires was added to the Tenant Allow/Block List.', 'Ein Allow-Eintrag ohne Ablaufdatum wurde in die Tenant Allow/Block List aufgenommen.'],
+    'opw.spamFilterBypass': ['The transport rule sets SCL -1: matching mail skips spam filtering.', 'Die Transportregel setzt SCL -1: passende Mail überspringt die Spamfilterung.'],
+    'opw.safeBypassHeader': ['The transport rule sets a header that skips Safe Links or Safe Attachments processing.', 'Die Transportregel setzt einen Header, der die Verarbeitung durch Safe Links oder Safe Attachments überspringt.'],
+    'opw.dkimOff': ['DKIM signing was switched off for a domain.', 'Die DKIM-Signierung wurde für eine Domäne ausgeschaltet.'],
+    'opw.teamsZapOff': ['Zero-hour auto purge for Teams was switched off.', 'Zero-hour Auto Purge für Teams wurde ausgeschaltet.'],
+    'opw.filterBypass': ['Advanced delivery bypasses filtering for the listed senders or mailboxes – correct only for real phishing simulations and SecOps mailboxes.', 'Die erweiterte Zustellung umgeht die Filterung für die genannten Absender oder Postfächer – richtig nur für echte Phishing-Simulationen und SecOps-Postfächer.'],
+    'oq.page.title': ['Quarantine (private preview)', 'Quarantäne (Private Preview)'],
+    'oq.lede': ['What happened to quarantined mail in the last 30 days: releases, release requests and their denials, deletions – and whether released mail carries a phishing or malware verdict. From the audit trail, matched with the mail telemetry.', 'Was in den letzten 30 Tagen mit Mail in Quarantäne geschah: Freigaben, Freigabeanforderungen und deren Ablehnung, Löschungen – und ob freigegebene Mail ein Phishing- oder Malware-Urteil trägt. Aus dem Audit-Trail, abgeglichen mit der Mail-Telemetrie.'],
+    'oq.kpi.released': ['released', 'freigegeben'], 'oq.kpi.threat': ['of them rated phishing or malware', 'davon als Phishing oder Malware bewertet'], 'oq.kpi.requested': ['release requests', 'Freigabeanforderungen'], 'oq.kpi.denied': ['denied', 'abgelehnt'], 'oq.kpi.deleted': ['deleted', 'gelöscht'],
+    'oq.matched': ['{0} of {1} release(s) could be matched to the mail telemetry (EmailEvents, 30 days). Verdicts are known for those only.', '{0} von {1} Freigabe(n) ließen sich der Mail-Telemetrie zuordnen (EmailEvents, 30 Tage). Nur für diese ist das Urteil bekannt.'],
+    'oq.releasers': ['Who released', 'Wer freigegeben hat'], 'oq.none': ['No quarantine activity in the last 30 days.', 'Keine Quarantäne-Aktivität in den letzten 30 Tagen.'],
+    'oq.col.actor': ['Account', 'Konto'], 'oq.col.releases': ['Releases', 'Freigaben'], 'oq.col.phish': ['Phishing', 'Phishing'], 'oq.col.malware': ['Malware', 'Malware'], 'oq.col.last': ['Last release', 'Letzte Freigabe'],
+    'oq.note': ['A release can be the correct handling of a false positive. Source: CloudAppEvents (audit operations starting with “Quarantine”, Defender for Cloud Apps with the Microsoft 365 connector) joined with EmailEvents on the network message ID.', 'Eine Freigabe kann der richtige Umgang mit einem Fehlalarm sein. Quelle: CloudAppEvents (Audit-Vorgänge, die mit „Quarantine“ beginnen, Defender for Cloud Apps mit Microsoft-365-Connector), verknüpft mit EmailEvents über die Netzwerknachrichten-ID.'],
+    'ot.page.title': ['Teams protection (private preview)', 'Teams-Schutz (Private Preview)'],
+    'ot.lede': ['Teams messages that Defender for Office 365 rates as phishing or malware: how many were blocked, how many were delivered, and which of those nobody removed afterwards. Last 30 days.', 'Teams-Nachrichten, die Defender for Office 365 als Phishing oder Malware bewertet: wie viele blockiert und wie viele zugestellt wurden, und welche davon danach niemand entfernt hat. Letzte 30 Tage.'],
+    'ot.kpi.threats': ['messages with a phishing or malware verdict', 'Nachrichten mit Phishing- oder Malware-Urteil'], 'ot.kpi.blocked': ['blocked', 'blockiert'], 'ot.kpi.delivered': ['delivered', 'zugestellt'], 'ot.kpi.still': ['delivered and not removed', 'zugestellt und nicht entfernt'], 'ot.kpi.zap': ['removed by ZAP', 'von ZAP entfernt'], 'ot.kpi.clicks': ['Safe Links click-throughs in Teams', 'Safe-Links-Durchklicks in Teams'],
+    'ot.senders': ['Senders', 'Absender'], 'ot.domains': ['Domains of the URLs in these messages', 'Domänen der URLs in diesen Nachrichten'], 'ot.none': ['No Teams messages with a phishing or malware verdict in the last 30 days.', 'Keine Teams-Nachrichten mit Phishing- oder Malware-Urteil in den letzten 30 Tagen.'],
+    'ot.col.sender': ['Sender', 'Absender'], 'ot.col.type': ['Sender type', 'Absendertyp'], 'ot.col.external': ['In external conversations', 'In externen Unterhaltungen'], 'ot.col.last': ['Last message', 'Letzte Nachricht'], 'ot.col.domain': ['Domain', 'Domäne'], 'ot.col.urls': ['URLs', 'URLs'],
+    'ot.note': ['The Teams tables hold every message of conversations with external participants and internal messages that contain URLs – not all Teams traffic. Advanced Hunting for Teams needs Defender for Office 365 Plan 2. Sources: MessageEvents, MessagePostDeliveryEvents, MessageUrlInfo, UrlClickEvents.', 'Die Teams-Tabellen enthalten jede Nachricht aus Unterhaltungen mit externen Teilnehmern und interne Nachrichten mit URLs – nicht den gesamten Teams-Verkehr. Advanced Hunting für Teams setzt Defender for Office 365 Plan 2 voraus. Quellen: MessageEvents, MessagePostDeliveryEvents, MessageUrlInfo, UrlClickEvents.'],
+    'op.teams_threats': ['Teams messages with a phishing or malware verdict', 'Teams-Nachrichten mit Phishing- oder Malware-Urteil'], 'op.teams_post_delivery': ['Teams post-delivery actions (ZAP, manual remediation)', 'Teams: Aktionen nach Zustellung (ZAP, manuelle Bereinigung)'],
+    'op.teams_threat_senders': ['Senders of Teams messages with a threat verdict', 'Absender von Teams-Nachrichten mit Bedrohungsurteil'], 'op.teams_url_domains': ['Domains of URLs in Teams messages with a threat verdict', 'Domänen von URLs in Teams-Nachrichten mit Bedrohungsurteil'],
+    'op.quarantine_actions': ['Quarantine actions (audit trail)', 'Quarantäne-Aktionen (Audit-Trail)'], 'op.quarantine_released': ['Released from quarantine, with the verdict of the mail', 'Aus der Quarantäne freigegeben, mit dem Urteil der Mail'], 'op.quarantine_releasers': ['Who released from quarantine', 'Wer aus der Quarantäne freigegeben hat'],
+    'op.policy_changes': ['Protection policy changes (audit trail)', 'Änderungen an Schutzrichtlinien (Audit-Trail)'],
+    'or.teams_threats': ['{0} message(s) with a threat verdict: {1} blocked, {2} delivered, {3} not removed', '{0} Nachricht(en) mit Bedrohungsurteil: {1} blockiert, {2} zugestellt, {3} nicht entfernt'],
+    'or.teams_post_delivery': ['{0} phish ZAP, {1} malware ZAP, {2} manual remediation', '{0} Phish-ZAP, {1} Malware-ZAP, {2} manuelle Bereinigung'],
+    'or.quarantine_actions': ['{0} released, {1} release request(s), {2} denied, {3} deleted', '{0} freigegeben, {1} Freigabeanforderung(en), {2} abgelehnt, {3} gelöscht'],
+    'or.quarantine_released': ['{0} release(s), {1} matched to mail telemetry: {2} phishing, {3} malware', '{0} Freigabe(n), {1} der Mail-Telemetrie zugeordnet: {2} Phishing, {3} Malware'],
+    'or.policy_changes': ['{0} change(s) in 30 days, {1} weakened protection; {2} in the history', '{0} Änderung(en) in 30 Tagen, {1} schwächen den Schutz; {2} in der Historie'],
+    'og.teams_threats.why': ['Defender for Office 365 gave these Teams messages a phishing or malware verdict. “Not removed” means the message was delivered and no ZAP or manual remediation is recorded for it.', 'Defender for Office 365 hat diesen Teams-Nachrichten ein Phishing- oder Malware-Urteil gegeben. „Nicht entfernt“ heißt: Die Nachricht wurde zugestellt, und es ist weder ZAP noch eine manuelle Bereinigung verzeichnet.'],
+    'og.teams_threats.next': ['Remove the messages, check that ZAP for Teams is on and review who may start chats from outside the organisation.', 'Die Nachrichten entfernen, prüfen, dass ZAP für Teams aktiv ist, und klären, wer von außen Chats beginnen darf.'],
+    'og.quarantine_released.why': ['Released mail reaches the mailbox. When Defender rates it as phishing or malware, the release was either the correct handling of a false positive or a mistake.', 'Freigegebene Mail gelangt ins Postfach. Bewertet Defender sie als Phishing oder Malware, war die Freigabe entweder der richtige Umgang mit einem Fehlalarm oder ein Fehler.'],
+    'og.quarantine_released.next': ['Review each release, report false positives to Microsoft and let users only request the release of phishing.', 'Jede Freigabe prüfen, Fehlalarme an Microsoft melden und Benutzer die Freigabe von Phishing nur anfordern lassen.'],
+    'og.policy_changes.why': ['Every audited change to a protection policy. A change is rated as weakening when the value it sets lowers protection in itself.', 'Jede protokollierte Änderung an einer Schutzrichtlinie. Als Abschwächung gilt eine Änderung, wenn der gesetzte Wert den Schutz für sich genommen senkt.'],
+    'og.policy_changes.next': ['Confirm weakening changes against their change ticket and roll back what was not intended.', 'Abschwächende Änderungen mit ihrem Change-Ticket abgleichen und Unbeabsichtigtes zurücknehmen.'],
     'office.findings': ['Derived findings (preview)', 'Abgeleitete Findings (Preview)'],
     'office.result.noData': ['No telemetry data in the selected window.', 'Keine Telemetriedaten im gewählten Zeitraum.'],
     'office.result.override': ['{0} messages, {1} overrides, {2} DMARC-fail in overrides', '{0} Nachrichten, {1} Overrides, {2} DMARC-Fail in Overrides'],
@@ -1388,6 +1456,39 @@
     else main.append(h('p', { class: 'muted small' }, t('office.empty')));
   }
   /** Office preview: which policy acted on inbound mail (EmailActionPolicy, organisation-level and mailbox policies). */
+  /** Office module: changes to the protection policies of all families (audit trail). */
+  function renderOfficeChanges(main, o) {
+    const pc = o.policyChanges || {};
+    const changes = arr(pc.changes);
+    const fact = (b, s) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, s));
+    main.append(h('div', { class: 'facts' }, fact(num(pc.changes30d || 0), t('oc.kpi.changes')), fact(num(pc.weakened30d || 0), t('oc.kpi.weakened')), fact(num(arr(pc.changes).length), t('oc.kpi.history', num(pc.historyDays || 0)))));
+    const family = c => code('opf', c.family);
+    const rating = c => c.failed ? 'failed' : arr(c.weaker).length ? 'weaker' : c.family === 'AntiPhish' ? 'drift' : 'neutral';
+    const ratingText = c => ({ failed: t('oc.failed'), weaker: t('oc.weaker'), drift: t('oc.driftView'), neutral: t('oc.neutral') })[rating(c)];
+    const settings = c => Object.entries(c.settings || {}).map(([k, v]) => `${k} = ${v}`);
+    main.append(dataTable({
+      name: 'office-policy-changes', rows: changes, sort: (a, b) => String(b.ts).localeCompare(String(a.ts)),
+      search: c => `${c.target || ''} ${c.cmdlet || ''} ${c.actor || ''} ${family(c)} ${settings(c).join(' ')}`,
+      filters: [
+        { label: t('oc.col.family'), options: [...new Set(changes.map(c => c.family))].sort(), optionLabel: f => code('opf', f), test: (c, v) => c.family === v },
+        { type: 'check', label: t('oc.filter.weaker'), checked: false, test: c => arr(c.weaker).length > 0 },
+        { type: 'check', label: t('oc.filter.recent'), checked: false, test: c => !!c.recent }],
+      columns: [
+        { title: t('oc.col.when'), text: c => fmtDate(c.ts) },
+        { title: t('oc.col.family'), text: family },
+        { title: t('oc.col.object'), text: c => c.target || '–' },
+        { title: t('oc.col.cmdlet'), cell: c => h('span', { class: 'mono' }, c.cmdlet), text: c => c.cmdlet },
+        { title: t('oc.col.actor'), text: c => c.actor || '–' },
+        { title: t('oc.col.rating'), cell: c => rating(c) === 'weaker' ? h('span', { class: 'state bad' }, ratingText(c)) : rating(c) === 'drift' ? h('a', { href: '#/officeantiphish' }, ratingText(c)) : h('span', { class: 'muted' }, ratingText(c)), text: ratingText }],
+      detail: c => dl([
+        [t('oc.detail.why'), arr(c.weaker).length ? list(arr(c.weaker).map(w => `${L[`opw.${w.id}`] ? t(`opw.${w.id}`) : w.id}${w.setting ? ` (${w.setting} = ${w.value})` : ''}`)) : null],
+        [t('oc.detail.settings'), settings(c).length ? h('ul', null, settings(c).map(x => h('li', { class: 'mono small' }, x))) : null],
+        [t('oc.detail.result'), c.result || null]]),
+      empty: t('oc.none')
+    }));
+    main.append(h('p', { class: 'muted small' }, t('oc.note')));
+  }
+
   function renderPolicyMap(main, rows) {
     const row = k => rows.find(r => r.key === k);
     const section = (key, title, lede, columns, search) => {
@@ -2281,14 +2382,18 @@
 
     async officeantiphish(main, params) { return views.officepreview(main, params, 'antiphish'); },
     async officepolicymap(main, params) { return views.officepreview(main, params, 'policymap'); },
+    async officechanges(main, params) { return views.officepreview(main, params, 'changes'); },
+    async officequarantine(main, params) { return views.officepreview(main, params, 'quarantine'); },
+    async officeteams(main, params) { return views.officepreview(main, params, 'teams'); },
 
     async officepreview(main, params, section = 'overview') {
-      const title = section === 'antiphish' ? t('ap.page.title') : section === 'policymap' ? t('pm.page.title') : t('office.title');
-      main.append(h('h1', null, title), h('p', { class: 'lede' }, section === 'antiphish' ? t('ap.lede') : section === 'policymap' ? t('office.policyMap.lede') : t('office.lede')));
+      const pages = { antiphish: ['ap.page.title', 'ap.lede'], policymap: ['pm.page.title', 'office.policyMap.lede'], changes: ['oc.page.title', 'oc.lede'], quarantine: ['oq.page.title', 'oq.lede'], teams: ['ot.page.title', 'ot.lede'] };
+      const page = pages[section] || ['office.title', 'office.lede'];
+      main.append(h('h1', null, t(page[0])), h('p', { class: 'lede' }, t(page[1])));
       let o; try { o = await loadOfficePreview(); } catch (e) { main.append(noData(e, 'officepreview')); return; }
       const rows = arr(o.results);
       if (!rows.length) { main.append(h('div', { class: 'empty' }, t('office.empty'))); return; }
-      if (!o.schema || o.schema < 4) main.append(h('p', { class: 'muted small' }, t('om.oldData')));
+      if (!o.schema || o.schema < 5) main.append(h('p', { class: 'muted small' }, t('om.oldData')));
       const fact = (b, s) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, s));
       main.append(h('div', { class: 'facts' },
         fact(fmtDate(o.generatedAt), t('office.collected')), fact(t('office.window', num(o.windowDays || 0)), t('office.probes', num(o.ok || 0), num(o.errors || 0)))));
@@ -2300,15 +2405,83 @@
       const one = k => okRow(k) ? (arr(byKey[k].result)[0] || {}) : null;   // null: the probe failed or is missing – never shown as 0
       const many = k => okRow(k) ? arr(byKey[k].result) : [];
       const val = (k, f) => { const x = one(k); return x === null ? '–' : num(x[f] || 0); };
+      const probeTitle = r => L[`op.${r.key}`] ? t(`op.${r.key}`) : (r.title || r.key);
+      // A page whose probes did not run says why (unavailable in the tenant, or failed) instead of showing zeros
+      const pageState = (keys) => {
+        const bad = keys.map(k => byKey[k]).filter(r => !r || r.status !== 'ok');
+        if (!bad.length) return true;
+        const unavailable = bad.every(r => r && r.status === 'unavailable');
+        main.append(h('div', { class: 'warnings' }, unavailable ? t('om.unavailable.box') : h('ul', null, bad.map(r => h('li', { class: 'small' }, r ? `${probeTitle(r)}: ${r.error || ''}` : t('om.oldData'))))));
+        return bad.length < keys.length;
+      };
+      if (section === 'changes') { if (pageState(['policy_changes'])) renderOfficeChanges(main, o); else if (o.policyChanges && arr(o.policyChanges.changes).length) renderOfficeChanges(main, o); return; }
+      if (section === 'quarantine') {
+        if (!pageState(['quarantine_actions', 'quarantine_released'])) return;
+        const qa = one('quarantine_actions'), qr = one('quarantine_released');
+        const threat = qr === null ? '–' : num((qr.phish || 0) + (qr.malware || 0));
+        main.append(h('div', { class: 'facts' }, fact(val('quarantine_actions', 'released'), t('oq.kpi.released')), fact(threat, t('oq.kpi.threat')),
+          fact(val('quarantine_actions', 'requested'), t('oq.kpi.requested')), fact(val('quarantine_actions', 'denied'), t('oq.kpi.denied')), fact(val('quarantine_actions', 'deleted'), t('oq.kpi.deleted'))));
+        if (qr && qr.releases) main.append(h('p', { class: 'muted small' }, t('oq.matched', num(qr.matched || 0), num(qr.releases || 0))));
+        const who = many('quarantine_releasers');
+        main.append(h('h2', null, t('oq.releasers')));
+        main.append(dataTable({
+          name: 'office-quarantine', rows: who, sort: (a, b) => ((b.phish || 0) + (b.malware || 0)) - ((a.phish || 0) + (a.malware || 0)) || (b.releases || 0) - (a.releases || 0), search: r => `${r.Actor || ''}`,
+          columns: [
+            { title: t('oq.col.actor'), text: r => r.Actor || '–' }, { title: t('oq.col.releases'), text: r => num(r.releases) },
+            { title: t('oq.col.phish'), cell: r => r.phish ? h('b', { class: 'bad' }, num(r.phish)) : '0', text: r => String(r.phish || 0) },
+            { title: t('oq.col.malware'), cell: r => r.malware ? h('b', { class: 'bad' }, num(r.malware)) : '0', text: r => String(r.malware || 0) },
+            { title: t('oq.col.last'), text: r => fmtDate(r.lastRelease) }],
+          empty: qa && qa.events ? t('om.none') : t('oq.none')
+        }));
+        main.append(h('p', { class: 'muted small' }, t('oq.note')));
+        return;
+      }
+      if (section === 'teams') {
+        if (!pageState(['teams_threats', 'teams_post_delivery'])) return;
+        const tp = one('teams_post_delivery');
+        const teamsClicks = many('safelinks_by_workload').filter(r => String(r.Workload || '').toLowerCase() === 'teams').reduce((n, r) => n + Number(r.clickedThrough || 0), 0);
+        main.append(h('div', { class: 'facts' }, fact(val('teams_threats', 'threats'), t('ot.kpi.threats')), fact(val('teams_threats', 'blocked'), t('ot.kpi.blocked')), fact(val('teams_threats', 'delivered'), t('ot.kpi.delivered')),
+          fact(val('teams_threats', 'stillThere'), t('ot.kpi.still')), fact(tp === null ? '–' : num((tp.phishZap || 0) + (tp.malwareZap || 0)), t('ot.kpi.zap')), fact(okRow('safelinks_by_workload') ? num(teamsClicks) : '–', t('ot.kpi.clicks'))));
+        const senders = many('teams_threat_senders');
+        main.append(h('h2', null, t('ot.senders')));
+        main.append(dataTable({
+          name: 'office-teams-senders', rows: senders, sort: (a, b) => (b.messages || 0) - (a.messages || 0), search: r => `${r.SenderEmailAddress || ''} ${r.ThreatTypes || ''}`,
+          columns: [
+            { title: t('ot.col.sender'), text: r => r.SenderEmailAddress || '–' }, { title: t('ot.col.type'), text: r => r.SenderType || '–' }, { title: t('om.col.threatType'), text: r => r.ThreatTypes || '–' },
+            { title: t('om.col.messages'), text: r => num(r.messages) },
+            { title: t('om.col.delivered'), cell: r => r.delivered ? h('b', { class: 'bad' }, num(r.delivered)) : '0', text: r => String(r.delivered || 0) },
+            { title: t('ot.col.external'), text: r => num(r.external) }, { title: t('ot.col.last'), text: r => fmtDate(r.lastSeen) }],
+          empty: t('ot.none')
+        }));
+        const domains = many('teams_url_domains');
+        if (domains.length) {
+          main.append(h('h2', null, t('ot.domains')));
+          main.append(dataTable({
+            name: 'office-teams-domains', rows: domains, sort: (a, b) => (b.messages || 0) - (a.messages || 0), search: r => `${r.UrlDomain || ''} ${r.ThreatTypes || ''}`,
+            columns: [
+              { title: t('ot.col.domain'), cell: r => h('span', { class: 'mono' }, r.UrlDomain || '–'), text: r => r.UrlDomain || '–' }, { title: t('om.col.threatType'), text: r => r.ThreatTypes || '–' },
+              { title: t('ot.col.urls'), text: r => num(r.urls) }, { title: t('om.col.messages'), text: r => num(r.messages) }]
+          }));
+        }
+        main.append(h('p', { class: 'muted small' }, t('ot.note')));
+        return;
+      }
       const pd = one('post_delivery');
       main.append(h('div', { class: 'facts' },
         fact(val('threat_in_inbox', 'inInbox'), t('om.kpi.inbox')), fact(val('threat_allowed', 'messages'), t('om.kpi.allowed')),
         fact(val('safelinks_clicks', 'clickedThrough'), t('om.kpi.clicks')), fact(val('own_domain_spoof', 'dmarcFailDelivered'), t('om.kpi.spoof')),
         fact(pd === null ? '–' : num((pd.phishZap || 0) + (pd.malwareZap || 0)), t('om.kpi.zap'))));
-      const probeTitle = r => L[`op.${r.key}`] ? t(`op.${r.key}`) : (r.title || r.key);
-      const failed = rows.filter(r => r.status !== 'ok');
+      const qrel = one('quarantine_released'), pch = one('policy_changes');
+      main.append(h('div', { class: 'facts' },
+        fact(val('teams_threats', 'stillThere'), h('a', { href: '#/officeteams' }, t('om.kpi.teams'))),
+        fact(qrel === null ? '–' : num((qrel.phish || 0) + (qrel.malware || 0)), h('a', { href: '#/officequarantine' }, t('om.kpi.quarantine'))),
+        fact(pch === null ? '–' : num(pch.weakened30d || 0), h('a', { href: '#/officechanges' }, t('om.kpi.weakened')))));
+      const failed = rows.filter(r => r.status !== 'ok' && r.status !== 'unavailable');
       if (failed.length) main.append(h('details', { class: 'warnings', open: true }, h('summary', null, t('om.failedN', failed.length)),
         h('ul', null, failed.map(r => h('li', { class: 'small' }, `${probeTitle(r)}: ${r.error || ''}`)))));
+      const unavailable = rows.filter(r => r.status === 'unavailable');
+      if (unavailable.length) main.append(h('details', { class: 'warnings' }, h('summary', null, t('om.unavailableN', unavailable.length)),
+        h('ul', null, unavailable.map(r => h('li', { class: 'small' }, `${probeTitle(r)}: ${r.error || ''}`)))));
 
       const findings = arr(o.findings);
       main.append(h('h2', null, t('office.findings')));
@@ -2323,7 +2496,7 @@
           { title: t('f.recommendation'), text: f => tx(f.recommendation) }],
         empty: t('om.findings.none')
       }));
-      main.append(h('p', null, h('a', { href: '#/officeantiphish' }, t('office.goto.antiphish')), ' · ', h('a', { href: '#/officepolicymap' }, t('office.goto.policymap'))));
+      main.append(h('p', null, `${t('om.more')}: `, ...['officeantiphish', 'officepolicymap', 'officechanges', 'officequarantine', 'officeteams'].flatMap((v, i) => [i ? ' · ' : '', h('a', { href: `#/${v}` }, t(`v.${v}`))])));
 
       const threatTrend = many('threat_trend_daily'), actionTrend = many('action_trend_daily');
       if (threatTrend.length || actionTrend.length) {
@@ -2389,6 +2562,7 @@
         post_delivery: 'EmailPostDeliveryEvents | where Timestamp > ago(30d) | summarize count() by ActionType, ActionTrigger, ActionResult'
       };
       const resultText = (r) => {
+        if (r.status === 'unavailable') return t('office.status.unavailable');
         if (r.status !== 'ok') return t('om.failed');
         const x = arr(r.result)[0];
         if (!x) return t('office.result.noData');
@@ -2399,21 +2573,27 @@
           case 'safelinks_clicks': return t('or.safelinks_clicks', n('clicks'), n('threatClicks'), n('clickedThrough'));
           case 'own_domain_spoof': return t('or.own_domain_spoof', n('messages'), n('dmarcFail'), n('dmarcFailDelivered'));
           case 'post_delivery': return t('or.post_delivery', n('phishZap'), n('malwareZap'), n('manual'));
+          case 'teams_threats': return t('or.teams_threats', n('threats'), n('blocked'), n('delivered'), n('stillThere'));
+          case 'teams_post_delivery': return t('or.teams_post_delivery', n('phishZap'), n('malwareZap'), n('manual'));
+          case 'quarantine_actions': return t('or.quarantine_actions', n('released'), n('requested'), n('denied'), n('deleted'));
+          case 'quarantine_released': return t('or.quarantine_released', n('releases'), n('matched'), n('phish'), n('malware'));
+          case 'policy_changes': return t('or.policy_changes', n('changes30d'), n('weakened30d'), n('tracked'));
           case 'licensing_context': return t('or.licensing', n('mdoUsers'), n('mdoP2Consumed'), n('mdoP1Consumed'));
           case 'antiphish_policy_changes': return t('office.result.apChanges', n('rows'), n('newChanges'), n('tracked'));
           case 'antiphish_outcomes': return t('office.result.apOutcomes', n('rows'), n('days'), n('policies'));
           default: return t('or.rows', num(arr(r.result).length));
         }
       };
+      const probeStatus = r => r.status === 'ok' ? 'ok' : r.status === 'unavailable' ? 'unavailable' : 'error';
       main.append(h('h2', null, t('om.probes')), h('p', { class: 'lede' }, t('om.probes.lede')));
       main.append(dataTable({
         name: 'office-preview', rows,
         search: r => `${probeTitle(r)} ${r.workload || ''} ${r.error || ''}`,
-        filters: [{ label: t('x.status'), options: ['ok', 'error'], optionLabel: s => t(`office.status.${s}`), test: (r, v) => (r.status === 'ok' ? 'ok' : 'error') === v }],
+        filters: [{ label: t('x.status'), options: ['ok', 'unavailable', 'error'], optionLabel: s => t(`office.status.${s}`), test: (r, v) => probeStatus(r) === v }],
         columns: [
           { title: t('office.probe'), text: probeTitle },
           { title: t('office.workload'), text: r => r.workload || '–' },
-          { title: t('x.status'), cell: r => h('span', { class: `state ${r.status === 'ok' ? 'good' : 'bad'}` }, t(`office.status.${r.status === 'ok' ? 'ok' : 'error'}`)), text: r => t(`office.status.${r.status === 'ok' ? 'ok' : 'error'}`) },
+          { title: t('x.status'), cell: r => h('span', { class: probeStatus(r) === 'unavailable' ? 'muted' : `state ${r.status === 'ok' ? 'good' : 'bad'}` }, t(`office.status.${probeStatus(r)}`)), text: r => t(`office.status.${probeStatus(r)}`) },
           { title: t('office.result'), text: resultText }],
         detail: r => h('div', null,
           dl([
@@ -3128,7 +3308,7 @@
 
   const NAV = [
     { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline', 'conflicts', 'devicecontrol', 'disruption', 'detections'] },
-    { group: 'nav.office', admin: true, module: 'officepreview', items: ['officepreview', 'officeantiphish', 'officepolicymap'] },
+    { group: 'nav.office', admin: true, module: 'officepreview', items: ['officepreview', 'officeantiphish', 'officepolicymap', 'officechanges', 'officequarantine', 'officeteams'] },
     { group: 'nav.purview', admin: true, module: 'purviewpreview', items: ['purview', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
@@ -3141,7 +3321,7 @@
     agents: 'agents', agentca: 'agents',
     access: 'access', whocan: 'access', mine: 'access',
     licensing: 'licensing',
-    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview',
+    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview', officechanges: 'officepreview', officequarantine: 'officepreview', officeteams: 'officepreview',
     purview: 'purviewpreview', purviewdevices: 'purviewpreview', purviewlicensing: 'purviewpreview', purviewaccess: 'purviewpreview', purviewhunting: 'purviewpreview'
   };
   const NAV_ALIAS = { device: 'devices' };
