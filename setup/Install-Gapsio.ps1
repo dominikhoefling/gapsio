@@ -20,6 +20,7 @@
       Hunting     default    Advanced Hunting: device state, local exclusions, effective ASR mode, local AI agents
       Indicators  default    Allow indicators from Defender for Endpoint
       Coverage    default    Defender coverage gaps: Intune-managed devices not onboarded to Defender
+      Detections  optional   Custom detection rules: switched off automatically, disabled, acting automatically
       Agents      default    AI agents: Entra Agent ID, Agent 365 registry, Conditional Access coverage
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
       Licensing   optional   Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices without a licensed user
@@ -129,7 +130,7 @@ $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-GapsioFeatures -Features $featureList
 $modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' }) + $(if ($featureList -contains 'PurviewPreview') { 'purviewpreview' })
-$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
+$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Detections', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
     Write-Host "`nGapsio features: $($featureList -join ', ')" -ForegroundColor Cyan

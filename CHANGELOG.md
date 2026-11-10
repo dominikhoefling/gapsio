@@ -7,6 +7,19 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 ## [Unreleased]
 
 ### Added
+- **Policy conflicts (Endpoint).** Settings that reach the same devices from two or more Intune policies with
+  different values – fleet-wide, with the policies, the values and the number of devices. Finding *Policy conflict*
+  (Medium). No extra permission.
+- **Device control (Endpoint).** USB storage in use (30 days) versus the device control policies that reach those
+  devices, with policy events. Finding *USB storage used without a device control policy* (Medium). No extra permission.
+- **Attack disruption readiness (Endpoint).** What can be verified of the prerequisites of automatic attack
+  disruption (Sense agent version for Contain User, coverage, Defender for Identity signals, disruption events) –
+  and what Microsoft only shows in the portal, listed as *not measurable* with the place to check. No extra permission.
+- **Custom detection rules (new optional feature `Detections`, Graph `CustomDetection.Read.All`).** Rules that
+  Defender switched off automatically (High), failed, disabled and automatically acting rules; rule changes appear in
+  the change history. Enable with `-Features …,Detections`.
+- **Audit evidence (History).** Open findings and accepted risks by ISO/IEC 27001:2022 Annex A and NIS2 Art. 21(2)
+  control; printable, CSV export. The mapping (`config/control-mapping.json`) can be replaced in the `config` container.
 - **Access: held but not used.** New table per person and unified RBAC permission – *used*, *not used* or *not
   measurable* with the reason – and the finding *Defender permissions held but not used* (Medium/Low). *Not used* is
   only claimed when every source that can reveal the use was read; otherwise the permission is *not measurable*

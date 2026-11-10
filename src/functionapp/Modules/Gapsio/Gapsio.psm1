@@ -1,8 +1,8 @@
 #Requires -Version 7.2
-# Gapsio core module. Loads the parts (Core, Endpoint, Agents, Access, Licensing).
+# Gapsio core module. Loads the parts (Core, Endpoint, Posture, Agents, Access, Licensing, previews, Assistant).
 $ErrorActionPreference = 'Stop'
 
-foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'OfficeAntiPhish.ps1', 'OfficePreview.ps1', 'PurviewPreview.ps1', 'Assistant.ps1')) {
+foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Posture.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'OfficeAntiPhish.ps1', 'OfficePreview.ps1', 'PurviewPreview.ps1', 'Assistant.ps1')) {
     . (Join-Path $PSScriptRoot $part)
 }
 

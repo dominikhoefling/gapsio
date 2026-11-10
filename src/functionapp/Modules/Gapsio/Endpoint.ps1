@@ -234,9 +234,7 @@ function Set-GapsioDevicePolicyExclusions {
     $byPolicy = @{}
     foreach ($x in @($Exclusions)) { if ($x -and $x.assigned) { if (-not $byPolicy.ContainsKey($x.policyId)) { $byPolicy[$x.policyId] = [System.Collections.Generic.List[object]]::new() }; $byPolicy[$x.policyId].Add($x) } }
     foreach ($d in $Devices.Values) {
-        $keys = @()
-        if ($d.aadDeviceId) { $keys += "dev:$($d.aadDeviceId)" }
-        if ($d.lastUser) { $u = [string]$d.lastUser; $keys += "upn:$u"; $keys += "usr:$((($u -split '\\')[-1] -split '@')[0])" }
+        $keys = Get-GapsioDeviceMatchKeys -Device $d
         $count = 0
         $matched = [System.Collections.Generic.List[string]]::new()
         # Policy platform is a family ("Windows"); the device OS is a product ("Windows11", "WindowsServer2025") – compare families.
@@ -244,18 +242,7 @@ function Set-GapsioDevicePolicyExclusions {
         foreach ($polId in $byPolicy.Keys) {
             $xs = $byPolicy[$polId]
             if ($xs[0].platform -and $devFamily -and (Get-GapsioPlatformText ([string]$xs[0].platform)) -ne $devFamily) { continue }
-            $in = $false; $out = $false
-            foreach ($a in @($Targets[$polId])) {
-                $t = Get-GapsioProp $a 'target'; $type = [string](Get-GapsioProp $t '@odata.type'); $gid = [string](Get-GapsioProp $t 'groupId')
-                $member = { param($g) $m = Get-GapsioGroupMemberKeys -GroupId $g -Cache $cache; $null -ne $m -and @($keys | Where-Object { $m.Contains($_) }).Count -gt 0 }
-                switch -Wildcard ($type) {
-                    '*allDevicesAssignmentTarget' { $in = $true }
-                    '*allLicensedUsersAssignmentTarget' { $in = $true }
-                    '*exclusionGroupAssignmentTarget' { if ($gid -and (& $member $gid)) { $out = $true } }
-                    '*groupAssignmentTarget' { if ($gid -and -not $in -and (& $member $gid)) { $in = $true } }
-                }
-            }
-            if ($in -and -not $out) { $count += $xs.Count; [void]$matched.Add([string]$polId) }
+            if (Test-GapsioAssignmentTargetsDevice -Assignments @($Targets[$polId]) -Keys $keys -Cache $cache) { $count += $xs.Count; [void]$matched.Add([string]$polId) }
         }
         $d.policyExclusions = $count
         $d.policyExclusionPolicyIds = @($matched.ToArray())
@@ -345,7 +332,7 @@ function Get-GapsioEndpointPolicies {
     $settingValues = [System.Collections.Generic.List[object]]::new()
     $policies = [System.Collections.Generic.List[object]]::new()
     # Windows: Defender CSP; macOS: com.apple.managedclient.preferences_<key> (com.microsoft.wdav); Linux: linux_mdatp_*
-    $relevant = '^linux_|defender|mdatp|antivirus|exclu|attacksurfacereduction|controlledfolderaccess|tamperprotection|networkprotection|' +
+    $relevant = '^linux_|defender|mdatp|antivirus|exclu|attacksurfacereduction|controlledfolderaccess|tamperprotection|networkprotection|' + $script:GapsioDeviceControlSetting + '|' +
     '^com\.apple\.managedclient\.preferences_(allowedthreats|disallowedthreatactions|enablerealtimeprotection|enforcementlevel.*|exclusions.*|passivemode|scanarchives|threattypesettings.*|automaticsamplesubmission.*|cloudblocklevel|enabled|diagnosticlevel|behaviormonitoring|ignoreexclusions)$'
 
     # 1) Settings Catalog (incl. endpoint security policies and security settings management from the Defender portal)
@@ -2966,10 +2953,17 @@ function Invoke-GapsioEndpointCollection {
     Add-GapsioExclusionUsage -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))
 
     $baselineResults = Test-GapsioBaseline -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
+    # Posture checks on top of the endpoint data (Posture.ps1); a failure in one of them must not fail the run
+    $conflicts = @(); $deviceControl = $null; $disruption = $null; $detections = $null
+    try { $conflicts = @(Get-GapsioPolicyConflicts -SettingValues $pol.SettingValues -Devices $devices -Targets $pol.Targets) } catch { Add-GapsioWarning "Policy conflicts: $($_.Exception.Message)" }
+    try { $deviceControl = Get-GapsioDeviceControl -SettingValues $pol.SettingValues -Devices $devices -Targets $pol.Targets } catch { Add-GapsioWarning "Device control: $($_.Exception.Message)" }
+    try { $disruption = Get-GapsioDisruptionReadiness -Devices $devices -Coverage $coverage } catch { Add-GapsioWarning "Attack disruption readiness: $($_.Exception.Message)" }
+    try { $detections = Get-GapsioDetectionRules } catch { Add-GapsioWarning "Custom detection rules: $($_.Exception.Message)" }
     $findings = @(Get-GapsioEndpointFindings -Devices $devices -PolicyExclusions $pol.Exclusions -LocalExclusions $local -Indicators $indicators -Baseline $baselineResults -SettingValues $pol.SettingValues -Asr $asr -LinuxEvents $linuxEvents -Policies $pol.Policies) +
         @(Get-GapsioCoverageFindings -Coverage $coverage) + @(Get-GapsioUsageFindings -Exclusions (@($pol.Exclusions) + @($local | Where-Object { $_.present }))) +
         @(Get-GapsioResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count) +
-        @(Get-GapsioFleetFindings -Devices $devices -Facts $fleet) + @(Get-GapsioHygieneFindings -Devices $devices -Facts $hygiene -Asr $asr) + @(Get-GapsioMtdFindings -Facts $mtd -Devices $devices)
+        @(Get-GapsioFleetFindings -Devices $devices -Facts $fleet) + @(Get-GapsioHygieneFindings -Devices $devices -Facts $hygiene -Asr $asr) + @(Get-GapsioMtdFindings -Facts $mtd -Devices $devices) +
+        @(Get-GapsioPolicyConflictFindings -Conflicts $conflicts) + @(Get-GapsioDeviceControlFindings -DeviceControl $deviceControl) + @(Get-GapsioDisruptionFindings -Readiness $disruption) + @(Get-GapsioDetectionRuleFindings -Detections $detections)
     $findings = @(Merge-GapsioDeviceFindings -Findings $findings)
 
     $deviceList = @($(foreach ($d in $devices.Values) {
@@ -3013,6 +3007,11 @@ function Invoke-GapsioEndpointCollection {
             baselineTotal          = @($baselineResults).Count
             responseActions90d     = $(if ($response) { @($response.actions).Count } else { $null })
             alertsPendingApproval  = $(if ($response) { @($response.alerts | Where-Object { $_.investigationState -eq 'PendingApproval' }).Count } else { $null })
+            policyConflicts        = @($conflicts).Count
+            usbWithoutPolicy       = $(if ($deviceControl -and $deviceControl.usage -eq 'ok') { [int]$deviceControl.summary.usbWithoutPolicy } else { $null })
+            disruptionGaps         = $(if ($disruption) { [int]$disruption.summary.gaps } else { $null })
+            detectionRules         = $(if ($detections -and $detections.status -eq 'ok') { @($detections.rules).Count } else { $null })
+            detectionRulesOff      = $(if ($detections -and $detections.status -eq 'ok') { @($detections.rules | Where-Object { $_.status -ne 'enabled' }).Count } else { $null })
             fleet                  = [ordered]@{
                 internetFacingHigh    = @($deviceList | Where-Object { $_.internetFacing -eq $true -and $_.exposure -eq 'High' }).Count
                 troubleshootingActive = @($deviceList | Where-Object { $_.troubleshootingActive }).Count
@@ -3039,13 +3038,18 @@ function Invoke-GapsioEndpointCollection {
         localConfigEvents    = @($linuxEvents | Select-Object -Last 500)
         responseActions      = @($(if ($response) { $response.actions } else { @() }))
         inactiveDevices      = @($fleet.inactive | Select-Object -First 1000)
+        policyConflicts      = @($conflicts)
+        deviceControl        = $deviceControl
+        disruption           = $disruption
+        detectionRules       = @($(if ($detections) { $detections.rules } else { @() }))
+        detectionRulesStatus = $(if ($detections) { $detections.status } else { 'off' })
         findings             = @($findings)
         seenDefenderSettings = $seen
         warnings             = @(Get-GapsioWarnings)
     }
 
     Set-GapsioBlob -Container 'state' -Name 'endpoint-localstate.json' -Object @($local)
-    $r = Save-GapsioSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'coverage', 'baseline', 'asrRules', 'asrGroups', 'findings') -Started $started `
+    $r = Save-GapsioSnapshot -Module 'endpoint' -Snapshot $snapshot -Collections @('policyExclusions', 'localExclusions', 'indicators', 'devices', 'coverage', 'baseline', 'asrRules', 'asrGroups', 'policyConflicts', 'detectionRules', 'findings') -Started $started `
         -Paged @('devices', 'coverage') -Index @{ devices = $script:GapsioDeviceIndexColumns; coverage = @('deviceId', 'deviceName', 'status', 'os', 'source', 'user', 'lastSeen', 'aadDeviceId', 'intuneDeviceId') }
     Write-Information "Gapsio endpoint: done, $($r.changes) change(s), $($r.warnings) warning(s)." -InformationAction Continue
     $r

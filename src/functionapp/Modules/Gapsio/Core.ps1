@@ -30,7 +30,8 @@ function Get-GapsioModules {
 function Test-GapsioFeature {
     <#
     .SYNOPSIS
-    Endpoint sub-features from the app setting GAPSIO_FEATURES (comma-separated): hunting, indicators, inventory, coverage, response.
+    Endpoint sub-features from the app setting GAPSIO_FEATURES (comma-separated): hunting, indicators, inventory, coverage, response,
+    detections (custom detection rules), audit (unified audit log for the access module).
     A feature that is not selected was not granted a permission, so its data source is skipped quietly.
     Default (setting missing, e.g. older installations): hunting and indicators.
     #>
@@ -1350,6 +1351,21 @@ function Get-GapsioBaseline {
     $b = Get-Content -Raw -Path $path | ConvertFrom-Json -Depth 32
     $b | Add-Member -NotePropertyName source -NotePropertyValue 'default' -Force
     $b
+}
+
+function Get-GapsioControlMapping {
+    <#
+    .SYNOPSIS
+    Mapping of finding categories to controls (ISO/IEC 27001:2022 Annex A, NIS2 Art. 21(2)) for the audit evidence view:
+    the customer's own version from storage (config/control-mapping.json), otherwise the shipped one.
+    #>
+    $custom = $null
+    try { $custom = Get-GapsioBlob -Container 'config' -Name 'control-mapping.json' } catch { $custom = $null }
+    if ($custom) { $custom | Add-Member -NotePropertyName source -NotePropertyValue 'custom' -Force; return $custom }
+    $appRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $m = Get-Content -Raw -Path (Join-Path $appRoot 'config/control-mapping.json') | ConvertFrom-Json -Depth 16
+    $m | Add-Member -NotePropertyName source -NotePropertyValue 'default' -Force
+    $m
 }
 
 function ConvertTo-GapsioComparable {

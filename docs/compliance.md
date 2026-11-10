@@ -34,6 +34,33 @@ All exports are UTC-stamped and contain the Gapsio version that produced them.
 | A.8.15 / A.8.16 | Logging / Monitoring activities | Sensor health, devices not reporting, inactive devices; Gapsio's own portal access log | Endpoint, Core |
 | A.8.2 | Privileged access rights | PIM usage, break-glass accounts, role assignments outside PIM | Access |
 | A.5.23 | Information security for use of cloud services | Visibility of AI agents (Copilot Studio, Azure AI) and whether they are covered by Defender | Agents |
+| A.7.10 / A.8.12 | Storage media / Data leakage prevention | USB storage in use versus device control policies | Endpoint |
+| A.8.16 | Monitoring activities | Custom detection rules that were switched off, fail or are disabled | Endpoint (`Detections`) |
+| A.5.24 / A.5.26 | Incident management planning / Response to incidents | Response readiness and the prerequisites of automatic attack disruption | Endpoint |
+
+## NIS2 – Article 21(2)
+
+| Measure | Title | How Gapsio helps |
+|---|---|---|
+| (b) | Incident handling | Response readiness, attack disruption prerequisites, custom detection rules that stopped |
+| (e) | Security in acquisition, development and maintenance, including vulnerability handling | Update findings (Defender platform, engine and signature age, update rings) |
+| (f) | Assessing the effectiveness of risk-management measures | Baseline versus effective state, policy conflicts, dependency and combined findings, coverage gaps |
+| (g) | Basic cyber hygiene practices | Exclusions, allow indicators, ASR rules, device state, device control |
+| (i) | Access control policies and asset management | Defender roles and their use, API apps, device and agent inventory |
+| (j) | Multi-factor or continuous authentication | Conditional Access coverage of AI agents |
+
+## Audit evidence in the portal
+
+*History › Audit evidence* sorts the open findings and the accepted risks by these controls (ISO/IEC 27001:2022
+Annex A and NIS2 Article 21(2)): per control the status (*findings open*, *risks accepted*, *no findings*, *not
+assessed*), the open findings by severity and the areas Gapsio checks. The page can be printed or saved as PDF; the
+second table (one row per control and finding) exports as CSV for the audit file.
+
+The mapping ships in `config/control-mapping.json` (finding category → control). To adjust it, put your own
+`control-mapping.json` into the `config` container of the storage account – same mechanism as the
+[baseline](baseline.md).
+
+It is a mapping aid: it shows which findings are relevant evidence for a control, not that a control is fulfilled.
 
 ## NIST Cybersecurity Framework 2.0
 
