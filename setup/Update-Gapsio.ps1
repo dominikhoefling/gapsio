@@ -24,7 +24,7 @@
     ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -CheckOnly
 
 .EXAMPLE
-    ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.7.1
+    ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.8.0
 
 .EXAMPLE
     # Offline: release assets downloaded beforehand into one folder
