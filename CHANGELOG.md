@@ -6,6 +6,12 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-11-10
+
+New optional feature `Detections` with one read-only permission (`CustomDetection.Read.All`); everything else in
+this release works with the permissions you already granted. `Update-Gapsio.ps1` reports the permission only when
+you add the feature.
+
 ### Added
 - **Policy conflicts (Endpoint).** Settings that reach the same devices from two or more Intune policies with
   different values – fleet-wide, with the policies, the values and the number of devices. Finding *Policy conflict*
