@@ -22,6 +22,7 @@ $script:GapsioAntiPhishNoiseParams = @('Identity', 'Confirm', 'ErrorAction', 'Wa
 $script:GapsioAntiPhishCmdlets = @('Set-AntiPhishPolicy', 'New-AntiPhishPolicy', 'Remove-AntiPhishPolicy', 'Set-AntiPhishRule', 'New-AntiPhishRule', 'Remove-AntiPhishRule', 'Enable-AntiPhishRule', 'Disable-AntiPhishRule')
 
 $script:GapsioAntiPhishChangesQuery = @"
+// GapsioOffice:antiphish_changes
 CloudAppEvents
 | where Timestamp > ago(30d)
 | where ActionType in~ ('Set-AntiPhishPolicy','New-AntiPhishPolicy','Remove-AntiPhishPolicy','Set-AntiPhishRule','New-AntiPhishRule','Remove-AntiPhishRule','Enable-AntiPhishRule','Disable-AntiPhishRule')
@@ -35,6 +36,7 @@ CloudAppEvents
 "@
 
 $script:GapsioAntiPhishOutcomesQuery = @"
+// GapsioOffice:antiphish_outcomes
 EmailEvents
 | where Timestamp > ago(30d)
 | extend Threat = tolower(tostring(column_ifexists('ThreatTypes','')))
@@ -222,7 +224,7 @@ function Update-GapsioOfficeAntiPhishHistory {
     # ---- 2. Settings changes (Exchange admin audit via CloudAppEvents) ----------------------------------------
     $newChanges = 0
     try {
-        $r = @(Invoke-GapsioHuntingSafe -NoShard -Context 'office preview antiphish_policy_changes' -Timespan 'P30D' -Query $script:GapsioAntiPhishChangesQuery)
+        $r = @(Invoke-GapsioOfficeHunting -Context 'office preview antiphish_policy_changes' -Query $script:GapsioAntiPhishChangesQuery)
         foreach ($x in $r) {
             if ($null -eq $x) { continue }
             $ts = ConvertTo-GapsioIsoTs $x.Timestamp
@@ -242,7 +244,7 @@ function Update-GapsioOfficeAntiPhishHistory {
 
     # ---- 3. Outcomes per policy/day ---------------------------------------------------------------------------
     try {
-        $r = @(Invoke-GapsioHuntingSafe -NoShard -Context 'office preview antiphish_outcomes' -Timespan 'P30D' -Query $script:GapsioAntiPhishOutcomesQuery)
+        $r = @(Invoke-GapsioOfficeHunting -Context 'office preview antiphish_outcomes' -Query $script:GapsioAntiPhishOutcomesQuery)
         $windowDays = @{}
         foreach ($x in $r) { if ($x) { $windowDays[(ConvertTo-GapsioDayKey $x.day)] = $true } }
         # Days re-read from hunting replace what we had for those days (counts can still move for the current day).

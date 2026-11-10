@@ -9,7 +9,8 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 ## [0.7.0] – 2026-11-10
 
 New optional feature `Detections` with one read-only permission (`CustomDetection.Read.All`); everything else in
-this release works with the permissions you already granted. `Update-Gapsio.ps1` reports the permission only when
+this release works with the permissions you already granted. The Office preview module was rebuilt – its findings
+change, see *Changed* and *Removed*. `Update-Gapsio.ps1` reports the permission only when
 you add the feature.
 
 ### Added
@@ -32,13 +33,36 @@ you add the feature.
   (e.g. feature `Audit` off, audit query still running). The page shows which usage sources were read.
 
 ### Changed
+- **Office preview rebuilt on documented hunting columns.** The module now answers "what got through, and why":
+  phishing and malware that is still in an inbox, threats an allow delivered (organisation-level and mailbox-level
+  allows kept apart), Safe Links click-through and inbound mail that spoofs your own domains. The policy map shows
+  which protection acted and what organisation-level and mailbox policies did.
+- Office findings are regular findings now: they appear in the Findings list, can be assigned and accepted, count in
+  the audit evidence, and every run is compared with the previous one (change history, notifications, run index).
+  The snapshot is `state/officepreview-latest.json`; the earlier file is still read until the module has run once.
+- Office: all texts are available in English and German.
 - Portal sign-in fallback for missing `roles` claim now reads direct app-role assignments on the user object.
   Least-privilege mapping moved to the required `Core` feature with Graph `RoleManagement.Read.Directory`.
 - Access: *last used* also counts recorded actions (response actions, alert triage, audit log), so people who act
   through the API are no longer reported as *never used*.
 - Access: an empty *permissions actually used* table now says whether no source could be read or nothing was found.
 
+### Removed
+- Office checks that rested on misread or undocumented columns: *policy overlap*, *duplicate policy effects* and
+  *precedence conflicts* (they treated `UserLevelPolicy` – the recipient's own mailbox policy – as an admin policy),
+  *TABL/IOC inventory* (read a Microsoft Sentinel table that is not part of the Defender hunting schema), *ZAP blind
+  spots* (counted every message without a post-delivery event), *encrypted attachments* (undocumented field), and the
+  licensing finding in the Office module.
+
 ### Fixed
+- **The nightly runs of the Office and Purview preview modules failed**: their timer functions called collectors the
+  module did not export. Only *Collect now* worked. A test now checks every Function entry point.
+- **A second click on *Collect now* queued a second run**: the two-minute debounce called a function the module did
+  not export and silently did nothing.
+- Office: a hunting query that failed was counted as "ok, no data". Failed checks are now shown as failed, raise no
+  finding and leave their number empty.
+- German texts of several findings and one installer message were cut off: typographic quotation marks inside a
+  double-quoted PowerShell string end the string. All 18 places are fixed and a test guards against new ones.
 - Access: antivirus scans and investigation packages count as *Alerts (manage)* (previously *Response* / *File
   collection*), as in Microsoft's permission reference.
 - Access: an alert that is only assigned (status New) no longer counts as use by the assignee.

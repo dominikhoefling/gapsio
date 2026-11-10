@@ -61,7 +61,7 @@ $data = [ordered]@{
 }
 # Demo: private-preview modules (Advanced Hunting only – not simulated by the test tenant); real state files win
 $preview = Get-GapsioPreviewDemoData
-$data.officepreview = $(if ($x = & $read 'office-preview-latest.json') { $x } else { $preview.officepreview })
+$data.officepreview = & $read 'officepreview-latest.json'
 $data.purviewpreview = $(if ($x = & $read 'purview-preview-latest.json') { $x } else { $preview.purviewpreview })
 # Demo: 30 days of history so the trend and drift charts have something to show
 $rand = [Random]::new(42)

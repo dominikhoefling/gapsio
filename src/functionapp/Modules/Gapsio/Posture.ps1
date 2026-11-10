@@ -498,7 +498,7 @@ function Get-GapsioDetectionRuleFindings {
     $auto = @($rules | Where-Object { $_.status -eq 'autoDisabled' })
     if ($auto.Count) {
         $f.Add((New-GapsioFinding -Severity 'High' -Category 'Detection' -Title (& $T "$($auto.Count) custom detection rule(s) were switched off automatically" "$($auto.Count) Custom-Detection-Regel(n) wurden automatisch abgeschaltet") `
-                    -Detail (& $T "Defender set these rules to 'autoDisabled' – they no longer run and raise no alerts: $(& $list $auto). Nobody is notified when this happens." "Defender hat diese Regeln auf „autoDisabled“ gesetzt – sie laufen nicht mehr und erzeugen keine Alerts: $(& $list $auto). Niemand wird darüber benachrichtigt.") `
+                    -Detail (& $T "Defender set these rules to 'autoDisabled' – they no longer run and raise no alerts: $(& $list $auto). Nobody is notified when this happens." "Defender hat diese Regeln auf `„autoDisabled`“ gesetzt – sie laufen nicht mehr und erzeugen keine Alerts: $(& $list $auto). Niemand wird darüber benachrichtigt.") `
                     -Recommendation (& $T 'Open each rule in the Defender portal (Hunting › Custom detection rules), run its query, fix what fails (changed schema, time-outs, too many results) and switch the rule on again.' 'Jede Regel im Defender-Portal öffnen (Hunting › Benutzerdefinierte Erkennungsregeln), die Abfrage ausführen, den Fehler beheben (geändertes Schema, Zeitüberschreitung, zu viele Ergebnisse) und die Regel wieder einschalten.') -Subject 'detection|autodisabled' -StableKey))
     }
     $failed = @($rules | Where-Object { $_.status -eq 'enabled' -and $_.lastRun -and $_.lastRun.status -in 'failed', 'partiallyFailed' })
