@@ -50,6 +50,11 @@ The **Coverage gaps** tab lists devices Defender does not (fully) protect:
 
 - Intune-managed Windows, macOS and Linux devices (synced in the last 30 days) that never showed up in Defender – feature `Coverage`
 - onboarded devices whose sensor is inactive, misconfigured or has impaired communications
+- devices that have **not reported** in the lookback (`GAPSIO_DEVICE_LOOKBACK_DAYS`, default 7 days), listed as
+  *sensor inactive*. Defender keeps the last configuration assessment of such a device, so Gapsio still lists it.
+  The device list and the device page label it **not reporting**, and its findings carry the label **last known
+  state** – they describe what the device reported last, not what is true today. Severity does not change. When the
+  device information query itself fails, no device is labelled.
 - devices found by Defender device discovery that can be onboarded
 
 ## MDAV baseline
@@ -164,7 +169,8 @@ documented `DeviceInfo` columns (`IsInternetFacing`, `ExposureLevel`, `AssetValu
   registry values set to *Allow* (6) or *NoAction* (9) in the last 30 days (`DeviceRegistryEvents`).
 - **High-risk browser extension** (Medium; High for *Critical*) – one finding per extension that Vulnerability
   Management rates *High* or *Critical* (`DeviceTvmBrowserExtensions`, active installations only), with the browsers,
-  device count and a device sample. Extensions run with the user's sessions and cookies outside the reach of ASR,
+  device count and a device sample. The table exists only with Defender Vulnerability Management (standalone, or the
+  add-on to Defender for Endpoint Plan 2); without it the check is skipped with a notice. Extensions run with the user's sessions and cookies outside the reach of ASR,
   SmartScreen and AV scanning; block them with `ExtensionInstallBlocklist` or move to an allowlist.
 - The **passive-mode** finding now says whether a third-party AV is visible at all (no product → likely a leftover
   `ForceDefenderPassiveMode` or a fake security-center registration) and whether EDR in block mode backs it up.

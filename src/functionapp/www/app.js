@@ -108,6 +108,9 @@
     'd.device': ['Device', 'Gerät'], 'd.platform': ['Platform', 'Plattform'], 'd.group': ['Device group', 'Gerätegruppe'], 'd.onlyIssues': ['Devices with issues only', 'Nur Geräte mit Auffälligkeiten'],
     'd.mode': ['Mode', 'Modus'], 'd.tamper': ['Tamper', 'Tamper'], 'd.rtp': ['Real-time', 'Echtzeit'], 'd.cloud': ['Cloud', 'Cloud'], 'd.bm': ['Behavior', 'Verhalten'], 'd.pua': ['PUA', 'PUA'],
     'd.asrBelow': ['ASR below target', 'ASR unter Soll'], 'd.local': ['Local exclusions', 'Lokale Exclusions'], 'd.policyExcl': ['Intune exclusions', 'Intune-Exclusions'], 'd.os': ['Operating system', 'Betriebssystem'], 'd.lastSeen': ['Last seen', 'Zuletzt gesehen'],
+    'd.notReporting': ['not reporting', 'meldet nicht'], 'd.notReporting.title': ['This device sent no device information in the lookback period. Everything shown for it is the last known state.', 'Dieses Gerät hat im Betrachtungszeitraum keine Geräteinformationen gesendet. Alles, was zu ihm angezeigt wird, ist der letzte bekannte Stand.'],
+    'd.notReporting.box': ['This device is not reporting. Defender still lists its last configuration assessment, so protection state, exclusions and findings on this page show the last known state, not the current one.', 'Dieses Gerät meldet nicht. Defender führt noch seine letzte Konfigurationsbewertung, daher zeigen Schutzstatus, Exclusions und Befunde auf dieser Seite den letzten bekannten Stand, nicht den aktuellen.'],
+    'f.stale': ['last known state', 'letzter bekannter Stand'], 'f.stale.label': ['Data age', 'Datenstand'], 'f.stale.text': ['The device is not reporting. This finding describes its last known state.', 'Das Gerät meldet nicht. Dieser Befund beschreibt seinen letzten bekannten Stand.'],
     'd.sig': ['Signatures up to date', 'Signaturen aktuell'], 'd.plat': ['Platform up to date', 'Plattform aktuell'], 'd.alerts': ['Exclusion alerts (30 days)', 'Exclusion-Alerts (30 Tage)'],
     'd.checks': ['All checks', 'Alle Prüfungen'], 'd.asr': ['ASR rules', 'ASR-Regeln'], 'd.none': ['No devices found. Is Defender for Endpoint with Advanced Hunting active?', 'Keine Geräte gefunden. Ist Defender for Endpoint mit Advanced Hunting aktiv?'],
     'mode.Active': ['Active', 'Aktiv'], 'mode.Passive': ['Passive', 'Passiv'], 'mode.SxSPassive': ['SxS passive', 'SxS passiv'], 'mode.EdrBlock': ['EDR in block mode', 'EDR im Blockmodus'], 'mode.Unknown': ['Unknown', 'Unbekannt'],
@@ -1518,11 +1521,11 @@
           { type: 'check', label: t('acc.hide'), checked: true, test: r => !r.accepted }],
         columns: [
           { title: t('f.severity'), cell: r => sevCell(r.severity), text: r => code('sev', r.severity) },
-          { title: t('f.finding'), cell: r => h('span', null, tx(r.title), r.accepted ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null), text: r => tx(r.title) + (r.accepted ? ` (${t('acc.tag')})` : '') },
+          { title: t('f.finding'), cell: r => h('span', null, tx(r.title), r.accepted ? h('span', { class: 'tag accepted' }, t('acc.tag')) : null, r.stale ? h('span', { class: 'tag warn', title: t('f.stale.text') }, t('f.stale')) : null), text: r => tx(r.title) + (r.accepted ? ` (${t('acc.tag')})` : '') + (r.stale ? ` (${t('f.stale')})` : '') },
           { title: t('f.category'), text: r => `${code('mod', r.module)} · ${code('cat', r.category)}` },
           { title: t('f.device'), cell: r => r.deviceCount ? h('span', { title: arr(r.deviceSample).join(', ') }, t('f.devicesN', num(r.deviceCount))) : deviceLink(r.deviceId, r.deviceName), text: r => r.deviceCount ? t('f.devicesN', num(r.deviceCount)) : (r.deviceName || '–') },
           { title: t('asg.col'), cell: r => r.assigned ? assigneeChip(r.assigned) : h('span', { class: 'muted' }, '–'), text: r => assigneeText(r.assigned) || '–' }],
-        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceCount ? list(arr(r.deviceSample)) : r.deviceName]]), acceptBox(r, 'finding', r.module, tx(r.title))),
+        detail: r => h('div', null, dl([[t('f.description'), tx(r.detail)], [t('f.recommendation'), tx(r.recommendation)], [t('f.device'), r.deviceCount ? list(arr(r.deviceSample)) : r.deviceName], [t('f.stale.label'), r.stale ? t('f.stale.text') : null]]), acceptBox(r, 'finding', r.module, tx(r.title))),
         empty: t('f.none')
       });
       main.append(table);
@@ -1680,7 +1683,7 @@
       charts.forEach(ch => ch.segs.forEach(([id, lk]) => chartOptions.push({ value: `${ch.id}|${id}`, label: `${ch.title}: ${lk ? t(lk) : id}` })));
       const chartTest = (r, v) => { const [cid, sid] = v.split('|'); const ch = charts.find(x => x.id === cid); return ch ? ch.get(r) === sid : true; };
       const columns = [
-        { title: t('d.device'), cell: r => deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName },
+        { title: t('d.device'), cell: r => r.reporting === false ? h('span', null, deviceLink(r.deviceId, r.deviceName), ' ', h('span', { class: 'tag warn', title: t('d.notReporting.title') }, t('d.notReporting'))) : deviceLink(r.deviceId, r.deviceName), text: r => r.deviceName + (r.reporting === false ? ` (${t('d.notReporting')})` : '') },
         { title: t('d.platform'), text: r => r.os },
         { title: t('d.mode'), cell: r => h('span', { class: `state ${r.avMode === '0' ? 'good' : r.avMode ? 'bad' : ''}` }, modeText(r)), text: modeText },
         { title: t('d.tamper'), cell: r => checkCell(c(r, 'TamperProtection')), text: r => c(r, 'TamperProtection') },
@@ -1692,7 +1695,7 @@
         { title: t('d.asrBelow'), cell: r => r.asrBelowMinimum === null || r.asrBelowMinimum === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: `state ${r.asrBelowMinimum ? 'bad' : 'good'}` }, String(r.asrBelowMinimum)), text: r => r.asrBelowMinimum },
         { title: t('d.policyExcl'), cell: r => r.policyExclusions === null || r.policyExclusions === undefined ? h('span', { class: 'muted' }, '–') : h('span', { class: r.policyExclusions ? 'state warn' : 'muted' }, String(r.policyExclusions)), text: r => r.policyExclusions },
         { title: t('d.local'), cell: r => r.localExclusions ? h('span', { class: `state ${r.localExclusionsHighRisk ? 'bad' : 'warn'}` }, String(r.localExclusions)) : h('span', { class: 'muted' }, '0'), text: r => r.localExclusions }];
-      const detail = r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), fmtDate(r.lastSeen)],
+      const detail = r => dl([[t('d.device'), h('a', { href: `#/device?id=${encodeURIComponent(r.deviceId)}` }, t('d.open'))], [t('d.group'), r.deviceGroup], [t('d.os'), [r.os, r.osVersion].filter(Boolean).join(' ')], [t('d.lastSeen'), r.reporting === false ? `${t('d.notReporting')}${r.lastSeen ? ` · ${fmtDate(r.lastSeen)}` : ''}` : fmtDate(r.lastSeen)],
         [t('d.sig'), yesNo(r.signatureUpToDate)], [t('d.plat'), yesNo(r.platformUpToDate)], [t('d.alerts'), r.exclusionAlerts],
         [t('d.checks'), list(Object.entries(r.checks || {}).map(([k, v]) => `${code('chk', k)}: ${v === 'GOOD' ? t('ok') : v === 'BAD' ? t('problem') : t('na')}`))],
         [t('d.asr'), r.asr ? list(Object.entries(r.asr).map(([k, v]) => `${asrName[k] || k}: ${v === 'n/a' ? t('na') : code('asr', v)}`)) : null]]);
@@ -1774,6 +1777,7 @@
       const links = [h('a', { href: `https://security.microsoft.com/machines/v2/${encodeURIComponent(d.deviceId)}/overview`, target: '_blank', rel: 'noopener noreferrer' }, t('dv.defender'))];
       if (d.intuneDeviceId) links.push(' · ', h('a', { href: `https://intune.microsoft.com/#view/Microsoft_Intune_Devices/DeviceSettingsMenuBlade/~/overview/mdmDeviceId/${encodeURIComponent(d.intuneDeviceId)}`, target: '_blank', rel: 'noopener noreferrer' }, t('dv.intune')));
       main.append(h('h1', null, d.deviceName), h('p', { class: 'lede' }, [d.os, d.osVersion].filter(Boolean).join(' '), d.deviceGroup ? ` · ${d.deviceGroup}` : '', d.deviceType ? ` · ${d.deviceType}` : ''));
+      if (d.reporting === false) main.append(h('div', { class: 'warnings' }, t('d.notReporting.box')));
       main.append(h('div', { class: 'detail card' }, dl([
         [t('d.mode'), h('span', { class: `state ${d.avMode === '0' ? 'good' : d.avMode ? 'bad' : ''}` }, modeText)],
         [t('dv.sensor'), d.sensorHealth || '–'], [t('dv.exposure'), d.exposure || null], [t('dv.user'), d.lastUser || null], [t('dv.join'), d.joinType || null],
@@ -1783,7 +1787,7 @@
         [t('dv.thirdParty'), arr(d.thirdPartyAv).length ? h('span', { class: d.avMode === '0' ? 'state warn' : '' }, arr(d.thirdPartyAv).join(', ')) : null],
         [t('dv.troubleshooting'), d.troubleshooting30d > 0 || d.troubleshootingActive ? h('span', { class: d.troubleshootingActive ? 'state bad' : 'state warn' }, `${d.troubleshooting30d || 0}${d.troubleshootingActive ? ` · ${t('dv.tsActive')}` : ''}${d.troubleshootingLast ? ` · ${fmtDate(d.troubleshootingLast)}` : ''}`) : null],
         [t('dv.clientVersion'), d.clientVersion || null],
-        [t('d.lastSeen'), fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
+        [t('d.lastSeen'), d.reporting === false ? h('span', { class: 'state warn' }, `${t('d.notReporting')}${d.lastSeen ? ` · ${fmtDate(d.lastSeen)}` : ''}`) : fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
         [t('dv.sigtime'), d.avSignatureTime ? fmtDate(d.avSignatureTime) : null], [t('d.sig'), yesNo(d.signatureUpToDate)], [t('d.plat'), yesNo(d.platformUpToDate)],
         [t('d.aad'), d.aadDeviceId ? h('span', { class: 'mono small' }, d.aadDeviceId) : null], [t('dv.links'), h('span', null, links)]])));
 

@@ -338,7 +338,7 @@ $hunting = @{
         [pscustomobject]@{ Rule = 'ObfuscatedScript'; Kind = 'Audited'; Events = 4; Devices = 1; Top = '["powershell.exe (4)"]' }
     )
     Wsl = @([pscustomobject]@{ DeviceId = 'd-win1'; Wsl = 1; Plugin = 0 })
-    BrowserExtensions = @([pscustomobject]@{ ExtensionId = 'abcdefghijklmnop'; ExtensionName = 'Free VPN Unlimited'; Risk = 'High'; Devices = 2; Names = '["WIN-01","WIN-02"]'; Browsers = '["Edge","Chrome"]'; Vendor = 'Unknown Vendor' })
+    BrowserExtensions = @([pscustomobject]@{ ExtensionId = 'abcdefghijklmnop'; ExtensionName = 'Free VPN Unlimited'; Risk = 'High'; Devices = 2; Ids = '["d-win1","d-win2"]'; Browsers = '["Edge","Chrome"]'; Vendor = 'Unknown Vendor' })
     ThreatActions = @([pscustomobject]@{ DeviceId = 'd-win1'; Name = 'WIN-01'; RegistryKey = 'HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender\Threats\ThreatIdDefaultAction'; RegistryValueName = '2147519003'; RegistryValueData = '6'; Timestamp = (T 2); InitiatingProcessFileName = 'reg.exe' })
     ThirdPartyAv = @(
         [pscustomobject]@{ DeviceId = 'd-win1'; Products = '["CrowdStrike Falcon Sensor"]' },
@@ -607,6 +607,9 @@ Write-Host '== Least privilege: features and federated data app' -ForegroundColo
     & $A ($t -like '*The token contains Policy.Read.All*') '403 notice: permission present in the token'
     $e404 = New-GapsioHttpException -Status 404 -Message 'HTTP 404 for GET x :: nf'
     & $A ((Get-GapsioErrorText -Exception $e404 -Context 'X') -eq 'HTTP 404 for GET x :: nf') 'Other errors keep their message'
+    $eTable = [Exception]::new('HTTP 400 for POST https://graph.microsoft.com/v1.0/security/runHuntingQuery :: {"error":{"code":"BadRequest","message":"''where'' operator: Failed to resolve table expression named ''[\"TvmBrowserExtensions\"]'' in Database=''''. Fix semantic errors in your query."}}'); $eTable.Data['Status'] = 400
+    $t = Get-GapsioErrorText -Exception $eTable -Context 'Advanced Hunting browser extensions'
+    & $A ($t -match '^The Advanced Hunting table TvmBrowserExtensions does not exist in this tenant' -and $t -match 'check is skipped' -and $t -match '\[HTTP 400\]$' -and $t -notmatch 'semantic|request-id|graph\.microsoft') 'Missing hunting table: calm notice instead of the raw HTTP 400'
     $script:GapsioTokens.Clear()
     $saved = @{ IDENTITY_ENDPOINT = $env:IDENTITY_ENDPOINT; IDENTITY_HEADER = $env:IDENTITY_HEADER }
     try {
@@ -691,7 +694,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
             elseif ($q -match 'DeviceTvmSecureConfigurationAssessment') { $script:Hunt.Tvm }
             elseif ($q -match 'DeviceTvmInfoGathering') { $script:Hunt.Info }
             elseif ($q -match 'AlertInfo') { $script:Hunt.Alerts }
-            elseif ($q -match 'DeviceInfo') { $script:Hunt.DeviceInfo }
+            elseif ($q -match 'DeviceInfo') { if ($script:Hunt.DeviceInfoFail) { throw 'HTTP 500 for POST runHuntingQuery :: test' }; $script:Hunt.DeviceInfo }
             else { throw "Unbekannte Hunting-Abfrage" }
             return [pscustomobject]@{ schema = @(); results = @($rows) }
         }
@@ -1804,6 +1807,29 @@ Write-Host '== Posture checks (unit)' -ForegroundColor Cyan
         & $A (@($r.checks | Where-Object id -eq 'mdi')[0].status -eq 'Review' -and @(Get-GapsioWarnings | Where-Object { $_ -match 'IdentityDirectoryEvents' }).Count -eq 0) 'Missing Defender for Identity table: "review", not a run warning'
     }
     finally { $script:Hunt.MdiMissing = $false }
+    # A device that only the configuration assessment still lists (no DeviceInfo in the lookback) is "not reporting"
+    $savedTvm = $script:Hunt.Tvm
+    $script:Hunt.Tvm = @($savedTvm) + [pscustomobject]@{ DeviceId = 'd-old1'; DeviceName = 'OLD-01'; OSPlatform = 'Windows11'; ConfigurationId = 'scid-91'; IsApplicable = $true; IsCompliant = $false }
+    try {
+        $ds = Get-GapsioDeviceStates
+        & $A ($ds['d-old1'].reporting -eq $false -and $ds['d-win1'].reporting -eq $true -and -not $ds['d-old1'].lastSeen) 'Device listed by the configuration assessment only is not reporting; devices with DeviceInfo are'
+        $cv = @(Get-GapsioCoverage -Devices $ds)
+        & $A (@($cv | Where-Object { $_.deviceId -eq 'd-old1' -and $_.status -eq 'SensorInactive' }).Count -eq 1 -and $ds['d-old1'].lastSeen) 'Not reporting device is a coverage gap (once) and gets its last report time from the 30-day view'
+        $fs = @((New-GapsioFinding -Severity 'High' -Category 'Device' -Title (New-GapsioText 'x' 'x') -Detail (New-GapsioText 'x' 'x') -Recommendation (New-GapsioText 'x' 'x') -Subject 'bm' -DeviceId 'd-old1' -DeviceName 'OLD-01'),
+            (New-GapsioFinding -Severity 'High' -Category 'Device' -Title (New-GapsioText 'x' 'x') -Detail (New-GapsioText 'x' 'x') -Recommendation (New-GapsioText 'x' 'x') -Subject 'bm' -DeviceId 'd-win1' -DeviceName 'WIN-01'),
+            (New-GapsioFinding -Severity 'High' -Category 'Baseline' -Title (New-GapsioText 'x' 'x') -Detail (New-GapsioText 'x' 'x') -Recommendation (New-GapsioText 'x' 'x') -Subject 'b'))
+        Set-GapsioStaleFindings -Findings $fs -Devices $ds
+        & $A ($fs[0].stale -eq $true -and -not $fs[1].PSObject.Properties['stale'] -and -not $fs[2].PSObject.Properties['stale'] -and $fs[0].severity -eq 'High') 'Findings of a not reporting device are marked as last known state, severity unchanged'
+        $only = @{ 'd-old1' = $ds['d-old1'] }
+        $r = Get-GapsioDisruptionReadiness -Devices $only -Coverage @()
+        & $A (@($r.checks | Where-Object id -eq 'sense')[0].status -eq 'NotMeasurable' -and @($r.checks | Where-Object id -eq 'sense')[0].detail.en -match 'None of the 1 Windows device\(s\) reported in the last 7 days' -and @($r.checks | Where-Object id -eq 'sense')[0].detail.de -match 'Keines der 1 Windows') 'Sense check says why it cannot be measured'
+        $script:Hunt.DeviceInfoFail = $true
+        $before = @(Get-GapsioWarnings).Count
+        $ds2 = Get-GapsioDeviceStates 3>$null
+        & $A (@($ds2.Values | Where-Object { $null -ne $_.reporting }).Count -eq 0 -and $ds2.ContainsKey('d-old1') -and @(Get-GapsioWarnings).Count -gt $before) 'DeviceInfo did not answer: no device is called not reporting'
+        & $A (@(Get-GapsioCoverage -Devices $ds2 | Where-Object { $_.deviceId -eq 'd-old1' }).Count -eq 0) 'DeviceInfo did not answer: no coverage gap is claimed for listed devices'
+    }
+    finally { $script:Hunt.Tvm = $savedTvm; $script:Hunt.DeviceInfoFail = $false }
     # Device control is not supported on servers: USB use there is listed but not a finding
     $dcs = [pscustomobject]@{ usage = 'ok'; summary = @{ assignedPolicies = 0 }; devices = @([pscustomobject]@{ deviceName = 'SRV-1'; mounts = 4; hasPolicy = $false; supported = $false }) }
     & $A (@(Get-GapsioDeviceControlFindings -DeviceControl $dcs).Count -eq 0) 'USB on a server: no device control finding'
