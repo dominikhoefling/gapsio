@@ -325,8 +325,15 @@ function Get-GapsioDisruptionReadiness {
     }
     $min = $script:GapsioContainUserMinSense.ToString()
     if (-not $hunting -or -not $known) {
+        # Say why nothing can be measured: Hunting off, no Windows devices, or none of them reported in the lookback
+        $days = [int](Get-GapsioSetting -Name 'GAPSIO_DEVICE_LOOKBACK_DAYS' -Default '7')
+        $quiet = @($win | Where-Object { $_.reporting -eq $false }).Count
+        $why = if (-not $hunting) { & $T 'No agent versions are available (feature Hunting is off).' 'Es liegen keine Agent-Versionen vor (Feature Hunting ist aus).' }
+        elseif (-not $win.Count) { & $T 'No Windows devices were found.' 'Es wurden keine Windows-Geräte gefunden.' }
+        elseif ($quiet -eq $win.Count) { & $T "None of the $($win.Count) Windows device(s) reported in the last $days days, so no agent version is available." "Keines der $($win.Count) Windows-Gerät(e) hat in den letzten $days Tagen gemeldet, daher liegt keine Agent-Version vor." }
+        else { & $T "The $($win.Count) Windows device(s) reported no agent version." "Die $($win.Count) Windows-Gerät(e) haben keine Agent-Version gemeldet." }
         & $add 'sense' 'NotMeasurable' (& $T 'Sense agent version for Contain User' 'Sense-Agent-Version für Contain User') `
-        (& $T "Contain User needs Sense agent $min or later. No agent versions are available$(if (-not $hunting) { ' (feature Hunting is off)' })." "Contain User braucht den Sense-Agent ab $min. Es liegen keine Agent-Versionen vor$(if (-not $hunting) { ' (Feature Hunting ist aus)' }).") $null 'DeviceInfo.ClientVersion' $null $win.Count @()
+        (& $T "Contain User needs Sense agent $min or later. $($why.en)" "Contain User braucht den Sense-Agent ab $min. $($why.de)") $null 'DeviceInfo.ClientVersion' $null $win.Count @()
     }
     elseif ($below.Count) {
         & $add 'sense' 'Gap' (& $T 'Sense agent version for Contain User' 'Sense-Agent-Version für Contain User') `

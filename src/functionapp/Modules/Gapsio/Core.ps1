@@ -268,6 +268,11 @@ function Get-GapsioErrorText {
     param([Parameter(Mandatory)]$Exception, [string]$Context, [string]$Resource = 'https://graph.microsoft.com')
     $msg = $Exception.Message
     $status = $Exception.Data['Status']
+    # Advanced Hunting: the tenant does not have the table (the product or add-on that fills it is not licensed or not
+    # deployed). Not an error in Gapsio and nothing to fix – say so instead of showing the raw HTTP 400.
+    if ($msg -match 'Failed to resolve table expression named ''\[\\?"(\w+)') {
+        return "The Advanced Hunting table $($Matches[1]) does not exist in this tenant – the product or add-on that provides it is not licensed or not deployed. The check is skipped. [$((($msg -split ' :: ')[0] -split ' for ')[0])]"
+    }
     if ($status -ne 403 -and $msg -notmatch '^HTTP 403\b') { return $msg }
     $short = ($msg -split ' :: ')[0]
     $code = if ($msg -match '"code"\s*:\s*"([^"]+)"') { $Matches[1] } else { '' }

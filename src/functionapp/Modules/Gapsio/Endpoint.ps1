@@ -28,7 +28,7 @@ $script:GapsioAvModeMap = @{ '0' = 'Active'; '1' = 'Passive'; '2' = 'SxSPassive'
 function New-GapsioDevice {
     param([string]$Id, [string]$Name, [string]$Os)
     [ordered]@{
-        deviceId = $Id; deviceName = $Name; os = $Os; osVersion = $null; deviceGroup = $null; deviceType = $null; lastSeen = $null; aadDeviceId = $null
+        deviceId = $Id; deviceName = $Name; os = $Os; osVersion = $null; deviceGroup = $null; deviceType = $null; lastSeen = $null; reporting = $null; aadDeviceId = $null
         sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null; managedBy = $null
         inventoryAt = $null; localMergeDisabled = $null
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
@@ -521,7 +521,11 @@ DeviceInfo
 | project DeviceId, DeviceName, OSPlatform, OSVersion, OSBuild = tostring(OSBuild), ConnectivityType, MachineGroup, DeviceType, AadDeviceId, SensorHealthState, ExposureLevel, JoinType, LastUser, ManagedBy, LastSeen = Timestamp,
     ClientVersion, RegistryDeviceTag, DeviceManualTags, DeviceDynamicTags, IsInternetFacing = tostring(IsInternetFacing), IsExcluded = tostring(IsExcluded), ExclusionReason, AssetValue, IsTransient = tostring(IsTransient), MitigationStatus
 "@
-    foreach ($r in @(Invoke-GapsioHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')) {
+    $warningsBefore = @(Get-GapsioWarnings).Count
+    $infoRows = @(Invoke-GapsioHuntingSafe -Query $qInfo -Context 'Advanced Hunting DeviceInfo')
+    # Only a DeviceInfo query that answered without a notice can tell which devices did not report in the lookback
+    $infoOk = (Test-GapsioFeature -Name 'hunting') -and @(Get-GapsioWarnings).Count -eq $warningsBefore
+    foreach ($r in $infoRows) {
         if ($null -eq $r) { continue }
         $d = New-GapsioDevice -Id ([string]$r.DeviceId) -Name ([string]$r.DeviceName) -Os ([string]$r.OSPlatform)
         $d.osVersion = [string]$r.OSVersion; $d.osBuild = [string](Get-GapsioProp $r 'OSBuild'); $d.connectivityType = [string](Get-GapsioProp $r 'ConnectivityType'); $d.deviceGroup = [string]$r.MachineGroup; $d.deviceType = [string]$r.DeviceType
@@ -682,6 +686,10 @@ AlertInfo
         $id = [string]$r.DeviceId
         if ($devices.ContainsKey($id)) { $devices[$id].exclusionAlerts = [int]$r.Alerts }
     }
+    # Devices that only the configuration assessment still lists sent no DeviceInfo in the lookback: Defender keeps
+    # their last assessment, so everything Gapsio shows for them is the last known state. Unknown ($null) when the
+    # DeviceInfo query itself did not answer.
+    foreach ($d in $devices.Values) { $d.reporting = if ($infoOk) { [bool]$d.lastSeen } else { $null } }
     $devices
 }
 
@@ -978,19 +986,22 @@ DeviceRegistryEvents
     }
     # Browser extensions rated High/Critical by Vulnerability Management (DeviceTvmBrowserExtensions, documented columns;
     # ExtensionRisk is tolerant via column_ifexists). Aggregated per extension so a popular extension is one finding.
+    # The table has no DeviceName column – names are resolved from the device list. It exists only with Defender
+    # Vulnerability Management (standalone or the add-on to Defender for Endpoint P2).
     $qExt = @"
 // GapsioBrowserExtensions
 DeviceTvmBrowserExtensions
 | extend Risk = tostring(column_ifexists("ExtensionRisk", "")), Active = tostring(column_ifexists("IsActivated", ""))
 | where Risk in~ ("High", "Critical")
 | where Active !in~ ("false", "0")
-| summarize Devices = dcount(DeviceId), Names = make_set(DeviceName, 10), Browsers = make_set(BrowserName, 5), Vendor = take_any(tostring(column_ifexists("ExtensionVendor", ""))) by ExtensionId, ExtensionName, Risk
+| summarize Devices = dcount(DeviceId), Ids = make_set(DeviceId, 10), Browsers = make_set(BrowserName, 5), Vendor = take_any(tostring(column_ifexists("ExtensionVendor", ""))) by ExtensionId, ExtensionName, Risk
 | order by Devices desc
 | take 50
 "@
-    $ext = foreach ($row in @(Invoke-GapsioHuntingSafe -Query $qExt -Context 'Advanced Hunting browser extensions (high risk)' -NoShard)) {
+    $ext = foreach ($row in @(Invoke-GapsioHuntingSafe -Query $qExt -Context 'Advanced Hunting browser extensions (needs Defender Vulnerability Management)' -NoShard)) {
         if ($null -eq $row) { continue }
-        $n = $row.Names; if ($n -is [string]) { try { $n = $n | ConvertFrom-Json } catch { $n = @($n) } }
+        $n = $row.Ids; if ($n -is [string]) { try { $n = $n | ConvertFrom-Json } catch { $n = @($n) } }
+        $n = @($n | ForEach-Object { $i = [string]$_; if ($Devices.ContainsKey($i)) { $Devices[$i].deviceName } else { $i } })
         $b = $row.Browsers; if ($b -is [string]) { try { $b = $b | ConvertFrom-Json } catch { $b = @($b) } }
         [pscustomobject]@{ id = [string]$row.ExtensionId; name = [string]$row.ExtensionName; risk = [string]$row.Risk; vendor = [string]$row.Vendor
             devices = [int]$row.Devices; names = @($n | ForEach-Object { [string]$_ }); browsers = @($b | ForEach-Object { [string]$_ } | Sort-Object -Unique) }
@@ -1852,11 +1863,20 @@ DeviceInfo
             if ($r.AadDeviceId) { $onbAad[([string]$r.AadDeviceId).ToLowerInvariant()] = $true }
             if ($name) { $onbNames[($name -split '\.')[0].ToLowerInvariant()] = $true }
             $last = $null; try { $last = ConvertTo-GapsioUtc $r.LastSeen } catch { }
-            if (-not $Devices.ContainsKey($id) -and $last -and $last -lt [DateTime]::UtcNow.AddDays(-$days)) {
+            if ($Devices.ContainsKey($id)) {
+                # Still listed by the configuration assessment but silent in the lookback: remember when it last reported
+                if ($Devices[$id].reporting -eq $false -and -not $Devices[$id].lastSeen) { $Devices[$id].lastSeen = [string]$r.LastSeen; if (-not $Devices[$id].aadDeviceId) { $Devices[$id].aadDeviceId = [string]$r.AadDeviceId } }
+            }
+            elseif ($last -and $last -lt [DateTime]::UtcNow.AddDays(-$days)) {
                 & $add $id $name ([string]$r.OSPlatform) 'Defender' 'SensorInactive' ([string]$r.LastSeen) $null ([string]$r.AadDeviceId) $null
             }
         }
         elseif ($ob -eq 'Can be onboarded') { $discovered.Add($r) }
+    }
+    # Devices in the list that sent no DeviceInfo in the lookback (Get-GapsioDeviceStates): Defender keeps their last
+    # configuration assessment, so they would otherwise look like current devices. Same gap as above.
+    foreach ($d in $Devices.Values) {
+        if ($d.reporting -eq $false) { & $add $d.deviceId $d.deviceName $d.os 'Defender' 'SensorInactive' $d.lastSeen $d.lastUser $d.aadDeviceId $null }
     }
     foreach ($r in $discovered) {
         $aad = ([string]$r.AadDeviceId).ToLowerInvariant()
@@ -2700,7 +2720,7 @@ function Get-GapsioEndpointFindings {
 
 #region Device statistics and search (large fleets)
 $script:GapsioDeviceIndexColumns = @('deviceId', 'deviceName', 'os', 'osVersion', 'deviceGroup', 'deviceType', 'managedBy', 'avMode', 'avModeText', 'sensorHealth', 'signatureUpToDate', 'platformUpToDate',
-    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'policyExclusions', 'policyExclusionPolicyIds', 'exclusionAlerts', 'lastSeen', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
+    'asrBelowMinimum', 'asrBlocked', 'localExclusions', 'localExclusionsHighRisk', 'policyExclusions', 'policyExclusionPolicyIds', 'exclusionAlerts', 'lastSeen', 'reporting', 'lastUser', 'intuneDeviceId', 'aadDeviceId', 'checks',
     'exposure', 'internetFacing', 'tags', 'tampering30d', 'troubleshooting30d', 'thirdPartyAv', '_filter', '_search')
 $script:GapsioDeviceFeatures = @('TamperProtection', 'RealtimeProtection', 'CloudProtection', 'BehaviorMonitoring', 'PUAProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode')
 
@@ -2878,6 +2898,20 @@ function Get-GapsioDevice {
 }
 #endregion
 
+function Set-GapsioStaleFindings {
+    <#
+    .SYNOPSIS
+    Marks findings about a device that no longer reports (reporting = $false) with stale = $true: they describe the
+    device's last known state. The portal labels them; severity and key stay as they are.
+    #>
+    param([AllowEmptyCollection()][object[]]$Findings, [hashtable]$Devices)
+    foreach ($f in $Findings) {
+        if (-not $f -or -not $f.deviceId) { continue }
+        $id = [string]$f.deviceId
+        if ($Devices.ContainsKey($id) -and $Devices[$id].reporting -eq $false) { $f | Add-Member -NotePropertyName stale -NotePropertyValue $true -Force }
+    }
+}
+
 function Merge-GapsioDeviceFindings {
     <#
     .SYNOPSIS
@@ -2964,6 +2998,7 @@ function Invoke-GapsioEndpointCollection {
         @(Get-GapsioResponseFindings -Facts $response -WindowsDevices @($devices.Values | Where-Object { $_.os -eq 'Windows' }).Count) +
         @(Get-GapsioFleetFindings -Devices $devices -Facts $fleet) + @(Get-GapsioHygieneFindings -Devices $devices -Facts $hygiene -Asr $asr) + @(Get-GapsioMtdFindings -Facts $mtd -Devices $devices) +
         @(Get-GapsioPolicyConflictFindings -Conflicts $conflicts) + @(Get-GapsioDeviceControlFindings -DeviceControl $deviceControl) + @(Get-GapsioDisruptionFindings -Readiness $disruption) + @(Get-GapsioDetectionRuleFindings -Detections $detections)
+    Set-GapsioStaleFindings -Findings $findings -Devices $devices
     $findings = @(Merge-GapsioDeviceFindings -Findings $findings)
 
     $deviceList = @($(foreach ($d in $devices.Values) {
@@ -2992,6 +3027,7 @@ function Invoke-GapsioEndpointCollection {
         summary              = [ordered]@{
             devices                = @($deviceList).Count
             devicesWithInventory   = @($inventory).Count
+            devicesNotReporting    = @($deviceList | Where-Object { $_.reporting -eq $false }).Count
             policyExclusions       = @($pol.Exclusions).Count
             localExclusionsPresent = @($local | Where-Object { $_.present }).Count
             allowIndicators        = @($indicators).Count
