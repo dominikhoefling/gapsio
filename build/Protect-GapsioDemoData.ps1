@@ -123,11 +123,41 @@ function Protect-DemoString {
     $s
 }
 
+function Sync-DemoDisplayName {
+    # A person object whose UPN got a pseudonym (first.last@contoso.example) gets the matching display name, and the
+    # original display name is registered so free text ("… never used: Gina") is replaced consistently.
+    param($M, $Node, $Before)
+    if (-not $Node.Contains('displayName') -or $Node['displayName'] -isnot [string]) { return }
+    $dn = [string]$Node['displayName']
+    if (-not $dn -or $dn -match '\(Demo\)' -or $M.Used.ContainsKey($dn)) { return }
+    foreach ($f in 'upn', 'userPrincipalName', 'mail') {
+        if (-not $Node.Contains($f) -or [string]$Node[$f] -eq [string]$Before[$f]) { continue }
+        if ([string]$Node[$f] -notmatch "^([a-z]+)\.([a-z]+)@$([regex]::Escape($script:DemoDomain))$") { continue }
+        $name = "$((Get-Culture).TextInfo.ToTitleCase($Matches[1])) $((Get-Culture).TextInfo.ToTitleCase($Matches[2]))"
+        $k = "person|$($dn.ToLowerInvariant())"
+        if ($M.Map.Contains($k)) { $Node['displayName'] = $M.Map[$k].new; return }
+        $M.Map[$k] = @{ old = $dn; new = $name; kind = 'person' }
+        $M.Used[$name] = $true
+        $Node['displayName'] = $name
+        return
+    }
+}
+
 function Protect-DemoNode {
     param($M, $Node, [string]$Name, [int]$Pass)
     if ($null -eq $Node) { return $null }
     if ($Node -is [System.Collections.IDictionary]) {
+        $before = if ($Pass -eq 1) { @{} + $Node } else { $null }
         foreach ($k in @($Node.Keys)) { $Node[$k] = Protect-DemoNode -M $M -Node $Node[$k] -Name ([string]$k) -Pass $Pass }
+        if ($Pass -eq 1) { Sync-DemoDisplayName -M $M -Node $Node -Before $before }
+        else {
+            # Keys can carry identifiers too (e.g. principalUsage: { "<user id>": "<date>" })
+            foreach ($k in @($Node.Keys)) {
+                if ($k -isnot [string]) { continue }
+                $nk = Protect-DemoString -M $M -Text $k -Name ''
+                if ($nk -ne $k -and -not $Node.Contains($nk)) { $Node[$nk] = $Node[$k]; $Node.Remove($k) }
+            }
+        }
         return $Node
     }
     if ($Node -is [System.Collections.IList] -and $Node -isnot [string]) {

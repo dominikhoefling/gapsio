@@ -20,6 +20,7 @@
       Hunting     default    Advanced Hunting: device state, local exclusions, effective ASR mode, local AI agents
       Indicators  default    Allow indicators from Defender for Endpoint
       Coverage    default    Defender coverage gaps: Intune-managed devices not onboarded to Defender
+      Detections  optional   Custom detection rules: switched off automatically, disabled, acting automatically
       Agents      default    AI agents: Entra Agent ID, Agent 365 registry, Conditional Access coverage
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
       Licensing   optional   Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices without a licensed user
@@ -110,7 +111,7 @@ param(
     [switch]$SkipFirstRun,
     [string]$NotifyWebhookUrl,
     [ValidateSet('Critical', 'High', 'Medium', 'Low')][string]$NotifyMinSeverity = 'High',
-    [ValidatePattern('^(WL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$')][string]$LicenseKey,
+    [ValidatePattern('^(GP1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$')][string]$LicenseKey,
     [switch]$DeviceInventory,
     [string]$DeviceInventoryGroupId,
     [switch]$RemoveDeviceInventory,
@@ -128,8 +129,8 @@ if ($DeviceInventory -and $RemoveDeviceInventory) { throw '-DeviceInventory and 
 $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-GapsioFeatures -Features $featureList
-$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' })
-$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
+$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' }) + $(if ($featureList -contains 'PurviewPreview') { 'purviewpreview' })
+$endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Detections', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
     Write-Host "`nGapsio features: $($featureList -join ', ')" -ForegroundColor Cyan
@@ -231,19 +232,19 @@ if ($existing.ContainsKey('functionapp')) {
     $cur = Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'list', '-g', $ResourceGroup, '-n', $existing['functionapp'], '-o', 'json') -AllowFailure
     if ($cur) {
         $curMap = @{}; foreach ($x in @($cur | ConvertFrom-Json)) { $curMap[$x.name] = $x.value }
-        if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['WL_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['WL_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
-        if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['WL_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['WL_NOTIFY_MIN_SEVERITY'] }
-        if (-not $PSBoundParameters.ContainsKey('LicenseKey') -and $curMap['WL_LICENSE_KEY']) { $LicenseKey = $curMap['WL_LICENSE_KEY'] }
-        if (-not $PSBoundParameters.ContainsKey('Assistant') -and $curMap['WL_ASSISTANT'] -eq 'true') {
+        if (-not $PSBoundParameters.ContainsKey('NotifyWebhookUrl') -and $curMap['GAPSIO_NOTIFY_WEBHOOK']) { $NotifyWebhookUrl = $curMap['GAPSIO_NOTIFY_WEBHOOK']; Write-Ok 'Notification webhook: kept' }
+        if (-not $PSBoundParameters.ContainsKey('NotifyMinSeverity') -and $curMap['GAPSIO_NOTIFY_MIN_SEVERITY']) { $NotifyMinSeverity = $curMap['GAPSIO_NOTIFY_MIN_SEVERITY'] }
+        if (-not $PSBoundParameters.ContainsKey('LicenseKey') -and $curMap['GAPSIO_LICENSE_KEY']) { $LicenseKey = $curMap['GAPSIO_LICENSE_KEY'] }
+        if (-not $PSBoundParameters.ContainsKey('Assistant') -and $curMap['GAPSIO_ASSISTANT'] -eq 'true') {
             $Assistant = $true
-            if (-not $AssistantEndpoint -and $curMap['WL_AI_ENDPOINT'] -and $curMap['WL_AI_ENDPOINT'] -notmatch '^https://oai-') { $AssistantEndpoint = $curMap['WL_AI_ENDPOINT'] }
-            if (-not $PSBoundParameters.ContainsKey('AssistantDeployment') -and $curMap['WL_AI_DEPLOYMENT']) { $AssistantDeployment = $curMap['WL_AI_DEPLOYMENT'] }
-            if (-not $PSBoundParameters.ContainsKey('AssistantEmbeddingDeployment') -and $curMap.ContainsKey('WL_AI_EMBEDDING_DEPLOYMENT')) { $AssistantEmbeddingDeployment = $curMap['WL_AI_EMBEDDING_DEPLOYMENT'] }
+            if (-not $AssistantEndpoint -and $curMap['GAPSIO_AI_ENDPOINT'] -and $curMap['GAPSIO_AI_ENDPOINT'] -notmatch '^https://oai-') { $AssistantEndpoint = $curMap['GAPSIO_AI_ENDPOINT'] }
+            if (-not $PSBoundParameters.ContainsKey('AssistantDeployment') -and $curMap['GAPSIO_AI_DEPLOYMENT']) { $AssistantDeployment = $curMap['GAPSIO_AI_DEPLOYMENT'] }
+            if (-not $PSBoundParameters.ContainsKey('AssistantEmbeddingDeployment') -and $curMap.ContainsKey('GAPSIO_AI_EMBEDDING_DEPLOYMENT')) { $AssistantEmbeddingDeployment = $curMap['GAPSIO_AI_EMBEDDING_DEPLOYMENT'] }
             Write-Ok 'Assistant: kept'
         }
         if (-not $PSBoundParameters.ContainsKey('RetentionDays')) {
-            if (-not $SnapshotRetentionDays -and $curMap['WL_SNAPSHOT_RETENTION_DAYS']) { $SnapshotRetentionDays = [int]$curMap['WL_SNAPSHOT_RETENTION_DAYS'] }
-            if (-not $ChangeRetentionDays -and $curMap['WL_CHANGE_RETENTION_DAYS']) { $ChangeRetentionDays = [int]$curMap['WL_CHANGE_RETENTION_DAYS'] }
+            if (-not $SnapshotRetentionDays -and $curMap['GAPSIO_SNAPSHOT_RETENTION_DAYS']) { $SnapshotRetentionDays = [int]$curMap['GAPSIO_SNAPSHOT_RETENTION_DAYS'] }
+            if (-not $ChangeRetentionDays -and $curMap['GAPSIO_CHANGE_RETENTION_DAYS']) { $ChangeRetentionDays = [int]$curMap['GAPSIO_CHANGE_RETENTION_DAYS'] }
         }
     }
 }
@@ -505,9 +506,9 @@ if (-not $SkipCode) {
     $pkgVersion = Get-GapsioPackageVersion -Path $PackagePath
     $templateHash = if ($template -like '*.json') { (Get-FileHash -Algorithm SHA256 $template).Hash.ToLowerInvariant() } else { $null }
     Set-GapsioVersionTags -ResourceGroup $ResourceGroup -FunctionAppName $infra.FunctionAppName -Version $pkgVersion -TemplateSha256 $templateHash
-    # Keep WL_MODULES aligned with selected features; this also enables optional modules that may not be represented by template booleans.
+    # Keep GAPSIO_MODULES aligned with selected features; this also enables optional modules that may not be represented by template booleans.
     $moduleSetting = ($modules -join ',')
-    Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'set', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '--settings', "WL_MODULES=$moduleSetting", '-o', 'none') | Out-Null
+    Invoke-Az -Arguments @('functionapp', 'config', 'appsettings', 'set', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '--settings', "GAPSIO_MODULES=$moduleSetting", '-o', 'none') | Out-Null
     Write-Ok "Modules: $moduleSetting"
     if ($pkgVersion) { Write-Ok "Version $pkgVersion" }
 }
@@ -518,13 +519,13 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
-        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' })
+        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' }) + $(if ($modules -contains 'purviewpreview') { 'CollectPurviewPreview' })
         foreach ($fn in $fns) {
             Invoke-RestMethod -Method Post -Uri "https://$($infra.HostName)/admin/functions/$fn" -Headers @{ 'x-functions-key' = $keys.masterKey } -ContentType 'application/json' -Body '{"input":""}' | Out-Null
         }
         Write-Ok "Runs started ($(($fns -replace '^Collect', '') -join ', ')). Results appear in the portal within a few minutes."
     }
-    catch { Write-Note "Could not start the run directly ($($_.Exception.Message)). Click “Collect now” in the portal." }
+    catch { Write-Note "Could not start the run directly ($($_.Exception.Message)). Click `“Collect now`” in the portal." }
 }
 
 # ---------------------------------------------------------------- Summary

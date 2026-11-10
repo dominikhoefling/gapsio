@@ -45,8 +45,8 @@ feature off and running the install again removes the permissions it no longer n
 | Function App | Your storage account | Snapshots, change history, accepted risks, run log | Entra ID only (no shared key), TLS 1.2+, encryption at rest, optional WORM |
 | Browser | Function App (portal, API) | Portal pages and the data shown | Entra ID sign-in (App Service Authentication), app role `Gapsio.Admin`, TLS |
 | Function App | Application Insights / Log Analytics in your resource group | Run logs, errors | Entra authentication (local auth disabled) |
-| Function App | `api.github.com` (optional, `WL_UPDATE_CHECK`) | Anonymous request for the latest release number – no tenant data | TLS; disable with `WL_UPDATE_CHECK=false` |
-| Function App | Your webhook (optional, `WL_NOTIFY_WEBHOOK`) | New findings: severity, category, title, device name – no exclusion values or command lines | HTTPS only |
+| Function App | `api.github.com` (optional, `GAPSIO_UPDATE_CHECK`) | Anonymous request for the latest release number – no tenant data | TLS; disable with `GAPSIO_UPDATE_CHECK=false` |
+| Function App | Your webhook (optional, `GAPSIO_NOTIFY_WEBHOOK`) | New findings: severity, category, title, device name – no exclusion values or command lines | HTTPS only |
 
 The licence key is verified **offline** with a public key built into Gapsio. Nothing is sent anywhere to check it.
 

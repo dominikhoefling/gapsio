@@ -48,16 +48,16 @@ function Write-Step { param([string]$Text) Write-Host "`n▶ $Text" -ForegroundC
 function Write-Ok { param([string]$Text) Write-Host "  ✓ $Text" -ForegroundColor Green }
 function Write-Note { param([string]$Text) Write-Host "  ! $Text" -ForegroundColor Yellow }
 
-function Invoke-WlG {
+function Invoke-GapsioG {
     param([string]$Method = 'GET', [Parameter(Mandatory)][string]$Uri, $Body)
     $p = @{ Method = $Method; Uri = $Uri; OutputType = 'PSObject' }
     if ($null -ne $Body) { $p.Body = ($Body | ConvertTo-Json -Depth 40 -Compress); $p.ContentType = 'application/json' }
     Invoke-MgGraphRequest @p
 }
-function Get-WlGAll {
+function Get-GapsioGAll {
     param([Parameter(Mandatory)][string]$Uri)
     $items = @()
-    while ($Uri) { $r = Invoke-WlG -Uri $Uri; $items += @($r.value); $Uri = $r.'@odata.nextLink' }
+    while ($Uri) { $r = Invoke-GapsioG -Uri $Uri; $items += @($r.value); $Uri = $r.'@odata.nextLink' }
     $items
 }
 function Get-ErrText {
@@ -88,8 +88,8 @@ $scopes = @(
     'EntitlementManagement.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'DeviceManagementRBAC.ReadWrite.All'
 )
 Connect-MgGraph -TenantId $TenantId -Scopes $scopes -NoWelcome
-$me = Invoke-WlG -Uri "$v1/me?`$select=id,userPrincipalName"
-$org = (Invoke-WlG -Uri "$v1/organization?`$select=id,displayName,verifiedDomains").value[0]
+$me = Invoke-GapsioG -Uri "$v1/me?`$select=id,userPrincipalName"
+$org = (Invoke-GapsioG -Uri "$v1/organization?`$select=id,displayName,verifiedDomains").value[0]
 $domain = ($org.verifiedDomains | Where-Object { $_.isInitial } | Select-Object -First 1).name
 Write-Ok "Tenant: $($org.displayName) ($domain), signed in as $($me.userPrincipalName)"
 
@@ -104,7 +104,7 @@ if (-not $SkipIntune) {
     $report.Add(''); $report.Add('== Baseline: exact IDs')
     $missing = 0
     foreach ($c in @($baseline.checks | Where-Object { $_.definitionId } | Sort-Object definitionId -Unique)) {
-        $d = Get-WlDefinition -Id $c.definitionId -Fetch $fetch
+        $d = Get-GapsioDefinition -Id $c.definitionId -Fetch $fetch
         if ($d) { $report.Add("ok      $($c.definitionId)   [$((@($d.options) | ForEach-Object { $_.itemId -replace '^.*_', '_' }) -join ' ')]") }
         else { $missing++; $report.Add("MISSING $($c.definitionId)   (check '$($c.id)')") }
     }
@@ -112,7 +112,7 @@ if (-not $SkipIntune) {
 
     # Linux: IDs are matched by pattern (definitionIdPattern) because Microsoft does not document them
     $script:LinuxIds = @()
-    try { $script:LinuxIds = @(Get-WlGAll -Uri "$beta/deviceManagement/configurationSettings?`$filter=startswith(id,'linux_')&`$select=id" | ForEach-Object { $_.id }) } catch { }
+    try { $script:LinuxIds = @(Get-GapsioGAll -Uri "$beta/deviceManagement/configurationSettings?`$filter=startswith(id,'linux_')&`$select=id" | ForEach-Object { $_.id }) } catch { }
     $report.Add(''); $report.Add("== Baseline: patterns (Linux) – $($script:LinuxIds.Count) Linux definitions in the tenant")
     foreach ($c in @($baseline.checks | Where-Object { $_.definitionIdPattern })) {
         $hit = @($script:LinuxIds | Where-Object { $_ -match $c.definitionIdPattern })
@@ -124,7 +124,7 @@ if (-not $SkipIntune) {
     $report.Add(''); $report.Add('== Defender settings in the Settings Catalog (search)')
     foreach ($q in @("startswith(id,'com.apple.managedclient.preferences_')", "startswith(id,'device_vendor_msft_defender_configuration_')")) {
         try {
-            $ids = @(Get-WlGAll -Uri "$beta/deviceManagement/configurationSettings?`$filter=$q&`$select=id") | ForEach-Object { $_.id }
+            $ids = @(Get-GapsioGAll -Uri "$beta/deviceManagement/configurationSettings?`$filter=$q&`$select=id") | ForEach-Object { $_.id }
             $hits = @($ids | Where-Object { $_ -match 'tamper|enforcement|exclu|merge|cloud|behavio|threattype|sample|passive|hide|disablelocal' })
             $report.Add("-- $q : $($ids.Count) found, relevant: $($hits.Count)")
             $hits | Sort-Object | ForEach-Object { $report.Add("   $_") }
@@ -137,9 +137,9 @@ if (-not $SkipIntune) {
 if (-not $SkipIntune) {
     Write-Step 'Empty target group for the test policies'
     $devGroupName = "$Prefix Devices (empty)"
-    $devGroup = @(Get-WlGAll -Uri "$v1/groups?`$filter=displayName eq '$devGroupName'") | Select-Object -First 1
+    $devGroup = @(Get-GapsioGAll -Uri "$v1/groups?`$filter=displayName eq '$devGroupName'") | Select-Object -First 1
     if (-not $devGroup) {
-        $devGroup = Invoke-WlG -Method POST -Uri "$v1/groups" -Body @{ displayName = $devGroupName; mailEnabled = $false; mailNickname = 'gapsio-test-devices'; securityEnabled = $true; description = 'Gapsio test: deliberately empty – the test policies apply to no device.' }
+        $devGroup = Invoke-GapsioG -Method POST -Uri "$v1/groups" -Body @{ displayName = $devGroupName; mailEnabled = $false; mailNickname = 'gapsio-test-devices'; securityEnabled = $true; description = 'Gapsio test: deliberately empty – the test policies apply to no device.' }
     }
     Write-Ok "$devGroupName ($($devGroup.id))"
 
@@ -158,7 +158,7 @@ if (-not $SkipIntune) {
                 "${p}submitsamplesconsent"        = '0'       # Always prompt -> deviation
                 "${p}excludedpaths"               = @('C:\Users\*\AppData\Local\Temp\GapsioTest\', 'D:\GapsioTest\db.mdf', 'C:\Program Files\Contoso\Agent\agent.exe\:{PathType:file,ScanTrigger:OnAccess}')
                 "${p}excludedprocesses"           = @('powershell.exe', 'C:\Program Files\Contoso\Agent\svc.exe')
-                "${p}excludedextensions"          = @('.ps1', '.wltest')
+                "${p}excludedextensions"          = @('.ps1', '.gapsiotest')
                 "${p}attacksurfacereductionrules" = @([ordered]@{ blockexecutionofpotentiallyobfuscatedscripts = 'audit'; blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem = 'block' })
             }
         },
@@ -220,11 +220,11 @@ if (-not $SkipIntune) {
     foreach ($pol in $policies) {
         Write-Step "Intune policy: $($pol.name)"
         $report.Add(''); $report.Add("== Policy: $($pol.name)")
-        $existing = @(Get-WlGAll -Uri "$beta/deviceManagement/configurationPolicies?`$select=id,name") | Where-Object { $_.name -eq $pol.name } | Select-Object -First 1
+        $existing = @(Get-GapsioGAll -Uri "$beta/deviceManagement/configurationPolicies?`$select=id,name") | Where-Object { $_.name -eq $pol.name } | Select-Object -First 1
         if ($existing) { Write-Ok "already present ($($existing.id)) – skipped"; continue }
         $log = [System.Collections.Generic.List[string]]::new()
         # @(): a policy with a single setting must still be sent as an array (otherwise "payload does not match schema")
-        $settings = @(New-WlSettingsList -Spec $pol.spec -Fetch $fetch -Log $log)
+        $settings = @(New-GapsioSettingsList -Spec $pol.spec -Fetch $fetch -Log $log)
         $log | ForEach-Object { $report.Add("   $_") }
         if (-not $settings.Count) { Write-Note 'No setting could be resolved – policy not created (see report)'; continue }
         try {
@@ -232,7 +232,7 @@ if (-not $SkipIntune) {
             $created = $null; $lastErr = $null
             foreach ($tech in @($(if ($pol.technologies) { $pol.technologies } else { 'mdm' }))) {
                 try {
-                    $created = Invoke-WlG -Method POST -Uri "$beta/deviceManagement/configurationPolicies" -Body @{
+                    $created = Invoke-GapsioG -Method POST -Uri "$beta/deviceManagement/configurationPolicies" -Body @{
                         name = $pol.name; description = 'Gapsio test: deliberate weaknesses, assigned to an empty group only.'
                         platforms = $pol.platforms; technologies = $tech; roleScopeTagIds = @('0'); settings = $settings
                     }
@@ -241,7 +241,7 @@ if (-not $SkipIntune) {
                 catch { $lastErr = $_ }
             }
             if (-not $created) { throw $lastErr }
-            Invoke-WlG -Method POST -Uri "$beta/deviceManagement/configurationPolicies('$($created.id)')/assign" -Body @{ assignments = @(@{ target = @{ '@odata.type' = '#microsoft.graph.groupAssignmentTarget'; groupId = $devGroup.id } }) } | Out-Null
+            Invoke-GapsioG -Method POST -Uri "$beta/deviceManagement/configurationPolicies('$($created.id)')/assign" -Body @{ assignments = @(@{ target = @{ '@odata.type' = '#microsoft.graph.groupAssignmentTarget'; groupId = $devGroup.id } }) } | Out-Null
             Write-Ok "created with $($settings.Count) setting(s), assigned to '$devGroupName'"
             $report.Add("   -> created: $($created.id)")
         }
@@ -261,9 +261,9 @@ if (-not $SkipAccess) {
     $users = @{}
     foreach ($n in 'anna', 'ben') {
         $upn = "gapsio-test-$n@$domain"
-        $u = @(Get-WlGAll -Uri "$v1/users?`$filter=userPrincipalName eq '$upn'&`$select=id,userPrincipalName") | Select-Object -First 1
+        $u = @(Get-GapsioGAll -Uri "$v1/users?`$filter=userPrincipalName eq '$upn'&`$select=id,userPrincipalName") | Select-Object -First 1
         if (-not $u) {
-            $u = Invoke-WlG -Method POST -Uri "$v1/users" -Body @{
+            $u = Invoke-GapsioG -Method POST -Uri "$v1/users" -Body @{
                 accountEnabled = $false; displayName = "$Prefix $((Get-Culture).TextInfo.ToTitleCase($n))"; mailNickname = "gapsio-test-$n"; userPrincipalName = $upn
                 passwordProfile = @{ forceChangePasswordNextSignIn = $true; password = (New-RandomPassword) }
             }
@@ -274,26 +274,26 @@ if (-not $SkipAccess) {
 
     Write-Step 'Role-assignable group'
     $rgName = "$Prefix Helpdesk"
-    $rg = @(Get-WlGAll -Uri "$v1/groups?`$filter=displayName eq '$rgName'") | Select-Object -First 1
+    $rg = @(Get-GapsioGAll -Uri "$v1/groups?`$filter=displayName eq '$rgName'") | Select-Object -First 1
     if (-not $rg) {
-        $rg = Invoke-WlG -Method POST -Uri "$v1/groups" -Body @{ displayName = $rgName; mailEnabled = $false; mailNickname = 'gapsio-test-helpdesk'; securityEnabled = $true; isAssignableToRole = $true; description = 'Gapsio test: grants Helpdesk Administrator and an Intune role.' }
+        $rg = Invoke-GapsioG -Method POST -Uri "$v1/groups" -Body @{ displayName = $rgName; mailEnabled = $false; mailNickname = 'gapsio-test-helpdesk'; securityEnabled = $true; isAssignableToRole = $true; description = 'Gapsio test: grants Helpdesk Administrator and an Intune role.' }
         Start-Sleep -Seconds 10
     }
-    try { Invoke-WlG -Method POST -Uri "$v1/groups/$($rg.id)/members/`$ref" -Body @{ '@odata.id' = "$v1/directoryObjects/$($users['anna'].id)" } | Out-Null } catch { if ((Get-ErrText $_) -notmatch 'already exist') { Write-Note "Mitglied: $(Get-ErrText $_)" } }
+    try { Invoke-GapsioG -Method POST -Uri "$v1/groups/$($rg.id)/members/`$ref" -Body @{ '@odata.id' = "$v1/directoryObjects/$($users['anna'].id)" } | Out-Null } catch { if ((Get-ErrText $_) -notmatch 'already exist') { Write-Note "Mitglied: $(Get-ErrText $_)" } }
     Write-Ok "$rgName ($($rg.id)), Mitglied: gapsio-test-anna"
 
     $roles = @{ Helpdesk = '729827e3-9c14-49f7-bb1b-9608f156bbb8'; SecurityReader = '5d6b6bb7-de71-4623-b4af-96380a352509' }
 
     Write-Step 'PIM: active and eligible Entra roles'
     try {
-        Invoke-WlG -Method POST -Uri "$v1/roleManagement/directory/roleAssignmentScheduleRequests" -Body @{
+        Invoke-GapsioG -Method POST -Uri "$v1/roleManagement/directory/roleAssignmentScheduleRequests" -Body @{
             action = 'adminAssign'; justification = 'Gapsio-Test'; roleDefinitionId = $roles.Helpdesk; directoryScopeId = '/'; principalId = $rg.id; scheduleInfo = (& $schedule)
         } | Out-Null
         Write-Ok "Helpdesk Administrator active for group '$rgName' (30 days)"
     }
     catch { $m = Get-ErrText $_; if ($m -match 'Exists') { Write-Ok 'Helpdesk Administrator for the group already present' } else { Write-Note "Active assignment: $m" } }
     try {
-        Invoke-WlG -Method POST -Uri "$v1/roleManagement/directory/roleEligibilityScheduleRequests" -Body @{
+        Invoke-GapsioG -Method POST -Uri "$v1/roleManagement/directory/roleEligibilityScheduleRequests" -Body @{
             action = 'adminAssign'; justification = 'Gapsio-Test'; roleDefinitionId = $roles.SecurityReader; directoryScopeId = '/'; principalId = $users['ben'].id; scheduleInfo = (& $schedule)
         } | Out-Null
         Write-Ok 'Security Reader eligible for gapsio-test-ben (30 days)'
@@ -302,7 +302,7 @@ if (-not $SkipAccess) {
 
     Write-Step 'PIM for groups: you as eligible member of the helpdesk group'
     try {
-        Invoke-WlG -Method POST -Uri "$v1/identityGovernance/privilegedAccess/group/eligibilityScheduleRequests" -Body @{
+        Invoke-GapsioG -Method POST -Uri "$v1/identityGovernance/privilegedAccess/group/eligibilityScheduleRequests" -Body @{
             accessId = 'member'; principalId = $me.id; groupId = $rg.id; action = 'adminAssign'; justification = 'Gapsio-Test'; scheduleInfo = (& $schedule)
         } | Out-Null
         Write-Ok "$($me.userPrincipalName) eligible for '$rgName' (30 days) – shows up under 'My access'"
@@ -311,11 +311,11 @@ if (-not $SkipAccess) {
 
     Write-Step 'Intune RBAC: Help Desk Operator for the group'
     try {
-        $ir = @(Get-WlGAll -Uri "$beta/deviceManagement/roleDefinitions") | Where-Object { $_.displayName -eq 'Help Desk Operator' } | Select-Object -First 1
+        $ir = @(Get-GapsioGAll -Uri "$beta/deviceManagement/roleDefinitions") | Where-Object { $_.displayName -eq 'Help Desk Operator' } | Select-Object -First 1
         $iaName = "$Prefix Helpdesk"
-        $ia = @(Get-WlGAll -Uri "$beta/deviceManagement/roleAssignments") | Where-Object { $_.displayName -eq $iaName } | Select-Object -First 1
+        $ia = @(Get-GapsioGAll -Uri "$beta/deviceManagement/roleAssignments") | Where-Object { $_.displayName -eq $iaName } | Select-Object -First 1
         if (-not $ia -and $ir) {
-            Invoke-WlG -Method POST -Uri "$beta/deviceManagement/roleAssignments" -Body @{
+            Invoke-GapsioG -Method POST -Uri "$beta/deviceManagement/roleAssignments" -Body @{
                 '@odata.type' = '#microsoft.graph.deviceAndAppManagementRoleAssignment'; displayName = $iaName; description = 'Gapsio-Test'
                 members = @($rg.id); scopeMembers = @(); scopeType = 'allDevicesAndLicensedUsers'
                 'roleDefinition@odata.bind' = "$beta/deviceManagement/roleDefinitions('$($ir.id)')"
@@ -328,23 +328,23 @@ if (-not $SkipAccess) {
     Write-Step 'Entitlement Management: catalog and access package'
     try {
         $em = "$v1/identityGovernance/entitlementManagement"
-        $cat = @(Get-WlGAll -Uri "$em/catalogs?`$filter=displayName eq '$Prefix'") | Select-Object -First 1
-        if (-not $cat) { $cat = Invoke-WlG -Method POST -Uri "$em/catalogs" -Body @{ displayName = $Prefix; description = 'Gapsio-Test'; isExternallyVisible = $false } }
+        $cat = @(Get-GapsioGAll -Uri "$em/catalogs?`$filter=displayName eq '$Prefix'") | Select-Object -First 1
+        if (-not $cat) { $cat = Invoke-GapsioG -Method POST -Uri "$em/catalogs" -Body @{ displayName = $Prefix; description = 'Gapsio-Test'; isExternallyVisible = $false } }
 
-        $res = @(Get-WlGAll -Uri "$em/catalogs/$($cat.id)/resources?`$filter=originId eq '$($rg.id)'") | Select-Object -First 1
+        $res = @(Get-GapsioGAll -Uri "$em/catalogs/$($cat.id)/resources?`$filter=originId eq '$($rg.id)'") | Select-Object -First 1
         if (-not $res) {
-            Invoke-WlG -Method POST -Uri "$em/resourceRequests" -Body @{ requestType = 'adminAdd'; resource = @{ originId = $rg.id; originSystem = 'AadGroup' }; catalog = @{ id = $cat.id } } | Out-Null
-            for ($i = 0; $i -lt 12 -and -not $res; $i++) { Start-Sleep -Seconds 5; $res = @(Get-WlGAll -Uri "$em/catalogs/$($cat.id)/resources?`$filter=originId eq '$($rg.id)'") | Select-Object -First 1 }
+            Invoke-GapsioG -Method POST -Uri "$em/resourceRequests" -Body @{ requestType = 'adminAdd'; resource = @{ originId = $rg.id; originSystem = 'AadGroup' }; catalog = @{ id = $cat.id } } | Out-Null
+            for ($i = 0; $i -lt 12 -and -not $res; $i++) { Start-Sleep -Seconds 5; $res = @(Get-GapsioGAll -Uri "$em/catalogs/$($cat.id)/resources?`$filter=originId eq '$($rg.id)'") | Select-Object -First 1 }
         }
         if (-not $res) { throw 'The group has not arrived in the catalog after 60 s. Please run the script again.' }
-        $role = @(Get-WlGAll -Uri "$em/catalogs/$($cat.id)/resourceRoles?`$filter=(originSystem eq 'AadGroup' and resource/id eq '$($res.id)')&`$expand=resource") | Where-Object { $_.originId -like 'Member_*' } | Select-Object -First 1
+        $role = @(Get-GapsioGAll -Uri "$em/catalogs/$($cat.id)/resourceRoles?`$filter=(originSystem eq 'AadGroup' and resource/id eq '$($res.id)')&`$expand=resource") | Where-Object { $_.originId -like 'Member_*' } | Select-Object -First 1
 
         $apName = "$Prefix Helpdesk access"
-        $ap = @(Get-WlGAll -Uri "$em/accessPackages?`$filter=displayName eq '$apName'") | Select-Object -First 1
-        if (-not $ap) { $ap = Invoke-WlG -Method POST -Uri "$em/accessPackages" -Body @{ displayName = $apName; description = 'Gapsio test: grants Helpdesk Administrator via the group.'; isHidden = $false; catalog = @{ id = $cat.id } } }
-        $apFull = Invoke-WlG -Uri "$em/accessPackages/$($ap.id)?`$expand=resourceRoleScopes,assignmentPolicies"
+        $ap = @(Get-GapsioGAll -Uri "$em/accessPackages?`$filter=displayName eq '$apName'") | Select-Object -First 1
+        if (-not $ap) { $ap = Invoke-GapsioG -Method POST -Uri "$em/accessPackages" -Body @{ displayName = $apName; description = 'Gapsio test: grants Helpdesk Administrator via the group.'; isHidden = $false; catalog = @{ id = $cat.id } } }
+        $apFull = Invoke-GapsioG -Uri "$em/accessPackages/$($ap.id)?`$expand=resourceRoleScopes,assignmentPolicies"
         if (-not @($apFull.resourceRoleScopes).Count) {
-            Invoke-WlG -Method POST -Uri "$em/accessPackages/$($ap.id)/resourceRoleScopes" -Body @{
+            Invoke-GapsioG -Method POST -Uri "$em/accessPackages/$($ap.id)/resourceRoleScopes" -Body @{
                 role  = @{ id = $role.id; originId = $role.originId; originSystem = 'AadGroup'; resource = @{ id = $res.id; originId = $rg.id; originSystem = 'AadGroup' } }
                 scope = @{ originId = $rg.id; originSystem = 'AadGroup'; isRootScope = $true }
             } | Out-Null
@@ -362,7 +362,7 @@ if (-not $SkipAccess) {
                 @{ displayName = "$Prefix Ben only"; allowedTargetScope = 'specificDirectoryUsers'; specificAllowedTargets = @(@{ '@odata.type' = '#microsoft.graph.singleUser'; userId = $users['ben'].id; description = 'Ben' }) },
                 @{ displayName = "$Prefix all members"; allowedTargetScope = 'allMemberUsers'; specificAllowedTargets = @() })) {
             if ($existingPolicies -contains $pd.displayName) { continue }
-            Invoke-WlG -Method POST -Uri "$em/assignmentPolicies" -Body (@{
+            Invoke-GapsioG -Method POST -Uri "$em/assignmentPolicies" -Body (@{
                     displayName = $pd.displayName; description = 'Gapsio-Test'; allowedTargetScope = $pd.allowedTargetScope; specificAllowedTargets = $pd.specificAllowedTargets
                     expiration = @{ type = 'afterDuration'; duration = 'P30D' }; requestorSettings = $requestor; requestApprovalSettings = $approval
                     accessPackage = @{ id = $ap.id }
@@ -416,7 +416,7 @@ if (-not $SkipAgents) {
     if ($ok) {
         try {
             $bpName = "$Prefix Blueprint"
-            $bp = @(Get-WlGAll -Uri "$beta/applications/microsoft.graph.agentIdentityBlueprint?`$filter=displayName eq '$bpName'") | Select-Object -First 1
+            $bp = @(Get-GapsioGAll -Uri "$beta/applications/microsoft.graph.agentIdentityBlueprint?`$filter=displayName eq '$bpName'") | Select-Object -First 1
             if (-not $bp) {
                 $bp = Invoke-MgGraphRequest -Method POST -Uri "$beta/applications" -OutputType PSObject -Headers $odata -ContentType 'application/json' -Body (@{
                         '@odata.type' = 'Microsoft.Graph.AgentIdentityBlueprint'; displayName = $bpName
@@ -425,12 +425,12 @@ if (-not $SkipAgents) {
                 Start-Sleep -Seconds 10
             }
             Write-Ok "Blueprint: $($bp.displayName) (app ID $($bp.appId))"
-            $bpp = @(Get-WlGAll -Uri "$beta/servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal?`$filter=appId eq '$($bp.appId)'") | Select-Object -First 1
+            $bpp = @(Get-GapsioGAll -Uri "$beta/servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal?`$filter=appId eq '$($bp.appId)'") | Select-Object -First 1
             if (-not $bpp) { $bpp = Invoke-MgGraphRequest -Method POST -Uri "$beta/servicePrincipals/microsoft.graph.agentIdentityBlueprintPrincipal" -OutputType PSObject -Headers $odata -ContentType 'application/json' -Body (@{ appId = $bp.appId } | ConvertTo-Json) }
             Write-Ok 'Blueprint principal present'
 
             # Agent identities are created by the blueprint itself (blueprint token, short-lived secret that is removed afterwards)
-            $existingIds = @(Get-WlGAll -Uri "$beta/servicePrincipals/microsoft.graph.agentIdentity?`$filter=agentIdentityBlueprintId eq '$($bp.appId)'&`$select=id,displayName")
+            $existingIds = @(Get-GapsioGAll -Uri "$beta/servicePrincipals/microsoft.graph.agentIdentity?`$filter=agentIdentityBlueprintId eq '$($bp.appId)'&`$select=id,displayName")
             $wanted = @(
                 @{ name = "$Prefix Agent protected"; sponsor = $true; user = 'gapsio-test-agent-a' },
                 @{ name = "$Prefix Agent unprotected"; sponsor = $true; user = 'gapsio-test-agent-b' },
@@ -460,7 +460,7 @@ if (-not $SkipAgents) {
             $agentUsers = @{}
             foreach ($w in @($wanted | Where-Object { $_.user })) {
                 $upn = "$($w.user)@$domain"
-                $u = @(Get-WlGAll -Uri "$beta/users/microsoft.graph.agentUser?`$filter=userPrincipalName eq '$upn'&`$select=id") | Select-Object -First 1
+                $u = @(Get-GapsioGAll -Uri "$beta/users/microsoft.graph.agentUser?`$filter=userPrincipalName eq '$upn'&`$select=id") | Select-Object -First 1
                 if (-not $u) {
                     $ubody = @{ accountEnabled = $true; displayName = "$($w.name) (User)"; mailNickname = $w.user; userPrincipalName = $upn; identityParentId = $agentIds[$w.name] } | ConvertTo-Json
                     try { $u = Invoke-MgGraphRequest -Method POST -Uri "$beta/users/microsoft.graph.agentUser" -OutputType PSObject -Headers $odata -ContentType 'application/json' -Body $ubody }
@@ -475,7 +475,7 @@ if (-not $SkipAgents) {
             if ($secretId) { try { Invoke-MgGraphRequest -Method POST -Uri "$beta/applications/$($bp.id)/removePassword" -Body (@{ keyId = $secretId } | ConvertTo-Json) -ContentType 'application/json' | Out-Null; Write-Ok 'Temporary blueprint secret removed' } catch { Write-Note "Please remove the secret manually: $(Get-ErrText $_)" } }
 
             # Conditional Access – report-only exclusively
-            $caExisting = @(Get-WlGAll -Uri "$beta/identity/conditionalAccess/policies?`$select=id,displayName") | ForEach-Object { $_.displayName }
+            $caExisting = @(Get-GapsioGAll -Uri "$beta/identity/conditionalAccess/policies?`$select=id,displayName") | ForEach-Object { $_.displayName }
             $caPolicies = @(
                 @{ displayName = "$Prefix CA block agent (report-only)"; state = 'enabledForReportingButNotEnforced'
                     conditions = @{ clientApplications = @{ includeAgentIdServicePrincipals = @($agentIds["$Prefix Agent protected"]) }; applications = @{ includeApplications = @('All') } }
@@ -485,7 +485,7 @@ if (-not $SkipAgents) {
                     grantControls = @{ operator = 'OR'; builtInControls = @('block') } })
             foreach ($cp in $caPolicies) {
                 if ($caExisting -contains $cp.displayName) { continue }
-                try { Invoke-WlG -Method POST -Uri "$beta/identity/conditionalAccess/policies" -Body $cp | Out-Null }
+                try { Invoke-GapsioG -Method POST -Uri "$beta/identity/conditionalAccess/policies" -Body $cp | Out-Null }
                 catch { Write-Note "CA '$($cp.displayName)': $(Get-ErrText $_)" }
             }
             Write-Ok 'Conditional Access: two report-only policies (they block nothing)'

@@ -6,13 +6,100 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-11-10
+
+New optional feature `Detections` with one read-only permission (`CustomDetection.Read.All`); everything else in
+this release works with the permissions you already granted. The Office preview module was rebuilt – its findings
+change, see *Changed* and *Removed*. `Update-Gapsio.ps1` reports the permission only when
+you add the feature.
+
 ### Added
+- **Policy conflicts (Endpoint).** Settings that reach the same devices from two or more Intune policies with
+  different values – fleet-wide, with the policies, the values and the number of devices. Finding *Policy conflict*
+  (Medium). No extra permission.
+- **Device control (Endpoint).** USB storage in use (30 days) versus the device control policies that reach those
+  devices, with policy events. Finding *USB storage used without a device control policy* (Medium). No extra permission.
+- **Attack disruption readiness (Endpoint).** What can be verified of the prerequisites of automatic attack
+  disruption (Sense agent version for Contain User, coverage, Defender for Identity signals, disruption events) –
+  and what Microsoft only shows in the portal, listed as *not measurable* with the place to check. No extra permission.
+- **Custom detection rules (new optional feature `Detections`, Graph `CustomDetection.Read.All`).** Rules that
+  Defender switched off automatically (High), failed, disabled and automatically acting rules; rule changes appear in
+  the change history. Enable with `-Features …,Detections`.
+- **Audit evidence (History).** Open findings and accepted risks by ISO/IEC 27001:2022 Annex A and NIS2 Art. 21(2)
+  control; printable, CSV export. The mapping (`config/control-mapping.json`) can be replaced in the `config` container.
+- **Access: held but not used.** New table per person and unified RBAC permission – *used*, *not used* or *not
+  measurable* with the reason – and the finding *Defender permissions held but not used* (Medium/Low). *Not used* is
+  only claimed when every source that can reveal the use was read; otherwise the permission is *not measurable*
+  (e.g. feature `Audit` off, audit query still running). The page shows which usage sources were read.
+
+### Changed
+- **Office preview rebuilt on documented hunting columns.** The module now answers "what got through, and why":
+  phishing and malware that is still in an inbox, threats an allow delivered (organisation-level and mailbox-level
+  allows kept apart), Safe Links click-through and inbound mail that spoofs your own domains. The policy map shows
+  which protection acted and what organisation-level and mailbox policies did.
+- Office findings are regular findings now: they appear in the Findings list, can be assigned and accepted, count in
+  the audit evidence, and every run is compared with the previous one (change history, notifications, run index).
+  The snapshot is `state/officepreview-latest.json`; the earlier file is still read until the module has run once.
+- Office: all texts are available in English and German.
+- Portal sign-in fallback for missing `roles` claim now reads direct app-role assignments on the user object.
+  Least-privilege mapping moved to the required `Core` feature with Graph `RoleManagement.Read.Directory`.
+- Access: *last used* also counts recorded actions (response actions, alert triage, audit log), so people who act
+  through the API are no longer reported as *never used*.
+- Access: an empty *permissions actually used* table now says whether no source could be read or nothing was found.
+
+### Removed
+- Office checks that rested on misread or undocumented columns: *policy overlap*, *duplicate policy effects* and
+  *precedence conflicts* (they treated `UserLevelPolicy` – the recipient's own mailbox policy – as an admin policy),
+  *TABL/IOC inventory* (read a Microsoft Sentinel table that is not part of the Defender hunting schema), *ZAP blind
+  spots* (counted every message without a post-delivery event), *encrypted attachments* (undocumented field), and the
+  licensing finding in the Office module.
+
+### Fixed
+- **The nightly runs of the Office and Purview preview modules failed**: their timer functions called collectors the
+  module did not export. Only *Collect now* worked. A test now checks every Function entry point.
+- **A second click on *Collect now* queued a second run**: the two-minute debounce called a function the module did
+  not export and silently did nothing.
+- Office: a hunting query that failed was counted as "ok, no data". Failed checks are now shown as failed, raise no
+  finding and leave their number empty.
+- German texts of several findings and one installer message were cut off: typographic quotation marks inside a
+  double-quoted PowerShell string end the string. All 18 places are fixed and a test guards against new ones.
+- Access: antivirus scans and investigation packages count as *Alerts (manage)* (previously *Response* / *File
+  collection*), as in Microsoft's permission reference.
+- Access: an alert that is only assigned (status New) no longer counts as use by the assignee.
+- Access: a failed read of the audit log records no longer looks like "no activity".
+- Access: paging links of the Defender for Endpoint API are only followed to `https://*.microsoft.com`.
+- Docs: the findings table on the Access page was split by an empty line.
+- Security: paging links are checked for every Microsoft API call (Graph and Defender for Endpoint), not only in Access –
+  a link to a host outside `https://*.microsoft.com` stops the read instead of receiving the bearer token.
+- API: the device search page size is capped at 1,000; the Office and Purview preview routes answer 404 when the module
+  is not enabled (as the other modules do).
+- Portal: Office and Purview preview findings showed raw dictionary keys (`x.severity`, `x.detail` …) as column headers
+  and the exclusions page title instead of "Finding"; the Office page labelled the collection time "Loading"; the header
+  showed no data timestamp on the preview pages; cmdlet names in the anti-phish drift wrapped mid-word.
+- Setup: `Update-Gapsio.ps1` and `Uninstall-Gapsio.ps1` also find installations without the `gapsio-component` tag
+  (older installations: tag `wl-component`, or the only Function App tagged `product=Gapsio`); an update sets the tag.
+- Demo: Office and Purview preview data (fictitious) and the Access module are part of the demo; display names now
+  match the pseudonymised UPNs, and dictionary keys are pseudonymised as well.
+
+## [0.6.0] – 2026-11-04
+
+### Changed (breaking)
+- **Product renamed to Gapsio.** App settings are now `GAPSIO_*` (previously `WL_*`), the on-demand queue is `gapsio-run`,
+  Azure resource tags are `gapsio-component`, release assets are `gapsio.zip` / `gapsio-functionapp.zip`.
+- **New licence signing key.** Licence keys now start with `GP1.` and licence IDs with `GP-`; keys issued for earlier
+  versions are no longer accepted. Customers receive a new key by e-mail (or via *Resend licence* on gapsio.cloud).
+- The portal admin app role is `Gapsio.Admin`.
+
+### Added
+- **Purview DLP preview module (optional, private preview)**: `-Features ...,PurviewPreview`
+  enables `purviewpreview`. DLP licence coverage, Purview role holders, sensitivity labels
+  and 12 Advanced Hunting probes. Portal group *Purview*. See docs/modules/purview-preview.md.
 - **Office preview module (optional, private preview)**: `-Features Endpoint,Agents,OfficePreview` enables the `officepreview`
   module (`ThreatHunting.Read.All`). It collects anti-phish policy drift from Defender for Office 365 audit events (who changed
   which setting, direction *weakened*/*hardened*) and sets each change against phishing outcomes before and after
   (delivered vs. blocked, per policy, 400-day history). Portal: *Office preview*, *Phish drift* and *Policy map*.
   Findings `office.antiphish_weakened` (High) and `office.antiphish_delivery_up` (Medium).
-- Installer writes `WL_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
+- Installer writes `GAPSIO_MODULES` from the selected features; *Installation* lists which modules exist and how to add one.
 
 ### Changed
 - Documentation is published at https://gapsio.cloud/docs/ (canonical); GitHub Pages remains as the build source.
@@ -89,8 +176,8 @@ First version published on GitHub.
   mapping) and who uses them. New portal page *Licensing (MDE)* with SKUs, client devices (Licensed/Unlicensed/No user, confidence
   Intune/Logon), licensed users and a separate server list; findings for over-consumption, unlicensed clients, Plan-1-only devices,
   licensed users without a device and users over the five-device limit; caveats are shown on the page. Feature `Licensing`
-  (permissions `Organization.Read.All`, `User.Read.All`), timer `CollectLicensing`, settings `WL_SCHEDULE_LICENSING`,
-  `WL_LICENSING_DAYS`, `WL_LICENSING_DEVICES_PER_USER`, `WL_LICENSING_DETAIL` (`aggregate` pseudonymises UPNs).
+  (permissions `Organization.Read.All`, `User.Read.All`), timer `CollectLicensing`, settings `GAPSIO_SCHEDULE_LICENSING`,
+  `GAPSIO_LICENSING_DAYS`, `GAPSIO_LICENSING_DEVICES_PER_USER`, `GAPSIO_LICENSING_DETAIL` (`aggregate` pseudonymises UPNs).
 - **Third-party AV/EDR**: `DeviceTvmSoftwareInventory` is queried for other AV/EDR vendors; devices show the products, a new
   device chart and filter `3pav:1`, a Medium finding per device where a third-party product runs alongside an active Defender
   Antivirus and an aggregated Low finding per tenant.
@@ -108,7 +195,7 @@ First version published on GitHub.
 - **Large fleets (up to several hundred thousand devices)**: Advanced Hunting results above the 100,000-row limit are
   collected in hash shards with truncation notices and a per-minute call budget; device and coverage lists are stored in
   pages with a search index instead of inside the snapshot; the portal searches and filters devices on the server above
-  10,000 devices (`api/devices`, `api/device`); identical per-device findings on more than `WL_FINDING_ROLLUP` devices are
+  10,000 devices (`api/devices`, `api/device`); identical per-device findings on more than `GAPSIO_FINDING_ROLLUP` devices are
   rolled up into one finding; the template deploys 4 GB instances (`instanceMemoryMB`).
 - **Assignments and unlimited exceptions**: every finding and exclusion can be assigned to an Entra user, a security group, a distribution list or a manually typed e-mail address (people picker in the detail row, backed by `User.ReadBasic.All` and `GroupMember.Read.All`; falls back to manual e-mail when the directory is not readable). Assigned items stay open, show the assignee in the findings list (with a filter) and in notifications (`gapsio.findings[].assignee`) so a flow can e-mail them. Exceptions (formerly "accept risk") can now be unlimited (no expiry) or dated up to ten years; the one-year cap is gone. *History › Exceptions & assignments* adds an *Assignments* tab; assign/unassign actions go to the same audit log.
 - **macOS/Linux findings** (category *macOS / Linux*): Full Disk Access missing and system extensions not approved on Macs (from the secure configuration assessment), Defender agent builds 6+ months behind the fleet (`101.YYMM.x`, with an auditd note for Linux < 101.2408), and macOS/Linux fleets without any Intune Defender policy (Jamf-managed Macs are called out). Agent version is now collected from `DeviceTvmSoftwareInventory`.
@@ -126,7 +213,7 @@ First version published on GitHub.
 - **Least privilege per feature** (`-Features Core,Hunting,Indicators,Agents,Access,Inventory`); permissions that are no longer needed are removed.
 - **Separation of duties**: app registrations can be created up front by the identity team (`New-GapsioAppRegistrations.ps1`) and attached with `-PortalAppId` / `-DataAppId`; the data-access app is used via workload identity federation (no secret).
 - **English/German portal** with a language switch; all scripts and installation output in English.
-- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `WL_UPDATE_CHECK=false` to disable) and `Update-Gapsio.ps1` with checksum verification, permission and template change detection.
+- **Updates**: daily check for new releases (shown in the portal, no tenant data sent, `GAPSIO_UPDATE_CHECK=false` to disable) and `Update-Gapsio.ps1` with checksum verification, permission and template change detection.
 
 - **Device page**: protection state incl. network protection, controlled folder access and EDR in block mode, ASR per rule, local exclusions, findings, local AI agents, changes and links to Defender and Intune.
 - **Defender coverage gaps**: Intune devices not onboarded (feature `Coverage`), inactive or impaired sensors, discovered devices.

@@ -3,7 +3,7 @@
 # outcomes from EmailEvents (phish-classified mail per policy/day). Both are merged into a long-lived
 # history blob (state/office-antiphish-history.json) because Advanced Hunting only keeps 30 days.
 
-$script:WlAntiPhishKeySettings = @(
+$script:GapsioAntiPhishKeySettings = @(
     'PhishThresholdLevel',
     'Enabled', 'Priority',
     'EnableMailboxIntelligence', 'EnableMailboxIntelligenceProtection', 'MailboxIntelligenceProtectionAction', 'MailboxIntelligenceQuarantineTag',
@@ -17,11 +17,12 @@ $script:WlAntiPhishKeySettings = @(
     'SentTo', 'SentToMemberOf', 'RecipientDomainIs', 'ExceptIfSentTo', 'ExceptIfSentToMemberOf', 'ExceptIfRecipientDomainIs',
     'AntiPhishPolicy'
 )
-$script:WlAntiPhishNoiseParams = @('Identity', 'Confirm', 'ErrorAction', 'WarningAction', 'Verbose', 'Debug', 'Force', 'WhatIf', 'Name', 'Organization', 'ErrorVariable', 'WarningVariable', 'OutVariable', 'OutBuffer', 'PipelineVariable', 'InformationAction', 'InformationVariable', 'ProgressAction')
+$script:GapsioAntiPhishNoiseParams = @('Identity', 'Confirm', 'ErrorAction', 'WarningAction', 'Verbose', 'Debug', 'Force', 'WhatIf', 'Name', 'Organization', 'ErrorVariable', 'WarningVariable', 'OutVariable', 'OutBuffer', 'PipelineVariable', 'InformationAction', 'InformationVariable', 'ProgressAction')
 
-$script:WlAntiPhishCmdlets = @('Set-AntiPhishPolicy', 'New-AntiPhishPolicy', 'Remove-AntiPhishPolicy', 'Set-AntiPhishRule', 'New-AntiPhishRule', 'Remove-AntiPhishRule', 'Enable-AntiPhishRule', 'Disable-AntiPhishRule')
+$script:GapsioAntiPhishCmdlets = @('Set-AntiPhishPolicy', 'New-AntiPhishPolicy', 'Remove-AntiPhishPolicy', 'Set-AntiPhishRule', 'New-AntiPhishRule', 'Remove-AntiPhishRule', 'Enable-AntiPhishRule', 'Disable-AntiPhishRule')
 
-$script:WlAntiPhishChangesQuery = @"
+$script:GapsioAntiPhishChangesQuery = @"
+// GapsioOffice:antiphish_changes
 CloudAppEvents
 | where Timestamp > ago(30d)
 | where ActionType in~ ('Set-AntiPhishPolicy','New-AntiPhishPolicy','Remove-AntiPhishPolicy','Set-AntiPhishRule','New-AntiPhishRule','Remove-AntiPhishRule','Enable-AntiPhishRule','Disable-AntiPhishRule')
@@ -34,7 +35,8 @@ CloudAppEvents
 | take 500
 "@
 
-$script:WlAntiPhishOutcomesQuery = @"
+$script:GapsioAntiPhishOutcomesQuery = @"
+// GapsioOffice:antiphish_outcomes
 EmailEvents
 | where Timestamp > ago(30d)
 | extend Threat = tolower(tostring(column_ifexists('ThreatTypes','')))
@@ -70,7 +72,7 @@ EmailEvents
 | take 5000
 "@
 
-function ConvertTo-WlDayKey {
+function ConvertTo-GapsioDayKey {
     # 'yyyy-MM-dd' (UTC) from a string or DateTime (ConvertFrom-Json turns ISO strings into DateTime).
     param($Value)
     if ($null -eq $Value) { return '' }
@@ -84,7 +86,7 @@ function ConvertTo-WlDayKey {
     $dt.ToString('yyyy-MM-dd')
 }
 
-function ConvertTo-WlIsoTs {
+function ConvertTo-GapsioIsoTs {
     # Round-trip ISO 8601 UTC string from a string or DateTime.
     param($Value)
     if ($null -eq $Value) { return '' }
@@ -93,23 +95,23 @@ function ConvertTo-WlIsoTs {
     $dt.ToString('o')
 }
 
-function ConvertFrom-WlAntiPhishParams {
+function ConvertFrom-GapsioAntiPhishParams {
     # Exchange audit "Parameters" -> ordered name/value map (noise removed, values flattened to strings).
     param([string]$Json)
     $out = [ordered]@{}
     if ([string]::IsNullOrWhiteSpace($Json)) { return $out }
     try { $arr = $Json | ConvertFrom-Json -Depth 16 } catch { return $out }
     foreach ($p in @($arr)) {
-        $n = [string](Get-WlProp $p 'Name'); if (-not $n) { continue }
-        if ($script:WlAntiPhishNoiseParams -contains $n) { continue }
-        $v = Get-WlProp $p 'Value'
+        $n = [string](Get-GapsioProp $p 'Name'); if (-not $n) { continue }
+        if ($script:GapsioAntiPhishNoiseParams -contains $n) { continue }
+        $v = Get-GapsioProp $p 'Value'
         $s = if ($null -eq $v) { '' } elseif ($v -is [array]) { ($v -join ';') } else { [string]$v }
         $out[$n] = $s
     }
     $out
 }
 
-function Get-WlAntiPhishActionRank {
+function Get-GapsioAntiPhishActionRank {
     # Higher = stricter. Used to tell "weakened" from "hardened" changes.
     param([string]$Value)
     switch -Regex ([string]$Value) {
@@ -121,7 +123,7 @@ function Get-WlAntiPhishActionRank {
     }
 }
 
-function Get-WlAntiPhishChangeDirection {
+function Get-GapsioAntiPhishChangeDirection {
     # 'weaker' | 'stronger' | 'neutral' for one setting change.
     param([string]$Name, [string]$Before, [string]$After)
     if ($Name -eq 'PhishThresholdLevel') {
@@ -130,7 +132,7 @@ function Get-WlAntiPhishChangeDirection {
         return 'neutral'
     }
     if ($Name -like '*Action') {
-        $rb = Get-WlAntiPhishActionRank $Before; $ra = Get-WlAntiPhishActionRank $After
+        $rb = Get-GapsioAntiPhishActionRank $Before; $ra = Get-GapsioAntiPhishActionRank $After
         if ($null -ne $rb -and $null -ne $ra) { if ($ra -lt $rb) { return 'weaker' } elseif ($ra -gt $rb) { return 'stronger' } }
         return 'neutral'
     }
@@ -146,7 +148,7 @@ function Get-WlAntiPhishChangeDirection {
     'neutral'
 }
 
-function ConvertTo-WlAntiPhishMap {
+function ConvertTo-GapsioAntiPhishMap {
     # PSCustomObject (from JSON) or dictionary -> ordered hashtable of strings.
     param($Object)
     $out = [ordered]@{}
@@ -156,7 +158,7 @@ function ConvertTo-WlAntiPhishMap {
     $out
 }
 
-function Test-WlAntiPhishPolicyMatch {
+function Test-GapsioAntiPhishPolicyMatch {
     # Audit ObjectId vs. EmailEvents policy name: compare case-insensitively, tolerate tenant prefixes / suffixes.
     param([string]$AuditName, [string]$EventPolicy)
     if (-not $AuditName -or -not $EventPolicy) { return $false }
@@ -168,7 +170,7 @@ function Test-WlAntiPhishPolicyMatch {
     (& $strip $a) -eq (& $strip $e)
 }
 
-function Measure-WlAntiPhishWindow {
+function Measure-GapsioAntiPhishWindow {
     # Aggregates daily rows for a policy filter over [From, To) days.
     param([object[]]$Daily, [string]$Policy, [datetime]$From, [datetime]$To)
     $sum = [ordered]@{ events = 0; Quarantine = 0; Junk = 0; Delivered = 0; Block = 0; Other = 0; days = 0 }
@@ -176,7 +178,7 @@ function Measure-WlAntiPhishWindow {
     foreach ($d in $Daily) {
         $day = [datetime]$d.day
         if ($day -lt $From -or $day -ge $To) { continue }
-        if ($Policy -and -not (Test-WlAntiPhishPolicyMatch -AuditName $Policy -EventPolicy ([string]$d.policy))) { continue }
+        if ($Policy -and -not (Test-GapsioAntiPhishPolicyMatch -AuditName $Policy -EventPolicy ([string]$d.policy))) { continue }
         $n = [int]$d.events
         $sum.events += $n
         $o = [string]$d.outcome; if ($sum.Contains($o)) { $sum[$o] += $n } else { $sum.Other += $n }
@@ -188,7 +190,7 @@ function Measure-WlAntiPhishWindow {
     $sum
 }
 
-function Update-WlOfficeAntiPhishHistory {
+function Update-GapsioOfficeAntiPhishHistory {
     <#
     .SYNOPSIS
     Reads anti-phish settings changes + phish outcomes per policy/day from Advanced Hunting, merges them into
@@ -202,35 +204,35 @@ function Update-WlOfficeAntiPhishHistory {
 
     # ---- 1. Load history ---------------------------------------------------------------------------------------
     $history = $null
-    try { $history = Get-WlBlob -Container 'state' -Name 'office-antiphish-history.json' } catch { Add-WlWarning "anti-phish history: $($_.Exception.Message)" }
+    try { $history = Get-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' } catch { Add-GapsioWarning "anti-phish history: $($_.Exception.Message)" }
     $changes = @{}   # key -> ordered
     $daily = @{}     # key -> ordered
-    foreach ($c in @(Get-WlProp $history 'changes')) {
+    foreach ($c in @(Get-GapsioProp $history 'changes')) {
         if ($null -eq $c) { continue }
-        $ts = ConvertTo-WlIsoTs $c.ts
+        $ts = ConvertTo-GapsioIsoTs $c.ts
         $k = "$ts|$($c.cmdlet)|$($c.policy)"
-        $changes[$k] = [ordered]@{ ts = $ts; cmdlet = [string]$c.cmdlet; policy = [string]$c.policy; actor = [string]$c.actor; result = [string]$c.result; settings = (ConvertTo-WlAntiPhishMap (Get-WlProp $c 'settings')) }
+        $changes[$k] = [ordered]@{ ts = $ts; cmdlet = [string]$c.cmdlet; policy = [string]$c.policy; actor = [string]$c.actor; result = [string]$c.result; settings = (ConvertTo-GapsioAntiPhishMap (Get-GapsioProp $c 'settings')) }
     }
-    foreach ($d in @(Get-WlProp $history 'daily')) {
+    foreach ($d in @(Get-GapsioProp $history 'daily')) {
         if ($null -eq $d) { continue }
-        $day = ConvertTo-WlDayKey $d.day
+        $day = ConvertTo-GapsioDayKey $d.day
         $k = "$day|$($d.policy)|$($d.method)|$($d.outcome)|$($d.confidence)"
         $daily[$k] = [ordered]@{ day = $day; policy = [string]$d.policy; method = [string]$d.method; outcome = [string]$d.outcome; confidence = [string]$d.confidence; events = [int]$d.events }
     }
-    $historySince = if (Get-WlProp $history 'since') { ConvertTo-WlIsoTs (Get-WlProp $history 'since') } else { $now.ToString('o') }
+    $historySince = if (Get-GapsioProp $history 'since') { ConvertTo-GapsioIsoTs (Get-GapsioProp $history 'since') } else { $now.ToString('o') }
 
     # ---- 2. Settings changes (Exchange admin audit via CloudAppEvents) ----------------------------------------
     $newChanges = 0
     try {
-        $r = @(Invoke-WlHuntingSafe -NoShard -Context 'office preview antiphish_policy_changes' -Timespan 'P30D' -Query $script:WlAntiPhishChangesQuery)
+        $r = @(Invoke-GapsioOfficeHunting -Context 'office preview antiphish_policy_changes' -Query $script:GapsioAntiPhishChangesQuery)
         foreach ($x in $r) {
             if ($null -eq $x) { continue }
-            $ts = ConvertTo-WlIsoTs $x.Timestamp
+            $ts = ConvertTo-GapsioIsoTs $x.Timestamp
             $cmdlet = [string]$x.ActionType
             $policy = [string]$x.Policy
             $k = "$ts|$cmdlet|$policy"
             if ($changes.ContainsKey($k)) { continue }
-            $changes[$k] = [ordered]@{ ts = $ts; cmdlet = $cmdlet; policy = $policy; actor = [string]$x.Actor; result = [string]$x.Result; settings = (ConvertFrom-WlAntiPhishParams -Json ([string]$x.Params)) }
+            $changes[$k] = [ordered]@{ ts = $ts; cmdlet = $cmdlet; policy = $policy; actor = [string]$x.Actor; result = [string]$x.Result; settings = (ConvertFrom-GapsioAntiPhishParams -Json ([string]$x.Params)) }
             $newChanges++
         }
         $probeRows.Add([ordered]@{ key = 'antiphish_policy_changes'; title = 'Anti-phish policy changes (Exchange admin audit)'; workload = 'Anti-phish drift'; status = 'ok'; error = $null; result = @([ordered]@{ rows = $r.Count; newChanges = $newChanges; tracked = $changes.Count }) })
@@ -242,14 +244,14 @@ function Update-WlOfficeAntiPhishHistory {
 
     # ---- 3. Outcomes per policy/day ---------------------------------------------------------------------------
     try {
-        $r = @(Invoke-WlHuntingSafe -NoShard -Context 'office preview antiphish_outcomes' -Timespan 'P30D' -Query $script:WlAntiPhishOutcomesQuery)
+        $r = @(Invoke-GapsioOfficeHunting -Context 'office preview antiphish_outcomes' -Query $script:GapsioAntiPhishOutcomesQuery)
         $windowDays = @{}
-        foreach ($x in $r) { if ($x) { $windowDays[(ConvertTo-WlDayKey $x.day)] = $true } }
+        foreach ($x in $r) { if ($x) { $windowDays[(ConvertTo-GapsioDayKey $x.day)] = $true } }
         # Days re-read from hunting replace what we had for those days (counts can still move for the current day).
         if ($windowDays.Count) { foreach ($k in @($daily.Keys)) { if ($windowDays.ContainsKey($daily[$k].day)) { $daily.Remove($k) } } }
         foreach ($x in $r) {
             if ($null -eq $x) { continue }
-            $day = ConvertTo-WlDayKey $x.day
+            $day = ConvertTo-GapsioDayKey $x.day
             $row = [ordered]@{ day = $day; policy = [string]$x.Policy; method = [string]$x.Method; outcome = [string]$x.Outcome; confidence = [string]$x.Confidence; events = [int]$x.events }
             $daily["$day|$($row.policy)|$($row.method)|$($row.outcome)|$($row.confidence)"] = $row
         }
@@ -264,10 +266,10 @@ function Update-WlOfficeAntiPhishHistory {
     $changeList = @($changes.Values | Where-Object { ([datetime]$_.ts) -ge $keepFrom } | Sort-Object { [datetime]$_.ts })
     $dailyList = @($daily.Values | Where-Object { ([datetime]$_.day) -ge $keepFrom } | Sort-Object { $_.day }, { $_.policy }, { $_.method }, { $_.outcome })
     $hist = [ordered]@{ version = 1; since = $historySince; updatedAt = $now.ToString('o'); changes = $changeList; daily = $dailyList }
-    try { Set-WlBlob -Container 'state' -Name 'office-antiphish-history.json' -Object $hist -Depth 16 } catch { Add-WlWarning "anti-phish history write: $($_.Exception.Message)" }
+    try { Set-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' -Object $hist -Depth 16 } catch { Add-GapsioWarning "anti-phish history write: $($_.Exception.Message)" }
 
     # ---- 5. Derive policy state, per-change effects, periods ---------------------------------------------------
-    $tracked = $script:WlAntiPhishKeySettings
+    $tracked = $script:GapsioAntiPhishKeySettings
     $policyState = [ordered]@{}   # name -> @{ settings = ordered name -> @{ value; since; actor }; lastChange; kind }
     $effects = [System.Collections.Generic.List[object]]::new()
     $events = [System.Collections.Generic.List[object]]::new()
@@ -285,7 +287,7 @@ function Update-WlOfficeAntiPhishHistory {
             $prev = if ($ps.settings.Contains($sn)) { [string]$ps.settings[$sn].value } else { $null }
             $isTracked = $tracked -contains $sn
             if ($null -ne $prev -and $prev -eq $after) { continue }
-            $dir = if ($null -ne $prev) { Get-WlAntiPhishChangeDirection -Name $sn -Before $prev -After $after } else { 'neutral' }
+            $dir = if ($null -ne $prev) { Get-GapsioAntiPhishChangeDirection -Name $sn -Before $prev -After $after } else { 'neutral' }
             $diffs.Add([ordered]@{ setting = $sn; before = $prev; after = $after; direction = $dir; tracked = $isTracked })
             $ps.settings[$sn] = [ordered]@{ value = $after; since = $c.ts; actor = $c.actor }
         }
@@ -297,10 +299,10 @@ function Update-WlOfficeAntiPhishHistory {
         if (-not $relevant) { continue }
         $t = ([datetime]$c.ts).ToUniversalTime().Date
         $scopePolicy = $name
-        $matchAny = @($dailyList | Where-Object { Test-WlAntiPhishPolicyMatch -AuditName $name -EventPolicy ([string]$_.policy) }).Count -gt 0
+        $matchAny = @($dailyList | Where-Object { Test-GapsioAntiPhishPolicyMatch -AuditName $name -EventPolicy ([string]$_.policy) }).Count -gt 0
         if (-not $matchAny) { $scopePolicy = $null }
-        $before = Measure-WlAntiPhishWindow -Daily $dailyList -Policy $scopePolicy -From $t.AddDays(-7) -To $t
-        $after = Measure-WlAntiPhishWindow -Daily $dailyList -Policy $scopePolicy -From $t -To $t.AddDays(7)
+        $before = Measure-GapsioAntiPhishWindow -Daily $dailyList -Policy $scopePolicy -From $t.AddDays(-7) -To $t
+        $after = Measure-GapsioAntiPhishWindow -Daily $dailyList -Policy $scopePolicy -From $t -To $t.AddDays(7)
         $delta = if ($null -ne $before.deliveredPct -and $null -ne $after.deliveredPct) { [math]::Round($after.deliveredPct - $before.deliveredPct, 1) } else { $null }
         $effects.Add([ordered]@{
                 ts = $c.ts; policy = $name; cmdlet = $c.cmdlet; actor = $c.actor
@@ -318,16 +320,16 @@ function Update-WlOfficeAntiPhishHistory {
     $periods = [System.Collections.Generic.List[object]]::new()
     $minDay = if ($dailyList.Count) { [datetime]($dailyList | Sort-Object { $_.day } | Select-Object -First 1).day } else { $now.Date }
     foreach ($pn in $policyNames) {
-        $cuts = @($events | Where-Object { $_.policy -and (Test-WlAntiPhishPolicyMatch -AuditName $_.policy -EventPolicy $pn) -and @($_.diffs | Where-Object { $_.tracked }).Count -gt 0 } | ForEach-Object { ([datetime]$_.ts).ToUniversalTime().Date } | Sort-Object -Unique)
+        $cuts = @($events | Where-Object { $_.policy -and (Test-GapsioAntiPhishPolicyMatch -AuditName $_.policy -EventPolicy $pn) -and @($_.diffs | Where-Object { $_.tracked }).Count -gt 0 } | ForEach-Object { ([datetime]$_.ts).ToUniversalTime().Date } | Sort-Object -Unique)
         $bounds = @($minDay) + @($cuts | Where-Object { $_ -gt $minDay }) + @($now.Date.AddDays(1))
         $state = [ordered]@{}
         for ($i = 0; $i -lt $bounds.Count - 1; $i++) {
             $from = $bounds[$i]; $to = $bounds[$i + 1]
             # Settings in effect during this period = last known values before $to (from matching change events).
-            foreach ($e in @($events | Where-Object { $_.policy -and (Test-WlAntiPhishPolicyMatch -AuditName $_.policy -EventPolicy $pn) -and ([datetime]$_.ts).ToUniversalTime().Date -lt $to -and ($i -eq 0 -or ([datetime]$_.ts).ToUniversalTime().Date -ge $from) })) {
+            foreach ($e in @($events | Where-Object { $_.policy -and (Test-GapsioAntiPhishPolicyMatch -AuditName $_.policy -EventPolicy $pn) -and ([datetime]$_.ts).ToUniversalTime().Date -lt $to -and ($i -eq 0 -or ([datetime]$_.ts).ToUniversalTime().Date -ge $from) })) {
                 foreach ($d in $e.diffs) { if ($d.tracked) { $state[$d.setting] = $d.after } }
             }
-            $m = Measure-WlAntiPhishWindow -Daily $dailyList -Policy $pn -From $from -To $to
+            $m = Measure-GapsioAntiPhishWindow -Daily $dailyList -Policy $pn -From $from -To $to
             if ($m.events -eq 0 -and $i -gt 0 -and $i -lt $bounds.Count - 2) { continue }
             $snap = [ordered]@{}; foreach ($k in $state.Keys) { $snap[$k] = $state[$k] }
             $periods.Add([ordered]@{ policy = $pn; from = $from.ToString('yyyy-MM-dd'); to = $to.AddDays(-1).ToString('yyyy-MM-dd'); current = ($i -eq $bounds.Count - 2); settings = $snap; threshold = $(if ($snap.Contains('PhishThresholdLevel')) { $snap['PhishThresholdLevel'] } else { $null }); outcomes = $m })

@@ -218,3 +218,81 @@ actions of the last 90 days and the alerts of the last 30 days with their automa
 Not available through any API and therefore not shown: the automation level per device group and the
 live-response tenant settings (enabled, for servers, unsigned scripts). Both have to be checked in the portal
 under *Settings → Endpoints*.
+
+## Policy conflicts
+
+No extra permission. Two or more assigned Intune policies can configure the same setting with different values for
+the same device. Microsoft documents the result: all policy types have equal priority, and *"when multiple policies
+configure the same setting with different values, the setting might fail to apply and be flagged as conflicted"*
+([Manage endpoint security policies](https://learn.microsoft.com/intune/intune-service/protect/endpoint-security-policy)).
+For ASR rules, *"settings that are in conflict aren't added to the superset of rules"*
+([ASR policy](https://learn.microsoft.com/intune/intune-service/protect/endpoint-security-asr-policy)) – the rule may
+not be active at all. The Defender portal shows this per device (*Effective settings*, Windows only); Gapsio shows it
+for the fleet:
+
+- which setting, which values, which policies
+- how many devices receive more than one value (resolved through the assignments: all devices/users, groups the
+  device or its last user is in, minus exclusion groups)
+- one finding (Medium, category *Policy conflict*) listing the settings
+
+Compared are single-value settings (choices, switches, numbers) of Settings Catalog and endpoint security policies.
+Lists such as exclusions merge and are not conflicts. Policies that go to different devices (rings) are not
+conflicts. Without device data (feature `Hunting` off) the overlap is judged by the assignment texts.
+
+## Device control
+
+No extra permission (needs `Hunting` for the usage data). Gapsio sets the USB storage that is actually used against
+the device control policies that reach those devices:
+
+- **USB drive mounts** per device in the last 30 days (Advanced Hunting `DeviceEvents`, action type
+  `UsbDriveMounted`) – Defender reports media usage for onboarded devices by default
+- **Intune policies** with device control, removable storage or device installation settings, and the devices they
+  reach through their assignments
+- **Policy events** (`RemovableStoragePolicyTriggered`): how often a policy fired and how often it denied access
+
+Finding (Medium, category *Device control*): USB storage used on devices that no device control policy reaches.
+
+Limits stated by Microsoft: device control is supported on Windows 10/11 and macOS, not on servers (USB use on
+servers is listed but not a finding); policy events are only written for policies with an audit entry and capped at
+300 per device and day ([device control report](https://learn.microsoft.com/defender-endpoint/device-control-report)).
+Device control configured by Group Policy is not visible to Gapsio.
+
+## Attack disruption readiness
+
+No extra permission. [Automatic attack disruption](https://learn.microsoft.com/defender-xdr/configure-attack-disruption)
+contains compromised users and devices – if its prerequisites are met. Gapsio checks what can be verified and lists
+the rest as **not measurable** with the place to check it; nothing is assumed.
+
+| Prerequisite | Source | Result |
+|---|---|---|
+| Sense agent 10.8470 or later (Contain User) | `DeviceInfo.ClientVersion` | Gap with the devices below the minimum |
+| Devices that disruption can act on | Coverage gaps of this run | Gap when devices are not onboarded or their sensor is not working |
+| Defender for Identity signals (disabling Active Directory accounts) | `IdentityDirectoryEvents`, 7 days | OK, or *review* (cloud-only tenants do not need it) |
+| Device discovery in Standard mode (Contain Device) | no API | not measurable – *Settings › Device discovery* |
+| Remediation level of the device groups | no API | not measurable – *Settings › Endpoints › Device groups* |
+| Exclusions from automated response (users, device groups, IPs) | no API | not measurable – *Settings › Microsoft Defender XDR › Automated response* |
+
+The page also lists what disruption did in the last 30 days (`DisruptionAndResponseEvents`: blocked sign-ins, SMB
+and RPC access of contained users). Finding (Medium, category *Response*): Contain User cannot be enforced on devices
+with an older Sense agent.
+
+## Custom detection rules
+
+Feature `Detections` (off by default; Graph `CustomDetection.Read.All`). Custom detection rules are your own
+detections, and nobody is notified when one stops. Gapsio reads the rules
+([`security/rules/detectionRules`](https://learn.microsoft.com/graph/api/security-rulesroot-list-detectionrules))
+and shows per rule: status, schedule, alert severity, automated actions, device-group scope, who changed it and when.
+
+| Severity | Finding |
+|---|---|
+| High | Rules that Defender switched off automatically (status `autoDisabled`) |
+| Medium | Rules whose last run failed – only when the API still returns the run details |
+| Low | Disabled rules, with who changed them last |
+| Low | Rules that act automatically (isolate devices, disable users, quarantine files, move or delete mail) |
+
+Rule changes appear in the change history (who changed which rule). Alerts of the last 30 days are matched by the
+rule's alert title (`AlertInfo`); rules with a dynamic title show no number.
+
+!!! note "Run history"
+    Microsoft removed the run history from the API (`lastRunDetails` is deprecated). Gapsio uses it when a response
+    still carries it; its absence is never read as "the rule ran fine". The reliable signal is the rule status.

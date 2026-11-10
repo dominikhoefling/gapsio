@@ -31,7 +31,9 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 
 ## Where things are
 
-- Checks/collectors: `src/functionapp/Modules/Gapsio/{Core,Endpoint,Agents,Access}.ps1`
+- Checks/collectors: `src/functionapp/Modules/Gapsio/{Core,Endpoint,Posture,Agents,Access}.ps1` (`Posture.ps1`: policy conflicts,
+  device control, attack disruption readiness, custom detection rules – part of the endpoint run)
+- Control mapping for the audit evidence view: `src/functionapp/config/control-mapping.json` (finding category → ISO 27001 / NIS2)
 - MDAV baseline definition: `src/functionapp/config/mdav-baseline.json` (id, platforms, target, severity, rationale, fix, learn URL)
 - Portal: `src/functionapp/www/` (`index.html`, `app.js`, `app.css`)
 - Setup/update: `setup/*.ps1`, permission model `setup/permissions.json`
@@ -41,8 +43,11 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 
 ## Conventions
 
-- PowerShell: functions `Verb-WlNoun`, `[CmdletBinding()]`, 4 spaces, no aliases, explicit `-ErrorAction`,
-  `Write-WlLog` for logging (never log tokens or tenant data).
+- PowerShell: functions `Verb-GapsioNoun`, `[CmdletBinding()]`, 4 spaces, no aliases, explicit `-ErrorAction`,
+  `Write-GapsioLog` for logging (never log tokens or tenant data).
+- Typographic quotes („ “ ”) end a double-quoted PowerShell string: put such texts in single-quoted strings or escape
+  the quote with a backtick (a test checks this).
+- Functions called from `src/functionapp/*/run.ps1` must be listed in `FunctionsToExport` (a test checks this).
 - Findings: stable `id`, `severity` (High/Medium/Low/Info), `category`, `title`, `rationale`, `fix`, `learnUrl`,
   `platform`, `entityType/entityId`. Keep IDs stable – customers accept risks by ID.
 - Commits: imperative, one topic, `-s` sign-off (DCO). Add a CHANGELOG line.

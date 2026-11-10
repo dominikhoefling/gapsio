@@ -20,7 +20,7 @@
 
 .EXAMPLE
     # Show what a key contains (no private key needed)
-    ./build/New-GapsioLicense.ps1 -Inspect 'WL1.….…'
+    ./build/New-GapsioLicense.ps1 -Inspect 'GP1.….…'
 #>
 [CmdletBinding(DefaultParameterSetName = 'Issue')]
 param(
@@ -43,7 +43,7 @@ function ConvertFrom-Base64Url([string]$Text) {
 
 if ($PSCmdlet.ParameterSetName -eq 'Inspect') {
     $parts = $Inspect.Trim() -split '\.'
-    if ($parts.Count -ne 3 -or $parts[0] -ne 'WL1') { throw 'Not a Gapsio licence key.' }
+    if ($parts.Count -ne 3 -or $parts[0] -ne 'GP1') { throw 'Not a Gapsio licence key.' }
     [Text.Encoding]::UTF8.GetString((ConvertFrom-Base64Url $parts[1])) | ConvertFrom-Json
     return
 }
@@ -53,14 +53,14 @@ if ($exp -le [DateTime]::UtcNow.Date) { throw 'The expiry date must be in the fu
 
 $payload = [ordered]@{
     v    = 1
-    lid  = "WL-$([DateTime]::UtcNow.ToString('yyyyMMdd'))-$(-join ((1..6) | ForEach-Object { '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'[(Get-Random -Maximum 32)] }))"
+    lid  = "GP-$([DateTime]::UtcNow.ToString('yyyyMMdd'))-$(-join ((1..6) | ForEach-Object { '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'[(Get-Random -Maximum 32)] }))"
     cust = $Customer
     tid  = $TenantId.ToLowerInvariant()
     plan = $Plan
     iss  = [DateTime]::UtcNow.ToString('yyyy-MM-dd')
     exp  = $exp.ToString('yyyy-MM-dd')
 }
-$body = "WL1.$(ConvertTo-Base64Url ([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))))"
+$body = "GP1.$(ConvertTo-Base64Url ([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))))"
 
 $ec = [System.Security.Cryptography.ECDsa]::Create()
 try {

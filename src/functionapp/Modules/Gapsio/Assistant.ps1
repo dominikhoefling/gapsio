@@ -1,19 +1,19 @@
 # Gapsio Assistant: optional chat helper in the portal (explains findings, navigates). Azure OpenAI in the customer's
-# subscription, called with the managed identity (no keys). Off unless WL_ASSISTANT=true and an endpoint/deployment is set.
+# subscription, called with the managed identity (no keys). Off unless GAPSIO_ASSISTANT=true and an endpoint/deployment is set.
 # The model only ever sees a compact, server-built summary of the stored snapshots – never raw lists, never tenant secrets.
 
-function Test-WlAssistant {
+function Test-GapsioAssistant {
     <#
     .SYNOPSIS
-    True when the assistant is enabled and configured (WL_ASSISTANT, WL_AI_ENDPOINT, WL_AI_DEPLOYMENT).
+    True when the assistant is enabled and configured (GAPSIO_ASSISTANT, GAPSIO_AI_ENDPOINT, GAPSIO_AI_DEPLOYMENT).
     #>
-    (Get-WlSetting -Name 'WL_ASSISTANT' -Default 'false') -eq 'true' -and
-    -not [string]::IsNullOrWhiteSpace((Get-WlSetting -Name 'WL_AI_ENDPOINT')) -and
-    -not [string]::IsNullOrWhiteSpace((Get-WlSetting -Name 'WL_AI_DEPLOYMENT'))
+    (Get-GapsioSetting -Name 'GAPSIO_ASSISTANT' -Default 'false') -eq 'true' -and
+    -not [string]::IsNullOrWhiteSpace((Get-GapsioSetting -Name 'GAPSIO_AI_ENDPOINT')) -and
+    -not [string]::IsNullOrWhiteSpace((Get-GapsioSetting -Name 'GAPSIO_AI_DEPLOYMENT'))
 }
 
 # Portal views the assistant may link to. Keep in sync with NAV in www/app.js.
-$script:WlAssistantViews = @(
+$script:GapsioAssistantViews = @(
     @{ view = 'overview'; module = 'endpoint'; en = 'Endpoint overview: counts, charts, fleet facts' }
     @{ view = 'findings'; module = 'endpoint'; en = 'Endpoint findings list with severity, device and recommendation; filter by category/severity' }
     @{ view = 'exclusions'; module = 'endpoint'; en = 'Defender AV exclusions from Intune policies, local registry/mdatp and allow indicators; usage (unused), scope' }
@@ -30,9 +30,9 @@ $script:WlAssistantViews = @(
     @{ view = 'license'; module = $null; en = 'Gapsio licence key and tier' }
 )
 
-function Get-WlAssistantFindingText {
+function Get-GapsioAssistantFindingText {
     param($Finding, [string]$Lang)
-    $pick = { param($o) if ($null -eq $o) { '' } elseif ($o -is [string]) { $o } else { $v = Get-WlProp $o $Lang; if (-not $v) { $v = Get-WlProp $o 'en' }; [string]$v } }
+    $pick = { param($o) if ($null -eq $o) { '' } elseif ($o -is [string]) { $o } else { $v = Get-GapsioProp $o $Lang; if (-not $v) { $v = Get-GapsioProp $o 'en' }; [string]$v } }
     $parts = @("[$($Finding.severity)] $(& $pick $Finding.title)")
     if ($Finding.deviceName) { $parts += "device=$($Finding.deviceName)" }
     if ($Finding.subject) { $parts += "subject=$($Finding.subject)" }
@@ -42,23 +42,23 @@ function Get-WlAssistantFindingText {
     $parts -join ' | '
 }
 
-function Get-WlAssistantContext {
+function Get-GapsioAssistantContext {
     <#
     .SYNOPSIS
     Compact, deterministic context for the model: enabled modules, view catalogue, per-module summary, top findings,
     and – when the question names a device – up to five matching devices. Size is capped (~14k chars).
     #>
     param([string]$Question, [string]$Lang = 'en')
-    $modules = @(Get-WlModules)
+    $modules = @(Get-GapsioModules)
     $sb = [System.Text.StringBuilder]::new()
-    [void]$sb.AppendLine("Gapsio version: $(Get-WlVersion). Enabled modules: $($modules -join ', '). Licence tier: $(Get-WlLicenseTier).")
+    [void]$sb.AppendLine("Gapsio version: $(Get-GapsioVersion). Enabled modules: $($modules -join ', '). Licence tier: $(Get-GapsioLicenseTier).")
     [void]$sb.AppendLine('Portal views (route => purpose):')
-    foreach ($v in $script:WlAssistantViews) { if (-not $v.module -or $modules -contains $v.module) { [void]$sb.AppendLine("  #/$($v.view) => $($v.en)") } }
+    foreach ($v in $script:GapsioAssistantViews) { if (-not $v.module -or $modules -contains $v.module) { [void]$sb.AppendLine("  #/$($v.view) => $($v.en)") } }
 
     $sevOrder = @{ Critical = 0; High = 1; Medium = 2; Low = 3 }
     $all = [System.Collections.Generic.List[object]]::new()
     foreach ($m in $modules) {
-        $snap = $null; try { $snap = Get-WlBlob -Container 'state' -Name "$m-latest.json" } catch { $snap = $null }
+        $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name "$m-latest.json" } catch { $snap = $null }
         if (-not $snap) { [void]$sb.AppendLine("Module ${m}: no data yet (no run)."); continue }
         $sum = $null; try { $sum = $snap.summary | ConvertTo-Json -Compress -Depth 4 } catch { $sum = '' }
         if ($sum.Length -gt 1500) { $sum = $sum.Substring(0, 1500) + '…' }
@@ -68,7 +68,7 @@ function Get-WlAssistantContext {
     $top = @($all | Sort-Object o | Select-Object -First 40)
     if ($top.Count) {
         [void]$sb.AppendLine("Top findings ($($top.Count) of $($all.Count), highest severity first):")
-        foreach ($x in $top) { [void]$sb.AppendLine("  [$($x.module)] $(Get-WlAssistantFindingText -Finding $x.f -Lang $Lang)") }
+        foreach ($x in $top) { [void]$sb.AppendLine("  [$($x.module)] $(Get-GapsioAssistantFindingText -Finding $x.f -Lang $Lang)") }
     }
 
     # Device lookup: words that look like host names (letters/digits/dashes, 3+ chars, not plain English) are tried against the device search.
@@ -76,7 +76,7 @@ function Get-WlAssistantContext {
         $cands = @([regex]::Matches($Question, '[A-Za-z0-9][A-Za-z0-9\-\.]{2,62}') | ForEach-Object { $_.Value } | Where-Object { $_ -match '\d|-' } | Select-Object -Unique -First 3)
         foreach ($c in $cands) {
             try {
-                $res = Search-WlDevices -Query $c -Page 0 -Size 5
+                $res = Search-GapsioDevices -Query $c -Page 0 -Size 5
                 if ($res -and @($res.rows).Count) {
                     [void]$sb.AppendLine("Devices matching '$c':")
                     foreach ($d in @($res.rows)) { [void]$sb.AppendLine("  $(($d | Select-Object deviceName, osPlatform, riskScore, exposure, asrBelowMinimum, localExclusionsPresent, tamperProtection, findings -ErrorAction SilentlyContinue | ConvertTo-Json -Compress -Depth 2))") }
@@ -92,16 +92,16 @@ function Get-WlAssistantContext {
 
 
 #region Azure OpenAI calls
-function Invoke-WlOpenAI {
+function Invoke-GapsioOpenAI {
     <#
     .SYNOPSIS
     One call to the Azure OpenAI data-plane (chat/completions or embeddings) with the managed identity. Throws with the
     service's error message.
     #>
     param([Parameter(Mandatory)][ValidateSet('chat/completions', 'embeddings')][string]$Operation, [Parameter(Mandatory)][string]$Deployment, [Parameter(Mandatory)]$Body, [int]$TimeoutSec = 60)
-    $endpoint = (Get-WlSetting -Name 'WL_AI_ENDPOINT').TrimEnd('/')
-    $apiVersion = Get-WlSetting -Name 'WL_AI_API_VERSION' -Default '2024-10-21'
-    $token = Get-WlToken -Resource 'https://cognitiveservices.azure.com'
+    $endpoint = (Get-GapsioSetting -Name 'GAPSIO_AI_ENDPOINT').TrimEnd('/')
+    $apiVersion = Get-GapsioSetting -Name 'GAPSIO_AI_API_VERSION' -Default '2024-10-21'
+    $token = Get-GapsioToken -Resource 'https://cognitiveservices.azure.com'
     $uri = "$endpoint/openai/deployments/$([uri]::EscapeDataString($Deployment))/${Operation}?api-version=$apiVersion"
     try {
         Invoke-RestMethod -Method Post -Uri $uri -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Depth 12 -Compress) -TimeoutSec $TimeoutSec
@@ -113,21 +113,21 @@ function Invoke-WlOpenAI {
     }
 }
 
-function Get-WlEmbeddings {
+function Get-GapsioEmbeddings {
     # Returns float[][] for the given texts, or $null when no embedding deployment is configured.
     param([Parameter(Mandatory)][string[]]$Texts)
-    $dep = Get-WlSetting -Name 'WL_AI_EMBEDDING_DEPLOYMENT'
+    $dep = Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT'
     if ([string]::IsNullOrWhiteSpace($dep)) { return $null }
     $out = [System.Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $Texts.Count; $i += 16) {
         $batch = @($Texts[$i..([Math]::Min($i + 15, $Texts.Count - 1))])
-        $r = Invoke-WlOpenAI -Operation 'embeddings' -Deployment $dep -Body @{ input = $batch } -TimeoutSec 90
+        $r = Invoke-GapsioOpenAI -Operation 'embeddings' -Deployment $dep -Body @{ input = $batch } -TimeoutSec 90
         foreach ($d in @($r.data | Sort-Object index)) { $out.Add([float[]]$d.embedding) }
     }
     $out.ToArray()
 }
 
-function Get-WlCosine {
+function Get-GapsioCosine {
     param([float[]]$A, [float[]]$B)
     if (-not $A -or -not $B -or $A.Length -ne $B.Length) { return 0.0 }
     [double]$dot = 0; [double]$na = 0; [double]$nb = 0
@@ -138,7 +138,7 @@ function Get-WlCosine {
 #endregion
 
 #region Knowledge index (docs + baseline → chunks → embeddings in blob state/assistant-index.json)
-function Get-WlKnowledgeSources {
+function Get-GapsioKnowledgeSources {
     <#
     .SYNOPSIS
     Text chunks the assistant may cite: the product docs shipped in config/knowledge/*.md (copied from docs/ by the
@@ -178,9 +178,9 @@ function Get-WlKnowledgeSources {
         try {
             $b = Get-Content -Path $bl -Raw -Encoding utf8 | ConvertFrom-Json
             foreach ($s in @($b.settings)) {
-                $name = [string](Get-WlProp $s 'name'); if (-not $name) { $name = [string](Get-WlProp $s 'id') }
+                $name = [string](Get-GapsioProp $s 'name'); if (-not $name) { $name = [string](Get-GapsioProp $s 'id') }
                 $parts = @("MDAV baseline setting: $name")
-                foreach ($k in 'id', 'definitionId', 'expected', 'minimum', 'severity', 'category', 'why', 'rationale', 'description', 'reference', 'docs') { $v = Get-WlProp $s $k; if ($v) { $parts += "${k}: $($v | ConvertTo-Json -Compress -Depth 3)" } }
+                foreach ($k in 'id', 'definitionId', 'expected', 'minimum', 'severity', 'category', 'why', 'rationale', 'description', 'reference', 'docs') { $v = Get-GapsioProp $s $k; if ($v) { $parts += "${k}: $($v | ConvertTo-Json -Compress -Depth 3)" } }
                 $chunks.Add([ordered]@{ source = 'config/mdav-baseline.json'; title = "Baseline › $name"; text = ($parts -join "`n") })
             }
         }
@@ -189,50 +189,50 @@ function Get-WlKnowledgeSources {
     $chunks.ToArray()
 }
 
-function Get-WlKnowledgeHash {
+function Get-GapsioKnowledgeHash {
     param($Chunks)
     $sb = [System.Text.StringBuilder]::new()
     foreach ($c in $Chunks) { [void]$sb.Append($c.title).Append('|').Append($c.text.Length).Append(';') }
-    [void]$sb.Append((Get-WlSetting -Name 'WL_AI_EMBEDDING_DEPLOYMENT' -Default ''))
-    Get-WlHash $sb.ToString()
+    [void]$sb.Append((Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''))
+    Get-GapsioHash $sb.ToString()
 }
 
-function Update-WlAssistantIndex {
+function Update-GapsioAssistantIndex {
     <#
     .SYNOPSIS
     (Re)builds state/assistant-index.json when the sources or the embedding deployment changed. Returns the index.
     Without an embedding deployment the index holds the chunks only and search falls back to keyword scoring.
     #>
     param([switch]$Force)
-    $chunks = @(Get-WlKnowledgeSources)
-    $hash = Get-WlKnowledgeHash -Chunks $chunks
-    $ix = $null; try { $ix = Get-WlBlob -Container 'state' -Name 'assistant-index.json' } catch { $ix = $null }
+    $chunks = @(Get-GapsioKnowledgeSources)
+    $hash = Get-GapsioKnowledgeHash -Chunks $chunks
+    $ix = $null; try { $ix = Get-GapsioBlob -Container 'state' -Name 'assistant-index.json' } catch { $ix = $null }
     if (-not $Force -and $ix -and $ix.hash -eq $hash) { return $ix }
     $vecs = $null
-    if ($chunks.Count) { $vecs = Get-WlEmbeddings -Texts @($chunks | ForEach-Object { "$($_.title)`n$($_.text)" }) }
+    if ($chunks.Count) { $vecs = Get-GapsioEmbeddings -Texts @($chunks | ForEach-Object { "$($_.title)`n$($_.text)" }) }
     $items = for ($i = 0; $i -lt $chunks.Count; $i++) {
         [ordered]@{ id = $i; source = $chunks[$i].source; title = $chunks[$i].title; text = $chunks[$i].text; vec = $(if ($vecs) { $vecs[$i] } else { $null }) }
     }
-    $ix = [ordered]@{ builtAt = [DateTime]::UtcNow.ToString('o'); hash = $hash; embedded = [bool]$vecs; embeddingDeployment = (Get-WlSetting -Name 'WL_AI_EMBEDDING_DEPLOYMENT' -Default ''); count = $chunks.Count; chunks = @($items) }
-    Set-WlBlob -Container 'state' -Name 'assistant-index.json' -Object $ix
+    $ix = [ordered]@{ builtAt = [DateTime]::UtcNow.ToString('o'); hash = $hash; embedded = [bool]$vecs; embeddingDeployment = (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''); count = $chunks.Count; chunks = @($items) }
+    Set-GapsioBlob -Container 'state' -Name 'assistant-index.json' -Object $ix
     $ix
 }
 
-function Search-WlKnowledge {
+function Search-GapsioKnowledge {
     <#
     .SYNOPSIS
     Semantic search over the knowledge index (cosine similarity on embeddings), keyword fallback. Returns top chunks.
     #>
     param([Parameter(Mandatory)][string]$Query, [int]$Top = 4)
-    $ix = Update-WlAssistantIndex
+    $ix = Update-GapsioAssistantIndex
     if (-not $ix -or -not $ix.chunks) { return @() }
     $scored = [System.Collections.Generic.List[object]]::new()
     $qv = $null
-    if ($ix.embedded) { try { $qv = (Get-WlEmbeddings -Texts @($Query))[0] } catch { $qv = $null } }
+    if ($ix.embedded) { try { $qv = (Get-GapsioEmbeddings -Texts @($Query))[0] } catch { $qv = $null } }
     $terms = @(($Query.ToLowerInvariant() -split '[^\p{L}\p{Nd}]+') | Where-Object { $_.Length -gt 2 } | Select-Object -Unique)
     foreach ($c in $ix.chunks) {
         $s = 0.0
-        if ($qv -and $c.vec) { $s = Get-WlCosine -A ([float[]]$c.vec) -B $qv }
+        if ($qv -and $c.vec) { $s = Get-GapsioCosine -A ([float[]]$c.vec) -B $qv }
         else {
             $hay = ("$($c.title) $($c.text)").ToLowerInvariant()
             foreach ($t in $terms) { if ($hay.Contains($t)) { $s += 1.0 + $(if ($c.title.ToLowerInvariant().Contains($t)) { 1.0 } else { 0.0 }) } }
@@ -247,7 +247,7 @@ function Search-WlKnowledge {
 #endregion
 
 #region Tools (what the model may call; every tool is read-only and bounded)
-$script:WlAssistantTools = @(
+$script:GapsioAssistantTools = @(
     @{ type = 'function'; function = @{ name = 'search_findings'; description = 'Search the stored findings of the last run. Use for questions about problems, severities, categories, counts, a specific device or subject.'; parameters = @{ type = 'object'; properties = @{
                     module   = @{ type = 'string'; description = 'endpoint | agents | access | licensing (omit for all)' }
                     severity = @{ type = 'string'; enum = @('Critical', 'High', 'Medium', 'Low') }
@@ -269,16 +269,16 @@ $script:WlAssistantTools = @(
                     query = @{ type = 'string' }; limit = @{ type = 'integer'; minimum = 1; maximum = 6 } }; required = @('query') } } }
 )
 
-function ConvertTo-WlKqlString { param([string]$Value) '"' + ($Value -replace '\\', '\\\\' -replace '"', '\"') + '"' }
+function ConvertTo-GapsioKqlString { param([string]$Value) '"' + ($Value -replace '\\', '\\\\' -replace '"', '\"') + '"' }
 
-function Invoke-WlAssistantTool {
+function Invoke-GapsioAssistantTool {
     <#
     .SYNOPSIS
     Executes one tool call. Returns an object (serialised for the model, capped). Never throws – errors go back to
     the model as { error } so it can tell the user.
     #>
     param([Parameter(Mandatory)][string]$Name, $Args, [string]$Lang = 'en')
-    $modules = @(Get-WlModules)
+    $modules = @(Get-GapsioModules)
     try {
         switch ($Name) {
             'search_findings' {
@@ -289,11 +289,11 @@ function Invoke-WlAssistantTool {
                 $sevOrder = @{ Critical = 0; High = 1; Medium = 2; Low = 3 }
                 foreach ($m in $mods) {
                     if ($m -notin $modules) { continue }
-                    $snap = $null; try { $snap = Get-WlBlob -Container 'state' -Name "$m-latest.json" } catch { }
+                    $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name "$m-latest.json" } catch { }
                     foreach ($f in @($snap.findings)) {
                         if ($Args.severity -and [string]$f.severity -ne [string]$Args.severity) { continue }
                         if ($Args.category -and [string]$f.category -notlike "*$($Args.category)*") { continue }
-                        $line = Get-WlAssistantFindingText -Finding $f -Lang $Lang
+                        $line = Get-GapsioAssistantFindingText -Finding $f -Lang $Lang
                         if ($q -and -not $line.ToLowerInvariant().Contains($q)) { continue }
                         $total++
                         $hits.Add([pscustomobject]@{ o = $(if ($sevOrder.ContainsKey([string]$f.severity)) { $sevOrder[[string]$f.severity] } else { 9 }); module = $m; text = $line; deviceId = [string]$f.deviceId; id = [string]$f.id })
@@ -305,15 +305,15 @@ function Invoke-WlAssistantTool {
             'search_devices' {
                 if ($modules -notcontains 'endpoint') { return @{ error = 'endpoint module not enabled' } }
                 $limit = [Math]::Min(25, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 10 })))
-                $res = Search-WlDevices -Query ([string]$Args.query) -IssuesOnly:([bool]$Args.issuesOnly) -Page 0 -Size $limit
+                $res = Search-GapsioDevices -Query ([string]$Args.query) -IssuesOnly:([bool]$Args.issuesOnly) -Page 0 -Size $limit
                 $rows = @(@($res.rows) | ForEach-Object { $_ | Select-Object deviceId, deviceName, osPlatform, osVersion, deviceGroup, primaryUser, riskScore, exposure, lastSeen, asrBelowMinimum, localExclusionsPresent, tamperProtection, findings -ErrorAction SilentlyContinue })
                 return [ordered]@{ total = $res.total; returned = $rows.Count; devices = $rows }
             }
             'get_device' {
                 if ($modules -notcontains 'endpoint') { return @{ error = 'endpoint module not enabled' } }
                 $d = $null
-                if ($Args.deviceId) { $d = Get-WlDevice -DeviceId ([string]$Args.deviceId) }
-                elseif ($Args.name) { $r = Search-WlDevices -Query ([string]$Args.name) -Page 0 -Size 5; $d = @($r.rows) | Where-Object { $_.deviceName -eq [string]$Args.name } | Select-Object -First 1; if (-not $d -and @($r.rows).Count -eq 1) { $d = $r.rows[0] }; if ($d -and $d.deviceId) { $full = Get-WlDevice -DeviceId ([string]$d.deviceId); if ($full) { $d = $full } } }
+                if ($Args.deviceId) { $d = Get-GapsioDevice -DeviceId ([string]$Args.deviceId) }
+                elseif ($Args.name) { $r = Search-GapsioDevices -Query ([string]$Args.name) -Page 0 -Size 5; $d = @($r.rows) | Where-Object { $_.deviceName -eq [string]$Args.name } | Select-Object -First 1; if (-not $d -and @($r.rows).Count -eq 1) { $d = $r.rows[0] }; if ($d -and $d.deviceId) { $full = Get-GapsioDevice -DeviceId ([string]$d.deviceId); if ($full) { $d = $full } } }
                 if (-not $d) { return @{ error = 'device not found in the snapshot' } }
                 $json = $d | ConvertTo-Json -Depth 6 -Compress
                 if ($json.Length -gt 9000) { $json = $json.Substring(0, 9000) + '…(truncated)' }
@@ -322,22 +322,22 @@ function Invoke-WlAssistantTool {
             'device_live_status' {
                 $name = ([string]$Args.deviceName).Trim()
                 if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9\-\._]{0,62}$') { return @{ error = 'invalid device name' } }
-                if (-not (Test-WlFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable; use the snapshot tools.' } }
-                $n = ConvertTo-WlKqlString $name
-                $info = Invoke-WlHuntingSafe -NoShard -Context 'assistant device_live_status' -Timespan 'P7D' -Query @"
+                if (-not (Test-GapsioFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable; use the snapshot tools.' } }
+                $n = ConvertTo-GapsioKqlString $name
+                $info = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status' -Timespan 'P7D' -Query @"
 DeviceInfo
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | summarize arg_max(Timestamp, OSPlatform, OSVersionInfo, OnboardingStatus, SensorHealthState, IsAzureADJoined, JoinType, MachineGroup, LoggedOnUsers, ExposureLevel, DeviceId) by DeviceName
 | project DeviceName, DeviceId, LastSeen = Timestamp, OSPlatform, OSVersionInfo, OnboardingStatus, SensorHealthState, IsAzureADJoined, JoinType, MachineGroup, ExposureLevel
 "@
-                $alerts = Invoke-WlHuntingSafe -NoShard -Context 'assistant device_live_status alerts' -Timespan 'P7D' -Query @"
+                $alerts = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status alerts' -Timespan 'P7D' -Query @"
 AlertEvidence
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | join kind=inner (AlertInfo | project AlertId, Title, Severity, Category, DetectionSource, Timestamp) on AlertId
 | summarize Count = count(), Last = max(Timestamp) by Title, Severity, Category, DetectionSource
 | top 10 by Last desc
 "@
-                $cfg = Invoke-WlHuntingSafe -NoShard -Context 'assistant device_live_status config' -Timespan 'P7D' -Query @"
+                $cfg = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status config' -Timespan 'P7D' -Query @"
 DeviceTvmSecureConfigurationAssessment
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | where IsCompliant == 0 and IsApplicable == 1
@@ -348,24 +348,24 @@ DeviceTvmSecureConfigurationAssessment
                 return [ordered]@{ asOf = [DateTime]::UtcNow.ToString('o'); source = 'Microsoft Defender Advanced Hunting (live)'; device = @($info | Select-Object -First 1); alertsLast7d = @($alerts); failedSecureConfiguration = @($cfg) }
             }
             'tenant_live_summary' {
-                if (-not (Test-WlFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable.' } }
-                $dev = Invoke-WlHuntingSafe -NoShard -Context 'assistant tenant_live_summary devices' -Timespan 'P7D' -Query @"
+                if (-not (Test-GapsioFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable.' } }
+                $dev = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary devices' -Timespan 'P7D' -Query @"
 DeviceInfo
 | where OnboardingStatus == "Onboarded"
 | summarize arg_max(Timestamp, SensorHealthState, OSPlatform) by DeviceId
 | summarize DevicesSeen7d = dcount(DeviceId), InactiveSensors = dcountif(DeviceId, SensorHealthState != "Active"), Windows = dcountif(DeviceId, OSPlatform startswith "Windows"), macOS = dcountif(DeviceId, OSPlatform == "macOS"), Linux = dcountif(DeviceId, OSPlatform == "Linux")
 "@
-                $al = Invoke-WlHuntingSafe -NoShard -Context 'assistant tenant_live_summary alerts' -Timespan 'P7D' -Query @"
+                $al = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary alerts' -Timespan 'P7D' -Query @"
 AlertInfo
 | summarize Alerts = count(), High = countif(Severity == "High"), Medium = countif(Severity == "Medium"), Low = countif(Severity == "Low"), Informational = countif(Severity == "Informational")
 "@
-                $alDev = Invoke-WlHuntingSafe -NoShard -Context 'assistant tenant_live_summary alertdevices' -Timespan 'P7D' -Query @"
+                $alDev = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary alertdevices' -Timespan 'P7D' -Query @"
 AlertEvidence
 | where EntityType == "Machine" and isnotempty(DeviceId)
 | join kind=inner (AlertInfo | where Severity in ("High", "Medium") | project AlertId) on AlertId
 | summarize DevicesWithHighMediumAlerts = dcount(DeviceId)
 "@
-                $cfg = Invoke-WlHuntingSafe -NoShard -Context 'assistant tenant_live_summary config' -Timespan 'P7D' -Query @"
+                $cfg = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary config' -Timespan 'P7D' -Query @"
 DeviceTvmSecureConfigurationAssessment
 | where IsCompliant == 0 and IsApplicable == 1
 | summarize Devices = dcount(DeviceId) by ConfigurationId
@@ -377,7 +377,7 @@ DeviceTvmSecureConfigurationAssessment
             }
             'search_docs' {
                 $limit = [Math]::Min(6, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 4 })))
-                $hits = @(Search-WlKnowledge -Query ([string]$Args.query) -Top $limit)
+                $hits = @(Search-GapsioKnowledge -Query ([string]$Args.query) -Top $limit)
                 return [ordered]@{ returned = $hits.Count; results = $hits }
             }
             default { return @{ error = "unknown tool $Name" } }
@@ -387,7 +387,7 @@ DeviceTvmSecureConfigurationAssessment
 }
 #endregion
 
-function Invoke-WlAssistant {
+function Invoke-GapsioAssistant {
     <#
     .SYNOPSIS
     Answers a portal question with Azure OpenAI using tool calling: the model may look up stored findings/devices,
@@ -395,17 +395,17 @@ function Invoke-WlAssistant {
     Returns @{ answer; links = @(@{view;label}); sources; tools; usage; tookMs }.
     #>
     param([Parameter(Mandatory)][string]$Question, $History, [string]$Lang = 'en', [string]$User = '')
-    if (-not (Test-WlAssistant)) { throw [System.InvalidOperationException]::new('The assistant is not enabled in this installation.') }
+    if (-not (Test-GapsioAssistant)) { throw [System.InvalidOperationException]::new('The assistant is not enabled in this installation.') }
     $Question = $Question.Trim()
     if (-not $Question) { throw [System.ArgumentException]::new('Question is empty.') }
     if ($Question.Length -gt 2000) { throw [System.ArgumentException]::new('Question is too long (max 2000 characters).') }
     if ($Lang -notin 'en', 'de') { $Lang = 'en' }
 
-    $deployment = Get-WlSetting -Name 'WL_AI_DEPLOYMENT'
-    $maxRounds = [Math]::Min(6, [Math]::Max(0, [int](Get-WlSetting -Name 'WL_AI_TOOL_ROUNDS' -Default '4')))
-    $context = Get-WlAssistantContext -Question $Question -Lang $Lang
+    $deployment = Get-GapsioSetting -Name 'GAPSIO_AI_DEPLOYMENT'
+    $maxRounds = [Math]::Min(6, [Math]::Max(0, [int](Get-GapsioSetting -Name 'GAPSIO_AI_TOOL_ROUNDS' -Default '4')))
+    $context = Get-GapsioAssistantContext -Question $Question -Lang $Lang
     $langName = $(if ($Lang -eq 'de') { 'German' } else { 'English' })
-    $hunting = [bool](Test-WlFeature -Name 'hunting')
+    $hunting = [bool](Test-GapsioFeature -Name 'hunting')
 
     $system = @"
 You are the Gapsio Assistant inside the Gapsio portal, a read-only security posture tool for Microsoft Defender for Endpoint, Intune, Entra ID and AI agents, self-hosted in the customer's Azure subscription.
@@ -426,21 +426,21 @@ $context
     $messages = [System.Collections.Generic.List[object]]::new()
     $messages.Add(@{ role = 'system'; content = $system })
     foreach ($h in @($History | Select-Object -Last 6)) {
-        $r = [string](Get-WlProp $h 'role'); $c = [string](Get-WlProp $h 'content')
+        $r = [string](Get-GapsioProp $h 'role'); $c = [string](Get-GapsioProp $h 'content')
         if ($r -in 'user', 'assistant' -and $c) { $messages.Add(@{ role = $r; content = $c.Substring(0, [Math]::Min($c.Length, 1500)) }) }
     }
     $messages.Add(@{ role = 'user'; content = $Question })
 
-    $userTag = $(if ($User) { Get-WlHash $User } else { 'portal' })
+    $userTag = $(if ($User) { Get-GapsioHash $User } else { 'portal' })
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $toolsUsed = [System.Collections.Generic.List[object]]::new()
     $promptTokens = 0; $completionTokens = 0; $model = ''
     $r = $null
     for ($round = 0; $round -le $maxRounds; $round++) {
         $body = @{ messages = $messages.ToArray(); temperature = 0.2; max_tokens = 900; user = $userTag }
-        if ($round -lt $maxRounds) { $body.tools = $script:WlAssistantTools; $body.tool_choice = 'auto' }
+        if ($round -lt $maxRounds) { $body.tools = $script:GapsioAssistantTools; $body.tool_choice = 'auto' }
         else { $body.response_format = @{ type = 'json_object' } }   # last round: force the final JSON answer
-        $r = Invoke-WlOpenAI -Operation 'chat/completions' -Deployment $deployment -Body $body -TimeoutSec 90
+        $r = Invoke-GapsioOpenAI -Operation 'chat/completions' -Deployment $deployment -Body $body -TimeoutSec 90
         if ($r.usage) { $promptTokens += [int]$r.usage.prompt_tokens; $completionTokens += [int]$r.usage.completion_tokens }
         $model = [string]$r.model
         $choice = $r.choices[0]
@@ -452,10 +452,10 @@ $context
             $args = @{}
             try { if ($c.function.arguments) { $args = $c.function.arguments | ConvertFrom-Json } } catch { $args = @{} }
             $tsw = [System.Diagnostics.Stopwatch]::StartNew()
-            $result = Invoke-WlAssistantTool -Name $c.function.name -Args $args -Lang $Lang
+            $result = Invoke-GapsioAssistantTool -Name $c.function.name -Args $args -Lang $Lang
             $json = $result | ConvertTo-Json -Depth 8 -Compress
             if ($json.Length -gt 12000) { $json = $json.Substring(0, 12000) + '…(truncated)' }
-            $toolsUsed.Add([ordered]@{ name = $c.function.name; args = $args; ms = $tsw.ElapsedMilliseconds; ok = -not [bool](Get-WlProp $result 'error') })
+            $toolsUsed.Add([ordered]@{ name = $c.function.name; args = $args; ms = $tsw.ElapsedMilliseconds; ok = -not [bool](Get-GapsioProp $result 'error') })
             $messages.Add(@{ role = 'tool'; tool_call_id = $c.id; content = $json })
         }
     }
@@ -464,7 +464,7 @@ $context
     try {
         $j = $content | ConvertFrom-Json
         if ($j.answer) { $answer = [string]$j.answer }
-        $allowed = @($script:WlAssistantViews | ForEach-Object { $_.view }) + @('device', 'devices')
+        $allowed = @($script:GapsioAssistantViews | ForEach-Object { $_.view }) + @('device', 'devices')
         $links = @(@($j.links) | Where-Object { $_ -and $_.view } | ForEach-Object {
                 $v = [string]$_.view; $v = $v -replace '^#?/?', ''
                 $name = ($v -split '\?')[0]

@@ -22,6 +22,10 @@ stays free, see the [open-core promise](docs/manifesto.md).
 - **Endpoint** – exclusions from every source for Windows, macOS and Linux (Intune, local on devices, allow indicators),
   exclusions that also blind EDR, ASR rules per device and device group, MDAV baseline with drift, combined findings,
   a page per device, Defender coverage gaps and exclusions without any activity in 30 days
+- **Beyond configuration** – policy conflicts across the fleet (the same setting reaching a device with different
+  values), USB storage in use without device control, what can be verified of the attack disruption prerequisites,
+  and custom detection rules that Defender switched off (optional feature `Detections`)
+- **Audit evidence** – open findings and accepted risks by ISO/IEC 27001:2022 and NIS2 Art. 21(2) control, printable
 - **AI agents** – cloud agents (Entra Agent ID, Agent 365, Defender AgentsInfo) with blueprint, agent and agent user IDs
   and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
 - **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role, how (direct, group, PIM eligible, access package), for which data sources – and whether it was ever used

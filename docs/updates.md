@@ -7,7 +7,7 @@ Gapsio **never updates itself**. You decide when a new version goes into your te
 - Once a day the Function App asks the GitHub releases API for the latest Gapsio release. It is an anonymous GET
   request – **no tenant data is sent**. The result is stored in your storage account.
 - Administrators see **"Update available: x.y.z"** in the portal sidebar, linked to the release notes.
-- Turn the check off with the app setting `WL_UPDATE_CHECK=false` (or the Bicep parameter `updateCheck=false`).
+- Turn the check off with the app setting `GAPSIO_UPDATE_CHECK=false` (or the Bicep parameter `updateCheck=false`).
 - You can also watch the GitHub repository (**Watch › Custom › Releases**) to get an e-mail for every release.
 
 ## Updating
@@ -16,7 +16,7 @@ Gapsio **never updates itself**. You decide when a new version goes into your te
 az login
 ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -CheckOnly   # what would change
 ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio              # update to the latest release
-./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.5.0
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.7.0
 ```
 
 Role needed: Contributor (or Website Contributor) on the resource group. The script

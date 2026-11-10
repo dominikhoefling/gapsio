@@ -63,6 +63,7 @@ nav:
       - Access (optional): modules/access.md
       - Licensing (optional): modules/licensing.md
       - Office preview (optional, private preview): modules/office-preview.md
+      - Purview DLP preview (optional, private preview): modules/purview-preview.md
   - Using Gapsio:
       - Portal: portal.md
       - Customising the baseline: baseline.md

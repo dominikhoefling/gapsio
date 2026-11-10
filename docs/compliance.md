@@ -34,6 +34,33 @@ All exports are UTC-stamped and contain the Gapsio version that produced them.
 | A.8.15 / A.8.16 | Logging / Monitoring activities | Sensor health, devices not reporting, inactive devices; Gapsio's own portal access log | Endpoint, Core |
 | A.8.2 | Privileged access rights | PIM usage, break-glass accounts, role assignments outside PIM | Access |
 | A.5.23 | Information security for use of cloud services | Visibility of AI agents (Copilot Studio, Azure AI) and whether they are covered by Defender | Agents |
+| A.7.10 / A.8.12 | Storage media / Data leakage prevention | USB storage in use versus device control policies | Endpoint |
+| A.8.16 | Monitoring activities | Custom detection rules that were switched off, fail or are disabled | Endpoint (`Detections`) |
+| A.5.24 / A.5.26 | Incident management planning / Response to incidents | Response readiness and the prerequisites of automatic attack disruption | Endpoint |
+
+## NIS2 – Article 21(2)
+
+| Measure | Title | How Gapsio helps |
+|---|---|---|
+| (b) | Incident handling | Response readiness, attack disruption prerequisites, custom detection rules that stopped |
+| (e) | Security in acquisition, development and maintenance, including vulnerability handling | Update findings (Defender platform, engine and signature age, update rings) |
+| (f) | Assessing the effectiveness of risk-management measures | Baseline versus effective state, policy conflicts, dependency and combined findings, coverage gaps |
+| (g) | Basic cyber hygiene practices | Exclusions, allow indicators, ASR rules, device state, device control |
+| (i) | Access control policies and asset management | Defender roles and their use, API apps, device and agent inventory |
+| (j) | Multi-factor or continuous authentication | Conditional Access coverage of AI agents |
+
+## Audit evidence in the portal
+
+*History › Audit evidence* sorts the open findings and the accepted risks by these controls (ISO/IEC 27001:2022
+Annex A and NIS2 Article 21(2)): per control the status (*findings open*, *risks accepted*, *no findings*, *not
+assessed*), the open findings by severity and the areas Gapsio checks. The page can be printed or saved as PDF; the
+second table (one row per control and finding) exports as CSV for the audit file.
+
+The mapping ships in `config/control-mapping.json` (finding category → control). To adjust it, put your own
+`control-mapping.json` into the `config` container of the storage account – same mechanism as the
+[baseline](baseline.md).
+
+It is a mapping aid: it shows which findings are relevant evidence for a control, not that a control is fulfilled.
 
 ## NIST Cybersecurity Framework 2.0
 
@@ -67,8 +94,8 @@ Gapsio processes personal data (user principal names, device names, role assignm
 | Principle (Art. 5) / Obligation | How Gapsio addresses it |
 |---|---|
 | Purpose limitation | Read-only collection, fixed set of Graph/Defender queries per module; no alert or content data |
-| Data minimisation | Only the attributes needed for a finding are stored. `WL_LICENSING_DETAIL=aggregate` pseudonymises UPNs in the licensing snapshot; the Community edition masks names in exports |
-| Storage limitation | `WL_SNAPSHOT_RETENTION_DAYS` and `WL_CHANGE_RETENTION_DAYS` (default 365) enforced by a storage lifecycle rule |
+| Data minimisation | Only the attributes needed for a finding are stored. `GAPSIO_LICENSING_DETAIL=aggregate` pseudonymises UPNs in the licensing snapshot; the Community edition masks names in exports |
+| Storage limitation | `GAPSIO_SNAPSHOT_RETENTION_DAYS` and `GAPSIO_CHANGE_RETENTION_DAYS` (default 365) enforced by a storage lifecycle rule |
 | Integrity and confidentiality | Data stays in your own Azure subscription; Entra ID sign-in with role-based portal access; no outbound transfer except the optional update check (no tenant data) |
 | Accountability (Art. 5(2), Art. 30) | Portal access log; this page and [Architecture and data protection](security.md) as input to the record of processing activities |
 | Data protection by design (Art. 25) | Optional modules are off by default; permissions are granted per feature ([Features and permissions](permissions.md)) |
@@ -81,7 +108,7 @@ A short description of the processing for your record of processing activities i
 Use this before an audit to make sure the evidence is complete:
 
 - [ ] All modules that are in scope are enabled and have collected within the last 24 hours (Portal → Overview shows the collection timestamp).
-- [ ] Snapshot and change retention cover the audit period (`WL_SNAPSHOT_RETENTION_DAYS`, `WL_CHANGE_RETENTION_DAYS`).
+- [ ] Snapshot and change retention cover the audit period (`GAPSIO_SNAPSHOT_RETENTION_DAYS`, `GAPSIO_CHANGE_RETENTION_DAYS`).
 - [ ] The Defender Antivirus baseline has been reviewed and deviations are either fixed or documented ([Customising the baseline](baseline.md)).
 - [ ] High findings have an owner and a due date outside Gapsio (ticketing system).
 - [ ] Device exclusions for devices that must not be onboarded (e.g. lab systems) are documented.

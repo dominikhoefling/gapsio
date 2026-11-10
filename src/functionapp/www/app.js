@@ -16,7 +16,7 @@
   /* Dictionary: key -> [English, German]. {0}, {1} … are placeholders. */
   const L = {
     // general
-    'loading': ['Loading …', 'Lade …'], 'data.as.of': ['Data as of {0}', 'Datenstand {0}'], 'reload': ['Reload', 'Neu laden'],
+    'loading': ['Loading …', 'Lade …'], 'office.collected': ['Collected', 'Erfasst'], 'data.as.of': ['Data as of {0}', 'Datenstand {0}'], 'reload': ['Reload', 'Neu laden'],
     'version': ['Version {0}', 'Version {0}'], 'update.available': ['Update available: {0}', 'Update verfügbar: {0}'],
     'run.now': ['Collect now', 'Jetzt erfassen'], 'reloaded': ['Data reloaded.', 'Daten neu geladen.'], 'signout': ['Sign out', 'Abmelden'],
     'role.admin': ['Gapsio administrator', 'Gapsio-Administrator'], 'role.user': ['User', 'Benutzer'], 'signed.in': ['Signed in', 'Angemeldet'],
@@ -36,7 +36,7 @@
     'noaccess': ['Gapsio is only available to administrators (app role “Gapsio Administrator”). Please contact your security team.', 'Gapsio steht nur Administratoren zur Verfügung (App-Rolle „Gapsio Administrator“). Bitte wenden Sie sich an Ihr Security-Team.'],
     'ok': ['OK', 'OK'], 'problem': ['Problem', 'Problem'], 'na': ['n/a', 'n. a.'], 'yes': ['yes', 'ja'], 'no': ['no', 'nein'],
     // navigation
-    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
+    'nav.endpoint': ['Endpoint', 'Endpoint'], 'nav.office': ['Office 365 (private preview)', 'Office 365 (Private Preview)'], 'nav.purview': ['Purview DLP (private preview)', 'Purview DLP (Private Preview)'], 'nav.agents': ['AI agents (beta)', 'KI-Agents (Beta)'], 'nav.access': ['Permissions (unified RBAC)', 'Berechtigungen (Unified RBAC)'], 'nav.everyone': ['For everyone', 'Für alle'], 'nav.history': ['History', 'Verlauf'], 'nav.settings': ['Settings', 'Einstellungen'],
     'nav.menu': ['Menu', 'Menü'], 'nav.close': ['Close menu', 'Menü schließen'],
     'v.overview': ['Overview', 'Übersicht'], 'v.findings': ['Findings', 'Befunde'], 'v.exclusions': ['Exclusions', 'Exclusions'], 'v.asr': ['ASR rules', 'ASR-Regeln'],
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['MDO private preview', 'MDO Private Preview'], 'v.officeantiphish': ['Anti-phish drift', 'Anti-Phishing-Drift'], 'v.officepolicymap': ['Policy map', 'Policy-Map'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
@@ -73,7 +73,7 @@
     'ov.priv': ['people with permanent response/config permissions', 'Personen mit dauerhaften Response-/Konfigurationsrechten'], 'ov.elig': ['eligible permissions (PIM for groups)', 'eligible Berechtigungen (PIM für Gruppen)'],
     'ov.unusedAcc': ['people whose permissions were never used', 'Personen, deren Berechtigungen nie genutzt wurden'], 'ov.bypass': ['people bypassing unified RBAC via Entra roles', 'Personen umgehen Unified RBAC über Entra-Rollen'],
     'ov.openPkg': ['packages requestable by all users', 'Pakete für alle Benutzer beantragbar'], 'ov.runs': ['Recent runs', 'Letzte Läufe'],
-    'col.time': ['Time', 'Zeitpunkt'], 'col.module': ['Module', 'Modul'], 'col.changes': ['Changes', 'Änderungen'], 'col.notices': ['Notices', 'Hinweise'], 'col.duration': ['Duration', 'Dauer'],
+    'col.time': ['Time', 'Zeitpunkt'], 'col.title': ['Title', 'Titel'], 'col.users': ['Users', 'Benutzer'], 'col.module': ['Module', 'Modul'], 'col.changes': ['Changes', 'Änderungen'], 'col.notices': ['Notices', 'Hinweise'], 'col.duration': ['Duration', 'Dauer'],
     // findings
     'f.lede': ['Everything that weakens protection – individually and in combination. Check combined findings first: they show where several small gaps add up to a big one.', 'Alles, was den Schutz schwächt – einzeln und in Kombination. Kombinierte Befunde zuerst prüfen: Sie zeigen, wo mehrere kleine Lücken zusammen eine große ergeben.'],
     'f.severity': ['Severity', 'Schweregrad'], 'f.category': ['Category', 'Kategorie'], 'f.finding': ['Finding', 'Befund'], 'f.device': ['Device', 'Gerät'],
@@ -176,12 +176,118 @@
     'c.effect': ['Effect', 'Wirkung'], 'c.covers': ['Covers', 'Erfasst'], 'c.coversN': ['{0} agent(s), {1} agent user(s)', '{0} Agent(s), {1} Agent-User'], 'c.none': ['No Conditional Access policy targets agents.', 'Keine Conditional-Access-Richtlinie adressiert Agents.'],
     'c.weak': ['Not effectively protected', 'Nicht wirksam geschützt'], 'c.weak.lede': ['Agent identities and agent users that are not covered by an enabled policy – report-only counts as unprotected here.', 'Agent-Identitäten und Agent-User, die von keiner aktiven Richtlinie erfasst werden – auch Report-only zählt hier als ungeschützt.'],
     'c.allOk': ['All cloud agents with Entra Agent ID are covered by Conditional Access.', 'Alle Cloud-Agents mit Entra Agent ID sind durch Conditional Access erfasst.'],
+    // posture checks: policy conflicts, device control, attack disruption, detection rules, audit evidence
+    'v.conflicts': ['Policy conflicts', 'Policy-Konflikte'], 'v.devicecontrol': ['Device control', 'Device Control'], 'v.disruption': ['Attack disruption', 'Attack Disruption'], 'v.detections': ['Detection rules', 'Detection-Regeln'], 'v.evidence': ['Audit evidence', 'Audit-Nachweis'],
+    'cat.Conflict': ['Policy conflict', 'Policy-Konflikt'], 'cat.DeviceControl': ['Device control', 'Device Control'], 'cat.Detection': ['Detection rules', 'Detection-Regeln'],
+    'coll.policyConflicts': ['Policy conflict', 'Policy-Konflikt'], 'coll.detectionRules': ['Detection rule', 'Detection-Regel'],
+    'posture.rerun': ['This view needs a newer endpoint run – start one with “Collect now”.', 'Diese Ansicht braucht einen neueren Endpoint-Lauf – mit „Jetzt erfassen“ starten.'],
+    'pcf.lede': ['Settings that reach the same devices from two or more Intune policies with different values. Intune treats all policy types as equal: a setting in conflict may not be applied at all, and a conflicting ASR rule is left out of the merged rule set. Microsoft shows this per device – here it is the whole fleet.', 'Einstellungen, die dieselben Geräte aus zwei oder mehr Intune-Richtlinien mit unterschiedlichen Werten erreichen. Intune behandelt alle Richtlinientypen gleichrangig: Eine Einstellung im Konflikt wird möglicherweise gar nicht angewendet, und eine ASR-Regel im Konflikt fehlt im zusammengeführten Regelsatz. Microsoft zeigt das pro Gerät – hier ist es die ganze Flotte.'],
+    'pcf.fact.settings': ['settings in conflict', 'Einstellungen im Konflikt'], 'pcf.fact.asr': ['of them ASR rules', 'davon ASR-Regeln'], 'pcf.fact.devices': ['devices in the largest conflict', 'Geräte im größten Konflikt'],
+    'pcf.onlyAsr': ['ASR rules only', 'Nur ASR-Regeln'], 'pcf.values': ['Values and policies', 'Werte und Richtlinien'], 'pcf.devices': ['Devices', 'Geräte'], 'pcf.byAssignment': ['shared assignment', 'gemeinsame Zuweisung'],
+    'pcf.effect': ['Effect', 'Wirkung'], 'pcf.effect.asr': ['The conflicting rule is not added to the merged ASR rule set of these devices – it may not be active at all.', 'Die Regel im Konflikt wird nicht in den zusammengeführten ASR-Regelsatz dieser Geräte übernommen – sie ist möglicherweise gar nicht aktiv.'],
+    'pcf.effect.setting': ['Intune flags the setting as conflicted; it may fail to apply. Which value a device ends up with is not defined.', 'Intune markiert die Einstellung als Konflikt; sie wird möglicherweise nicht angewendet. Welcher Wert am Gerät ankommt, ist nicht definiert.'],
+    'pcf.policies': ['Policies', 'Richtlinien'], 'pcf.none': ['No setting reaches the same devices with different values.', 'Keine Einstellung erreicht dieselben Geräte mit unterschiedlichen Werten.'],
+    'pcf.note': ['Compared are single-value settings (choices, switches, numbers) of assigned Settings Catalog and endpoint security policies. Lists such as exclusions merge and are not conflicts. Without device data (feature Hunting off) the overlap is judged by the assignments.', 'Verglichen werden Einzelwert-Einstellungen (Auswahl, Schalter, Zahlen) zugewiesener Settings-Catalog- und Endpunktsicherheits-Richtlinien. Listen wie Exclusions werden zusammengeführt und sind keine Konflikte. Ohne Gerätedaten (Feature Hunting aus) wird die Überschneidung anhand der Zuweisungen beurteilt.'],
+    'dvc.lede': ['Where USB storage is actually used – and whether a device control policy reaches those devices. Defender reports USB mounts for onboarded devices by default; device control decides what a drive may do.', 'Wo USB-Speicher tatsächlich genutzt wird – und ob eine Device-Control-Richtlinie diese Geräte erreicht. Defender meldet USB-Einbindungen onboardeter Geräte standardmäßig; Device Control entscheidet, was ein Laufwerk darf.'],
+    'dvc.fact.policies': ['assigned device control policies', 'zugewiesene Device-Control-Richtlinien'], 'dvc.fact.usb': ['devices with USB storage in use (30 days)', 'Geräte mit genutztem USB-Speicher (30 Tage)'], 'dvc.fact.nopolicy': ['of them without a device control policy', 'davon ohne Device-Control-Richtlinie'], 'dvc.fact.denied': ['denied accesses (30 days)', 'verweigerte Zugriffe (30 Tage)'],
+    'dvc.usage.off': ['USB usage needs the feature “Hunting” (ThreatHunting.Read.All). Only the policies are shown.', 'Die USB-Nutzung braucht das Feature „Hunting“ (ThreatHunting.Read.All). Es werden nur die Richtlinien gezeigt.'], 'dvc.usage.failed': ['USB usage could not be read in the last run – see the notices of the run.', 'Die USB-Nutzung konnte im letzten Lauf nicht gelesen werden – siehe Hinweise des Laufs.'],
+    'dvc.col.mounts': ['USB mounts (30 d)', 'USB-Einbindungen (30 T)'], 'dvc.col.drives': ['Drives', 'Laufwerke'], 'dvc.col.last': ['Last mount', 'Zuletzt eingebunden'], 'dvc.col.policy': ['Device control policy', 'Device-Control-Richtlinie'], 'dvc.col.events': ['Policy events', 'Richtlinien-Ereignisse'], 'dvc.col.settings': ['Settings', 'Einstellungen'],
+    'dvc.pol.yes': ['policy applies', 'Richtlinie greift'], 'dvc.pol.no': ['no policy', 'keine Richtlinie'], 'dvc.pol.unsupported': ['not supported (server/Linux)', 'nicht unterstützt (Server/Linux)'], 'dvc.pol.unknown': ['device unknown', 'Gerät unbekannt'],
+    'dvc.events': ['{0} events, {1} denied', '{0} Ereignisse, {1} verweigert'], 'dvc.onlyOpen': ['USB in use without policy only', 'Nur USB-Nutzung ohne Richtlinie'],
+    'dvc.none': ['No USB storage was mounted on any device in the last 30 days.', 'In den letzten 30 Tagen wurde auf keinem Gerät USB-Speicher eingebunden.'], 'dvc.none.nodata': ['No usage data.', 'Keine Nutzungsdaten.'],
+    'dvc.policies': ['Device control policies in Intune', 'Device-Control-Richtlinien in Intune'], 'dvc.policies.none': ['No Intune policy configures device control or removable storage.', 'Keine Intune-Richtlinie konfiguriert Device Control oder Wechseldatenträger.'],
+    'dvc.note': ['Device control is supported on Windows 10/11 and macOS, not on servers. Policy events are only written for policies with an audit entry, and Microsoft caps them at 300 per device and day. Device control configured by Group Policy is not visible here.', 'Device Control wird auf Windows 10/11 und macOS unterstützt, nicht auf Servern. Richtlinien-Ereignisse entstehen nur bei Richtlinien mit Audit-Eintrag, und Microsoft begrenzt sie auf 300 pro Gerät und Tag. Per Gruppenrichtlinie konfiguriertes Device Control ist hier nicht sichtbar.'],
+    'dis.lede': ['Automatic attack disruption contains compromised users and devices within minutes – if its prerequisites are met. Gapsio checks what can be verified and names what Microsoft only shows in the portal, so nothing is assumed.', 'Automatic Attack Disruption dämmt kompromittierte Benutzer und Geräte binnen Minuten ein – wenn die Voraussetzungen stimmen. Gapsio prüft, was sich prüfen lässt, und benennt, was Microsoft nur im Portal zeigt, damit nichts unterstellt wird.'],
+    'dis.fact.gaps': ['gaps found', 'Lücken gefunden'], 'dis.fact.ok': ['checks passed', 'Prüfungen bestanden'], 'dis.fact.manual': ['to check in the portal', 'im Portal zu prüfen'], 'dis.fact.events': ['disruption events (30 days)', 'Disruption-Ereignisse (30 Tage)'],
+    'diss.Gap': ['gap', 'Lücke'], 'diss.OK': ['OK', 'OK'], 'diss.Review': ['review', 'prüfen'], 'diss.NotMeasurable': ['not measurable', 'nicht messbar'],
+    'dis.col.check': ['Prerequisite', 'Voraussetzung'], 'dis.col.result': ['Result', 'Ergebnis'], 'dis.col.where': ['Where to check', 'Wo prüfen'], 'dis.col.action': ['Action', 'Aktion'], 'dis.col.report': ['Outcome', 'Ausgang'],
+    'dis.events': ['What disruption did (30 days)', 'Was Disruption getan hat (30 Tage)'], 'dis.events.lede': ['Outcomes of containment on the devices: blocked sign-ins, SMB and RPC access of contained users. The actions themselves are in the Action center.', 'Auswirkungen der Eindämmung auf den Geräten: blockierte Anmeldungen, SMB- und RPC-Zugriffe eingedämmter Benutzer. Die Aktionen selbst stehen im Action Center.'],
+    'dis.events.none': ['No disruption events in the last 30 days.', 'Keine Disruption-Ereignisse in den letzten 30 Tagen.'], 'dis.events.off': ['Needs the feature “Hunting”.', 'Braucht das Feature „Hunting“.'], 'dis.events.unavailable': ['The table DisruptionAndResponseEvents is not available in this tenant.', 'Die Tabelle DisruptionAndResponseEvents ist in diesem Mandanten nicht verfügbar.'],
+    'dis.note': ['Sources: Microsoft Learn “Configure automatic attack disruption” (minimum Sense agent {0} for Contain User), Advanced Hunting (DeviceInfo, IdentityDirectoryEvents, DisruptionAndResponseEvents). Device discovery mode, remediation levels and exclusions have no API.', 'Quellen: Microsoft Learn „Configure automatic attack disruption“ (Sense-Agent mindestens {0} für Contain User), Advanced Hunting (DeviceInfo, IdentityDirectoryEvents, DisruptionAndResponseEvents). Für Gerätesuche-Modus, Automatisierungsstufen und Ausnahmen gibt es keine API.'],
+    'det.lede': ['Custom detection rules are your own detections – and nobody tells you when one stops. Defender switches failing rules off automatically; disabled rules stay in the list. This view shows which rules really run, which act on their own and who changed them.', 'Custom-Detection-Regeln sind eure eigenen Erkennungen – und niemand sagt Bescheid, wenn eine aufhört. Defender schaltet fehlschlagende Regeln automatisch ab; deaktivierte Regeln bleiben in der Liste. Diese Ansicht zeigt, welche Regeln wirklich laufen, welche selbst handeln und wer sie geändert hat.'],
+    'det.off': ['The feature “Detections” (CustomDetection.Read.All) is not enabled in this installation. Add it to the features and grant the permission:', 'Das Feature „Detections“ (CustomDetection.Read.All) ist in dieser Installation nicht aktiviert. Zu den Features hinzufügen und die Berechtigung erteilen:'], 'det.failed': ['The custom detection rules could not be read in the last run – see the notices of the run (permission CustomDetection.Read.All).', 'Die Custom-Detection-Regeln konnten im letzten Lauf nicht gelesen werden – siehe Hinweise des Laufs (Berechtigung CustomDetection.Read.All).'],
+    'det.fact.rules': ['custom detection rules', 'Custom-Detection-Regeln'], 'det.fact.auto': ['switched off automatically', 'automatisch abgeschaltet'], 'det.fact.disabled': ['disabled', 'deaktiviert'], 'det.fact.actions': ['act automatically', 'handeln automatisch'],
+    'dets.enabled': ['enabled', 'aktiv'], 'dets.disabled': ['disabled', 'deaktiviert'], 'dets.autoDisabled': ['switched off automatically', 'automatisch abgeschaltet'], 'dets.unknown': ['unknown', 'unbekannt'],
+    'det.col.rule': ['Rule', 'Regel'], 'det.col.schedule': ['Runs', 'Läuft'], 'det.col.actions': ['Automatic actions', 'Automatische Aktionen'], 'det.col.alerts': ['Alerts (30 d)', 'Alerts (30 T)'], 'det.col.groups': ['Device groups', 'Gerätegruppen'], 'det.groups.all': ['all devices', 'alle Geräte'],
+    'det.nrt': ['continuously', 'fortlaufend'], 'det.every.h': ['every {0} h', 'alle {0} Std.'], 'det.every.min': ['every {0} min', 'alle {0} Min.'], 'det.onlyActions': ['With device/user/mail actions only', 'Nur mit Geräte-/Benutzer-/Mail-Aktionen'],
+    'det.lastRun': ['Last run', 'Letzter Lauf'], 'det.lastRun.none': ['not reported by the API', 'von der API nicht geliefert'], 'det.lastRunFailed': ['last run failed', 'letzter Lauf fehlgeschlagen'], 'det.lastAlert': ['Last alert', 'Letzter Alert'],
+    'det.alerts.unknown': ['The alert title is dynamic or alerts could not be read – no number.', 'Der Alert-Titel ist dynamisch oder Alerts waren nicht lesbar – keine Zahl.'], 'det.none': ['No custom detection rules.', 'Keine Custom-Detection-Regeln.'],
+    'det.note': ['Alerts are matched by the rule’s alert title (AlertInfo, 30 days); rules with a dynamic title show no number. Microsoft no longer returns the run history through the API – a missing “last run” does not mean the rule ran fine.', 'Alerts werden über den Alert-Titel der Regel zugeordnet (AlertInfo, 30 Tage); Regeln mit dynamischem Titel zeigen keine Zahl. Microsoft liefert die Lauf-Historie nicht mehr über die API – ein fehlender „letzter Lauf“ heißt nicht, dass die Regel fehlerfrei lief.'],
+    'ev.lede': ['Open findings and accepted risks, sorted by the controls an auditor asks about: ISO/IEC 27001:2022 Annex A and NIS2 Article 21(2). Print the page or export the list as evidence of what is checked continuously – and what is still open.', 'Offene Befunde und akzeptierte Risiken, sortiert nach den Kontrollen, nach denen ein Auditor fragt: ISO/IEC 27001:2022 Anhang A und NIS2 Artikel 21 Abs. 2. Die Seite drucken oder die Liste exportieren – als Nachweis, was laufend geprüft wird und was noch offen ist.'],
+    'ev.fact.asof': ['data as of (Gapsio {0})', 'Datenstand (Gapsio {0})'], 'ev.fact.open': ['controls with open findings', 'Kontrollen mit offenen Befunden'], 'ev.fact.clear': ['controls without findings', 'Kontrollen ohne Befunde'], 'ev.fact.accepted': ['controls with accepted risks only', 'Kontrollen nur mit akzeptierten Risiken'], 'ev.fact.na': ['controls not assessed', 'Kontrollen nicht bewertet'],
+    'ev.print': ['Print / save as PDF', 'Drucken / als PDF speichern'], 'ev.community': ['Community edition: the lists are cut to the first rows, so the counts here are incomplete.', 'Community-Edition: Die Listen sind auf die ersten Zeilen gekürzt, die Zahlen hier sind deshalb unvollständig.'],
+    'evs.Open': ['findings open', 'Befunde offen'], 'evs.Clear': ['no findings', 'keine Befunde'], 'evs.Accepted': ['risks accepted', 'Risiken akzeptiert'], 'evs.NotAssessed': ['not assessed', 'nicht bewertet'],
+    'ev.col.framework': ['Framework', 'Rahmenwerk'], 'ev.col.control': ['Control', 'Kontrolle'], 'ev.col.open': ['Open findings', 'Offene Befunde'], 'ev.col.accepted': ['Accepted', 'Akzeptiert'], 'ev.col.areas': ['What Gapsio checks', 'Was Gapsio prüft'], 'ev.col.exception': ['Exception', 'Ausnahme'],
+    'ev.na.detail': ['The module that provides evidence for this control is not enabled.', 'Das Modul, das Nachweise für diese Kontrolle liefert, ist nicht aktiviert.'], 'ev.clear.detail': ['No finding in the last run.', 'Kein Befund im letzten Lauf.'],
+    'ev.flat': ['Findings per control', 'Befunde pro Kontrolle'], 'ev.flat.lede': ['One row per control and finding – export it as CSV for the audit file.', 'Eine Zeile pro Kontrolle und Befund – als CSV für die Audit-Akte exportieren.'], 'ev.flat.none': ['No findings.', 'Keine Befunde.'],
+    'ov.conflicts': ['settings in a policy conflict', 'Einstellungen im Policy-Konflikt'], 'ov.usb': ['devices using USB storage without device control', 'Geräte mit USB-Speicher ohne Device Control'], 'ov.disruption': ['gaps in attack disruption readiness', 'Lücken bei der Attack-Disruption-Readiness'], 'ov.detections': ['custom detection rules not running', 'Custom-Detection-Regeln laufen nicht'],
+    // office preview: probes on documented hunting columns (back end: OfficePreview.ps1)
+    'mod.officepreview': ['Office (preview)', 'Office (Preview)'], 'cat.Office': ['Office 365', 'Office 365'],
+    'om.oldData': ['This data is from an older Gapsio version – run the Office module once to see the current checks.', 'Diese Daten stammen aus einer älteren Gapsio-Version – das Office-Modul einmal ausführen, um die aktuellen Prüfungen zu sehen.'],
+    'om.kpi.inbox': ['phish/malware still in inboxes', 'Phishing/Malware noch in Posteingängen'], 'om.kpi.allowed': ['threats let through by an allow', 'Bedrohungen durch ein Allow durchgelassen'], 'om.kpi.clicks': ['clicks past the Safe Links warning', 'Klicks an der Safe-Links-Warnung vorbei'],
+    'om.kpi.spoof': ['spoofs of your own domains delivered', 'zugestellte Fälschungen eigener Domänen'], 'om.kpi.zap': ['messages removed by ZAP', 'von ZAP entfernte Nachrichten'],
+    'om.failed': ['could not be read', 'nicht lesbar'], 'om.failedN': ['{0} check(s) could not be read – their numbers are missing, not zero', '{0} Prüfung(en) nicht lesbar – ihre Zahlen fehlen, sie sind nicht null'], 'om.probeFailed': ['This check could not be read: {0}', 'Diese Prüfung war nicht lesbar: {0}'],
+    'om.findings.none': ['No findings in the last 30 days.', 'Keine Befunde in den letzten 30 Tagen.'], 'om.none': ['No data in the last 30 days.', 'Keine Daten in den letzten 30 Tagen.'], 'om.notices': ['Notices of the run ({0})', 'Hinweise des Laufs ({0})'],
+    'om.trends': ['Trends (30 days)', 'Trends (30 Tage)'], 'om.other': ['Other', 'Sonstige'], 'om.chart.outcomes': ['Delivery outcomes by day', 'Zustellausgänge pro Tag'],
+    'om.out.block': ['Blocked', 'Blockiert'], 'om.out.quarantine': ['Quarantine', 'Quarantäne'], 'om.out.junk': ['Junk', 'Junk'], 'om.out.delivered': ['Delivered', 'Zugestellt'],
+    'om.allows': ['Allows that delivered threats', 'Allows, die Bedrohungen zugestellt haben'], 'om.allows.lede': ['Mail with a phishing or malware verdict that an allow let through – by the policy that allowed it. “Mailbox” means the recipient’s own mailbox policy, such as a safe sender entry.', 'Mail mit Phishing- oder Malware-Urteil, die ein Allow durchgelassen hat – nach der Richtlinie, die es erlaubt hat. „Postfach“ meint die eigene Postfachregel des Empfängers, etwa einen Eintrag sicherer Absender.'],
+    'om.unnamed': ['(no policy name)', '(kein Richtlinienname)'], 'oml.Organisation': ['Organisation', 'Organisation'], 'oml.Mailbox': ['Mailbox', 'Postfach'],
+    'om.safelinks': ['Safe Links clicks by workload', 'Safe-Links-Klicks nach Workload'], 'om.themes': ['Threats by type and classification', 'Bedrohungen nach Typ und Klassifizierung'],
+    'om.col.level': ['Level', 'Ebene'], 'om.col.threats': ['Threat messages', 'Nachrichten mit Bedrohung'], 'om.col.delivered': ['Delivered', 'Zugestellt'], 'om.col.recipients': ['Recipients', 'Empfänger'], 'om.col.messages': ['Messages', 'Nachrichten'],
+    'om.col.workload': ['Workload', 'Workload'], 'om.col.clicks': ['Clicks', 'Klicks'], 'om.col.threatClicks': ['On URLs with a threat verdict', 'Auf URLs mit Bedrohungsurteil'], 'om.col.clickedThrough': ['Clicked through', 'Durchgeklickt'],
+    'om.col.threatType': ['Threat type', 'Bedrohungstyp'], 'om.col.classification': ['Classification', 'Klassifizierung'], 'om.col.protection': ['Protection', 'Schutz'], 'om.col.action': ['Action', 'Aktion'], 'om.col.withThreat': ['With phish/malware verdict', 'Mit Phishing-/Malware-Urteil'],
+    'om.pm.actions': ['Which protection acted', 'Welcher Schutz gegriffen hat'], 'om.pm.actions.lede': ['The policy type that determined the final action on inbound mail, and the action it took.', 'Der Richtlinientyp, der die endgültige Aktion bei eingehender Mail bestimmt hat, und die Aktion.'],
+    'om.pm.org': ['Organisation-level policies', 'Richtlinien auf Organisationsebene'], 'om.pm.org.lede': ['Policies defined by the organisation (Tenant Allow/Block List, transport rules, connectors …) and what they did. An allow with threat messages is worth a look.', 'Von der Organisation definierte Richtlinien (Tenant Allow/Block List, Transportregeln, Connectors …) und ihre Wirkung. Ein Allow mit Bedrohungs-Nachrichten verdient einen Blick.'],
+    'om.pm.mailbox': ['Mailbox policies of the recipients', 'Postfachregeln der Empfänger'], 'om.pm.mailbox.lede': ['Policies the recipients set in their own mailbox, such as safe and blocked senders. These are not admin policies – but a safe sender entry can deliver mail the organisation would have stopped.', 'Regeln, die Empfänger in ihrem eigenen Postfach setzen, etwa sichere und blockierte Absender. Das sind keine Admin-Richtlinien – ein Eintrag sicherer Absender kann aber Mail zustellen, die die Organisation gestoppt hätte.'],
+    'om.probes': ['All checks', 'Alle Prüfungen'], 'om.probes.lede': ['Every check with its status. Open a row for what it means, what to do next and a link into Advanced Hunting.', 'Jede Prüfung mit ihrem Status. Eine Zeile öffnen für Bedeutung, nächsten Schritt und einen Link in Advanced Hunting.'],
+    'om.note': ['Sources: EmailEvents, EmailPostDeliveryEvents and UrlClickEvents in Advanced Hunting (Defender for Office 365), last 30 days. Policy settings themselves are not readable through Microsoft Graph; changes to anti-phish policies come from the audit trail.', 'Quellen: EmailEvents, EmailPostDeliveryEvents und UrlClickEvents in Advanced Hunting (Defender for Office 365), letzte 30 Tage. Die Richtlinien-Einstellungen selbst sind über Microsoft Graph nicht lesbar; Änderungen an Anti-Phish-Richtlinien stammen aus dem Audit-Trail.'],
+    'op.threat_in_inbox': ['Phish and malware still in inboxes', 'Phishing und Malware noch in Posteingängen'], 'op.threat_allowed': ['Threats delivered by an allow', 'Durch ein Allow zugestellte Bedrohungen'], 'op.threat_allowed_policies': ['Allows that delivered threats', 'Allows, die Bedrohungen zugestellt haben'],
+    'op.safelinks_clicks': ['Safe Links clicks', 'Safe-Links-Klicks'], 'op.safelinks_by_workload': ['Safe Links clicks by workload', 'Safe-Links-Klicks nach Workload'], 'op.own_domain_spoof': ['Own sender domains failing DMARC', 'Eigene Absenderdomänen mit DMARC-Fehler'],
+    'op.post_delivery': ['Post-delivery actions (ZAP, manual remediation)', 'Aktionen nach Zustellung (ZAP, manuelle Bereinigung)'], 'op.threat_trend_daily': ['Threat trend (daily)', 'Bedrohungstrend (täglich)'], 'op.action_trend_daily': ['Delivery outcomes (daily)', 'Zustellausgänge (täglich)'],
+    'op.threat_themes': ['Threats by type and classification', 'Bedrohungen nach Typ und Klassifizierung'], 'op.policy_actions': ['Which protection acted', 'Welcher Schutz gegriffen hat'], 'op.org_policies': ['Organisation-level policies and their action', 'Richtlinien auf Organisationsebene und ihre Aktion'],
+    'op.mailbox_policies': ['Mailbox policies of recipients and their action', 'Postfachregeln der Empfänger und ihre Aktion'], 'op.licensing_context': ['Defender for Office 365 licences (licensing module)', 'Defender-for-Office-365-Lizenzen (Lizenzmodul)'],
+    'op.antiphish_policy_changes': ['Anti-phish policy changes (audit trail)', 'Änderungen an Anti-Phish-Richtlinien (Audit-Trail)'], 'op.antiphish_outcomes': ['Phish outcomes per policy (daily)', 'Phishing-Ausgänge pro Richtlinie (täglich)'], 'op.hunting': ['Advanced Hunting access', 'Advanced-Hunting-Zugriff'],
+    'or.threat_in_inbox': ['{0} of {1} threat message(s) still in an inbox; {2} removed after delivery', '{0} von {1} Nachricht(en) mit Bedrohung noch im Posteingang; {2} nach Zustellung entfernt'],
+    'or.threat_allowed': ['{0} threat message(s) allowed, {1} delivered ({2} organisation, {3} mailbox)', '{0} Nachricht(en) mit Bedrohung erlaubt, {1} zugestellt ({2} Organisation, {3} Postfach)'],
+    'or.safelinks_clicks': ['{0} clicks, {1} on URLs with a threat verdict, {2} clicked through', '{0} Klicks, {1} auf URLs mit Bedrohungsurteil, {2} durchgeklickt'],
+    'or.own_domain_spoof': ['{0} inbound message(s) with an own domain, {1} failed DMARC, {2} delivered', '{0} eingehende Nachricht(en) mit eigener Domäne, {1} mit DMARC-Fehler, {2} zugestellt'],
+    'or.post_delivery': ['{0} phish ZAP, {1} malware ZAP, {2} manual remediation', '{0} Phish-ZAP, {1} Malware-ZAP, {2} manuelle Bereinigung'], 'or.licensing': ['{0} users with a Defender for Office 365 plan (P2: {1}, P1: {2})', '{0} Benutzer mit Defender-for-Office-365-Plan (P2: {1}, P1: {2})'], 'or.rows': ['{0} row(s)', '{0} Zeile(n)'],
+    'og.threat_in_inbox.why': ['Defender’s current verdict for these messages is phishing or malware, and their last known location is the inbox. Either zero-hour auto purge did not act, or an allow or the recipient kept them there.', 'Defenders aktuelles Urteil für diese Nachrichten ist Phishing oder Malware, und ihr letzter bekannter Ort ist der Posteingang. Entweder hat Zero-hour Auto Purge nicht gegriffen, oder ein Allow bzw. der Empfänger hat sie dort gehalten.'],
+    'og.threat_in_inbox.next': ['Remediate them in Threat Explorer and check that ZAP is enabled in the anti-spam and anti-malware policies.', 'Im Threat Explorer bereinigen und prüfen, dass ZAP in den Anti-Spam- und Anti-Malware-Richtlinien aktiv ist.'],
+    'og.threat_allowed.why': ['An allow overrode a phishing or malware verdict. Organisation-level allows are Tenant Allow/Block List entries, transport rules or connectors; mailbox allows are the recipient’s own safe senders.', 'Ein Allow hat ein Phishing- oder Malware-Urteil übersteuert. Allows auf Organisationsebene sind Einträge der Tenant Allow/Block List, Transportregeln oder Connectors; Postfach-Allows sind die sicheren Absender des Empfängers.'],
+    'og.threat_allowed.next': ['Remove or narrow the allow, and let Tenant Allow/Block List entries expire.', 'Das Allow entfernen oder eingrenzen und Einträge der Tenant Allow/Block List ablaufen lassen.'],
+    'og.safelinks_clicks.why': ['“Clicked through” means the user saw the Safe Links warning and chose to continue to the original URL.', '„Durchgeklickt“ heißt: Der Benutzer hat die Safe-Links-Warnung gesehen und ist trotzdem zur ursprünglichen URL weitergegangen.'],
+    'og.safelinks_clicks.next': ['Switch off click-through in the Safe Links policies and follow up with the users.', 'Das Durchklicken in den Safe-Links-Richtlinien ausschalten und mit den Benutzern nachfassen.'],
+    'og.own_domain_spoof.why': ['Inbound mail that carries one of your own sender domains in the From header and fails DMARC is either a spoof or a legitimate sender you have not authorised (missing SPF/DKIM).', 'Eingehende Mail mit einer Ihrer eigenen Absenderdomänen im From-Header, die an DMARC scheitert, ist entweder eine Fälschung oder ein legitimer Absender, den Sie nicht autorisiert haben (SPF/DKIM fehlt).'],
+    'og.own_domain_spoof.next': ['Authorise legitimate senders with SPF/DKIM, then move the domains to p=reject; check what delivered the failing mail.', 'Legitime Absender per SPF/DKIM autorisieren, dann die Domänen auf p=reject stellen; prüfen, was die fehlgeschlagene Mail zugestellt hat.'],
+    'og.post_delivery.why': ['ZAP removes mail after delivery when the verdict changes. Many ZAP actions mean threats reach inboxes first; none at all can mean ZAP is off.', 'ZAP entfernt Mail nach der Zustellung, wenn sich das Urteil ändert. Viele ZAP-Aktionen heißen: Bedrohungen erreichen zuerst Posteingänge; gar keine können heißen, dass ZAP aus ist.'],
+    'og.post_delivery.next': ['Compare with “still in inboxes”: what ZAP removed is handled, what is left is not.', 'Mit „noch in Posteingängen“ vergleichen: Was ZAP entfernt hat, ist erledigt, der Rest nicht.'],
     // access (optional module)
     'r.lede': ['Defender XDR unified RBAC: who holds which Defender role – directly, via group, eligible through PIM for groups or requestable via an access package – for which data sources, and when the person last actually used the Defender portal. Device-group scoping for Defender for Endpoint is configured on the device groups page and is not exposed by the API.', 'Defender XDR Unified RBAC: Wer welche Defender-Rolle hat – direkt, über Gruppe, eligible per PIM für Gruppen oder über ein Access Package beantragbar –, für welche Datenquellen, und wann die Person das Defender-Portal zuletzt tatsächlich genutzt hat. Das Gerätegruppen-Scoping für Defender for Endpoint wird auf der Gerätegruppen-Seite konfiguriert und ist per API nicht sichtbar.'],
     'r.person': ['Person', 'Person'], 'r.role': ['Role', 'Rolle'], 'r.platform': ['Platform', 'Plattform'], 'r.state': ['State', 'Zustand'], 'r.path': ['Path', 'Weg'], 'r.scope': ['Data sources', 'Datenquellen'], 'r.ends': ['Ends', 'Endet'],
     'r.onlyPriv': ['Response/config permissions only', 'Nur Response-/Konfigurationsrechte'], 'r.privileged': ['response/config', 'Response/Konfig'], 'r.onlyUnused': ['Never used only', 'Nur nie genutzte'],
     'r.perms': ['Permission groups', 'Berechtigungsgruppen'], 'r.assignment': ['Assignment', 'Zuweisung'], 'r.lastUsed': ['Last used', 'Zuletzt genutzt'], 'r.activated': ['activated {0}', 'aktiviert {0}'],
-    'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
+    'pu.title': ['Permissions actually used (30 days)', 'Tatsächlich genutzte Berechtigungen (30 Tage)'],
+    'pu.lede': ['What each person did with their Defender permissions in the last 30 days, derived from response actions, alert triage and the audit log. The table above sets this against the permissions each person holds. Viewing data and hunting leave no trace in these sources – the portal sign-in date covers read access.', 'Was jede Person in den letzten 30 Tagen mit ihren Defender-Berechtigungen getan hat – abgeleitet aus Response-Aktionen, Alert-Bearbeitung und dem Audit-Log. Die Tabelle oben stellt das den Berechtigungen gegenüber, die jede Person hält. Ansehen und Hunting hinterlassen in diesen Quellen keine Spur – Lesezugriff deckt das Portal-Anmeldedatum ab.'],
+    'pu.sources': ['Sources: {0}', 'Quellen: {0}'], 'pu.noAudit': ['Enable the feature "Audit" (AuditLogsQuery.Read.All) to include setting, indicator and authorization changes.', 'Feature „Audit“ (AuditLogsQuery.Read.All) aktivieren, um auch Einstellungs-, Indikator- und Berechtigungsänderungen einzubeziehen.'],
+    'pu.permission': ['Permission', 'Berechtigung'], 'pu.actions': ['Actions', 'Aktionen'], 'pu.count': ['Count', 'Anzahl'], 'pu.first': ['First', 'Erstmals'], 'pu.last': ['Last', 'Zuletzt'], 'pu.source': ['Source', 'Quelle'],
+    'pu.none': ['No permission use recorded in the last 30 days in the sources that were read.', 'In den gelesenen Quellen keine Nutzung von Berechtigungen in den letzten 30 Tagen erfasst.'],
+    'pu.noSources': ['No usage source could be read – nothing is measured. Enable the feature "Response" (Machine.Read.All, Alert.Read.All) and optionally "Audit" (AuditLogsQuery.Read.All), or check the warnings of the last run.', 'Keine Nutzungsquelle konnte gelesen werden – es wird nichts gemessen. Feature „Response“ (Machine.Read.All, Alert.Read.All) und optional „Audit“ (AuditLogsQuery.Read.All) aktivieren oder die Warnungen des letzten Laufs prüfen.'],
+    'pc.title': ['Held but not used (30 days)', 'Gehalten, aber nicht genutzt (30 Tage)'],
+    'pc.lede': ['Every Defender permission a person holds through unified RBAC (active or eligible), set against what they actually did. “Not used” is only shown when every source that could reveal the use was read successfully; otherwise the permission is “not measurable” and the reason says why.', 'Jede Defender-Berechtigung, die eine Person über Unified RBAC hält (aktiv oder eligible), gegen das, was sie tatsächlich getan hat. „Nicht genutzt“ steht nur da, wenn jede Quelle, die die Nutzung zeigen könnte, erfolgreich gelesen wurde; sonst ist die Berechtigung „nicht messbar“ und der Grund steht dabei.'],
+    'pc.summary': ['{0} permission(s) held but not used by {1} person(s) · {2} not measurable', '{0} Berechtigung(en) bei {1} Person(en) gehalten, aber nicht genutzt · {2} nicht messbar'],
+    'pc.src': ['Usage sources: {0}', 'Nutzungsquellen: {0}'],
+    'pcsrc.actions': ['response actions', 'Response-Aktionen'], 'pcsrc.alerts': ['alerts', 'Alerts'], 'pcsrc.audit': ['audit log', 'Audit-Log'],
+    'pcst.ok': ['read', 'gelesen'], 'pcst.off': ['not enabled', 'nicht aktiviert'], 'pcst.running': ['query running', 'Abfrage läuft'], 'pcst.started': ['query started, results next run', 'Abfrage gestartet, Ergebnisse beim nächsten Lauf'], 'pcst.failed': ['failed – see warnings', 'fehlgeschlagen – siehe Warnungen'],
+    'pc.status': ['Status', 'Status'], 'pc.reason': ['Why', 'Warum'], 'pc.via': ['Through role', 'Über Rolle'], 'pc.onlyUnused': ['Not used only', 'Nur nicht genutzte'],
+    'pcs.Used': ['used', 'genutzt'], 'pcs.Unused': ['not used', 'nicht genutzt'], 'pcs.NotMeasurable': ['not measurable', 'nicht messbar'],
+    'pcr.activity': ['activity recorded', 'Aktivität erfasst'], 'pcr.signIn': ['Defender portal sign-in or recorded action', 'Anmeldung am Defender-Portal oder erfasste Aktion'], 'pcr.checked': ['no activity in the sources that show it', 'keine Aktivität in den Quellen, die sie zeigen'],
+    'pcr.noSource': ['no Microsoft API shows the use of this permission', 'keine Microsoft-API zeigt die Nutzung dieser Berechtigung'], 'pcr.window': ['observation window still too short', 'Beobachtungszeitraum noch zu kurz'],
+    'pcr.off.actions': ['feature “Response” not enabled', 'Feature „Response“ nicht aktiviert'], 'pcr.off.alerts': ['feature “Response” not enabled', 'Feature „Response“ nicht aktiviert'], 'pcr.off.audit': ['feature “Audit” not enabled', 'Feature „Audit“ nicht aktiviert'],
+    'pcr.running.audit': ['audit log query still running', 'Audit-Log-Abfrage läuft noch'], 'pcr.started.audit': ['audit log query started – results with the next run', 'Audit-Log-Abfrage gestartet – Ergebnisse mit dem nächsten Lauf'],
+    'pcr.failed.actions': ['reading response actions failed', 'Lesen der Response-Aktionen fehlgeschlagen'], 'pcr.failed.alerts': ['reading alerts failed', 'Lesen der Alerts fehlgeschlagen'], 'pcr.failed.audit': ['reading the audit log failed', 'Lesen des Audit-Logs fehlgeschlagen'],
+    'pc.none': ['Nobody holds a unified RBAC permission.', 'Niemand hält eine Unified-RBAC-Berechtigung.'], 'pc.rerun': ['This view needs a newer access run – run the access module once.', 'Diese Ansicht braucht einen neueren Access-Lauf – das Access-Modul einmal ausführen.'], 'pu.used': ['used: {0}', 'genutzt: {0}'], 'pu.readOnly': ['read only', 'nur gelesen'],
+    'r.usageNote': ['Usage = last interactive sign-in to the Defender portal (security.microsoft.com) or last recorded action (response, alert triage, audit log), observed since {0}; “never used” after {1} days without a sign-in.', 'Nutzung = letzte interaktive Anmeldung am Defender-Portal (security.microsoft.com) oder letzte erfasste Aktion (Response, Alert-Bearbeitung, Audit-Log), beobachtet seit {0}; „nie genutzt“ nach {1} Tagen ohne Anmeldung.'],
     'r.bypass': ['Full access outside unified RBAC', 'Vollzugriff außerhalb von Unified RBAC'],
     'r.bypass.lede': ['These Entra roles keep access to the whole Defender portal regardless of unified RBAC – they do not appear in the role table above.', 'Diese Entra-Rollen behalten Zugriff auf das gesamte Defender-Portal unabhängig von Unified RBAC – in der Rollentabelle oben erscheinen sie nicht.'],
     'r.level': ['Impact', 'Auswirkung'], 'lvl.High': ['Full access', 'Vollzugriff'], 'lvl.Low': ['Read all', 'Alles lesen'],
@@ -219,7 +325,7 @@
     'lic.community.export': ['The export contains only the unmasked entries.', 'Der Export enthält nur die unmaskierten Einträge.'],
     'lic.status': ['Status', 'Status'], 'lic.customer': ['Licensed to', 'Lizenziert für'], 'lic.plan': ['Plan', 'Tarif'], 'lic.expires': ['Valid until', 'Gültig bis'], 'lic.id': ['Licence ID', 'Lizenz-ID'],
     'lic.tenant': ['Tenant', 'Tenant'], 'lic.source': ['Entered', 'Hinterlegt'], 'lic.src.Portal': ['in the portal by {0} on {1}', 'im Portal von {0} am {1}'], 'lic.src.AppSetting': ['at installation (-LicenseKey)', 'bei der Installation (-LicenseKey)'],
-    'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with WL1.)', 'Lizenzschlüssel (beginnt mit WL1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
+    'lic.enter': ['Enter licence key', 'Lizenzschlüssel eingeben'], 'lic.key': ['Licence key (starts with GP1.)', 'Lizenzschlüssel (beginnt mit GP1.)'], 'lic.save': ['Save licence', 'Lizenz speichern'],
     'lic.saved': ['Licence saved.', 'Lizenz gespeichert.'], 'lic.buy': ['Get a licence', 'Lizenz erwerben'], 'lic.days': ['{0} days left', 'noch {0} Tage'],
     'lic.st.None': ['No licence (Community edition)', 'Keine Lizenz (Community-Edition)'], 'lic.st.Valid': ['Valid', 'Gültig'], 'lic.st.ExpiringSoon': ['Expires soon', 'Läuft bald ab'],
     'lic.st.Expired': ['Expired', 'Abgelaufen'], 'lic.st.Invalid': ['Invalid key', 'Ungültiger Schlüssel'], 'lic.st.WrongTenant': ['Key belongs to another tenant', 'Schlüssel gehört zu einem anderen Tenant'],
@@ -244,8 +350,25 @@
     'ch.none': ['No changes yet. Deviations are recorded here from the second run on.', 'Noch keine Änderungen. Ab dem zweiten Lauf werden Abweichungen hier festgehalten.'],
     // office preview
     'office.title': ['Defender for Office 365 (private preview)', 'Defender for Office 365 (Private Preview)'],
-    'office.lede': ['Private draft from cyberdom365. This is a live workload probe and correlation starter, not a copy of the Defender UI.', 'Privater Draft aus cyberdom365. Das ist ein Live-Workload-Probe und Korrelations-Startpunkt, keine Kopie der Defender-UI.'],
+    'office.lede': ['What got through, and why: mail that Defender rates as phishing or malware and that is still in an inbox, the allows that delivered it, users who clicked past the Safe Links warning, and mail that spoofs your own domains. From Advanced Hunting, last 30 days.', 'Was durchkam, und warum: Mail, die Defender als Phishing oder Malware bewertet und die noch in einem Posteingang liegt, die Allows, die sie zugestellt haben, Benutzer, die die Safe-Links-Warnung übergangen haben, und Mail, die Ihre eigenen Domänen fälscht. Aus Advanced Hunting, letzte 30 Tage.'],
     'office.window': ['Window: last {0} days', 'Fenster: letzte {0} Tage'],
+    'v.purview': ['DLP overview', 'DLP-Übersicht'], 'v.purviewdevices': ['Endpoint DLP devices', 'Endpoint-DLP-Geräte'], 'v.purviewlicensing': ['Licences', 'Lizenzen'], 'v.purviewaccess': ['Permissions', 'Berechtigungen'], 'v.purviewhunting': ['Activity & audit', 'Aktivität & Audit'],
+    'pv.title': ['Purview DLP (private preview)', 'Purview DLP (Private Preview)'],
+    'pv.lede': ['Endpoint DLP coverage, Purview licences, DLP/label activity and configuration changes – data Purview spreads over many pages or does not show at all.', 'Endpoint-DLP-Abdeckung, Purview-Lizenzen, DLP-/Label-Aktivität und Konfigurationsänderungen – Daten, die Purview über viele Seiten verteilt oder gar nicht zeigt.'],
+    'pv.empty': ['No Purview data yet.', 'Noch keine Purview-Daten.'],
+    'pv.capable': ['DLP-capable devices', 'DLP-fähige Geräte'], 'pv.active': ['with DLP activity', 'mit DLP-Aktivität'], 'pv.silent': ['without DLP activity', 'ohne DLP-Aktivität'],
+    'pv.feed': ['Purview audit feed in Advanced Hunting', 'Purview-Audit-Feed in Advanced Hunting'], 'pv.feed.on': ['available', 'vorhanden'], 'pv.feed.off': ['missing', 'fehlt'],
+    'pv.feed.hint': ['CloudAppEvents contains no Purview audit records. Enable the Defender for Cloud Apps "Microsoft 365" connector – otherwise DLP activity, overrides, label changes and config changes stay empty.', 'CloudAppEvents enthält keine Purview-Audit-Einträge. Den Defender-for-Cloud-Apps-Connector „Microsoft 365“ aktivieren – sonst bleiben DLP-Aktivität, Overrides, Label- und Konfigurationsänderungen leer.'],
+    'pv.findings': ['Findings', 'Befunde'], 'pv.alerts': ['DLP alerts (30 days)', 'DLP-Alerts (30 Tage)'], 'pv.labels': ['Sensitivity labels', 'Vertraulichkeitsbezeichnungen'], 'pv.labels.na': ['Not available – grant InformationProtectionPolicy.Read.All.', 'Nicht verfügbar – InformationProtectionPolicy.Read.All erteilen.'],
+    'pv.device': ['Device', 'Gerät'], 'pv.platform': ['Platform', 'Plattform'], 'pv.lastSeen': ['Last seen (MDE)', 'Zuletzt gesehen (MDE)'], 'pv.dlpState': ['Endpoint DLP', 'Endpoint DLP'], 'pv.events': ['Events', 'Ereignisse'], 'pv.lastDlp': ['Last DLP event', 'Letztes DLP-Ereignis'], 'pv.ops': ['Activities', 'Aktivitäten'], 'pv.yes': ['active', 'aktiv'], 'pv.no': ['no activity', 'keine Aktivität'],
+    'pv.cap': ['Capability', 'Funktion'], 'pv.licensed': ['Licensed', 'Lizenziert'], 'pv.units': ['Units (assigned/purchased)', 'Einheiten (zugewiesen/gekauft)'], 'pv.skus': ['From SKUs / service plans', 'Aus SKUs / Service-Plänen'], 'pv.users': ['Users holding the plan', 'Benutzer mit Plan'],
+    'pv.u.endpointdlp': ['Endpoint DLP (MICROSOFTENDPOINTDLP)', 'Endpoint DLP (MICROSOFTENDPOINTDLP)'], 'pv.u.mipPremium': ['Information Protection Premium (MIP_S_CLP2)', 'Information Protection Premium (MIP_S_CLP2)'], 'pv.u.mipStandard': ['Information Protection Standard (MIP_S_CLP1)', 'Information Protection Standard (MIP_S_CLP1)'], 'pv.u.insiderRisk': ['Insider Risk (INSIDER_RISK)', 'Insider Risk (INSIDER_RISK)'],
+    'pv.role': ['Role', 'Rolle'], 'pv.principal': ['Principal', 'Principal'], 'pv.assignment': ['Assignment', 'Zuweisung'], 'pv.scope': ['What it allows', 'Was sie erlaubt'], 'pv.type': ['Type', 'Typ'],
+    'pv.probe': ['Probe', 'Abfrage'], 'pv.status': ['Status', 'Status'], 'pv.rows': ['Rows', 'Zeilen'], 'pv.notes': ['Limits', 'Grenzen'],
+    'pv.lic.lede': ['Which Purview capabilities the tenant owns, from which SKU/add-on, and how many users actually hold the key plans.', 'Welche Purview-Funktionen der Tenant besitzt, aus welcher SKU/welchem Add-on, und wie viele Benutzer die Schlüssel-Pläne tatsächlich haben.'],
+    'pv.dev.lede': ['Onboarded Windows 10/11 and macOS devices are Endpoint DLP capable once device onboarding is on in Purview. Devices without any DLPEndpoint audit event in 30 days are likely not covered by a policy.', 'Onboarded Windows-10/11- und macOS-Geräte sind Endpoint-DLP-fähig, sobald das Geräte-Onboarding in Purview aktiv ist. Geräte ohne DLPEndpoint-Audit-Ereignis in 30 Tagen sind vermutlich von keiner Richtlinie erfasst.'],
+    'pv.acc.lede': ['Entra roles with Purview/DLP reach – active and PIM-eligible. Purview role groups have no Graph API and are not listed.', 'Entra-Rollen mit Purview-/DLP-Reichweite – aktiv und PIM-berechtigt. Purview-Rollengruppen haben keine Graph-API und fehlen hier.'],
+    'pv.hunt.lede': ['Advanced Hunting probes for security and audit: rule matches, overrides, exfil channels, label downgrades, who changed DLP/label/audit settings.', 'Advanced-Hunting-Abfragen für Security und Audit: Regel-Treffer, Overrides, Exfil-Kanäle, Label-Herabstufungen, wer DLP-/Label-/Audit-Einstellungen geändert hat.'],
     'office.probes': ['Probes: {0} ok, {1} errors', 'Probes: {0} ok, {1} Fehler'],
     'office.kpi': ['Quick KPIs', 'Schnell-KPIs'],
     'office.kpi.threatEvents': ['Threat events (30d)', 'Threat-Events (30T)'],
@@ -295,7 +418,7 @@
     'office.nextStep': ['Next step', 'Nächster Schritt'],
     'office.none': ['None', 'Keine'],
     'office.policyMap': ['Effective policy map (preview)', 'Effective Policy-Map (Preview)'],
-    'office.policyMap.lede': ['Top recipients/domains by observed policy activity and effective actions.', 'Top-Empfänger/-Domänen nach beobachteter Policy-Aktivität und effektiven Aktionen.'],
+    'office.policyMap.lede': ['Which protection acted on inbound mail, which organisation-level policies allowed or blocked it – and which allows come from the recipients’ own mailbox policies.', 'Welcher Schutz bei eingehender Mail gegriffen hat, welche Richtlinien auf Organisationsebene sie erlaubt oder blockiert haben – und welche Allows aus den eigenen Postfachregeln der Empfänger stammen.'],
     'office.map.users': ['Top recipients', 'Top-Empfänger'],
     'office.map.domains': ['Top domains', 'Top-Domänen'],
     'office.map.recipient': ['Recipient', 'Empfänger'],
@@ -305,12 +428,12 @@
     'office.map.actions': ['Actions', 'Aktionen'],
     'office.map.policySet': ['Policy set', 'Policy-Set'],
     'office.map.none': ['No policy-map rows in the current window (often because user-level policy fields are empty in telemetry).', 'Keine Policy-Map-Zeilen im aktuellen Fenster (häufig weil User-Level-Policy-Felder in der Telemetrie leer sind).'],
-    'office.empty': ['No Office preview data yet. Upload office-preview-latest.json to the state container.', 'Noch keine Office-Preview-Daten. office-preview-latest.json in den State-Container hochladen.'],
+    'office.empty': ['No Office data yet. Start a run with “Collect now”.', 'Noch keine Office-Daten. Mit „Jetzt erfassen“ einen Lauf starten.'],
     'office.result.apChanges': ['{0} audited anti-phish cmdlet calls (30d), {1} new, {2} in history', '{0} auditierte Anti-Phish-Cmdlet-Aufrufe (30T), {1} neu, {2} in der Historie'],
     'office.result.apOutcomes': ['{0} day/policy/outcome rows over {1} days, {2} policies', '{0} Tag/Policy/Ausgang-Zeilen über {1} Tage, {2} Policies'],
     'ap.title': ['Anti-phish drift (preview)', 'Anti-Phishing-Drift (Preview)'],
     'ap.page.title': ['Anti-phish drift (private preview)', 'Anti-Phishing-Drift (Private Preview)'],
-    'pm.page.title': ['Effective policy map (private preview)', 'Effective Policy-Map (Private Preview)'],
+    'pm.page.title': ['Policy map (private preview)', 'Policy-Map (Private Preview)'],
     'office.goto.antiphish': ['Anti-phish drift has its own page →', 'Anti-Phishing-Drift hat eine eigene Seite →'],
     'office.goto.policymap': ['Policy map has its own page →', 'Die Policy-Map hat eine eigene Seite →'],
     'ap.lede': ['Tracks who changed which anti-phish policy setting (phishing threshold 1–4, impersonation/spoof actions, exclusions) and what happened to phish-classified mail per policy before and after. Settings come from the Exchange admin audit trail; outcomes from mail telemetry.', 'Zeigt, wer welche Anti-Phishing-Einstellung geändert hat (Phishing-Threshold 1–4, Impersonation-/Spoof-Aktionen, Ausnahmen) und was danach mit als Phishing erkannter Post pro Policy passiert ist. Einstellungen stammen aus dem Exchange-Admin-Audit, Ausgänge aus der Mail-Telemetrie.'],
@@ -403,7 +526,7 @@
     'li.clientsShared': ['shared, kiosk or VDI clients', 'geteilte, Kiosk- oder VDI-Clients'], 'li.clientsNoUserPersonal': ['personal clients without any user seen', 'persönliche Clients ohne erkannten Benutzer'], 'li.svcAccounts': ['service / admin accounts ignored', 'Dienst-/Admin-Konten ignoriert'],
     'li.sharedDeviceCount': ['Shared devices', 'Geteilte Geräte'], 'li.sharedDevices.hint': ['Shared, kiosk and VDI devices the user was seen on – they do not count against the limit.', 'Geteilte, Kiosk- und VDI-Geräte, auf denen der Benutzer gesehen wurde – sie zählen nicht gegen das Limit.'],
     'li.serversTable': ['Servers', 'Server'], 'li.servers.lede': ['Onboarded servers are licensed per server (Defender for Servers via Defender for Cloud, or Defender for Endpoint for Servers). Microsoft Graph does not show these; the count is here so you can reconcile it with Azure.', 'Onboardete Server werden pro Server lizenziert (Defender for Servers über Defender for Cloud oder Defender for Endpoint for Servers). Microsoft Graph zeigt diese nicht; die Zahl steht hier zum Abgleich mit Azure.'],
-    'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (WL_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (WL_LICENSING_DETAIL=aggregate).'],
+    'li.caveats': ['Read before acting', 'Vor dem Handeln lesen'], 'li.aggregate': ['User details are pseudonymised in this installation (GAPSIO_LICENSING_DETAIL=aggregate).', 'Benutzerdetails sind in dieser Installation pseudonymisiert (GAPSIO_LICENSING_DETAIL=aggregate).'],
     'li.none': ['No data.', 'Keine Daten.'], 'li.window': ['Observation window: {0} days · device allowance per user used for the hint: {1}', 'Beobachtungszeitraum: {0} Tage · für den Hinweis verwendete Gerätegrenze pro Benutzer: {1}'],
     'dv.sigver': ['Signature version', 'Signaturversion'], 'dv.engver': ['Engine / platform', 'Engine / Plattform'], 'dv.sigtime': ['Signatures published', 'Signaturen veröffentlicht'],
     'dv.target': ['Target', 'Soll'], 'dv.effective': ['On the device', 'Auf dem Gerät'], 'dv.none': ['None.', 'Keine.'],
@@ -469,7 +592,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, purview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -940,6 +1063,7 @@
   async function loadLicensing(force) { if (!state.licensing || force) state.licensing = await api('licensing'); return state.licensing; }
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadOfficePreview(force) { if (!state.officePreview || force) state.officePreview = await api('officepreview'); return state.officePreview; }
+  async function loadPurview(force) { if (!state.purview || force) state.purview = await api('purviewpreview'); return state.purview; }
   async function loadAcceptances(force) {
     if (!state.acceptances || force) {
       await Promise.all([
@@ -1155,7 +1279,7 @@
           columns: [
             { title: t('ap.col.when'), text: r => fmtDate(r.ts) },
             { title: t('ap.col.policy'), text: r => r.policy || '–' },
-            { title: t('ap.col.cmdlet'), cell: r => h('span', { class: 'mono' }, r.cmdlet || '–'), text: r => r.cmdlet || '' },
+            { title: t('ap.col.cmdlet'), cell: r => h('span', { class: 'mono nowrap' }, r.cmdlet || '–'), text: r => r.cmdlet || '' },
             { title: t('ap.col.actor'), text: r => r.actor || '–' },
             { title: t('ap.col.direction'), cell: r => dirBadge(evDir(r)), text: r => t(`ap.dir.${evDir(r)}`) },
             { title: t('ap.col.changes'), cell: r => arr(r.diffs).length ? h('ul', { class: 'plain small' }, arr(r.diffs).map(diffLine)) : h('span', { class: 'muted' }, '–'), text: r => arr(r.diffs).map(d => `${d.setting}: ${d.before ?? ''} → ${d.after}`).join('; ') }
@@ -1260,49 +1384,28 @@
     }
     else main.append(h('p', { class: 'muted small' }, t('office.empty')));
   }
-  /** Office preview: effective policy map page. */
+  /** Office preview: which policy acted on inbound mail (EmailActionPolicy, organisation-level and mailbox policies). */
   function renderPolicyMap(main, rows) {
-    const mapUsersProbe = rows.find(r => r.key === 'effective_policy_map_users');
-    const mapDomainsProbe = rows.find(r => r.key === 'effective_policy_map_domains');
-    const mapUsers = arr(mapUsersProbe?.result);
-    const mapDomains = arr(mapDomainsProbe?.result);
-    if (mapUsersProbe || mapDomainsProbe) {
-      if (mapUsers.length) {
-        main.append(h('h4', null, t('office.map.users')));
-        main.append(dataTable({
-          name: 'office-policy-map-users', rows: mapUsers,
-          sort: (a, b) => (b.events || 0) - (a.events || 0),
-          search: r => `${r.Recipient || ''} ${arr(r.actions).join(' ')} ${arr(r.policySet).join(' ')}`,
-          columns: [
-            { title: t('office.map.recipient'), text: r => r.Recipient || '–' },
-            { title: t('office.map.events'), text: r => num(r.events || 0) },
-            { title: t('office.map.policies'), text: r => num(r.policies || 0) },
-            { title: t('office.map.actions'), text: r => arr(r.actions).join(', ') || '–' },
-            { title: t('office.map.policySet'), text: r => arr(r.policySet).join(', ') || '–' }
-          ]
-        }));
-      }
-      else {
-        main.append(h('p', { class: 'muted small' }, t('office.map.none')));
-      }
-      if (mapDomains.length) {
-        main.append(h('h4', null, t('office.map.domains')));
-        main.append(dataTable({
-          name: 'office-policy-map-domains', rows: mapDomains,
-          sort: (a, b) => (b.events || 0) - (a.events || 0),
-          search: r => `${r.Domain || ''} ${arr(r.actions).join(' ')} ${arr(r.policySet).join(' ')}`,
-          columns: [
-            { title: t('office.map.domain'), text: r => r.Domain || '–' },
-            { title: t('office.map.events'), text: r => num(r.events || 0) },
-            { title: t('x.users'), text: r => num(r.users || 0) },
-            { title: t('office.map.policies'), text: r => num(r.policies || 0) },
-            { title: t('office.map.actions'), text: r => arr(r.actions).join(', ') || '–' },
-            { title: t('office.map.policySet'), text: r => arr(r.policySet).join(', ') || '–' }
-          ]
-        }));
-      }
-    }
-    else main.append(h('p', { class: 'muted small' }, t('office.map.none')));
+    const row = k => rows.find(r => r.key === k);
+    const section = (key, title, lede, columns, search) => {
+      main.append(h('h2', null, title), h('p', { class: 'lede' }, lede));
+      const r = row(key);
+      if (!r) { main.append(h('p', { class: 'muted small' }, t('om.oldData'))); return; }
+      if (r.status !== 'ok') { main.append(h('p', { class: 'muted small' }, t('om.probeFailed', r.error || ''))); return; }
+      main.append(dataTable({ name: `office-${key}`, rows: arr(r.result), sort: (a, b) => (b.messages || 0) - (a.messages || 0), search, columns, empty: t('om.none') }));
+    };
+    section('policy_actions', t('om.pm.actions'), t('om.pm.actions.lede'), [
+      { title: t('om.col.protection'), text: r => r.EmailActionPolicy || '–' }, { title: t('om.col.action'), text: r => r.EmailAction || '–' },
+      { title: t('om.col.messages'), text: r => num(r.messages) }, { title: t('om.col.recipients'), text: r => num(r.recipients) }], r => `${r.EmailActionPolicy || ''} ${r.EmailAction || ''}`);
+    const isAllow = v => /allow/i.test(v || '');
+    const cols = (pol, act) => [
+      { title: t('x.policy'), text: r => r[pol] || '–' },
+      { title: t('om.col.action'), cell: r => h('span', { class: isAllow(r[act]) ? 'tag warn' : 'tag' }, r[act] || '–'), text: r => r[act] || '–' },
+      { title: t('om.col.messages'), text: r => num(r.messages) },
+      { title: t('om.col.withThreat'), cell: r => r.withThreat && isAllow(r[act]) ? h('b', { class: 'bad' }, num(r.withThreat)) : num(r.withThreat), text: r => String(r.withThreat || 0) },
+      { title: t('om.col.delivered'), text: r => num(r.delivered) }, { title: t('om.col.recipients'), text: r => num(r.recipients) }];
+    section('org_policies', t('om.pm.org'), t('om.pm.org.lede'), cols('OrgLevelPolicy', 'OrgLevelAction'), r => `${r.OrgLevelPolicy || ''} ${r.OrgLevelAction || ''}`);
+    section('mailbox_policies', t('om.pm.mailbox'), t('om.pm.mailbox.lede'), cols('UserLevelPolicy', 'UserLevelAction'), r => `${r.UserLevelPolicy || ''} ${r.UserLevelAction || ''}`);
   }
 
   const views = {
@@ -1343,7 +1446,11 @@
           s.coverageGaps !== undefined ? fact(num(s.coverageGaps), t('ov.coverage')) : null, s.unusedExclusions !== undefined ? fact(num(s.unusedExclusions), t('ov.unused')) : null,
           s.fleet ? fact(num(s.fleet.tampering30d), t('ov.tampering')) : null, s.fleet ? fact(num(s.fleet.internetFacingHigh), t('ov.inetHigh')) : null,
           s.fleet && s.fleet.inactive90d !== null && s.fleet.inactive90d !== undefined ? fact(num(s.fleet.inactive90d), t('ov.inactive')) : null,
-          s.fleet && s.fleet.thirdPartyAv ? fact(num(s.fleet.thirdPartyAv), t('ov.thirdParty')) : null));
+          s.fleet && s.fleet.thirdPartyAv ? fact(num(s.fleet.thirdPartyAv), t('ov.thirdParty')) : null,
+          s.policyConflicts ? fact(num(s.policyConflicts), t('ov.conflicts')) : null,
+          s.usbWithoutPolicy ? fact(num(s.usbWithoutPolicy), t('ov.usb')) : null,
+          s.disruptionGaps ? fact(num(s.disruptionGaps), t('ov.disruption')) : null,
+          s.detectionRulesOff ? fact(t('ov.of', s.detectionRulesOff, s.detectionRules || 0), t('ov.detections')) : null));
       } else {
         main.append(noData(epErr, 'endpoint'));
       }
@@ -1390,13 +1497,14 @@
 
     async findings(main, params) {
       main.append(h('h1', null, t('v.findings')), h('p', { class: 'lede' }, t('f.lede')));
-      let ep = null, ag = null, ac = null, li = null, err = null;
+      let ep = null, ag = null, ac = null, li = null, of = null, err = null;
       await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null,
-        hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null, hasMod('licensing') ? loadLicensing().then(x => li = x).catch(() => null) : null]);
-      if (!ep && !ag && !ac && !li) { main.append(noData(err, 'endpoint')); return; }
+        hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null, hasMod('licensing') ? loadLicensing().then(x => li = x).catch(() => null) : null,
+        hasMod('officepreview') ? loadOfficePreview().then(x => of = x).catch(() => null) : null]);
+      if (!ep && !ag && !ac && !li && !of) { main.append(noData(err, 'endpoint')); return; }
       await loadAcceptances();
       const acc = acceptedMap(), asg = assignedMap();
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' })), ...arr(li && li.findings).map(f => ({ ...f, module: 'licensing' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' })), ...arr(li && li.findings).map(f => ({ ...f, module: 'licensing' })), ...arr(of && of.findings).filter(f => f && f.key).map(f => ({ ...f, module: 'officepreview' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
       const assignees = [...new Set(rows.filter(r => r.assigned).map(r => r.assigned.displayName))].sort();
       const table = dataTable({
@@ -2037,355 +2145,513 @@
       }
     },
 
+    async purviewdevices(main, params) { return views.purview(main, params, 'devices'); },
+    async purviewlicensing(main, params) { return views.purview(main, params, 'licensing'); },
+    async purviewaccess(main, params) { return views.purview(main, params, 'access'); },
+    async purviewhunting(main, params) { return views.purview(main, params, 'hunting'); },
+
+    async purview(main, params, section = 'overview') {
+      const ledes = { overview: 'pv.lede', devices: 'pv.dev.lede', licensing: 'pv.lic.lede', access: 'pv.acc.lede', hunting: 'pv.hunt.lede' };
+      const titles = { overview: 'pv.title', devices: 'v.purviewdevices', licensing: 'v.purviewlicensing', access: 'v.purviewaccess', hunting: 'v.purviewhunting' };
+      main.append(h('h1', null, t(titles[section])), h('p', { class: 'lede' }, t(ledes[section])));
+      let o; try { o = await loadPurview(); } catch (e) { main.append(noData(e, 'purviewpreview')); return; }
+      if (!o || !arr(o.results).length) { main.append(h('div', { class: 'empty' }, t('pv.empty'))); return; }
+      const s = o.summary || {};
+      const byKey = Object.fromEntries(arr(o.results).map(r => [r.key, r]));
+      const res = k => arr((byKey[k] || {}).result);
+      main.append(h('div', { class: 'facts' },
+        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('office.probes', num(o.ok || 0), num(o.errors || 0)))),
+        h('div', { class: 'fact' }, h('b', null, num(s.capableDevices || 0)), h('span', null, t('pv.capable'))),
+        h('div', { class: 'fact' }, h('b', null, num(s.dlpActiveDevices || 0)), h('span', null, t('pv.active'))),
+        h('div', { class: 'fact' }, h('b', null, num(s.silentDevices || 0)), h('span', null, t('pv.silent'))),
+        h('div', { class: 'fact' }, h('b', null, t(s.auditFeed ? 'pv.feed.on' : 'pv.feed.off')), h('span', null, t('pv.feed')))));
+      if (!s.auditFeed) main.append(h('p', { class: 'muted small' }, t('pv.feed.hint')));
+
+      if (section === 'overview') {
+        const findings = arr(o.findings);
+        if (findings.length) {
+          main.append(h('h3', null, t('pv.findings')));
+          main.append(dataTable({
+            name: 'purview-findings', rows: findings,
+            search: f => `${tx(f.title)} ${tx(f.detail)} ${f.severity || ''}`,
+            filters: [{ label: t('f.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
+            columns: [
+              { title: t('f.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
+              { title: t('f.finding'), text: f => tx(f.title) },
+              { title: t('f.description'), text: f => tx(f.detail) },
+              { title: t('f.recommendation'), text: f => tx(f.recommendation) }
+            ]
+          }));
+        }
+        const daily = res('dlp_alerts_daily');
+        if (daily.length) {
+          const keys = [
+            { id: 'High', label: 'High', color: 'var(--sev-hoch)' }, { id: 'Medium', label: 'Medium', color: 'var(--sev-mittel)' },
+            { id: 'Low', label: 'Low', color: 'var(--sev-ok)' }, { id: 'Informational', label: 'Info', color: 'var(--muted)' }
+          ];
+          const byDay = {};
+          for (const r of daily) { const d = dayKey(r.day); if (!d) continue; const b = byDay[d] || (byDay[d] = {}); b[r.bucket] = (b[r.bucket] || 0) + Number(r.events || 0); }
+          main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('pv.alerts'), buckets: lastDays(30).map(d => ({ id: d, label: dayShort(d), title: dayLong(d), values: byDay[d] || {}, empty: !byDay[d] })), keys }));
+        }
+        const alerts = res('dlp_alerts');
+        if (alerts.length) main.append(dataTable({ name: 'purview-alerts', rows: alerts, search: r => `${r.Title} ${r.Severity}`,
+          columns: [{ title: t('f.severity'), text: r => r.Severity || '' }, { title: t('col.title'), text: r => r.Title || '' }, { title: t('pv.events'), text: r => num(r.alerts || 0) }, { title: t('pv.lastDlp'), text: r => fmtDate(r.LastEvent) }] }));
+        main.append(h('h3', null, t('pv.labels')));
+        if (o.labels == null) main.append(h('p', { class: 'muted small' }, t('pv.labels.na')));
+        else main.append(dataTable({ name: 'purview-labels', rows: arr(o.labels), search: l => `${l.name} ${l.parent}`,
+          columns: [{ title: 'Label', text: l => (l.parent ? `${l.parent} / ` : '') + (l.name || '') }, { title: 'Sensitivity', text: l => String(l.sensitivity ?? '') }, { title: 'Active', text: l => String(l.isActive ?? '') }, { title: 'Formats', text: l => arr(l.contentFormats).join(', ') }] }));
+        if (arr(o.notes).length) main.append(h('details', { class: 'warnings' }, h('summary', null, t('pv.notes')), h('ul', null, arr(o.notes).map(n => h('li', null, n)))));
+        if (arr(o.warnings).length) main.append(h('details', { class: 'warnings' }, h('summary', null, `Warnings (${arr(o.warnings).length})`), h('ul', null, arr(o.warnings).map(n => h('li', { class: 'small' }, n)))));
+        return;
+      }
+
+      if (section === 'devices') {
+        main.append(dataTable({
+          name: 'purview-devices', rows: arr(o.devices),
+          sort: (a, b) => (a.dlpActive === b.dlpActive ? 0 : a.dlpActive ? 1 : -1) || String(a.device).localeCompare(String(b.device)),
+          search: d => `${d.device} ${d.platform} ${arr(d.operations).join(' ')}`,
+          filters: [{ label: t('pv.dlpState'), options: [t('pv.yes'), t('pv.no')], test: (d, v) => (d.dlpActive ? t('pv.yes') : t('pv.no')) === v }],
+          columns: [
+            { title: t('pv.device'), text: d => d.device },
+            { title: t('pv.platform'), text: d => `${d.platform || ''} ${d.osVersion || ''}`.trim() },
+            { title: t('pv.lastSeen'), text: d => fmtDate(d.lastSeen) },
+            { title: t('pv.dlpState'), cell: d => h('span', { class: `sev sev-${d.dlpActive ? 'Low' : 'Medium'}` }, d.dlpActive ? t('pv.yes') : t('pv.no')), text: d => d.dlpActive ? t('pv.yes') : t('pv.no') },
+            { title: t('pv.events'), text: d => num(d.dlpEvents || 0) },
+            { title: t('pv.lastDlp'), text: d => d.dlpLast ? fmtDate(d.dlpLast) : '–' },
+            { title: t('pv.ops'), text: d => arr(d.operations).join(', ') }
+          ]
+        }));
+        const plat = res('devices_platform');
+        if (plat.length) main.append(h('h3', null, t('pv.platform')), dataTable({ name: 'purview-platforms', rows: plat,
+          columns: [{ title: t('pv.platform'), text: r => r.OSPlatform }, { title: 'Onboarded', text: r => num(r.devices || 0) }, { title: t('pv.capable'), text: r => num(r.capable || 0) }] }));
+        return;
+      }
+
+      if (section === 'licensing') {
+        const lic = o.licensing;
+        if (!lic) { main.append(h('p', { class: 'muted' }, t('pv.empty'))); return; }
+        main.append(h('div', { class: 'facts' }, ...Object.entries(lic.users || {}).map(([k, v]) => h('div', { class: 'fact' }, h('b', null, v == null ? '–' : num(v)), h('span', null, t(`pv.u.${k}`))))));
+        main.append(dataTable({
+          name: 'purview-capabilities', rows: arr(lic.capabilities),
+          search: c => `${c.label} ${arr(c.sources).map(x => x.skuPartNumber).join(' ')}`,
+          filters: [{ label: t('pv.licensed'), options: ['✓', '✗'], test: (c, v) => (c.licensed ? '✓' : '✗') === v }],
+          columns: [
+            { title: t('pv.cap'), text: c => c.label },
+            { title: t('pv.licensed'), cell: c => h('span', { class: `sev sev-${c.licensed ? 'Low' : 'High'}` }, c.licensed ? '✓' : '✗'), text: c => c.licensed ? '✓' : '✗' },
+            { title: t('pv.units'), text: c => c.licensed ? `${num(c.consumed)}/${num(c.enabled)}` : '–' },
+            { title: t('pv.skus'), text: c => arr(c.sources).map(x => `${x.skuPartNumber} (${num(x.consumed)}/${num(x.enabled)}): ${arr(x.plans).join(', ')}`).join(' · ') }
+          ]
+        }));
+        return;
+      }
+
+      if (section === 'access') {
+        main.append(dataTable({
+          name: 'purview-roles', rows: arr(o.roles),
+          search: r => `${r.role} ${r.principal} ${r.upn}`,
+          filters: [
+            { label: t('pv.role'), options: [...new Set(arr(o.roles).map(r => r.role))], test: (r, v) => r.role === v },
+            { label: t('pv.assignment'), options: ['active', 'eligible'], test: (r, v) => r.assignment === v }
+          ],
+          columns: [
+            { title: t('pv.role'), text: r => r.role },
+            { title: t('pv.principal'), text: r => r.upn || r.principal || '' },
+            { title: t('pv.type'), text: r => r.type || '' },
+            { title: t('pv.assignment'), text: r => r.assignment },
+            { title: t('pv.scope'), text: r => r.scope }
+          ]
+        }));
+        return;
+      }
+
+      // hunting
+      for (const r of arr(o.results).filter(r => !['devices_capable', 'devices_platform', 'dlp_alerts_daily'].includes(r.key))) {
+        const rowsIn = arr(r.result);
+        main.append(h('h3', null, r.title), h('p', { class: 'muted small' }, `${r.workload} · ${r.status === 'ok' ? `${num(rowsIn.length)} ${t('pv.rows')}` : `error: ${r.error || ''}`}`));
+        if (!rowsIn.length) continue;
+        const cols = Object.keys(rowsIn[0]);
+        main.append(dataTable({ name: `purview-h-${r.key}`, rows: rowsIn, search: x => cols.map(c => String(x[c] ?? '')).join(' '),
+          columns: cols.map(c => ({ title: c, text: x => { const v = x[c]; return Array.isArray(v) ? v.join(', ') : (/^(LastEvent|FirstEvent|LastSeen|Timestamp|day)$/i.test(c) ? fmtDate(v) : String(v ?? '')); } })) }));
+      }
+    },
+
     async officeantiphish(main, params) { return views.officepreview(main, params, 'antiphish'); },
     async officepolicymap(main, params) { return views.officepreview(main, params, 'policymap'); },
 
     async officepreview(main, params, section = 'overview') {
       const title = section === 'antiphish' ? t('ap.page.title') : section === 'policymap' ? t('pm.page.title') : t('office.title');
       main.append(h('h1', null, title), h('p', { class: 'lede' }, section === 'antiphish' ? t('ap.lede') : section === 'policymap' ? t('office.policyMap.lede') : t('office.lede')));
-      let o; try { o = await loadOfficePreview(); } catch (e) { main.append(noData(e, 'all')); return; }
+      let o; try { o = await loadOfficePreview(); } catch (e) { main.append(noData(e, 'officepreview')); return; }
       const rows = arr(o.results);
-      const findings = arr(o.findings);
       if (!rows.length) { main.append(h('div', { class: 'empty' }, t('office.empty'))); return; }
+      if (!o.schema || o.schema < 4) main.append(h('p', { class: 'muted small' }, t('om.oldData')));
+      const fact = (b, s) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, s));
       main.append(h('div', { class: 'facts' },
-        h('div', { class: 'fact' }, h('b', null, fmtDate(o.generatedAt)), h('span', null, t('loading').replace(' …', ''))),
-        h('div', { class: 'fact' }, h('b', null, t('office.window', num(o.windowDays || 0))), h('span', null, t('office.probes', num(o.ok || 0), num(o.errors || 0))))));
+        fact(fmtDate(o.generatedAt), t('office.collected')), fact(t('office.window', num(o.windowDays || 0)), t('office.probes', num(o.ok || 0), num(o.errors || 0)))));
       if (section === 'antiphish') { renderAntiPhish(main, o, params); return; }
       if (section === 'policymap') { renderPolicyMap(main, rows); return; }
 
       const byKey = Object.fromEntries(rows.map(r => [r.key, r]));
-      const one = (k) => arr((byKey[k] || {}).result)[0] || null;
-      const threatTrendRows = arr((byKey.threat_trend_daily || {}).result);
-      const actionTrendRows = arr((byKey.action_trend_daily || {}).result);
-      const xOverride = one('override_exposure');
-      const xSafe = one('safelinks_clickthrough');
-      const xTabl = one('tabl_ioc_coverage');
-
-      const threatEvents = threatTrendRows.reduce((a, r) => a + Number(r.events || 0), 0);
-      const allowOutcomes = actionTrendRows.filter(r => r.bucket === 'Allow').reduce((a, r) => a + Number(r.events || 0), 0);
-      const clickUsers = xSafe && xSafe.uniqueUsers !== undefined ? Number(xSafe.uniqueUsers || 0) : null;
-      const tablActive = xTabl && xTabl.active !== undefined ? Number(xTabl.active || 0) : null;
-      const overrides = xOverride && xOverride.overridden !== undefined ? Number(xOverride.overridden || 0) : null;
-
-      main.append(h('h3', null, t('office.kpi')));
+      const okRow = k => byKey[k] && byKey[k].status === 'ok';
+      const one = k => okRow(k) ? (arr(byKey[k].result)[0] || {}) : null;   // null: the probe failed or is missing – never shown as 0
+      const many = k => okRow(k) ? arr(byKey[k].result) : [];
+      const val = (k, f) => { const x = one(k); return x === null ? '–' : num(x[f] || 0); };
+      const pd = one('post_delivery');
       main.append(h('div', { class: 'facts' },
-        h('div', { class: 'fact' }, h('b', null, num(threatEvents)), h('span', null, t('office.kpi.threatEvents'))),
-        h('div', { class: 'fact' }, h('b', null, num(allowOutcomes)), h('span', null, t('office.kpi.allowOutcomes'))),
-        h('div', { class: 'fact' }, h('b', null, clickUsers === null ? t('office.kpi.na') : num(clickUsers)), h('span', null, t('office.kpi.clickUsers'))),
-        h('div', { class: 'fact' }, h('b', null, tablActive === null ? t('office.kpi.na') : num(tablActive)), h('span', null, t('office.kpi.tablActive'))),
-        h('div', { class: 'fact' }, h('b', null, overrides === null ? t('office.kpi.na') : num(overrides)), h('span', null, t('office.kpi.overrides')))
-      ));
+        fact(val('threat_in_inbox', 'inInbox'), t('om.kpi.inbox')), fact(val('threat_allowed', 'messages'), t('om.kpi.allowed')),
+        fact(val('safelinks_clicks', 'clickedThrough'), t('om.kpi.clicks')), fact(val('own_domain_spoof', 'dmarcFailDelivered'), t('om.kpi.spoof')),
+        fact(pd === null ? '–' : num((pd.phishZap || 0) + (pd.malwareZap || 0)), t('om.kpi.zap'))));
+      const probeTitle = r => L[`op.${r.key}`] ? t(`op.${r.key}`) : (r.title || r.key);
+      const failed = rows.filter(r => r.status !== 'ok');
+      if (failed.length) main.append(h('details', { class: 'warnings', open: true }, h('summary', null, t('om.failedN', failed.length)),
+        h('ul', null, failed.map(r => h('li', { class: 'small' }, `${probeTitle(r)}: ${r.error || ''}`)))));
 
-      const threatTrend = threatTrendRows;
-      const actionTrend = actionTrendRows;
-      const actionValues = arr((byKey.action_values_top || {}).result);
-      const campaigns = arr((byKey.campaign_top || {}).result);
-      if (threatTrend.length || actionTrend.length || actionValues.length || campaigns.length) {
-        main.append(h('h3', null, t('office.dashboard')), h('p', { class: 'muted small' }, t('office.dashboard.lede')));
-        const days = lastDays(30);
-        const threatKeys = [
-          { id: 'Phish', label: 'Phish', color: 'var(--sev-hoch)' },
-          { id: 'Malware', label: 'Malware', color: 'var(--sev-krit)' },
-          { id: 'Spam', label: 'Spam', color: 'var(--sev-mittel)' },
-          { id: 'Bulk', label: 'Bulk', color: 'var(--sev-ok)' },
-          { id: 'Other', label: 'Other', color: 'var(--muted)' }
-        ];
-        const actionKeys = [
-          { id: 'Block', label: 'Block', color: 'var(--sev-krit)' },
-          { id: 'Quarantine', label: 'Quarantine', color: 'var(--sev-hoch)' },
-          { id: 'Junk', label: 'Junk', color: 'var(--sev-mittel)' },
-          { id: 'Allow', label: 'Allow/Deliver', color: 'var(--sev-ok)' },
-          { id: 'NoActionData', label: t('office.chart.noAction'), color: 'var(--muted)' },
-          { id: 'Other', label: 'Other', color: 'var(--muted)' }
-        ];
-        const trendBuckets = (rowsIn, keys) => {
-          const byDay = {};
-          for (const r of rowsIn) {
-            const d = dayKey(r.day);
-            if (!d) continue;
-            const b = byDay[d] || (byDay[d] = {});
-            b[r.bucket] = (b[r.bucket] || 0) + Number(r.events || 0);
-          }
-          return days.map(d => ({ id: d, label: dayShort(d), title: dayLong(d), values: byDay[d] || {}, empty: !byDay[d] }));
-        };
-        if (threatTrend.length) main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('office.chart.threat'), buckets: trendBuckets(threatTrend, threatKeys), keys: threatKeys }));
-        if (actionTrend.length) main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('office.chart.actions'), buckets: trendBuckets(actionTrend, actionKeys), keys: actionKeys }));
-        if (actionValues.length) {
-          main.append(h('h4', null, t('office.actions.raw')));
-          main.append(dataTable({
-            name: 'office-action-values', rows: actionValues,
-            sort: (a, b) => (b.events || 0) - (a.events || 0),
-            search: r => `${r.EffectiveAction || ''}`,
-            columns: [
-              { title: t('office.actions.value'), text: r => r.EffectiveAction || '∅' },
-              { title: t('office.map.events'), text: r => num(r.events || 0) }
-            ]
-          }));
-        }
-        if (campaigns.length) {
-          main.append(h('h4', null, t('office.campaigns')));
-          main.append(dataTable({
-            name: 'office-campaigns', rows: campaigns,
-            sort: (a, b) => (b.events || 0) - (a.events || 0),
-            search: r => `${r.Campaign || ''}`,
-            columns: [
-              { title: t('office.campaign'), text: r => r.Campaign || 'Unknown' },
-              { title: t('office.map.events'), text: r => num(r.events || 0) },
-              { title: t('office.recipients'), text: r => num(r.recipients || 0) }
-            ]
-          }));
-        }
-      }
-
-      if (findings.length) {
-        main.append(h('h3', null, t('office.findings')));
-        main.append(dataTable({
-          name: 'office-preview-findings', rows: findings,
-          search: f => `${tx(f.title)} ${tx(f.detail)} ${f.severity || ''} ${f.category || ''}`,
-          filters: [{ label: t('x.severity'), options: ['Critical', 'High', 'Medium', 'Low'], test: (f, v) => f.severity === v }],
-          columns: [
-            { title: t('x.severity'), cell: f => sevCell(f.severity), text: f => f.severity || '' },
-            { title: t('x.title'), text: f => tx(f.title) },
-            { title: t('x.detail'), text: f => tx(f.detail) },
-            { title: t('x.recommendation'), text: f => tx(f.recommendation) }
-          ]
-        }));
-      }
-      const tablCoverage = arr(rows.find(r => r.key === 'tabl_ioc_coverage')?.result)[0] || null;
-      const tablActions = arr(rows.find(r => r.key === 'tabl_ioc_actions')?.result);
+      const findings = arr(o.findings);
+      main.append(h('h2', null, t('office.findings')));
+      main.append(dataTable({
+        name: 'office-preview-findings', rows: findings, sort: (a, b) => sevRank(a.severity) - sevRank(b.severity),
+        search: f => `${tx(f.title)} ${tx(f.detail)}`,
+        filters: [{ label: t('f.severity'), options: SEV, optionLabel: s => code('sev', s), test: (f, v) => f.severity === v }],
+        columns: [
+          { title: t('f.severity'), cell: f => sevCell(f.severity), text: f => code('sev', f.severity) },
+          { title: t('f.finding'), text: f => tx(f.title) },
+          { title: t('f.description'), text: f => tx(f.detail) },
+          { title: t('f.recommendation'), text: f => tx(f.recommendation) }],
+        empty: t('om.findings.none')
+      }));
       main.append(h('p', null, h('a', { href: '#/officeantiphish' }, t('office.goto.antiphish')), ' · ', h('a', { href: '#/officepolicymap' }, t('office.goto.policymap'))));
 
-      if (tablCoverage || tablActions.length) {
-        main.append(h('h3', null, t('office.tabl')), h('p', { class: 'muted small' }, t('office.tabl.lede')));
-        if (tablCoverage) {
-          main.append(h('div', { class: 'facts' },
-            h('div', { class: 'fact' }, h('b', null, num(tablCoverage.total || 0)), h('span', null, t('office.tabl.count'))),
-            h('div', { class: 'fact' }, h('b', null, num(tablCoverage.active || 0)), h('span', null, 'active')),
-            h('div', { class: 'fact' }, h('b', null, num(tablCoverage.expiring14d || 0)), h('span', null, 'expiring ≤14d'))));
-        }
-        if (tablActions.length) {
-          main.append(dataTable({
-            name: 'office-tabl-actions', rows: tablActions,
-            sort: (a, b) => (b.indicators || 0) - (a.indicators || 0),
-            search: r => `${r.IndicatorType || ''} ${r.Action || ''}`,
-            columns: [
-              { title: t('office.tabl.type'), text: r => r.IndicatorType || 'Unknown' },
-              { title: t('office.tabl.action'), text: r => r.Action || 'Unknown' },
-              { title: t('office.tabl.count'), text: r => num(r.indicators || 0) }
-            ]
-          }));
-        }
+      const threatTrend = many('threat_trend_daily'), actionTrend = many('action_trend_daily');
+      if (threatTrend.length || actionTrend.length) {
+        main.append(h('h2', null, t('om.trends')));
+        const days = lastDays(30);
+        const threatKeys = [
+          { id: 'Phish', label: 'Phish', color: 'var(--sev-hoch)' }, { id: 'Malware', label: 'Malware', color: 'var(--sev-krit)' },
+          { id: 'Spam', label: 'Spam', color: 'var(--sev-mittel)' }, { id: 'Other', label: t('om.other'), color: 'var(--muted)' }];
+        const actionKeys = [
+          { id: 'Block', label: t('om.out.block'), color: 'var(--sev-krit)' }, { id: 'Quarantine', label: t('om.out.quarantine'), color: 'var(--sev-hoch)' },
+          { id: 'Junk', label: t('om.out.junk'), color: 'var(--sev-mittel)' }, { id: 'Allow', label: t('om.out.delivered'), color: 'var(--sev-ok)' },
+          { id: 'Other', label: t('om.other'), color: 'var(--muted)' }];
+        const buckets = (rowsIn) => {
+          const byDay = {};
+          for (const r of rowsIn) { const d = dayKey(r.day); if (!d) continue; const b = byDay[d] || (byDay[d] = {}); b[r.bucket] = (b[r.bucket] || 0) + Number(r.events || 0); }
+          return days.map(d => ({ id: d, label: dayShort(d), title: dayLong(d), values: byDay[d] || {}, empty: !byDay[d] }));
+        };
+        if (threatTrend.length) main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('office.chart.threat'), buckets: buckets(threatTrend), keys: threatKeys }));
+        if (actionTrend.length) main.append(columnChart({ width: Math.max(420, contentWidth() - 30), title: t('om.chart.outcomes'), buckets: buckets(actionTrend), keys: actionKeys }));
       }
-      const keyResult = (r) => {
+
+      const allows = many('threat_allowed_policies');
+      if (allows.length) {
+        main.append(h('h2', null, t('om.allows')), h('p', { class: 'lede' }, t('om.allows.lede')));
+        main.append(dataTable({
+          name: 'office-allows', rows: allows, sort: (a, b) => (b.messages || 0) - (a.messages || 0), search: r => `${r.Policy || ''} ${r.Level || ''}`,
+          columns: [
+            { title: t('x.policy'), text: r => r.Policy || t('om.unnamed') },
+            { title: t('om.col.level'), text: r => code('oml', r.Level) },
+            { title: t('om.col.threats'), text: r => num(r.messages) },
+            { title: t('om.col.delivered'), cell: r => r.delivered ? h('b', { class: 'bad' }, num(r.delivered)) : '0', text: r => String(r.delivered || 0) },
+            { title: t('om.col.recipients'), text: r => num(r.recipients) }]
+        }));
+      }
+      const wl = many('safelinks_by_workload');
+      if (wl.length) {
+        main.append(h('h2', null, t('om.safelinks')));
+        main.append(dataTable({
+          name: 'office-safelinks', rows: wl, search: r => `${r.Workload || ''}`,
+          columns: [
+            { title: t('om.col.workload'), text: r => r.Workload || '–' }, { title: t('om.col.clicks'), text: r => num(r.clicks) },
+            { title: t('om.col.threatClicks'), text: r => num(r.threatClicks) },
+            { title: t('om.col.clickedThrough'), cell: r => r.clickedThrough ? h('b', { class: 'bad' }, num(r.clickedThrough)) : '0', text: r => String(r.clickedThrough || 0) }]
+        }));
+      }
+      const themes = many('threat_themes');
+      if (themes.length) {
+        main.append(h('h2', null, t('om.themes')));
+        main.append(dataTable({
+          name: 'office-themes', rows: themes, sort: (a, b) => (b.events || 0) - (a.events || 0), search: r => `${r.ThreatTypes || ''} ${r.ThreatClassification || ''}`,
+          columns: [
+            { title: t('om.col.threatType'), text: r => r.ThreatTypes || '–' }, { title: t('om.col.classification'), text: r => r.ThreatClassification || '–' },
+            { title: t('om.col.messages'), text: r => num(r.events) }, { title: t('om.col.delivered'), text: r => num(r.delivered) }, { title: t('om.col.recipients'), text: r => num(r.recipients) }]
+        }));
+      }
+
+      // Every probe with its status, what it means and a link into Advanced Hunting
+      const drill = {
+        threat_in_inbox: 'EmailEvents | where Timestamp > ago(30d) | where EmailDirection == "Inbound" | where ThreatTypes has "Phish" or ThreatTypes has "Malware" | where tolower(LatestDeliveryLocation) startswith "inbox" | project Timestamp, RecipientEmailAddress, SenderFromAddress, Subject, ThreatTypes, DetectionMethods, DeliveryLocation, LatestDeliveryLocation, OrgLevelPolicy, UserLevelPolicy, NetworkMessageId | order by Timestamp desc',
+        threat_allowed: 'EmailEvents | where Timestamp > ago(30d) | where EmailDirection == "Inbound" | where ThreatTypes has "Phish" or ThreatTypes has "Malware" | where tolower(OrgLevelAction) has "allow" or tolower(UserLevelAction) has "allow" | project Timestamp, RecipientEmailAddress, SenderFromAddress, Subject, ThreatTypes, DeliveryAction, OrgLevelAction, OrgLevelPolicy, UserLevelAction, UserLevelPolicy, NetworkMessageId | order by Timestamp desc',
+        safelinks_clicks: 'UrlClickEvents | where Timestamp > ago(30d) | where IsClickedThrough == true | project Timestamp, AccountUpn, Url, Workload, ActionType, ThreatTypes | order by Timestamp desc',
+        own_domain_spoof: 'let own = EmailEvents | where Timestamp > ago(30d) | where EmailDirection in ("Outbound", "Intra-org") | summarize by Domain = tolower(SenderFromDomain); EmailEvents | where Timestamp > ago(30d) | where EmailDirection == "Inbound" | where tolower(SenderFromDomain) in (own) | where tolower(AuthenticationDetails) matches regex "dmarc\\"?\\\\s*[:=]\\\\s*\\"?fail" | project Timestamp, RecipientEmailAddress, SenderFromAddress, SenderMailFromAddress, SenderIPv4, Subject, DeliveryAction, AuthenticationDetails, Connectors | order by Timestamp desc',
+        post_delivery: 'EmailPostDeliveryEvents | where Timestamp > ago(30d) | summarize count() by ActionType, ActionTrigger, ActionResult'
+      };
+      const resultText = (r) => {
+        if (r.status !== 'ok') return t('om.failed');
         const x = arr(r.result)[0];
         if (!x) return t('office.result.noData');
+        const n = f => num(x[f] || 0);
         switch (r.key) {
-          case 'override_exposure':
-            return t('office.result.override', num(x.rows || 0), num(x.overridden || 0), num(x.dmarcFail || 0));
-          case 'safelinks_clickthrough':
-            return t('office.result.safelinks', num(x.clickThrough || 0), num(x.uniqueUsers || 0), num(x.uniqueUrls || 0));
-          case 'zap_blind_spots':
-            return t('office.result.zap', num(x.rows || 0), num(x.withoutPost || 0));
-          case 'own_domain_auth_posture':
-            return t('office.result.auth', num(x.dmarcFail || 0), num(x.spfFail || 0), num(x.dkimFail || 0));
-          case 'first_contact_risk':
-            return t('office.result.firstContact', num(x.firstContact || 0), num(x.withThreat || 0));
-          case 'encrypted_attachment_volume':
-            return t('office.result.attach', num(x.rows || 0), num(x.encrypted || 0));
-          case 'policy_user_overlap':
-            return t('office.result.userOverlap', num(x.users || 0), num(x.overlappedUsers || 0), num(x.maxPolicies || 0));
-          case 'policy_domain_overlap':
-            return t('office.result.domainOverlap', num(x.domains || 0), num(x.overlappedDomains || 0), num(x.maxPolicies || 0));
-          case 'policy_effect_duplicates':
-            return t('office.result.duplicates', num(x.actions || 0), num(x.duplicateLikeActions || 0), num(x.maxPoliciesPerAction || 0));
-          case 'policy_precedence_signals':
-            return t('office.result.precedence', num((x.allowVsBlock || 0) + (x.blockVsAllow || 0)), num(x.allowVsBlock || 0), num(x.blockVsAllow || 0));
-          case 'licensing_context':
-            if ((x.state || '') === 'unavailable') return t('office.result.licensingUnavailable');
-            return t('office.result.licensing', num(x.mdoUsers || 0), num(x.mdoP2Consumed || 0), num(x.mdoP1Consumed || 0), num(x.usersLicensed || 0), num(x.clients || 0), num(x.clientsUnlicensed || 0));
-          case 'tabl_ioc_coverage':
-            return t('office.result.tablCoverage', num(x.total || 0), num(x.active || 0), num(x.expiring14d || 0));
-          case 'antiphish_policy_changes':
-            return t('office.result.apChanges', num(x.rows || 0), num(x.newChanges || 0), num(x.tracked || 0));
-          case 'antiphish_outcomes':
-            return t('office.result.apOutcomes', num(x.rows || 0), num(x.days || 0), num(x.policies || 0));
-          case 'tabl_ioc_actions':
-            return t('office.result.mapRows', num(arr(r.result).length));
-          case 'threat_trend_daily':
-          case 'action_trend_daily':
-            return t('office.result.dailyRows', num(arr(r.result).length));
-          case 'action_values_top':
-            return t('office.result.mapRows', num(arr(r.result).length));
-          case 'campaign_top':
-            return t('office.result.campaignRows', num(arr(r.result).length));
-          case 'effective_policy_map_users':
-          case 'effective_policy_map_domains':
-            return t('office.result.mapRows', num(arr(r.result).length));
+          case 'threat_in_inbox': return t('or.threat_in_inbox', n('inInbox'), n('messages'), n('deliveredThenRemoved'));
+          case 'threat_allowed': return t('or.threat_allowed', n('messages'), n('delivered'), n('byOrgPolicy'), n('byMailboxPolicy'));
+          case 'safelinks_clicks': return t('or.safelinks_clicks', n('clicks'), n('threatClicks'), n('clickedThrough'));
+          case 'own_domain_spoof': return t('or.own_domain_spoof', n('messages'), n('dmarcFail'), n('dmarcFailDelivered'));
+          case 'post_delivery': return t('or.post_delivery', n('phishZap'), n('malwareZap'), n('manual'));
+          case 'licensing_context': return t('or.licensing', n('mdoUsers'), n('mdoP2Consumed'), n('mdoP1Consumed'));
+          case 'antiphish_policy_changes': return t('office.result.apChanges', n('rows'), n('newChanges'), n('tracked'));
+          case 'antiphish_outcomes': return t('office.result.apOutcomes', n('rows'), n('days'), n('policies'));
+          default: return t('or.rows', num(arr(r.result).length));
         }
-        const pairs = [];
-        if (x.rows !== undefined) pairs.push(`rows=${x.rows}`);
-        if (x.events !== undefined) pairs.push(`events=${x.events}`);
-        if (x.policies !== undefined) pairs.push(`policies=${x.policies}`);
-        if (x.overlappedUsers !== undefined) pairs.push(`overlappedUsers=${x.overlappedUsers}`);
-        if (x.overlappedDomains !== undefined) pairs.push(`overlappedDomains=${x.overlappedDomains}`);
-        if (x.maxPolicies !== undefined) pairs.push(`maxPolicies=${x.maxPolicies}`);
-        if (x.duplicateLikeActions !== undefined) pairs.push(`duplicateLikeActions=${x.duplicateLikeActions}`);
-        if (x.allowVsBlock !== undefined) pairs.push(`allowVsBlock=${x.allowVsBlock}`);
-        if (x.blockVsAllow !== undefined) pairs.push(`blockVsAllow=${x.blockVsAllow}`);
-        if (x.clientsUnlicensed !== undefined) pairs.push(`clientsUnlicensed=${x.clientsUnlicensed}`);
-        if (x.activeDays !== undefined) pairs.push(`activeDays=${x.activeDays}`);
-        if (x.users !== undefined) pairs.push(`users=${x.users}`);
-        if (x.services !== undefined) pairs.push(`services=${x.services}`);
-        if (x.entities !== undefined) pairs.push(`entities=${x.entities}`);
-        if (!pairs.length) pairs.push(`rowsReturned=${arr(r.result).length}`);
-        return pairs.join(', ');
       };
-      const ahLink = (q) => `https://security.microsoft.com/v2/advanced-hunting?query=${encodeURIComponent(q)}`;
-      const officeGuide = (k) => {
-        const map = {
-          override_exposure: {
-            why: 'Messages were delivered despite threat-related policy outcomes. This can indicate broad allow lists or exceptions.',
-            next: 'Review allow/override rules and transport exceptions for the senders and domains involved.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend OrgAction=tostring(column_ifexists('OrgLevelAction','')), UserPolicy=tostring(column_ifexists('UserLevelPolicy','')) | where tolower(OrgAction) has 'allow' or tolower(OrgAction) has 'deliver' or tolower(UserPolicy) has 'safe' | summarize count() by SenderFromAddress, RecipientEmailAddress, OrgAction, UserPolicy | top 200 by count_ desc"
-          },
-          safelinks_clickthrough: {
-            why: 'Users clicked through warning/blocked URL flows. This is a direct exposure signal.',
-            next: 'Identify repeat users and URLs, then tune awareness and conditional access controls.',
-            query: "UrlClickEvents | where Timestamp > ago(30d) | extend Action=tostring(column_ifexists('ActionType','')) | where tolower(Action) has 'clickthrough' or tolower(Action) has 'allow' | summarize count() by AccountUpn, Url, Action | top 200 by count_ desc"
-          },
-          threat_trend_daily: {
-            why: 'Shows how phishing/malware/spam related events evolved over the last 30 days.',
-            next: 'Focus on days with spikes and identify dominant senders/targets for those days.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend Threat=tolower(tostring(column_ifexists('ThreatTypes',''))) | summarize count() by day=startofday(Timestamp), Threat | order by day asc"
-          },
-          action_trend_daily: {
-            why: 'Shows whether outcomes trend towards allow/deliver or block/quarantine over time.',
-            next: 'If allow/deliver rises with threat activity, review overrides and policy scope.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend OrgAction=tolower(tostring(column_ifexists('OrgLevelAction',''))), UserAction=tolower(tostring(column_ifexists('UserLevelAction',''))), DeliveryAction=tolower(tostring(column_ifexists('DeliveryAction',''))), DeliveryLocation=tolower(tostring(column_ifexists('DeliveryLocation',''))) | extend EffectiveAction=iif(isnotempty(UserAction), UserAction, iif(isnotempty(OrgAction), OrgAction, iif(isnotempty(DeliveryAction), DeliveryAction, DeliveryLocation))) | summarize count() by day=startofday(Timestamp), EffectiveAction | order by day asc"
-          },
-          action_values_top: {
-            why: 'Shows the raw action values found in telemetry; useful when many events are grouped as Other.',
-            next: 'Use these values to validate or tune the bucketing logic and policy interpretation.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend OrgAction=tolower(tostring(column_ifexists('OrgLevelAction',''))), UserAction=tolower(tostring(column_ifexists('UserLevelAction',''))), DeliveryAction=tolower(tostring(column_ifexists('DeliveryAction',''))), DeliveryLocation=tolower(tostring(column_ifexists('DeliveryLocation',''))) | extend EffectiveAction=iif(isnotempty(UserAction), UserAction, iif(isnotempty(OrgAction), OrgAction, iif(isnotempty(DeliveryAction), DeliveryAction, DeliveryLocation))) | summarize events=count() by EffectiveAction | top 200 by events desc"
-          },
-          campaign_top: {
-            why: 'Highlights the campaigns/themes that generated the most events and recipients.',
-            next: 'Investigate top campaigns first and verify policy outcome quality for them.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend CampaignName=tostring(column_ifexists('CampaignName','')), CampaignId=tostring(column_ifexists('CampaignId','')), Threat=tostring(column_ifexists('ThreatTypes','')) | extend Campaign=iif(isnotempty(CampaignName), CampaignName, iif(isnotempty(CampaignId), CampaignId, iif(isnotempty(Threat), strcat('Threat: ', Threat), 'Unknown'))) | summarize events=count(), recipients=dcount(tostring(column_ifexists('RecipientEmailAddress',''))) by Campaign | top 200 by events desc"
-          },
-          zap_blind_spots: {
-            why: 'Some delivered messages have no post-delivery trace in the observed window.',
-            next: 'Compare these cases with policy exceptions and post-delivery action settings.',
-            query: "let post = EmailPostDeliveryEvents | where Timestamp > ago(30d) | summarize hasPost=1 by NetworkMessageId; EmailEvents | where Timestamp > ago(30d) | where isnotempty(NetworkMessageId) | join kind=leftouter post on NetworkMessageId | where isnull(hasPost) | summarize count() by SenderFromAddress, RecipientEmailAddress, Subject | top 200 by count_ desc"
-          },
-          own_domain_auth_posture: {
-            why: 'Authentication failures (DMARC/SPF/DKIM) raise spoofing/phishing risk.',
-            next: 'Prioritize senders/domains with repeated failures and tighten mail auth posture.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend Auth=tostring(column_ifexists('AuthenticationDetails','')) | where tolower(Auth) has 'dmarc=fail' or tolower(Auth) has 'spf=fail' or tolower(Auth) has 'dkim=fail' | summarize count() by SenderFromAddress, RecipientEmailAddress, AuthenticationDetails | top 200 by count_ desc"
-          },
-          first_contact_risk: {
-            why: 'First-contact messages with threat indicators are common initial-entry patterns.',
-            next: 'Review first-contact senders and apply stricter controls for unknown correspondents.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend IsFirst=tobool(column_ifexists('IsFirstContact', false)) | where IsFirst and isnotempty(tostring(column_ifexists('ThreatTypes',''))) | summarize count() by SenderFromAddress, RecipientEmailAddress, ThreatTypes | top 200 by count_ desc"
-          },
-          encrypted_attachment_volume: {
-            why: 'Encrypted/password-protected attachments reduce content inspection visibility.',
-            next: 'Track frequent senders and enforce stricter handling for high-risk sources.',
-            query: "EmailAttachmentInfo | where Timestamp > ago(30d) | extend AF=tostring(column_ifexists('AdditionalFields','')) | where tolower(AF) has 'password' or tolower(AF) has 'encrypted' | summarize count() by SenderFromAddress, RecipientEmailAddress, FileName | top 200 by count_ desc"
-          },
-          policy_user_overlap: {
-            why: 'Users are hit by multiple user-level policies, increasing complexity and conflict risk.',
-            next: 'Reduce overlapping assignments and consolidate policy targeting where possible.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend UserPolicy=tostring(column_ifexists('UserLevelPolicy','')), Recipient=tolower(tostring(column_ifexists('RecipientEmailAddress',''))) | where isnotempty(UserPolicy) and isnotempty(Recipient) | summarize policies=make_set(UserPolicy,20), policyCount=dcount(UserPolicy) by Recipient | where policyCount > 1 | top 200 by policyCount desc"
-          },
-          policy_domain_overlap: {
-            why: 'Domains are affected by multiple policies; this can hide intent and complicate operations.',
-            next: 'Validate if domain-based policy coverage can be simplified.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend UserPolicy=tostring(column_ifexists('UserLevelPolicy','')), Recipient=tolower(tostring(column_ifexists('RecipientEmailAddress',''))) | where Recipient has '@' and isnotempty(UserPolicy) | extend Domain=tostring(split(Recipient,'@')[1]) | summarize policyCount=dcount(UserPolicy), policies=make_set(UserPolicy,20) by Domain | where policyCount > 1 | top 200 by policyCount desc"
-          },
-          policy_effect_duplicates: {
-            why: 'Multiple policies appear to drive the same effective action, which can be redundant.',
-            next: 'Look for duplicate policy logic and remove overlap.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend UserPolicy=tostring(column_ifexists('UserLevelPolicy','')), OrgAction=tolower(tostring(column_ifexists('OrgLevelAction',''))), UserAction=tolower(tostring(column_ifexists('UserLevelAction',''))), Action=iif(isnotempty(UserAction), UserAction, OrgAction) | where isnotempty(UserPolicy) and isnotempty(Action) | summarize policies=make_set(UserPolicy,20), policyCount=dcount(UserPolicy), rows=count() by Action | where policyCount > 1 | top 200 by rows desc"
-          },
-          policy_precedence_signals: {
-            why: 'Conflicting allow/block outcome patterns suggest precedence or assignment boundary issues.',
-            next: 'Review precedence/order and assignment boundaries between org-level and user-level policies.',
-            query: "EmailEvents | where Timestamp > ago(30d) | extend OrgAction=tolower(tostring(column_ifexists('OrgLevelAction',''))), UserAction=tolower(tostring(column_ifexists('UserLevelAction',''))), UserPolicy=tostring(column_ifexists('UserLevelPolicy','')) | where isnotempty(UserPolicy) and isnotempty(OrgAction) and isnotempty(UserAction) | where (UserAction has 'allow' and (OrgAction has 'block' or OrgAction has 'quarantine' or OrgAction has 'junk')) or ((UserAction has 'block' or UserAction has 'quarantine' or UserAction has 'junk') and OrgAction has 'allow') | summarize count() by UserPolicy, OrgAction, UserAction | top 200 by count_ desc"
-          },
-          tabl_ioc_coverage: {
-            why: 'Shows whether IOC/TABL controls for domain/URL/IP/email/file hash are actually present and active.',
-            next: 'Check if the configured indicator mix matches your threat model and refresh expiring indicators.',
-            query: "ThreatIntelligenceIndicator | summarize arg_max(Timestamp, *) by IndicatorId | summarize total=count(), active=countif(tobool(column_ifexists('Active', false))), domain=countif(isnotempty(tostring(column_ifexists('DomainName','')))), url=countif(isnotempty(tostring(column_ifexists('Url','')))), ip=countif(isnotempty(tostring(column_ifexists('NetworkIP','')))), email=countif(isnotempty(tostring(column_ifexists('EmailSenderAddress','')))), fileHash=countif(isnotempty(tostring(column_ifexists('FileHashValue',''))))"
-          },
-          tabl_ioc_actions: {
-            why: 'Shows the action distribution of configured indicators by indicator type.',
-            next: 'Validate that actions are intentional (for example block/warn where expected) and remove stale entries.',
-            query: "ThreatIntelligenceIndicator | summarize arg_max(Timestamp, *) by IndicatorId | extend IndicatorType=tostring(column_ifexists('IndicatorType','Unknown')), Action=tostring(column_ifexists('Action','Unknown')) | summarize indicators=count() by IndicatorType, Action | top 200 by indicators desc"
-          },
-          licensing_context: {
-            why: 'Licensing context helps judge whether exposed users/devices are also under-licensed.',
-            next: 'Align user/device coverage with MDE licensing assignments.',
-            query: ''
-          },
-          antiphish_policy_changes: {
-            why: 'Every Set-/New-/Remove-AntiPhishPolicy and -Rule call from the Exchange admin audit trail, with the parameters that were passed (phishing threshold, impersonation/spoof actions, exclusions).',
-            next: 'Open the anti-phish drift section to see who changed what and how delivered/quarantined phish moved afterwards.',
-            query: "CloudAppEvents | where Timestamp > ago(30d) | where ActionType in~ ('Set-AntiPhishPolicy','New-AntiPhishPolicy','Remove-AntiPhishPolicy','Set-AntiPhishRule','New-AntiPhishRule','Remove-AntiPhishRule','Enable-AntiPhishRule','Disable-AntiPhishRule') | extend Policy=tostring(RawEventData.ObjectId), Params=tostring(RawEventData.Parameters) | project Timestamp, ActionType, AccountDisplayName, Policy, Params | order by Timestamp desc"
-          },
-          antiphish_outcomes: {
-            why: 'Phish-classified messages per day and policy, split by detection method (impersonation, spoof, mailbox intelligence, threshold-driven filter) and outcome (quarantine, junk, delivered).',
-            next: 'Compare delivered share across setting periods; a rising delivered share after a threshold decrease is the signal to look for.',
-            query: "EmailEvents | where Timestamp > ago(30d) | where tolower(tostring(ThreatTypes)) has 'phish' | extend Policy=coalesce(UserLevelPolicy, OrgLevelPolicy, '(none)'), Method=tostring(parse_json(tostring(DetectionMethods)).Phish), Action=coalesce(UserLevelAction, OrgLevelAction, DeliveryAction) | summarize count() by day=startofday(Timestamp), Policy, Method, Action | order by day asc"
-          }
-        };
-        return map[k] || { why: '', next: '', query: '' };
-      };
-      const metricDetails = (r) => {
-        const x = arr(r.result)[0];
-        if (!x || typeof x !== 'object') return h('span', { class: 'muted small' }, t('office.none'));
-        const items = Object.entries(x).slice(0, 20).map(([k, v]) => {
-          const val = Array.isArray(v) ? v.join(', ') : (v === null || v === undefined ? '–' : String(v));
-          return h('li', null, h('span', { class: 'mono' }, k), ': ', val);
-        });
-        return items.length ? h('ul', null, items) : h('span', { class: 'muted small' }, t('office.none'));
-      };
+      main.append(h('h2', null, t('om.probes')), h('p', { class: 'lede' }, t('om.probes.lede')));
       main.append(dataTable({
         name: 'office-preview', rows,
-        search: r => `${r.title || ''} ${r.workload || ''} ${r.status || ''} ${r.error || ''}`,
-        filters: [
-          { label: t('office.workload'), options: [...new Set(rows.map(r => r.workload).filter(Boolean))].sort(), test: (r, v) => r.workload === v },
-          { label: t('x.status'), options: ['ok', 'error'], optionLabel: s => t(`office.status.${s}`), test: (r, v) => r.status === v }
-        ],
+        search: r => `${probeTitle(r)} ${r.workload || ''} ${r.error || ''}`,
+        filters: [{ label: t('x.status'), options: ['ok', 'error'], optionLabel: s => t(`office.status.${s}`), test: (r, v) => (r.status === 'ok' ? 'ok' : 'error') === v }],
         columns: [
-          { title: t('office.probe'), text: r => r.title || r.key },
+          { title: t('office.probe'), text: probeTitle },
           { title: t('office.workload'), text: r => r.workload || '–' },
-          { title: t('x.status'), cell: r => h('span', { class: `state ${r.status === 'ok' ? 'good' : 'bad'}` }, t(`office.status.${r.status || 'error'}`)), text: r => t(`office.status.${r.status || 'error'}`) },
-          { title: t('office.result'), text: keyResult },
-          { title: t('error', ''), text: r => r.error || '–' }
-        ],
-        detail: r => {
-          const g = officeGuide(r.key);
-          const x = arr(r.result)[0] || {};
-          const why = (r.key === 'licensing_context' && (x.state || '') === 'unavailable')
-            ? 'Licensing snapshot is not available yet in this environment.'
-            : (g.why || t('none'));
-          const next = (r.key === 'licensing_context' && (x.state || '') === 'unavailable')
-            ? 'Enable module "licensing" in WL_MODULES and run it once; then rerun office preview.'
-            : (g.next || t('none'));
-          return h('div', null,
-            dl([
-              [t('office.result'), keyResult(r)],
-              [t('office.whatMeans'), why],
-              [t('office.nextStep'), next],
-              [t('office.metricDetails'), metricDetails(r)],
-              [t('error', ''), r.error || t('none')],
-              [t('col.time'), fmtDate(o.generatedAt)]
-            ]),
-            g.query ? h('p', null, h('a', { href: ahLink(g.query), target: '_blank', rel: 'noopener noreferrer' }, t('office.openDefender'))) : null
-          );
-        },
-        empty: t('office.empty')
+          { title: t('x.status'), cell: r => h('span', { class: `state ${r.status === 'ok' ? 'good' : 'bad'}` }, t(`office.status.${r.status === 'ok' ? 'ok' : 'error'}`)), text: r => t(`office.status.${r.status === 'ok' ? 'ok' : 'error'}`) },
+          { title: t('office.result'), text: resultText }],
+        detail: r => h('div', null,
+          dl([
+            [t('office.whatMeans'), L[`og.${r.key}.why`] ? t(`og.${r.key}.why`) : null],
+            [t('office.nextStep'), L[`og.${r.key}.next`] ? t(`og.${r.key}.next`) : null],
+            [t('error', ''), r.status !== 'ok' ? (r.error || t('om.failed')) : null]]),
+          drill[r.key] ? h('p', null, h('a', { href: `https://security.microsoft.com/v2/advanced-hunting?query=${encodeURIComponent(drill[r.key])}`, target: '_blank', rel: 'noopener noreferrer' }, t('office.openDefender'))) : null)
+      }));
+      main.append(h('p', { class: 'muted small' }, t('om.note')));
+      if (arr(o.warnings).length) main.append(h('details', { class: 'warnings' }, h('summary', null, t('om.notices', arr(o.warnings).length)), h('ul', null, arr(o.warnings).map(n => h('li', { class: 'small' }, n)))));
+    },
+
+    // ---------- Posture checks (back end: Posture.ps1) ----------
+    async conflicts(main) {
+      main.append(h('h1', null, t('v.conflicts')), h('p', { class: 'lede' }, t('pcf.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      if (!Array.isArray(ep.policyConflicts)) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const rows = ep.policyConflicts;
+      const fact = (b, s) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, s));
+      const noDev = r => r.devices === null || r.devices === undefined;
+      main.append(h('div', { class: 'facts' },
+        fact(num(rows.length), t('pcf.fact.settings')), fact(num(rows.filter(r => r.isAsrRule).length), t('pcf.fact.asr')),
+        fact(num(rows.reduce((m, r) => Math.max(m, r.devices || 0), 0)), t('pcf.fact.devices'))));
+      main.append(dataTable({
+        name: 'policy-conflicts', rows,
+        search: r => `${r.setting} ${r.definitionId} ${arr(r.values).map(v => `${v.value} ${arr(v.policies).map(p => p.name).join(' ')}`).join(' ')}`,
+        filters: [
+          { label: t('x.platform'), options: [...new Set(rows.map(r => r.platform))].sort(), test: (r, v) => r.platform === v },
+          { type: 'check', label: t('pcf.onlyAsr'), test: r => r.isAsrRule === true }],
+        columns: [
+          { title: t('x.setting'), cell: r => h('span', null, r.setting, h('br'), h('span', { class: 'muted small mono' }, r.definitionId)), text: r => r.setting },
+          { title: t('x.platform'), text: r => r.platform },
+          { title: t('pcf.values'), cell: r => h('ul', { class: 'plain small' }, arr(r.values).map(v => h('li', null, h('b', null, String(v.value)), ' – ', arr(v.policies).map(p => p.name).join(', ')))), text: r => arr(r.values).map(v => `${v.value}: ${arr(v.policies).map(p => p.name).join(', ')}`).join(' | ') },
+          { title: t('pcf.devices'), cell: r => noDev(r) ? h('span', { class: 'muted small' }, t('pcf.byAssignment')) : h('span', { title: arr(r.deviceNames).join(', ') }, num(r.devices)), text: r => noDev(r) ? t('pcf.byAssignment') : String(r.devices) }],
+        detail: r => h('div', null, dl([
+          [t('pcf.effect'), r.isAsrRule ? t('pcf.effect.asr') : t('pcf.effect.setting')],
+          [t('pcf.policies'), h('ul', null, arr(r.values).flatMap(v => arr(v.policies).map(p => h('li', null, `${p.name}: ${v.value} (${arr(p.assignments).map(assignText).join(', ')})`))))],
+          [t('f.device'), arr(r.deviceNames).length ? arr(r.deviceNames).join(', ') + (r.devices > arr(r.deviceNames).length ? ' …' : '') : null]])),
+        empty: t('pcf.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('pcf.note')));
+    },
+
+    async devicecontrol(main) {
+      main.append(h('h1', null, t('v.devicecontrol')), h('p', { class: 'lede' }, t('dvc.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const dc = ep.deviceControl;
+      if (!dc) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const s = dc.summary || {};
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(s.assignedPolicies), t('dvc.fact.policies')), fact(num(s.usbDevices), t('dvc.fact.usb')),
+        fact(num(s.usbWithoutPolicy), t('dvc.fact.nopolicy')), fact(num(s.denied), t('dvc.fact.denied'))));
+      if (dc.usage !== 'ok') main.append(h('p', { class: 'muted small' }, t(dc.usage === 'off' ? 'dvc.usage.off' : 'dvc.usage.failed')));
+      const polState = r => r.hasPolicy === true ? 'yes' : r.supported === false ? 'unsupported' : r.hasPolicy === false ? 'no' : 'unknown';
+      const polCell = r => {
+        const st = polState(r);
+        if (st === 'yes') return h('span', null, h('span', { class: 'tag' }, t('dvc.pol.yes')), h('br'), h('span', { class: 'muted small' }, arr(r.policies).join(', ')));
+        return h('span', { class: st === 'no' ? 'tag warn' : 'tag muted' }, t(`dvc.pol.${st}`));
+      };
+      const devices = arr(dc.devices);
+      main.append(dataTable({
+        name: 'device-control', rows: devices,
+        search: r => `${r.deviceName} ${r.os || ''} ${arr(r.policies).join(' ')} ${arr(r.triggeredPolicies).join(' ')}`,
+        filters: [
+          { label: t('dvc.col.policy'), options: ['no', 'yes', 'unsupported', 'unknown'], optionLabel: v => t(`dvc.pol.${v}`), test: (r, v) => polState(r) === v },
+          { type: 'check', label: t('dvc.onlyOpen'), test: r => polState(r) === 'no' && r.mounts > 0 }],
+        columns: [
+          { title: t('f.device'), cell: r => h('span', null, deviceLink(r.deviceId, r.deviceName), r.os ? [h('br'), h('span', { class: 'muted small' }, r.os)] : null), text: r => r.deviceName },
+          { title: t('dvc.col.mounts'), text: r => num(r.mounts) },
+          { title: t('dvc.col.drives'), text: r => num(r.drives) },
+          { title: t('dvc.col.last'), text: r => r.lastMount ? fmtDate(r.lastMount) : '–' },
+          { title: t('dvc.col.policy'), cell: polCell, text: r => t(`dvc.pol.${polState(r)}`) },
+          { title: t('dvc.col.events'), cell: r => r.triggers ? h('span', { title: arr(r.triggeredPolicies).join(', ') }, t('dvc.events', num(r.triggers), num(r.denied))) : h('span', { class: 'muted' }, '–'), text: r => r.triggers ? t('dvc.events', r.triggers, r.denied) : '–' }],
+        empty: t(dc.usage === 'ok' ? 'dvc.none' : 'dvc.none.nodata')
+      }));
+      main.append(h('h2', null, t('dvc.policies')));
+      main.append(dataTable({
+        name: 'device-control-policies', rows: arr(dc.policies),
+        search: r => `${r.name} ${arr(r.assignments).join(' ')}`,
+        columns: [
+          { title: t('x.policy'), text: r => r.name },
+          { title: t('x.platform'), text: r => r.platform },
+          { title: t('x.assignment'), cell: r => r.assigned ? arr(r.assignments).map(assignText).join(', ') : h('span', { class: 'tag warn' }, t('x.unassigned')), text: r => r.assigned ? arr(r.assignments).map(assignText).join(', ') : t('x.unassigned') },
+          { title: t('dvc.col.settings'), text: r => num(r.settings) }],
+        empty: t('dvc.policies.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('dvc.note')));
+    },
+
+    async disruption(main) {
+      main.append(h('h1', null, t('v.disruption')), h('p', { class: 'lede' }, t('dis.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const d = ep.disruption;
+      if (!d) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      const s = d.summary || {};
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(s.gaps), t('dis.fact.gaps')), fact(num(s.ok), t('dis.fact.ok')), fact(num((s.notMeasurable || 0) + (s.review || 0)), t('dis.fact.manual')),
+        fact(d.eventsStatus === 'ok' ? num(s.events30d) : '–', t('dis.fact.events'))));
+      const cls = { Gap: 'tag warn', OK: 'tag', Review: 'tag warn', NotMeasurable: 'tag muted' };
+      const rank = { Gap: 0, Review: 1, NotMeasurable: 2, OK: 3 };
+      main.append(dataTable({
+        name: 'disruption-checks', rows: arr(d.checks), sort: (a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9),
+        search: r => `${tx(r.title)} ${tx(r.detail)} ${tx(r.where)}`,
+        filters: [{ label: t('pc.status'), options: ['Gap', 'Review', 'NotMeasurable', 'OK'], optionLabel: v => code('diss', v), test: (r, v) => r.status === v }],
+        columns: [
+          { title: t('dis.col.check'), cell: r => h('span', null, tx(r.title), r.source ? [h('br'), h('span', { class: 'muted small mono nowrap' }, r.source)] : null), text: r => tx(r.title) },
+          { title: t('pc.status'), cell: r => h('span', { class: cls[r.status] || 'tag muted' }, code('diss', r.status)), text: r => code('diss', r.status) },
+          { title: t('dis.col.result'), cell: r => h('span', { class: 'small' }, tx(r.detail)), text: r => tx(r.detail) },
+          { title: t('dis.col.where'), cell: r => r.where ? h('span', { class: 'small' }, tx(r.where)) : h('span', { class: 'muted' }, '–'), text: r => tx(r.where) || '–' }],
+        detail: r => arr(r.devices).length ? h('div', null, dl([[t('f.device'), list(arr(r.devices))]])) : h('div', { class: 'muted small' }, tx(r.detail))
+      }));
+      main.append(h('h2', null, t('dis.events')), h('p', { class: 'lede' }, t('dis.events.lede')));
+      if (d.eventsStatus !== 'ok') main.append(h('p', { class: 'muted small' }, t(d.eventsStatus === 'off' ? 'dis.events.off' : 'dis.events.unavailable')));
+      else main.append(dataTable({
+        name: 'disruption-events', rows: arr(d.events),
+        search: r => `${r.actionType} ${r.reportType}`,
+        columns: [
+          { title: t('dis.col.action'), cell: r => h('span', { class: 'mono' }, r.actionType), text: r => r.actionType },
+          { title: t('dis.col.report'), text: r => r.reportType || '–' },
+          { title: t('pu.count'), text: r => num(r.events) },
+          { title: t('pcf.devices'), text: r => num(r.devices) },
+          { title: t('pu.last'), text: r => fmtDate(r.last) }],
+        empty: t('dis.events.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('dis.note', d.minSense || '10.8470')));
+    },
+
+    async detections(main) {
+      main.append(h('h1', null, t('v.detections')), h('p', { class: 'lede' }, t('det.lede')));
+      let ep; try { ep = await loadEndpoint(); } catch (e) { main.append(noData(e, 'endpoint')); return; }
+      const st = ep.detectionRulesStatus;
+      if (st === undefined) { main.append(h('div', { class: 'empty' }, t('posture.rerun'))); return; }
+      if (st !== 'ok') { main.append(h('div', { class: 'empty' }, h('p', null, t(st === 'off' ? 'det.off' : 'det.failed')), st === 'off' ? h('p', { class: 'mono small' }, './setup/Install-Gapsio.ps1 -ResourceGroup <rg> -Features <…>,Detections') : null)); return; }
+      const rows = arr(ep.detectionRules);
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      main.append(h('div', { class: 'facts' },
+        fact(num(rows.length), t('det.fact.rules')), fact(num(rows.filter(r => r.status === 'autoDisabled').length), t('det.fact.auto')),
+        fact(num(rows.filter(r => r.status === 'disabled').length), t('det.fact.disabled')), fact(num(rows.filter(r => r.status === 'enabled' && arr(r.impactActions).length).length), t('det.fact.actions'))));
+      const freq = (f) => {
+        const x = String(f || ''); let m;
+        if (x === '0' || /^PT0[SMH]$/.test(x)) return t('det.nrt');
+        if ((m = /^PT(\d+)H$/.exec(x)) || (m = /^(\d+)H$/.exec(x))) return t('det.every.h', m[1]);
+        if ((m = /^PT(\d+)M$/.exec(x))) return t('det.every.min', m[1]);
+        if ((m = /^P(\d+)D$/.exec(x))) return t('det.every.h', String(Number(m[1]) * 24));
+        return x || '–';
+      };
+      const cls = { autoDisabled: 'tag warn', disabled: 'tag muted', enabled: 'tag' };
+      main.append(dataTable({
+        name: 'detection-rules', rows,
+        search: r => `${r.name} ${r.alertTitle || ''} ${r.status} ${arr(r.actions).join(' ')} ${r.lastModifiedBy || ''} ${r.createdBy || ''}`,
+        filters: [
+          { label: t('pc.status'), options: [...new Set(rows.map(r => r.status))], optionLabel: v => code('dets', v), test: (r, v) => r.status === v },
+          { label: t('f.severity'), options: [...new Set(rows.map(r => r.severity).filter(Boolean))], test: (r, v) => r.severity === v },
+          { type: 'check', label: t('det.onlyActions'), test: r => arr(r.impactActions).length > 0 }],
+        columns: [
+          { title: t('det.col.rule'), cell: r => h('span', null, r.name, r.alertTitle && r.alertTitle !== r.name ? [h('br'), h('span', { class: 'muted small' }, r.alertTitle)] : null), text: r => r.name },
+          { title: t('pc.status'), cell: r => h('span', null, h('span', { class: cls[r.status] || 'tag muted' }, code('dets', r.status)), r.lastRun && /failed/i.test(r.lastRun.status) ? [' ', h('span', { class: 'tag warn' }, t('det.lastRunFailed'))] : null), text: r => code('dets', r.status) },
+          { title: t('det.col.schedule'), text: r => freq(r.frequency) },
+          { title: t('f.severity'), text: r => r.severity || '–' },
+          { title: t('det.col.actions'), cell: r => arr(r.actions).length ? h('span', { class: 'small' }, arr(r.actions).map((a, i) => [i ? ', ' : null, arr(r.impactActions).includes(a) ? h('b', null, a) : a])) : h('span', { class: 'muted' }, '–'), text: r => arr(r.actions).join(', ') || '–' },
+          { title: t('det.col.alerts'), cell: r => r.alerts30d === null || r.alerts30d === undefined ? h('span', { class: 'muted', title: t('det.alerts.unknown') }, '–') : num(r.alerts30d), text: r => r.alerts30d === null || r.alerts30d === undefined ? '–' : String(r.alerts30d) },
+          { title: t('x.modified'), cell: r => h('span', null, fmtDay(r.lastModified), r.lastModifiedBy ? [h('br'), h('span', { class: 'muted small' }, r.lastModifiedBy)] : null), text: r => `${fmtDay(r.lastModified)} ${r.lastModifiedBy || ''}` }],
+        detail: r => h('div', null, dl([
+          [t('x.createdBy'), r.createdBy], [t('det.col.groups'), arr(r.deviceGroups).join(', ') || t('det.groups.all')],
+          [t('det.lastRun'), r.lastRun ? `${r.lastRun.status}${r.lastRun.errorCode ? ` (${r.lastRun.errorCode})` : ''} · ${fmtDate(r.lastRun.at)}${r.lastRun.failureReason ? ` · ${r.lastRun.failureReason}` : ''}` : t('det.lastRun.none')],
+          [t('det.lastAlert'), r.lastAlert ? fmtDate(r.lastAlert) : null]])),
+        empty: t('det.none')
+      }));
+      main.append(h('p', { class: 'muted small' }, t('det.note')));
+    },
+
+    async evidence(main) {
+      main.append(h('h1', null, t('v.evidence')), h('p', { class: 'lede' }, t('ev.lede')));
+      let map; try { map = await api('controls'); } catch (e) { main.append(h('div', { class: 'empty' }, t('load.failed', e.message))); return; }
+      const snaps = { endpoint: null, agents: null, access: null, licensing: null, officepreview: null };
+      await Promise.all([loadEndpoint().then(x => { snaps.endpoint = x; }).catch(() => null),
+        hasMod('agents') ? loadAgents().then(x => { snaps.agents = x; }).catch(() => null) : null,
+        hasMod('access') ? loadAccess().then(x => { snaps.access = x; }).catch(() => null) : null,
+        hasMod('licensing') ? loadLicensing().then(x => { snaps.licensing = x; }).catch(() => null) : null,
+        hasMod('officepreview') ? loadOfficePreview().then(x => { snaps.officepreview = x; }).catch(() => null) : null]);
+      await loadAcceptances();
+      const acc = acceptedMap();
+      const all = Object.entries(snaps).flatMap(([m, s]) => arr(s && s.findings).filter(f => f && f.category && f.key).map(f => ({ ...f, module: m, accepted: acc[f.key] || null })));
+      const rows = arr(map.frameworks).flatMap(fw => arr(fw.controls).map(c => {
+        const match = arr(c.match);
+        const mods = [...new Set(match.filter(x => x.includes(':')).map(x => x.split(':')[0]))];
+        const assessed = mods.length ? mods.some(m => snaps[m]) : Object.values(snaps).some(Boolean);
+        const fs = all.filter(f => match.includes(`${f.module}:${f.category}`) || match.includes(f.category)).sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
+        const open = fs.filter(f => !f.accepted), accepted = fs.filter(f => f.accepted);
+        return { framework: fw.name, fwShort: fw.short || fw.name, id: c.id, title: tx(c.title), areas: [...new Set(match.map(x => x.split(':').pop()))], mods, open, accepted, findings: fs,
+          status: !assessed ? 'NotAssessed' : open.length ? 'Open' : accepted.length ? 'Accepted' : 'Clear' };
+      }));
+      const ts = Object.values(snaps).map(s => s && s.generatedAt).filter(Boolean).sort().pop();
+      const fact = (b, x) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, x));
+      const count = s => num(rows.filter(r => r.status === s).length);
+      main.append(h('div', { class: 'facts' },
+        fact(ts ? fmtDay(ts) : '–', t('ev.fact.asof', (state.me && state.me.version) || '')), fact(count('Open'), t('ev.fact.open')),
+        fact(count('Clear'), t('ev.fact.clear')), fact(count('Accepted'), t('ev.fact.accepted')), fact(count('NotAssessed'), t('ev.fact.na'))));
+      main.append(h('p', { class: 'muted small' }, tx(map.note)),
+        h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'primary', onclick: () => window.print() }, t('ev.print'))));
+      if (Object.values(snaps).some(s => s && s.tier === 'Community')) main.append(h('p', { class: 'muted small' }, t('ev.community')));
+      const cls = { Open: 'tag warn', Clear: 'tag', Accepted: 'tag accepted', NotAssessed: 'tag muted' };
+      const rank = { Open: 0, Accepted: 1, Clear: 2, NotAssessed: 3 };
+      const sevText = fs => SEV.map(s => [s, fs.filter(f => f.severity === s).length]).filter(([, n]) => n).map(([s, n]) => `${n} ${code('sev', s)}`).join(' · ');
+      const devText = f => f.deviceCount ? t('f.devicesN', num(f.deviceCount)) : (f.deviceName || '–');
+      main.append(dataTable({
+        name: 'evidence-controls', rows,
+        search: r => `${r.framework} ${r.id} ${r.title} ${r.areas.map(a => code('cat', a)).join(' ')}`,
+        filters: [
+          { label: t('ev.col.framework'), options: [...new Set(rows.map(r => r.framework))], test: (r, v) => r.framework === v },
+          { label: t('pc.status'), options: ['Open', 'Accepted', 'Clear', 'NotAssessed'], optionLabel: v => code('evs', v), test: (r, v) => r.status === v }],
+        columns: [
+          { title: t('ev.col.framework'), cell: r => h('span', { title: r.framework }, r.fwShort), text: r => r.framework },
+          { title: t('ev.col.control'), cell: r => h('span', null, h('b', null, r.id), ' ', r.title), text: r => `${r.id} ${r.title}` },
+          { title: t('pc.status'), cell: r => h('span', { class: cls[r.status] }, code('evs', r.status)), text: r => code('evs', r.status) },
+          { title: t('ev.col.open'), text: r => r.open.length ? sevText(r.open) : '–' },
+          { title: t('ev.col.accepted'), text: r => r.accepted.length ? num(r.accepted.length) : '–' },
+          { title: t('ev.col.areas'), cell: r => h('span', { class: 'small' }, r.areas.map(a => code('cat', a)).join(', ')), text: r => r.areas.map(a => code('cat', a)).join(', ') }],
+        detail: r => r.findings.length ? h('ul', { class: 'plain' }, r.findings.map(f => h('li', null, sevCell(f.severity), ' ', tx(f.title), f.deviceName || f.deviceCount ? ` · ${devText(f)}` : '',
+          f.accepted ? [' ', h('span', { class: 'tag accepted' }, f.accepted.expires ? t('acc.until', fmtDay(f.accepted.expires)) : t('acc.unlimited')), ` ${f.accepted.owner || ''}`] : null)))
+          : h('span', { class: 'muted small' }, t(r.status === 'NotAssessed' ? 'ev.na.detail' : 'ev.clear.detail'))
+      }));
+      // Flat list for the auditor: one row per control and finding (CSV export)
+      const flat = rows.flatMap(r => r.findings.map(f => ({ r, f })));
+      main.append(h('h2', null, t('ev.flat')), h('p', { class: 'lede' }, t('ev.flat.lede')));
+      main.append(dataTable({
+        name: 'evidence-findings', rows: flat, sort: (a, b) => String(a.r.framework).localeCompare(String(b.r.framework)) || String(a.r.id).localeCompare(String(b.r.id), undefined, { numeric: true }) || sevRank(a.f.severity) - sevRank(b.f.severity),
+        search: x => `${x.r.framework} ${x.r.id} ${x.r.title} ${tx(x.f.title)} ${x.f.deviceName || ''}`,
+        filters: [
+          { label: t('ev.col.framework'), options: [...new Set(flat.map(x => x.r.framework))], test: (x, v) => x.r.framework === v },
+          { label: t('f.severity'), options: SEV, optionLabel: s => code('sev', s), test: (x, v) => x.f.severity === v },
+          { type: 'check', label: t('acc.hide'), test: x => !x.f.accepted }],
+        columns: [
+          { title: t('ev.col.framework'), cell: x => h('span', { title: x.r.framework }, x.r.fwShort), text: x => x.r.framework },
+          { title: t('ev.col.control'), text: x => `${x.r.id} ${x.r.title}` },
+          { title: t('f.severity'), cell: x => sevCell(x.f.severity), text: x => code('sev', x.f.severity) },
+          { title: t('f.finding'), text: x => tx(x.f.title) },
+          { title: t('f.device'), text: x => devText(x.f) },
+          { title: t('ev.col.exception'), text: x => x.f.accepted ? `${x.f.accepted.expires ? t('acc.until', fmtDay(x.f.accepted.expires)) : t('acc.unlimited')} · ${x.f.accepted.owner || ''}${x.f.accepted.ticket ? ` · ${x.f.accepted.ticket}` : ''}` : '–' }],
+        empty: t('ev.flat.none')
       }));
     },
 
@@ -2397,7 +2663,8 @@
       const usageCell = r => {
         const cls = r.usage === 'Unused' ? 'tag warn' : r.usage === 'Used' ? 'tag' : 'tag muted';
         return h('span', null, h('span', { class: cls }, code('au', r.usage || 'Unknown')), r.lastUsed ? [' ', h('span', { class: 'muted small' }, fmtDay(r.lastUsed))] : null,
-          r.lastActivated ? [h('br'), h('span', { class: 'muted small' }, t('r.activated', fmtDay(r.lastActivated)))] : null);
+          r.lastActivated ? [h('br'), h('span', { class: 'muted small' }, t('r.activated', fmtDay(r.lastActivated)))] : null,
+          r.usage === 'Used' ? [h('br'), h('span', { class: 'muted small' }, arr(r.usedPermissions).length ? t('pu.used', arr(r.usedPermissions).join(', ')) : t('pu.readOnly'))] : null);
       };
       main.append(dataTable({
         name: 'access', rows, sort: (a, b) => String(a.displayName).localeCompare(String(b.displayName)) || String(a.role).localeCompare(String(b.role)),
@@ -2416,6 +2683,59 @@
           { title: t('r.lastUsed'), cell: usageCell, text: r => code('au', r.usage || 'Unknown') },
           { title: t('r.ends'), text: r => r.end ? fmtDay(r.end) : t('unlimited') }],
         empty: t('r.none')
+      }));
+      // Held versus used: one row per person and permission (backend: Get-GapsioPermissionCoverage)
+      main.append(h('h2', null, t('pc.title')), h('p', { class: 'lede' }, t('pc.lede')));
+      if (!Array.isArray(ac.permissionCoverage)) main.append(h('p', { class: 'muted small' }, t('pc.rerun')));
+      else {
+        const pc = ac.permissionCoverage;
+        const st = ac.permissionSourceState || {};
+        const sum = ac.summary || {};
+        const pcCls = s => s === 'Unused' ? 'tag warn' : s === 'Used' ? 'tag' : 'tag muted';
+        const pcRank = { Unused: 0, NotMeasurable: 1, Used: 2 };
+        main.append(h('p', { class: 'muted small' },
+          t('pc.src', ['actions', 'alerts', 'audit'].map(k => `${t(`pcsrc.${k}`)}: ${code('pcst', st[k] || 'off')}`).join(' · ')), h('br'),
+          t('pc.summary', num(sum.unusedPermissions), num(sum.peopleWithUnusedPermissions), num(sum.notMeasurablePermissions))));
+        main.append(dataTable({
+          name: 'access-perm-coverage', rows: pc,
+          sort: (a, b) => (pcRank[a.status] ?? 9) - (pcRank[b.status] ?? 9) || String(a.upn).localeCompare(String(b.upn)) || Number(!!b.highImpact) - Number(!!a.highImpact) || String(a.permission).localeCompare(String(b.permission)),
+          search: r => `${r.upn} ${r.displayName || ''} ${r.permission} ${arr(r.roles).join(' ')}`,
+          filters: [
+            { label: t('r.person'), options: [...new Set(pc.map(r => r.upn))].sort(), test: (r, v) => r.upn === v },
+            { label: t('pu.permission'), options: [...new Set(pc.map(r => r.permission))].sort(), test: (r, v) => r.permission === v },
+            { label: t('pc.status'), options: ['Unused', 'NotMeasurable', 'Used'], optionLabel: s => code('pcs', s), test: (r, v) => r.status === v },
+            { type: 'check', label: t('pc.onlyUnused'), test: r => r.status === 'Unused' },
+            { type: 'check', label: t('r.onlyPriv'), test: r => r.highImpact === true }],
+          columns: [
+            { title: t('r.person'), cell: r => h('span', null, r.displayName || r.upn, h('br'), h('span', { class: 'muted small' }, r.upn)), text: r => r.upn },
+            { title: t('pu.permission'), cell: r => h('span', null, r.permission, r.highImpact ? [' ', h('span', { class: 'tag' }, t('r.privileged'))] : null), text: r => r.permission },
+            { title: t('pc.status'), cell: r => h('span', { class: pcCls(r.status) }, code('pcs', r.status)), text: r => code('pcs', r.status) },
+            { title: t('pc.reason'), cell: r => h('span', { class: 'small' }, code('pcr', r.reason)), text: r => code('pcr', r.reason) },
+            { title: t('pc.via'), cell: r => h('span', null, arr(r.roles).join(', '), h('br'), h('span', { class: 'muted small' }, arr(r.states).map(s => code('rs', s)).join(', '))), text: r => arr(r.roles).join(', ') },
+            { title: t('r.lastUsed'), text: r => r.lastUsed ? fmtDay(r.lastUsed) : '–' }],
+          empty: t('pc.none')
+        }));
+      }
+
+      const pu = arr(ac.permissionUsage);
+      const srcs = arr(ac.permissionSources);
+      main.append(h('h2', null, t('pu.title')), h('p', { class: 'lede' }, t('pu.lede')),
+        h('p', { class: 'muted small' }, srcs.length ? t('pu.sources', srcs.join(', ')) : '', srcs.includes('Audit log') ? null : [' ', t('pu.noAudit')]));
+      main.append(dataTable({
+        name: 'access-perm-usage', rows: pu, sort: (a, b) => String(a.upn).localeCompare(String(b.upn)) || String(b.last).localeCompare(String(a.last)),
+        search: r => `${r.upn} ${r.permission} ${arr(r.actions).map(x => x.action).join(' ')}`,
+        filters: [
+          { label: t('r.person'), options: [...new Set(pu.map(r => r.upn))].sort(), test: (r, v) => r.upn === v },
+          { label: t('pu.permission'), options: [...new Set(pu.map(r => r.permission))].sort(), test: (r, v) => r.permission === v }],
+        columns: [
+          { title: t('r.person'), text: r => r.upn },
+          { title: t('pu.permission'), text: r => r.permission },
+          { title: t('pu.actions'), cell: r => h('span', { class: 'small' }, arr(r.actions).map(x => `${x.action} ×${x.count}`).join(', ')), text: r => arr(r.actions).map(x => `${x.action} x${x.count}`).join(', ') },
+          { title: t('pu.count'), text: r => String(r.count) },
+          { title: t('pu.first'), text: r => fmtDate(r.first) },
+          { title: t('pu.last'), text: r => fmtDate(r.last) },
+          { title: t('pu.source'), text: r => r.source }],
+        empty: srcs.length ? t('pu.none') : t('pu.noSources')
       }));
       const byp = arr(ac.bypass);
       if (byp.length) {
@@ -2737,7 +3057,7 @@
         [t('lic.customer'), l.customer], [t('lic.plan'), l.plan ? code('lic.plan', l.plan) : null], [t('lic.expires'), l.expires ? fmtDay(l.expires) : null],
         [t('lic.id'), l.licenseId ? h('span', { class: 'mono' }, l.licenseId) : null], [t('lic.tenant'), l.tenantId ? h('span', { class: 'mono' }, l.tenantId) : (state.me.tenantId || null)],
         [t('lic.source'), l.source === 'Portal' ? t('lic.src.Portal', l.setBy || '–', fmtDate(l.setAt)) : l.source ? t('lic.src.AppSetting') : null]])));
-      const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'WL1.…', 'aria-label': t('lic.key') });
+      const ta = h('textarea', { rows: '4', spellcheck: 'false', autocomplete: 'off', class: 'mono', placeholder: 'GP1.…', 'aria-label': t('lic.key') });
       const form = h('form', { class: 'license-form' }, h('label', null, t('lic.key'), ta),
         h('div', { class: 'accept-actions' }, h('button', { type: 'submit', class: 'primary' }, t('lic.save')), h('a', { class: 'btn', href: 'https://gapsio.cloud/pricing', target: '_blank', rel: 'noopener noreferrer' }, t('lic.buy'))));
       form.addEventListener('submit', async (e) => {
@@ -2803,20 +3123,22 @@
   };
 
   const NAV = [
-    { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline'] },
+    { group: 'nav.endpoint', admin: true, items: ['overview', 'findings', 'exclusions', 'asr', 'devices', 'baseline', 'conflicts', 'devicecontrol', 'disruption', 'detections'] },
     { group: 'nav.office', admin: true, module: 'officepreview', items: ['officepreview', 'officeantiphish', 'officepolicymap'] },
+    { group: 'nav.purview', admin: true, module: 'purviewpreview', items: ['purview', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting'] },
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
-    { group: 'nav.history', admin: true, items: ['changes', 'accepted'] },
+    { group: 'nav.history', admin: true, items: ['changes', 'accepted', 'evidence'] },
     { group: 'nav.settings', admin: true, items: ['license'] }
   ];
   const VIEW_MODULE = {
     agents: 'agents', agentca: 'agents',
     access: 'access', whocan: 'access', mine: 'access',
     licensing: 'licensing',
-    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview'
+    officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview',
+    purview: 'purviewpreview', purviewdevices: 'purviewpreview', purviewlicensing: 'purviewpreview', purviewaccess: 'purviewpreview', purviewhunting: 'purviewpreview'
   };
   const NAV_ALIAS = { device: 'devices' };
   let navCollapsed = {};
@@ -2885,7 +3207,7 @@
 
   const licenseShort = (l) => l.status === 'Valid' ? `${code('lic.plan', l.plan)} · ${fmtDay(l.expires)}` : code('lic.st', l.status);
 
-  // ---------- Assistant (optional, WL_ASSISTANT) ----------
+  // ---------- Assistant (optional, GAPSIO_ASSISTANT) ----------
   const ai = { history: [], open: false, busy: false };
   function renderAssistant() {
     let fab = $('#ai-fab'), panel = $('#ai-panel');
@@ -2939,8 +3261,8 @@
   }
 
   function updateMeta() {
-    const ep = state.endpoint, ac = state.access, mi = state.mine, ag = state.agents, li = state.licensing;
-    const ts = [ep && ep.generatedAt, ag && ag.generatedAt, ac && ac.generatedAt, mi && mi.generatedAt, li && li.generatedAt].filter(Boolean).sort().pop();
+    const ts = [state.endpoint, state.agents, state.access, state.mine, state.licensing, state.officePreview, state.purview]
+      .map(x => x && x.generatedAt).filter(Boolean).sort().pop();
     $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Gapsio';
   }
 

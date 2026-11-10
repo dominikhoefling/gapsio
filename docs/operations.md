@@ -13,32 +13,32 @@ Set by the install script; change them in the Function App configuration or via 
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `WL_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`) – derived from `-Features` |
-| `WL_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `inventory`) – derived from `-Features` |
-| `WL_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
-| `WL_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
-| `WL_SCHEDULE_ACCESS` | `0 47 2 * * *` | Schedule of the access collection |
-| `WL_SCHEDULE_LICENSING` | `0 17 3 * * *` | Schedule of the licensing collection |
-| `WL_LICENSING_DAYS` | `30` | Observation window for device logons (7–90, [Licensing module](modules/licensing.md)) |
-| `WL_LICENSING_DEVICES_PER_USER` | `5` | Devices covered per user licence |
-| `WL_LICENSING_DETAIL` | `users` | `users` keeps UPNs in the licensing snapshot, `aggregate` pseudonymises them |
-| `WL_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-ChangeRetentionDays`) |
-| `WL_SNAPSHOT_RETENTION_DAYS` | `365` | Retention of the snapshots (`-SnapshotRetentionDays`); informational – the storage lifecycle rule enforces it |
-| `WL_DEVICE_INVENTORY` | `false` | Device inventory via Intune Remediations (`-DeviceInventory`) |
-| `WL_DEVICE_LOOKBACK_DAYS` | `7` | How far back device state is read from Advanced Hunting |
-| `WL_DATA_APP_ID` | – | Pre-created data-access app (workload identity federation) |
-| `WL_UPDATE_CHECK` | `true` | Daily check for new releases (no tenant data sent) |
-| `WL_NOTIFY_WEBHOOK` | – | Webhook for notifications about new findings (`-NotifyWebhookUrl`) |
-| `WL_NOTIFY_MIN_SEVERITY` | `High` | Minimum severity of new findings that are sent (`-NotifyMinSeverity`) |
-| `WL_UPDATE_REPOSITORY` | – | Different GitHub repository for the update check (e.g. an internal mirror) |
-| `WL_MAX_GROUP_MEMBERS` | `10000` | Cap when resolving group members (Access module) |
-| `WL_PAGE_SIZE` | `2000` | Devices per stored page (`state/endpoint-devices/NNNN.json`) |
-| `WL_FINDING_ROLLUP` | `200` | Above this many devices, identical per-device findings are rolled up into one finding with the device count |
-| `WL_TENANT_ID`, `WL_CLIENT_ID`, `WL_STORAGE_ACCOUNT`, `WL_STORAGE_SUFFIX` | set by the template | Do not change |
+| `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`) – derived from `-Features` |
+| `GAPSIO_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `coverage`, `response`, `detections`, `inventory`, `audit`) – derived from `-Features` |
+| `GAPSIO_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
+| `GAPSIO_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
+| `GAPSIO_SCHEDULE_ACCESS` | `0 47 2 * * *` | Schedule of the access collection |
+| `GAPSIO_SCHEDULE_LICENSING` | `0 17 3 * * *` | Schedule of the licensing collection |
+| `GAPSIO_LICENSING_DAYS` | `30` | Observation window for device logons (7–90, [Licensing module](modules/licensing.md)) |
+| `GAPSIO_LICENSING_DEVICES_PER_USER` | `5` | Devices covered per user licence |
+| `GAPSIO_LICENSING_DETAIL` | `users` | `users` keeps UPNs in the licensing snapshot, `aggregate` pseudonymises them |
+| `GAPSIO_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-ChangeRetentionDays`) |
+| `GAPSIO_SNAPSHOT_RETENTION_DAYS` | `365` | Retention of the snapshots (`-SnapshotRetentionDays`); informational – the storage lifecycle rule enforces it |
+| `GAPSIO_DEVICE_INVENTORY` | `false` | Device inventory via Intune Remediations (`-DeviceInventory`) |
+| `GAPSIO_DEVICE_LOOKBACK_DAYS` | `7` | How far back device state is read from Advanced Hunting |
+| `GAPSIO_DATA_APP_ID` | – | Pre-created data-access app (workload identity federation) |
+| `GAPSIO_UPDATE_CHECK` | `true` | Daily check for new releases (no tenant data sent) |
+| `GAPSIO_NOTIFY_WEBHOOK` | – | Webhook for notifications about new findings (`-NotifyWebhookUrl`) |
+| `GAPSIO_NOTIFY_MIN_SEVERITY` | `High` | Minimum severity of new findings that are sent (`-NotifyMinSeverity`) |
+| `GAPSIO_UPDATE_REPOSITORY` | – | Different GitHub repository for the update check (e.g. an internal mirror) |
+| `GAPSIO_MAX_GROUP_MEMBERS` | `10000` | Cap when resolving group members (Access module) |
+| `GAPSIO_PAGE_SIZE` | `2000` | Devices per stored page (`state/endpoint-devices/NNNN.json`) |
+| `GAPSIO_FINDING_ROLLUP` | `200` | Above this many devices, identical per-device findings are rolled up into one finding with the device count |
+| `GAPSIO_TENANT_ID`, `GAPSIO_CLIENT_ID`, `GAPSIO_STORAGE_ACCOUNT`, `GAPSIO_STORAGE_SUFFIX` | set by the template | Do not change |
 
 ## Notifications
 
-After each run Gapsio can post **new findings** (not in the previous run, at least `WL_NOTIFY_MIN_SEVERITY`, not
+After each run Gapsio can post **new findings** (not in the previous run, at least `GAPSIO_NOTIFY_MIN_SEVERITY`, not
 accepted) to a webhook:
 
 - **Teams**: create a workflow in the channel with the template *"Post to a channel when a webhook request is received"* and pass its URL.
@@ -69,7 +69,7 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 | Container | Content |
 |---|---|
 | `state` | Current state per module, change history, run log, update info, exceptions, assignments and their audit log |
-| `state/endpoint-devices/`, `state/endpoint-coverage/` | Device and coverage lists in pages of `WL_PAGE_SIZE` entries, with a tab-separated search index (`endpoint-devices.tsv`) and a fingerprint list for drift detection |
+| `state/endpoint-devices/`, `state/endpoint-coverage/` | Device and coverage lists in pages of `GAPSIO_PAGE_SIZE` entries, with a tab-separated search index (`endpoint-devices.tsv`) and a fingerprint list for drift detection |
 | `snapshots` | Dated snapshots of every run (optionally immutable) |
 | `config` | Your custom baseline (`mdav-baseline.json`) |
 
@@ -83,7 +83,7 @@ Gapsio is built for tenants with a few hundred up to several hundred thousand de
 - **Device lists** are not stored inside the snapshot but in pages; the snapshot keeps the aggregates
   (`deviceStats`) the charts need. The portal loads the full list up to 10,000 devices; above that the Devices
   view searches and filters on the server (`api/devices`) and opens single devices via `api/device`.
-- **Findings** that affect more than `WL_FINDING_ROLLUP` devices (e.g. Tamper Protection off on 12,000 devices)
+- **Findings** that affect more than `GAPSIO_FINDING_ROLLUP` devices (e.g. Tamper Protection off on 12,000 devices)
   are rolled up into one finding with the device count and a sample of names; the exact set is one filter click
   away in the Devices view.
 - **Function memory**: the template deploys 4 GB instances (`instanceMemoryMB`). A run with 300,000 devices takes

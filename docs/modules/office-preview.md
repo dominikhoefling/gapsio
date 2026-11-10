@@ -2,113 +2,80 @@
 
 > Optional module (`officepreview`) in private preview.
 
-The Office preview gives a **telemetry-based risk view** for Defender for Office 365. It is intentionally not a copy of the Defender portal. It highlights where policy targeting and observed outcomes can conflict or become redundant.
+The Office module answers one question for Defender for Office 365: **what got through, and why?** It reads the mail
+telemetry in Advanced Hunting – it is not a copy of the Defender portal and it does not read the policy settings.
 
 ## What it checks
 
-Current probes include:
+Every check uses documented columns of the hunting schema
+([EmailEvents](https://learn.microsoft.com/defender-xdr/advanced-hunting-emailevents-table),
+[EmailPostDeliveryEvents](https://learn.microsoft.com/defender-xdr/advanced-hunting-emailpostdeliveryevents-table),
+[UrlClickEvents](https://learn.microsoft.com/defender-xdr/advanced-hunting-urlclickevents-table)), last 30 days,
+inbound mail.
 
-- override exposure (allow/deliver outcomes)
-- Safe Links click-through signals
-- likely ZAP blind spots
-- authentication failure posture (DMARC/SPF/DKIM)
-- risky first-contact traffic
-- encrypted attachment volume
-- user/domain policy overlap
-- duplicate-like policy effects
-- precedence conflict signals
-- TABL/IOC inventory and action/type breakdown
-- licensing context from `licensing-latest.json` (if available)
-- effective policy map (top recipients / top domains)
-- MDO dashboard trends (daily threat categories, daily action outcomes, top campaigns/themes)
+| Check | How it is measured | Finding |
+|---|---|---|
+| **Phish and malware still in inboxes** | `ThreatTypes` is phishing or malware (the current verdict) and `LatestDeliveryLocation` is the inbox | High |
+| **Threats delivered by an allow** | Threat verdict and `OrgLevelAction` or `UserLevelAction` is an allow – with the policy that allowed it | High when delivered, otherwise Medium |
+| **Safe Links click-through** | `IsClickedThrough`: the user saw the warning and continued | Medium |
+| **Own sender domains failing DMARC** | Inbound mail whose From domain is one of the domains in your outbound mail, DMARC failed, still delivered | High |
+| Post-delivery actions | Phish ZAP, malware ZAP, manual remediation (`EmailPostDeliveryEvents.ActionType`) | – (context) |
+| Trends | Threat types and delivery outcomes per day, threats by type and classification | – (context) |
 
-## Effective policy map
+A check that cannot be read is shown as **failed** – its number is missing, not zero, and it raises no finding.
 
-The page now shows two tables:
+!!! note "Organisation-level and mailbox policies"
+    `OrgLevelPolicy` is a policy defined by the organisation (Tenant Allow/Block List, transport rules, connectors).
+    `UserLevelPolicy` is the **recipient's own mailbox policy**, such as the safe senders list – not an admin policy.
+    Gapsio keeps the two apart: an allow on mailbox level means a user's safe sender entry delivered mail the
+    organisation would have stopped.
 
-- **Top recipients**: recipient, events, number of policies, effective actions, policy set
-- **Top domains**: domain, events, affected users, number of policies, effective actions, policy set
+## Policy map
 
-This is a fast way to spot:
+Three tables for inbound mail:
 
-- recipients/domains hit by many policies,
-- multiple policies that lead to the same action,
-- potential order/precedence conflicts.
+- **Which protection acted** – the policy type that determined the final action (`EmailActionPolicy`: anti-spam,
+  anti-phishing spoof, Safe Attachments, transport rules …) and the action taken
+- **Organisation-level policies** – what each policy did, how many of its messages carried a threat verdict
+- **Mailbox policies of the recipients** – the same for safe and blocked sender lists
 
-## How to read “Result” (plain language)
+## Anti-phish drift
 
-The `Result` column is not meant as a KPI by itself. It is a **triage signal**:
+Who changed which anti-phish policy setting (phishing threshold, impersonation and spoof actions, exclusions), rated
+as *weaker* or *stronger*, and how the share of delivered phishing moved in the seven days before and after. The
+changes come from the Exchange admin audit trail in `CloudAppEvents`; this needs the Microsoft 365 connector of
+Defender for Cloud Apps. Findings: *Anti-phish protection was weakened* (High), *More phish delivered after a policy
+change* (Medium).
 
-- “66 messages, 4 overrides …” = there were 66 matching events and 4 were delivered via override-like outcomes.
-- “36 attachments, 12 encrypted …” = 12 attachments reduced content-inspection visibility.
-- “No telemetry data …” = no matching events in the selected window (not automatically good or bad).
+## Findings, history and notifications
 
-Use it like this:
+Office findings appear in the **Findings** list with the other modules: they can be assigned, accepted with a reason
+and an expiry, and they count in the audit evidence view. Every run is compared with the previous one – new and
+resolved findings are in the change history and can go to Teams or Power Automate like any other finding.
 
-1. Check whether the signal is non-zero.
-2. Open the probe details.
-3. Use the direct **Open in Defender Advanced Hunting** link.
-4. Investigate concrete senders/recipients/policies there.
+## Limits
 
-So the module answers: **“Where should I look first?”**
-It does not replace the full Defender policy/configuration analysis.
+- **Policy settings are not read.** Microsoft Graph has no API for Defender for Office 365 policies; they are only
+  available through Exchange Online PowerShell. Gapsio therefore shows the effect of the policies (telemetry) and
+  their changes (audit trail), not their configuration.
+- **Values Microsoft does not enumerate** (`OrgLevelAction`, `AuthenticationDetails`) are matched tolerantly
+  ("contains allow", `dmarc … fail`).
+- **Own domains** are the sender domains seen in your outbound and intra-org mail of the last 30 days. A domain you
+  never send from is not recognised as your own.
+- **Not covered yet:** Teams messages, quarantine releases, changes to other policy types (anti-spam, Safe Links,
+  Safe Attachments, quarantine policies).
+- Advanced Hunting keeps 30 days; the anti-phish history is kept by Gapsio and grows from the first run.
 
-## TABL / IOC view
-
-The preview now includes an IOC/TABL section:
-
-- inventory snapshot (total, active, expiring soon)
-- top action/type buckets (e.g. URL+Block, Domain+Warn)
-
-This helps validate that email/domain/url/IP indicators are actually present and active.
-
-## MDO dashboard view
-
-The preview now includes chart-based reports similar to endpoint views:
-
-- threat categories by day (30d)
-- action outcomes by day (allow/block/quarantine/junk)
-- top campaigns/themes by event volume and recipients
-
-Use these charts for prioritisation and drill down via the Defender AH links in probe details.
-
-## Data source and caveats
-
-- Source: Defender Advanced Hunting (`EmailEvents`, `UrlClickEvents`, `EmailPostDeliveryEvents`, `EmailAttachmentInfo`).
-- The checks are **heuristics** from observed events, not an authoritative policy assignment report.
-- True policy priority/assignment truth still comes from Exchange/MDO policy configuration APIs and admin configuration.
-
-## Output
-
-Snapshot file:
-
-- `state/office-preview-latest.json`
-
-Key fields:
-
-- `version`
-- `generatedAt`
-- `windowDays`
-- `ok` / `errors`
-- `results[]`
-- `findings[]`
-
-## Enable and runtime
-
-Enable it via the install script feature `OfficePreview`:
+## Enable and run
 
 ```powershell
 ./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
 ```
 
-This sets `WL_MODULES=...,officepreview`.
-
-Runtime:
-
-- Timer function: `CollectOfficePreview`
-- Manual run: `RunOnDemand` with `{"module":"officepreview"}`
+This sets `GAPSIO_MODULES=…,officepreview`. The module runs on its own timer (`CollectOfficePreview`) and with
+*Collect now*. Snapshot: `state/officepreview-latest.json`, change history `state/officepreview-changes.json`.
 
 ## Permissions
 
-- `ThreatHunting.Read.All` (feature `Hunting`) is required.
-- For licensing context, the optional Licensing module snapshot must exist.
+`ThreatHunting.Read.All` (feature `Hunting`) – nothing else. The licence figures in the overview come from the
+Licensing module when it is enabled.

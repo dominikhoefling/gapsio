@@ -235,7 +235,7 @@ resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-0
 
 resource runQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
   parent: queueService
-  name: 'wl-run'
+  name: 'gapsio-run'
 }
 
 resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05-01' = {
@@ -446,28 +446,28 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING', value: 'ClientId=${runner.properties.clientId};Authorization=AAD' }
         { name: 'PSWorkerInProcConcurrencyUpperBound', value: '4' }
-        { name: 'WL_CLIENT_ID', value: runner.properties.clientId }
-        { name: 'WL_TENANT_ID', value: tenant().tenantId }
-        { name: 'WL_STORAGE_ACCOUNT', value: storage.name }
-        { name: 'WL_STORAGE_SUFFIX', value: environment().suffixes.storage }
-        { name: 'WL_SCHEDULE_ENDPOINT', value: scheduleEndpoint }
-        { name: 'WL_SCHEDULE_ACCESS', value: scheduleAccess }
-        { name: 'WL_SCHEDULE_LICENSING', value: scheduleLicensing }
-        { name: 'WL_CHANGE_RETENTION_DAYS', value: string(changeDays) }
-        { name: 'WL_SNAPSHOT_RETENTION_DAYS', value: string(snapshotDays) }
-        { name: 'WL_DEVICE_INVENTORY', value: deviceInventory ? 'true' : 'false' }
-        { name: 'WL_MODULES', value: modules }
-        { name: 'WL_FEATURES', value: features }
-        { name: 'WL_DATA_APP_ID', value: dataAppId }
-        { name: 'WL_UPDATE_CHECK', value: string(updateCheck) }
-        { name: 'WL_NOTIFY_WEBHOOK', value: notifyWebhook }
-        { name: 'WL_NOTIFY_MIN_SEVERITY', value: notifyMinSeverity }
-        { name: 'WL_LICENSE_KEY', value: licenseKey }
-        { name: 'WL_SCHEDULE_AGENTS', value: scheduleAgents }
-        { name: 'WL_ASSISTANT', value: enableAssistant ? 'true' : 'false' }
-        { name: 'WL_AI_ENDPOINT', value: enableAssistant ? aiEndpoint : '' }
-        { name: 'WL_AI_DEPLOYMENT', value: enableAssistant ? assistantDeployment : '' }
-        { name: 'WL_AI_EMBEDDING_DEPLOYMENT', value: enableAssistant ? assistantEmbeddingDeployment : '' }
+        { name: 'GAPSIO_CLIENT_ID', value: runner.properties.clientId }
+        { name: 'GAPSIO_TENANT_ID', value: tenant().tenantId }
+        { name: 'GAPSIO_STORAGE_ACCOUNT', value: storage.name }
+        { name: 'GAPSIO_STORAGE_SUFFIX', value: environment().suffixes.storage }
+        { name: 'GAPSIO_SCHEDULE_ENDPOINT', value: scheduleEndpoint }
+        { name: 'GAPSIO_SCHEDULE_ACCESS', value: scheduleAccess }
+        { name: 'GAPSIO_SCHEDULE_LICENSING', value: scheduleLicensing }
+        { name: 'GAPSIO_CHANGE_RETENTION_DAYS', value: string(changeDays) }
+        { name: 'GAPSIO_SNAPSHOT_RETENTION_DAYS', value: string(snapshotDays) }
+        { name: 'GAPSIO_DEVICE_INVENTORY', value: deviceInventory ? 'true' : 'false' }
+        { name: 'GAPSIO_MODULES', value: modules }
+        { name: 'GAPSIO_FEATURES', value: features }
+        { name: 'GAPSIO_DATA_APP_ID', value: dataAppId }
+        { name: 'GAPSIO_UPDATE_CHECK', value: string(updateCheck) }
+        { name: 'GAPSIO_NOTIFY_WEBHOOK', value: notifyWebhook }
+        { name: 'GAPSIO_NOTIFY_MIN_SEVERITY', value: notifyMinSeverity }
+        { name: 'GAPSIO_LICENSE_KEY', value: licenseKey }
+        { name: 'GAPSIO_SCHEDULE_AGENTS', value: scheduleAgents }
+        { name: 'GAPSIO_ASSISTANT', value: enableAssistant ? 'true' : 'false' }
+        { name: 'GAPSIO_AI_ENDPOINT', value: enableAssistant ? aiEndpoint : '' }
+        { name: 'GAPSIO_AI_DEPLOYMENT', value: enableAssistant ? assistantDeployment : '' }
+        { name: 'GAPSIO_AI_EMBEDDING_DEPLOYMENT', value: enableAssistant ? assistantEmbeddingDeployment : '' }
       ]
     }
     functionAppConfig: {

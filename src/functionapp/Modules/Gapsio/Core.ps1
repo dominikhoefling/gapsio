@@ -1,49 +1,50 @@
 # Gapsio core: configuration, tokens, REST/Graph/Hunting, storage, snapshots, auth.
 
-$script:WlTokens = @{}
-$script:WlWarnings = [System.Collections.Generic.List[string]]::new()
-$script:WlStorageVersion = '2023-11-03'
+$script:GapsioTokens = @{}
+$script:GapsioWarnings = [System.Collections.Generic.List[string]]::new()
+$script:GapsioStorageVersion = '2023-11-03'
 # Single source of the version: ModuleVersion in Gapsio.psd1 (the release workflow checks it against the git tag).
-$script:WlVersion = (Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'Gapsio.psd1')).ModuleVersion.ToString()
-# GitHub repository that publishes Gapsio releases (update check). Override with the app setting WL_UPDATE_REPOSITORY.
-$script:WlDefaultRepository = 'dominikhoefling/gapsio'
+$script:GapsioVersion = (Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'Gapsio.psd1')).ModuleVersion.ToString()
+# GitHub repository that publishes Gapsio releases (update check). Override with the app setting GAPSIO_UPDATE_REPOSITORY.
+$script:GapsioDefaultRepository = 'dominikhoefling/gapsio'
 
 #region Configuration & warnings
-function Get-WlSetting {
+function Get-GapsioSetting {
     param([Parameter(Mandatory)][string]$Name, [string]$Default)
     $v = [Environment]::GetEnvironmentVariable($Name)
     if ([string]::IsNullOrWhiteSpace($v)) { return $Default }
     $v
 }
 
-function Get-WlModules {
+function Get-GapsioModules {
     <#
     .SYNOPSIS
-    Enabled modules from the app setting WL_MODULES (comma-separated). Default: endpoint,agents.
+    Enabled modules from the app setting GAPSIO_MODULES (comma-separated). Default: endpoint,agents.
     The 'access' (PIM/roles), 'licensing' (Defender licence indication) and
     'officepreview' (Defender for Office 365 private preview) modules are optional.
     #>
-    $raw = Get-WlSetting -Name 'WL_MODULES' -Default 'endpoint,agents'
-    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview' } | Select-Object -Unique)
+    $raw = Get-GapsioSetting -Name 'GAPSIO_MODULES' -Default 'endpoint,agents'
+    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview' } | Select-Object -Unique)
 }
 
-function Test-WlFeature {
+function Test-GapsioFeature {
     <#
     .SYNOPSIS
-    Endpoint sub-features from the app setting WL_FEATURES (comma-separated): hunting, indicators, inventory, coverage, response.
+    Endpoint sub-features from the app setting GAPSIO_FEATURES (comma-separated): hunting, indicators, inventory, coverage, response,
+    detections (custom detection rules), audit (unified audit log for the access module).
     A feature that is not selected was not granted a permission, so its data source is skipped quietly.
     Default (setting missing, e.g. older installations): hunting and indicators.
     #>
     param([Parameter(Mandatory)][string]$Name)
-    $raw = Get-WlSetting -Name 'WL_FEATURES' -Default 'hunting,indicators'
+    $raw = Get-GapsioSetting -Name 'GAPSIO_FEATURES' -Default 'hunting,indicators'
     $set = @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() })
-    if ($Name -ieq 'inventory') { return ($set -contains 'inventory') -or ((Get-WlSetting -Name 'WL_DEVICE_INVENTORY' -Default 'false') -eq 'true') }
+    if ($Name -ieq 'inventory') { return ($set -contains 'inventory') -or ((Get-GapsioSetting -Name 'GAPSIO_DEVICE_INVENTORY' -Default 'false') -eq 'true') }
     $set -contains $Name.ToLowerInvariant()
 }
 
-function Get-WlVersion { $script:WlVersion }
+function Get-GapsioVersion { $script:GapsioVersion }
 
-function Compare-WlVersion {
+function Compare-GapsioVersion {
     <#
     .SYNOPSIS
     Compares two versions such as 'v0.4.1' and '0.4.0'. Returns 1 if A is newer, -1 if B is newer, 0 if equal.
@@ -56,66 +57,66 @@ function Compare-WlVersion {
     $pa.CompareTo($pb)
 }
 
-function Update-WlReleaseInfo {
+function Update-GapsioReleaseInfo {
     <#
     .SYNOPSIS
     Checks once a day whether a newer Gapsio release exists and stores the result in state/release.json (shown in the portal).
-    The check is an anonymous GET to the GitHub releases API – no tenant data is sent. Disable with WL_UPDATE_CHECK=false.
+    The check is an anonymous GET to the GitHub releases API – no tenant data is sent. Disable with GAPSIO_UPDATE_CHECK=false.
     Gapsio never updates itself; customers update with setup/Update-Gapsio.ps1.
     #>
     param([switch]$Force)
-    if ((Get-WlSetting -Name 'WL_UPDATE_CHECK' -Default 'true') -eq 'false') { return $null }
-    $repo = Get-WlSetting -Name 'WL_UPDATE_REPOSITORY' -Default $script:WlDefaultRepository
+    if ((Get-GapsioSetting -Name 'GAPSIO_UPDATE_CHECK' -Default 'true') -eq 'false') { return $null }
+    $repo = Get-GapsioSetting -Name 'GAPSIO_UPDATE_REPOSITORY' -Default $script:GapsioDefaultRepository
     if ($repo -notmatch '^[\w.-]+/[\w.-]+$' -or $repo -like 'OWNER/*') { return $null }
     $cur = $null
-    try { $cur = Get-WlBlob -Container 'state' -Name 'release.json' } catch { }
-    if (-not $Force -and $cur -and $cur.checkedAt -and $cur.current -eq $script:WlVersion -and ([DateTime]$cur.checkedAt).ToUniversalTime() -gt [DateTime]::UtcNow.AddHours(-20)) { return $cur }
+    try { $cur = Get-GapsioBlob -Container 'state' -Name 'release.json' } catch { }
+    if (-not $Force -and $cur -and $cur.checkedAt -and $cur.current -eq $script:GapsioVersion -and ([DateTime]$cur.checkedAt).ToUniversalTime() -gt [DateTime]::UtcNow.AddHours(-20)) { return $cur }
     try {
-        $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 15 -Headers @{ 'User-Agent' = "Gapsio/$script:WlVersion"; Accept = 'application/vnd.github+json' }
+        $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 15 -Headers @{ 'User-Agent' = "Gapsio/$script:GapsioVersion"; Accept = 'application/vnd.github+json' }
         $latest = ([string]$r.tag_name) -replace '^v', ''
         $info = [ordered]@{
-            current = $script:WlVersion; latest = $latest; available = ((Compare-WlVersion $latest $script:WlVersion) -gt 0)
+            current = $script:GapsioVersion; latest = $latest; available = ((Compare-GapsioVersion $latest $script:GapsioVersion) -gt 0)
             url = [string]$r.html_url; publishedAt = [string]$r.published_at; checkedAt = [DateTime]::UtcNow.ToString('o'); repository = $repo
         }
-        Set-WlBlob -Container 'state' -Name 'release.json' -Object $info
+        Set-GapsioBlob -Container 'state' -Name 'release.json' -Object $info
         [pscustomobject]$info
     }
     catch { Write-Warning "Update check failed: $($_.Exception.Message)"; $cur }
 }
 
-function Test-WlModuleEnabled {
+function Test-GapsioModuleEnabled {
     param([Parameter(Mandatory)][string]$Name)
-    (Get-WlModules) -contains $Name.ToLowerInvariant()
+    (Get-GapsioModules) -contains $Name.ToLowerInvariant()
 }
 
-function Reset-WlWarnings { $script:WlWarnings.Clear() }
+function Reset-GapsioWarnings { $script:GapsioWarnings.Clear() }
 
-function Add-WlWarning {
+function Add-GapsioWarning {
     param([Parameter(Mandatory)][string]$Message)
-    $script:WlWarnings.Add($Message)
+    $script:GapsioWarnings.Add($Message)
     Write-Warning $Message
 }
 
-function Get-WlWarnings { $script:WlWarnings.ToArray() }
+function Get-GapsioWarnings { $script:GapsioWarnings.ToArray() }
 #endregion
 
 #region Tokens & REST
-function Get-WlToken {
+function Get-GapsioToken {
     <#
     .SYNOPSIS
     Gets a token of the (user-assigned) managed identity for a resource. No secret, no certificate.
     #>
     param([Parameter(Mandatory)][string]$Resource)
-    $cached = $script:WlTokens[$Resource]
+    $cached = $script:GapsioTokens[$Resource]
     if ($cached -and $cached.ExpiresOn -gt [DateTime]::UtcNow.AddMinutes(5)) { return $cached.Token }
 
-    # Optional: a pre-created data-access app registration (WL_DATA_APP_ID). The managed identity signs in to it via
+    # Optional: a pre-created data-access app registration (GAPSIO_DATA_APP_ID). The managed identity signs in to it via
     # workload identity federation (no secret). Storage and Azure OpenAI (Azure RBAC) always use the managed identity directly.
-    $dataApp = Get-WlSetting -Name 'WL_DATA_APP_ID'
+    $dataApp = Get-GapsioSetting -Name 'GAPSIO_DATA_APP_ID'
     if ($dataApp -and $Resource -notmatch 'storage\.azure\.com|AzureADTokenExchange|cognitiveservices\.azure\.com') {
-        $assertion = Get-WlToken -Resource 'api://AzureADTokenExchange'
-        $loginHost = Get-WlSetting -Name 'WL_LOGIN_HOST' -Default 'login.microsoftonline.com'
-        $tenant = Get-WlSetting -Name 'WL_TENANT_ID'
+        $assertion = Get-GapsioToken -Resource 'api://AzureADTokenExchange'
+        $loginHost = Get-GapsioSetting -Name 'GAPSIO_LOGIN_HOST' -Default 'login.microsoftonline.com'
+        $tenant = Get-GapsioSetting -Name 'GAPSIO_TENANT_ID'
         $r = Invoke-RestMethod -Method Post -Uri "https://$loginHost/$tenant/oauth2/v2.0/token" -ContentType 'application/x-www-form-urlencoded' -Body @{
             client_id             = $dataApp
             scope                 = "$($Resource.TrimEnd('/'))/.default"
@@ -123,14 +124,14 @@ function Get-WlToken {
             client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
             client_assertion      = $assertion
         }
-        $script:WlTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = [DateTime]::UtcNow.AddSeconds([Math]::Min([int]$r.expires_in, 3600)) }
+        $script:GapsioTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = [DateTime]::UtcNow.AddSeconds([Math]::Min([int]$r.expires_in, 3600)) }
         return $r.access_token
     }
 
     $endpoint = $env:IDENTITY_ENDPOINT
     if (-not $endpoint) { throw 'Managed identity not available (IDENTITY_ENDPOINT missing). Is the code running in the Function App?' }
     $uri = "$endpoint`?resource=$([uri]::EscapeDataString($Resource))&api-version=2019-08-01"
-    $clientId = Get-WlSetting -Name 'WL_CLIENT_ID'
+    $clientId = Get-GapsioSetting -Name 'GAPSIO_CLIENT_ID'
     if ($clientId) { $uri += "&client_id=$clientId" }
 
     $r = Invoke-RestMethod -Uri $uri -Headers @{ 'X-IDENTITY-HEADER' = $env:IDENTITY_HEADER } -Method Get
@@ -138,18 +139,18 @@ function Get-WlToken {
     $expires = [DateTimeOffset]::FromUnixTimeSeconds([long]$r.expires_on).UtcDateTime
     $cap = [DateTime]::UtcNow.AddHours(1)
     if ($expires -gt $cap) { $expires = $cap }
-    $script:WlTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = $expires }
+    $script:GapsioTokens[$Resource] = @{ Token = $r.access_token; ExpiresOn = $expires }
     $r.access_token
 }
 
-function New-WlHttpException {
+function New-GapsioHttpException {
     param([int]$Status, [string]$Message)
     $e = [System.Exception]::new($Message)
     $e.Data['Status'] = $Status
     $e
 }
 
-function Invoke-WlRest {
+function Invoke-GapsioRest {
     <#
     .SYNOPSIS
     REST call with a managed identity token; retries on 429/5xx (honours Retry-After).
@@ -168,7 +169,7 @@ function Invoke-WlRest {
     $attempt = 0
     while ($true) {
         $attempt++
-        $h = @{ Authorization = "Bearer $(Get-WlToken -Resource $Resource)" }
+        $h = @{ Authorization = "Bearer $(Get-GapsioToken -Resource $Resource)" }
         foreach ($k in $Headers.Keys) { $h[$k] = $Headers[$k] }
 
         $params = @{
@@ -210,11 +211,11 @@ function Invoke-WlRest {
 
         $detail = if ($content -is [string]) { $content } else { ($content | ConvertTo-Json -Depth 5 -Compress) }
         if ($detail.Length -gt 600) { $detail = $detail.Substring(0, 600) + '…' }
-        throw (New-WlHttpException -Status $status -Message "HTTP $status for $Method $Uri :: $detail")
+        throw (New-GapsioHttpException -Status $status -Message "HTTP $status for $Method $Uri :: $detail")
     }
 }
 
-function Invoke-WlGraph {
+function Invoke-GapsioGraph {
     <#
     .SYNOPSIS
     Microsoft Graph (v1.0 or -Beta). -All follows @odata.nextLink and returns an array.
@@ -230,25 +231,25 @@ function Invoke-WlGraph {
     $base = if ($Beta) { 'https://graph.microsoft.com/beta' } else { 'https://graph.microsoft.com/v1.0' }
     $uri = if ($Path -match '^https://') { $Path } else { "$base/$($Path.TrimStart('/'))" }
     if (-not $All) {
-        return Invoke-WlRest -Uri $uri -Method $Method -Body $Body -Resource 'https://graph.microsoft.com' -Headers $Headers
+        return Invoke-GapsioRest -Uri $uri -Method $Method -Body $Body -Resource 'https://graph.microsoft.com' -Headers $Headers
     }
     $items = [System.Collections.Generic.List[object]]::new()
     while ($uri) {
-        $r = Invoke-WlRest -Uri $uri -Resource 'https://graph.microsoft.com' -Headers $Headers
+        $r = Invoke-GapsioRest -Uri $uri -Resource 'https://graph.microsoft.com' -Headers $Headers
         if ($r.PSObject.Properties['value']) { foreach ($i in @($r.value)) { if ($null -ne $i) { $items.Add($i) } } }
-        $uri = if ($r.PSObject.Properties['@odata.nextLink']) { $r.'@odata.nextLink' } else { $null }
+        $uri = Get-GapsioNextLink -Response $r
     }
     $items.ToArray()
 }
 
-function Get-WlTokenClaims {
+function Get-GapsioTokenClaims {
     <#
     .SYNOPSIS
     Decodes the payload of a cached access token (no validation – only used to explain errors).
     #>
     param([string]$Resource = 'https://graph.microsoft.com')
-    $cached = $script:WlTokens[$Resource]
-    if (-not $cached) { $cached = $script:WlTokens[$Resource.TrimEnd('/')] }
+    $cached = $script:GapsioTokens[$Resource]
+    if (-not $cached) { $cached = $script:GapsioTokens[$Resource.TrimEnd('/')] }
     if (-not $cached -or -not $cached.Token) { return $null }
     try {
         $part = ($cached.Token -split '\.')[1].Replace('-', '+').Replace('_', '/')
@@ -258,7 +259,7 @@ function Get-WlTokenClaims {
     catch { $null }
 }
 
-function Get-WlErrorText {
+function Get-GapsioErrorText {
     <#
     .SYNOPSIS
     Error text for a run notice. For HTTP 403 it adds why this usually happens and what to check: the permission is
@@ -271,7 +272,7 @@ function Get-WlErrorText {
     $short = ($msg -split ' :: ')[0]
     $code = if ($msg -match '"code"\s*:\s*"([^"]+)"') { $Matches[1] } else { '' }
     $hint = "HTTP 403$(if ($code) { " ($code)" }) – permission missing or not yet in the managed identity's token."
-    $claims = Get-WlTokenClaims -Resource $Resource
+    $claims = Get-GapsioTokenClaims -Resource $Resource
     if ($claims) {
         $roles = @($claims.roles)
         if ($claims.iat) { $hint += " Token issued $([DateTimeOffset]::FromUnixTimeSeconds([long]$claims.iat).UtcDateTime.ToString('yyyy-MM-dd HH:mm')) UTC with $($roles.Count) permission(s)." }
@@ -284,10 +285,50 @@ function Get-WlErrorText {
     "$hint [$short]"
 }
 
-function Invoke-WlGraphSafe {
+function Get-GapsioNextLink {
     <#
     .SYNOPSIS
-    Like Invoke-WlGraph, but logs errors as a warning and returns $null, so a missing permission or
+    The @odata.nextLink of a Microsoft API page, or $null. Throws when the link leaves https://*.microsoft.com – the
+    next request carries a bearer token, which must never go to another host.
+    #>
+    param($Response)
+    if (-not $Response -or -not $Response.PSObject.Properties['@odata.nextLink']) { return $null }
+    $next = [string]$Response.'@odata.nextLink'
+    if (-not $next) { return $null }
+    $u = $null
+    if (-not [uri]::TryCreate($next, [UriKind]::Absolute, [ref]$u) -or $u.Scheme -ne 'https' -or -not ($u.Host -eq 'microsoft.com' -or $u.Host.EndsWith('.microsoft.com'))) {
+        throw "unexpected paging link to '$(if ($u) { $u.Host } else { 'invalid URI' })'"
+    }
+    $next
+}
+
+function Get-GapsioMdeItems {
+    <#
+    .SYNOPSIS
+    Pages through an MDE API collection. Returns @{ items; ok } – ok is $false when any page failed, so callers can tell
+    "no data" from "could not read". Follows @odata.nextLink only to https://*.microsoft.com, so the bearer token is
+    never sent to another host.
+    #>
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Context)
+    $res = 'https://api.securitycenter.microsoft.com'
+    $base = (Get-GapsioSetting -Name 'GAPSIO_MDE_API' -Default 'https://api.securitycenter.microsoft.com/api/indicators') -replace '/indicators$', ''
+    $items = [System.Collections.Generic.List[object]]::new()
+    $uri = "$base/$Path"
+    try {
+        while ($uri) {
+            $r = Invoke-GapsioRest -Uri $uri -Resource $res
+            foreach ($i in @($r.value)) { if ($null -ne $i) { $items.Add($i) } }
+            $uri = Get-GapsioNextLink -Response $r
+        }
+    }
+    catch { Add-GapsioWarning "${Context}: $($_.Exception.Message)"; return [pscustomobject]@{ items = $items.ToArray(); ok = $false } }
+    [pscustomobject]@{ items = $items.ToArray(); ok = $true }
+}
+
+function Invoke-GapsioGraphSafe {
+    <#
+    .SYNOPSIS
+    Like Invoke-GapsioGraph, but logs errors as a warning and returns $null, so a missing permission or
     licence does not abort the whole run.
     #>
     param(
@@ -297,124 +338,124 @@ function Invoke-WlGraphSafe {
         [Parameter(Mandatory)][string]$Context,
         [hashtable]$Headers = @{}
     )
-    try { Invoke-WlGraph -Path $Path -Beta:$Beta -All:$All -Headers $Headers }
-    catch { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context $Context)"; $null }
+    try { Invoke-GapsioGraph -Path $Path -Beta:$Beta -All:$All -Headers $Headers }
+    catch { Add-GapsioWarning "${Context}: $(Get-GapsioErrorText -Exception $_.Exception -Context $Context)"; $null }
 }
 
-$script:WlV1Unavailable = @{}
-function Invoke-WlGraphV1First {
+$script:GapsioV1Unavailable = @{}
+function Invoke-GapsioGraphV1First {
     <#
     .SYNOPSIS
     Calls Microsoft Graph v1.0 first and falls back to beta when the endpoint is not available in v1.0 (yet).
     The fallback is remembered per endpoint for the rest of the run, so beta-only endpoints cost one extra call at most.
-    Errors are logged as a warning (unless -Silent) and $null is returned, like Invoke-WlGraphSafe.
+    Errors are logged as a warning (unless -Silent) and $null is returned, like Invoke-GapsioGraphSafe.
     Use it for endpoints that exist in v1.0 with the same shape (Agent ID, Conditional Access, role management).
     Endpoints that only exist in beta (Intune Settings Catalog, intents, remediations) call beta directly.
     #>
     param([Parameter(Mandatory)][string]$Path, [switch]$All, [Parameter(Mandatory)][string]$Context, [switch]$Silent)
     $root = (($Path -split '\?')[0] -split '/' | Where-Object { $_ } | Select-Object -First 2) -join '/' -replace '\(.*$', ''
-    if (-not $script:WlV1Unavailable.ContainsKey($root)) {
-        try { return Invoke-WlGraph -Path $Path -All:$All }
+    if (-not $script:GapsioV1Unavailable.ContainsKey($root)) {
+        try { return Invoke-GapsioGraph -Path $Path -All:$All }
         catch { $v1Error = $_.Exception.Message }
     }
     try {
-        $r = Invoke-WlGraph -Beta -Path $Path -All:$All
-        if ($v1Error) { $script:WlV1Unavailable[$root] = $true }
+        $r = Invoke-GapsioGraph -Beta -Path $Path -All:$All
+        if ($v1Error) { $script:GapsioV1Unavailable[$root] = $true }
         return $r
     }
     catch {
-        if (-not $Silent) { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context $Context)" }
+        if (-not $Silent) { Add-GapsioWarning "${Context}: $(Get-GapsioErrorText -Exception $_.Exception -Context $Context)" }
         return $null
     }
 }
 
-function Invoke-WlHunting {
+function Invoke-GapsioHunting {
     <#
     .SYNOPSIS
     Advanced Hunting via Microsoft Graph (security/runHuntingQuery, v1.0). Keeps within the tenant budget of
     45 calls per minute by pausing when needed.
     #>
     param([Parameter(Mandatory)][string]$Query, [string]$Timespan = 'P30D')
-    Wait-WlHuntingBudget
+    Wait-GapsioHuntingBudget
     $body = @{ Query = $Query }
     if ($Timespan) { $body.Timespan = $Timespan }
-    $r = Invoke-WlRest -Uri 'https://graph.microsoft.com/v1.0/security/runHuntingQuery' -Method POST -Body $body -Resource 'https://graph.microsoft.com'
+    $r = Invoke-GapsioRest -Uri 'https://graph.microsoft.com/v1.0/security/runHuntingQuery' -Method POST -Body $body -Resource 'https://graph.microsoft.com'
     @($r.results)
 }
 
 # Advanced Hunting API limits: 100,000 rows per query, 45 calls per minute, 10 minutes running time per hour.
-$script:WlHuntingRowLimit = 100000
-$script:WlHuntingCallsPerMinute = 40
-$script:WlHuntingCalls = [System.Collections.Generic.List[datetime]]::new()
-function Wait-WlHuntingBudget {
+$script:GapsioHuntingRowLimit = 100000
+$script:GapsioHuntingCallsPerMinute = 40
+$script:GapsioHuntingCalls = [System.Collections.Generic.List[datetime]]::new()
+function Wait-GapsioHuntingBudget {
     $now = [DateTime]::UtcNow
-    $script:WlHuntingCalls.RemoveAll({ param($t) $t -lt $now.AddSeconds(-60) }) | Out-Null
-    if ($script:WlHuntingCalls.Count -ge $script:WlHuntingCallsPerMinute) {
-        $wait = [int][Math]::Ceiling((($script:WlHuntingCalls[0].AddSeconds(61)) - $now).TotalSeconds)
+    $script:GapsioHuntingCalls.RemoveAll({ param($t) $t -lt $now.AddSeconds(-60) }) | Out-Null
+    if ($script:GapsioHuntingCalls.Count -ge $script:GapsioHuntingCallsPerMinute) {
+        $wait = [int][Math]::Ceiling((($script:GapsioHuntingCalls[0].AddSeconds(61)) - $now).TotalSeconds)
         if ($wait -gt 0) { Start-Sleep -Seconds $wait }
-        $script:WlHuntingCalls.Clear()
+        $script:GapsioHuntingCalls.Clear()
     }
-    $script:WlHuntingCalls.Add([DateTime]::UtcNow)
+    $script:GapsioHuntingCalls.Add([DateTime]::UtcNow)
 }
 
-function Invoke-WlHuntingSharded {
+function Invoke-GapsioHuntingSharded {
     <#
     .SYNOPSIS
     Advanced Hunting for result sets that may exceed the 100,000-row limit of the API (large fleets). Runs the query
     once; when the row limit is hit, counts the full result and re-runs it in N shards selected with
     hash(<ShardColumn>, N) == i, so every row is returned exactly once. The shard column must be in the query's
-    output (all device queries project DeviceId). Returns the rows; sets $script:WlHuntingTruncated when a shard
+    output (all device queries project DeviceId). Returns the rows; sets $script:GapsioHuntingTruncated when a shard
     is still truncated so the caller can warn.
     #>
     param([Parameter(Mandatory)][string]$Query, [string]$Timespan = 'P30D', [string]$ShardColumn = 'DeviceId', [string]$Context = 'Advanced Hunting')
-    $limit = $script:WlHuntingRowLimit
-    $rows = Invoke-WlHunting -Query $Query -Timespan $Timespan
+    $limit = $script:GapsioHuntingRowLimit
+    $rows = Invoke-GapsioHunting -Query $Query -Timespan $Timespan
     if ($rows.Count -lt $limit) { return $rows }
     # Truncated: find out how many rows there really are and split
     $total = $limit
-    try { $c = Invoke-WlHunting -Query "$Query`n| summarize Rows = count()" -Timespan $Timespan; if ($c.Count) { $total = [long]$c[0].Rows } } catch { }
+    try { $c = Invoke-GapsioHunting -Query "$Query`n| summarize Rows = count()" -Timespan $Timespan; if ($c.Count) { $total = [long]$c[0].Rows } } catch { }
     $n = [int][Math]::Ceiling($total / ($limit * 0.8))
     if ($n -lt 2) { $n = 2 }
-    if ($n -gt 400) { Add-WlWarning "${Context}: $total rows – more than $($limit * 0.8 * 400) rows cannot be collected in one run."; $n = 400 }
+    if ($n -gt 400) { Add-GapsioWarning "${Context}: $total rows – more than $($limit * 0.8 * 400) rows cannot be collected in one run."; $n = 400 }
     Write-Information "Gapsio: $Context has $total rows – collecting in $n shards." -InformationAction Continue
     $out = [System.Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $n; $i++) {
-        $part = Invoke-WlHunting -Query "$Query`n| where hash($ShardColumn, $n) == $i" -Timespan $Timespan
-        if ($part.Count -ge $limit) { Add-WlWarning "${Context}: shard $i of $n still hit the $limit-row limit – results are incomplete." }
+        $part = Invoke-GapsioHunting -Query "$Query`n| where hash($ShardColumn, $n) == $i" -Timespan $Timespan
+        if ($part.Count -ge $limit) { Add-GapsioWarning "${Context}: shard $i of $n still hit the $limit-row limit – results are incomplete." }
         foreach ($r in $part) { if ($null -ne $r) { $out.Add($r) } }
     }
     $out.ToArray()
 }
 
-function Invoke-WlHuntingSafe {
+function Invoke-GapsioHuntingSafe {
     # Skipped quietly when the Hunting feature (ThreatHunting.Read.All) is not selected. Large results are sharded.
     param([Parameter(Mandatory)][string]$Query, [Parameter(Mandatory)][string]$Context, [string]$Timespan = 'P30D', [string]$ShardColumn = 'DeviceId', [switch]$NoShard)
-    if (-not (Test-WlFeature -Name 'hunting')) { return $null }
+    if (-not (Test-GapsioFeature -Name 'hunting')) { return $null }
     try {
-        if ($NoShard) { return (Invoke-WlHunting -Query $Query -Timespan $Timespan) }
-        Invoke-WlHuntingSharded -Query $Query -Timespan $Timespan -ShardColumn $ShardColumn -Context $Context
+        if ($NoShard) { return (Invoke-GapsioHunting -Query $Query -Timespan $Timespan) }
+        Invoke-GapsioHuntingSharded -Query $Query -Timespan $Timespan -ShardColumn $ShardColumn -Context $Context
     }
-    catch { Add-WlWarning "${Context}: $(Get-WlErrorText -Exception $_.Exception -Context "$Context ThreatHunting.Read.All")"; $null }
+    catch { Add-GapsioWarning "${Context}: $(Get-GapsioErrorText -Exception $_.Exception -Context "$Context ThreatHunting.Read.All")"; $null }
 }
 #endregion
 
 #region Storage (Entra auth only, no shared key)
-function Get-WlStorageAccount {
-    $acct = Get-WlSetting -Name 'WL_STORAGE_ACCOUNT'
-    if (-not $acct) { throw 'App setting WL_STORAGE_ACCOUNT is missing.' }
+function Get-GapsioStorageAccount {
+    $acct = Get-GapsioSetting -Name 'GAPSIO_STORAGE_ACCOUNT'
+    if (-not $acct) { throw 'App setting GAPSIO_STORAGE_ACCOUNT is missing.' }
     $acct
 }
 
-function Get-WlBlobUri {
+function Get-GapsioBlobUri {
     param([string]$Container, [string]$Name)
-    $suffix = Get-WlSetting -Name 'WL_STORAGE_SUFFIX' -Default 'core.windows.net'
-    "https://$(Get-WlStorageAccount).blob.$suffix/$Container/$Name"
+    $suffix = Get-GapsioSetting -Name 'GAPSIO_STORAGE_SUFFIX' -Default 'core.windows.net'
+    "https://$(Get-GapsioStorageAccount).blob.$suffix/$Container/$Name"
 }
 
-function Get-WlBlobText {
+function Get-GapsioBlobText {
     param([Parameter(Mandatory)][string]$Container, [Parameter(Mandatory)][string]$Name)
     try {
-        Invoke-WlRest -Uri (Get-WlBlobUri $Container $Name) -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:WlStorageVersion } -Raw
+        Invoke-GapsioRest -Uri (Get-GapsioBlobUri $Container $Name) -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:GapsioStorageVersion } -Raw
     }
     catch {
         if ($_.Exception.Data['Status'] -eq 404) { return $null }
@@ -422,14 +463,14 @@ function Get-WlBlobText {
     }
 }
 
-function Get-WlBlob {
+function Get-GapsioBlob {
     param([Parameter(Mandatory)][string]$Container, [Parameter(Mandatory)][string]$Name)
-    $text = Get-WlBlobText -Container $Container -Name $Name
+    $text = Get-GapsioBlobText -Container $Container -Name $Name
     if ([string]::IsNullOrWhiteSpace($text)) { return $null }
     $text | ConvertFrom-Json -Depth 64
 }
 
-function Set-WlBlob {
+function Set-GapsioBlob {
     param(
         [Parameter(Mandatory)][string]$Container,
         [Parameter(Mandatory)][string]$Name,
@@ -438,45 +479,45 @@ function Set-WlBlob {
         [string]$ContentType = 'application/json; charset=utf-8'
     )
     $json = if ($Object -is [string]) { $Object } else { ConvertTo-Json -InputObject $Object -Depth $Depth -Compress }
-    $headers = @{ 'x-ms-version' = $script:WlStorageVersion; 'x-ms-blob-type' = 'BlockBlob'; 'x-ms-blob-content-type' = $ContentType }
-    Invoke-WlRest -Uri (Get-WlBlobUri $Container $Name) -Method PUT -Body $json -Resource 'https://storage.azure.com/' -Headers $headers | Out-Null
+    $headers = @{ 'x-ms-version' = $script:GapsioStorageVersion; 'x-ms-blob-type' = 'BlockBlob'; 'x-ms-blob-content-type' = $ContentType }
+    Invoke-GapsioRest -Uri (Get-GapsioBlobUri $Container $Name) -Method PUT -Body $json -Resource 'https://storage.azure.com/' -Headers $headers | Out-Null
 }
 
-function Remove-WlBlob {
+function Remove-GapsioBlob {
     param([Parameter(Mandatory)][string]$Container, [Parameter(Mandatory)][string]$Name)
-    try { Invoke-WlRest -Uri (Get-WlBlobUri $Container $Name) -Method DELETE -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:WlStorageVersion } | Out-Null }
+    try { Invoke-GapsioRest -Uri (Get-GapsioBlobUri $Container $Name) -Method DELETE -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:GapsioStorageVersion } | Out-Null }
     catch { if ($_.Exception.Data['Status'] -ne 404) { throw } }
 }
 
 #region Paged collections (large fleets)
 # Per-device collections are not stored inside the snapshot (300,000 devices would be a JSON of several hundred MB)
-# but in pages of WL_PAGE_SIZE items (state/<module>-<name>/0000.json ...) with a small meta blob, a tab-separated
+# but in pages of GAPSIO_PAGE_SIZE items (state/<module>-<name>/0000.json ...) with a small meta blob, a tab-separated
 # search index (state/<module>-<name>.tsv) for the API and a compact key/fingerprint list for drift detection.
-function Get-WlPageSize { [Math]::Max(100, [int](Get-WlSetting -Name 'WL_PAGE_SIZE' -Default '2000')) }
+function Get-GapsioPageSize { [Math]::Max(100, [int](Get-GapsioSetting -Name 'GAPSIO_PAGE_SIZE' -Default '2000')) }
 
-function Get-WlPagedMeta {
+function Get-GapsioPagedMeta {
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
-    try { Get-WlBlob -Container 'state' -Name "$Module-$Name.json" } catch { $null }
+    try { Get-GapsioBlob -Container 'state' -Name "$Module-$Name.json" } catch { $null }
 }
 
-function Get-WlPage {
+function Get-GapsioPage {
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][int]$Page, [switch]$Raw)
     $blob = "$Module-$Name/$('{0:D4}' -f $Page).json"
-    if ($Raw) { Get-WlBlobText -Container 'state' -Name $blob } else { @(Get-WlBlob -Container 'state' -Name $blob | Where-Object { $_ }) }
+    if ($Raw) { Get-GapsioBlobText -Container 'state' -Name $blob } else { @(Get-GapsioBlob -Container 'state' -Name $blob | Where-Object { $_ }) }
 }
 
-function Get-WlPagedCollection {
+function Get-GapsioPagedCollection {
     # All items of a paged collection (tests, small tenants, notifications). Falls back to the inline collection of
     # snapshots written by older versions.
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, $Snapshot)
-    $meta = Get-WlPagedMeta -Module $Module -Name $Name
-    if (-not $meta) { return @(Get-WlProp $Snapshot $Name) }
+    $meta = Get-GapsioPagedMeta -Module $Module -Name $Name
+    if (-not $meta) { return @(Get-GapsioProp $Snapshot $Name) }
     $out = [System.Collections.Generic.List[object]]::new()
-    for ($i = 0; $i -lt [int]$meta.pages; $i++) { foreach ($x in (Get-WlPage -Module $Module -Name $Name -Page $i)) { $out.Add($x) } }
+    for ($i = 0; $i -lt [int]$meta.pages; $i++) { foreach ($x in (Get-GapsioPage -Module $Module -Name $Name -Page $i)) { $out.Add($x) } }
     $out.ToArray()
 }
 
-function ConvertTo-WlTsvValue {
+function ConvertTo-GapsioTsvValue {
     param($Value)
     if ($null -eq $Value) { return '' }
     if ($Value -is [System.Collections.IDictionary]) { return (@($Value.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ';') }
@@ -485,7 +526,7 @@ function ConvertTo-WlTsvValue {
     ([string]$Value) -replace '[\t\r\n]', ' '
 }
 
-function Write-WlPagedCollection {
+function Write-GapsioPagedCollection {
     <#
     .SYNOPSIS
     Writes a collection in pages, the tab-separated index (IndexColumns + page) and the fingerprint list; removes
@@ -494,9 +535,9 @@ function Write-WlPagedCollection {
     #>
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [AllowEmptyCollection()][object[]]$Items, [string[]]$IndexColumns = @(), [string]$At)
     $items = @($Items | Where-Object { $_ })
-    $size = Get-WlPageSize
+    $size = Get-GapsioPageSize
     $pages = [int][Math]::Ceiling($items.Count / $size)
-    $prev = Get-WlPagedMeta -Module $Module -Name $Name
+    $prev = Get-GapsioPagedMeta -Module $Module -Name $Name
     $tsv = [System.Text.StringBuilder]::new()
     $cols = @($IndexColumns)
     if ($cols.Count) { [void]$tsv.Append(($cols + 'page') -join "`t").Append("`n") }
@@ -504,7 +545,7 @@ function Write-WlPagedCollection {
     $tabRx = [regex]'[\t\r\n]'
     for ($p = 0; $p -lt $pages; $p++) {
         $slice = @($items[($p * $size)..([Math]::Min($items.Count, ($p + 1) * $size) - 1)])
-        Set-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" -Object $slice -Depth 32
+        Set-GapsioBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" -Object $slice -Depth 32
         foreach ($it in $slice) {
             $isDict = $it -is [System.Collections.IDictionary]
             $props = $null; if (-not $isDict) { $props = $it.PSObject.Properties }   # direct assignment: an if-expression would enumerate the collection
@@ -529,16 +570,16 @@ function Write-WlPagedCollection {
             $fps.Add([pscustomobject]$fp)
         }
     }
-    if ($prev) { for ($p = $pages; $p -lt [int]$prev.pages; $p++) { Remove-WlBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" } }
-    if ($cols.Count) { Set-WlBlob -Container 'state' -Name "$Module-$Name.tsv" -Object $tsv.ToString() -ContentType 'text/tab-separated-values; charset=utf-8' }
-    Set-WlBlob -Container 'state' -Name "$Module-$Name-fp.json" -Object @($fps.ToArray())
+    if ($prev) { for ($p = $pages; $p -lt [int]$prev.pages; $p++) { Remove-GapsioBlob -Container 'state' -Name "$Module-$Name/$('{0:D4}' -f $p).json" } }
+    if ($cols.Count) { Set-GapsioBlob -Container 'state' -Name "$Module-$Name.tsv" -Object $tsv.ToString() -ContentType 'text/tab-separated-values; charset=utf-8' }
+    Set-GapsioBlob -Container 'state' -Name "$Module-$Name-fp.json" -Object @($fps.ToArray())
     $meta = [ordered]@{ count = $items.Count; pageSize = $size; pages = $pages; index = [bool]$cols.Count; at = $At }
-    Set-WlBlob -Container 'state' -Name "$Module-$Name.json" -Object $meta
+    Set-GapsioBlob -Container 'state' -Name "$Module-$Name.json" -Object $meta
     $meta
 }
 
-$script:WlIndexCache = @{}
-function Get-WlPagedIndexRaw {
+$script:GapsioIndexCache = @{}
+function Get-GapsioPagedIndexRaw {
     <#
     .SYNOPSIS
     The tab-separated index of a paged collection in columnar form: @{ cols = @{ name = position }; rows = List[string[]] }.
@@ -546,13 +587,13 @@ function Get-WlPagedIndexRaw {
     every request. Row values are strings; the last column is the page number.
     #>
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
-    $meta = Get-WlPagedMeta -Module $Module -Name $Name
+    $meta = Get-GapsioPagedMeta -Module $Module -Name $Name
     $empty = @{ cols = @{}; names = @(); rows = [System.Collections.Generic.List[string[]]]::new() }
     if (-not $meta -or -not $meta.index) { return $empty }
     $ck = "$Module-$Name"
-    $c = $script:WlIndexCache[$ck]
+    $c = $script:GapsioIndexCache[$ck]
     if ($c -and $c.at -eq [string]$meta.at) { return $c }
-    $text = Get-WlBlobText -Container 'state' -Name "$Module-$Name.tsv"
+    $text = Get-GapsioBlobText -Container 'state' -Name "$Module-$Name.tsv"
     if (-not $text) { return $empty }
     $lines = $text.Split("`n")
     $names = @($lines[0].TrimEnd("`r").Split("`t"))
@@ -564,11 +605,11 @@ function Get-WlPagedIndexRaw {
         $rows.Add($l.TrimEnd("`r").Split("`t"))
     }
     $c = @{ at = [string]$meta.at; cols = $cols; names = $names; rows = $rows }
-    $script:WlIndexCache[$ck] = $c
+    $script:GapsioIndexCache[$ck] = $c
     $c
 }
 
-function ConvertFrom-WlIndexRow {
+function ConvertFrom-GapsioIndexRow {
     # One raw index row as an object with the column names (string values).
     param([Parameter(Mandatory)]$Index, [Parameter(Mandatory)][AllowEmptyString()][AllowEmptyCollection()][string[]]$Row)
     $o = [ordered]@{}
@@ -577,51 +618,51 @@ function ConvertFrom-WlIndexRow {
     [pscustomobject]$o
 }
 
-function Get-WlPagedIndex {
-    # The index as objects (one per item). Convenient for small collections; large searches use Get-WlPagedIndexRaw.
+function Get-GapsioPagedIndex {
+    # The index as objects (one per item). Convenient for small collections; large searches use Get-GapsioPagedIndexRaw.
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name)
-    $ix = Get-WlPagedIndexRaw -Module $Module -Name $Name
-    @(foreach ($r in $ix.rows) { ConvertFrom-WlIndexRow -Index $ix -Row $r })
+    $ix = Get-GapsioPagedIndexRaw -Module $Module -Name $Name
+    @(foreach ($r in $ix.rows) { ConvertFrom-GapsioIndexRow -Index $ix -Row $r })
 }
 
-function Get-WlPagedItem {
+function Get-GapsioPagedItem {
     # One item of a paged collection by a property value (uses the index to find the page).
     param([Parameter(Mandatory)][string]$Module, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Property, [Parameter(Mandatory)][string]$Value)
-    $ix = Get-WlPagedIndexRaw -Module $Module -Name $Name
+    $ix = Get-GapsioPagedIndexRaw -Module $Module -Name $Name
     if (-not $ix.cols.ContainsKey($Property)) { return $null }
     $ci = $ix.cols[$Property]; $pi = $ix.cols['page']
     $page = -1
     foreach ($r in $ix.rows) { if ($r[$ci] -eq $Value) { $page = [int]$r[$pi]; break } }
     if ($page -lt 0) { return $null }
-    foreach ($x in (Get-WlPage -Module $Module -Name $Name -Page $page)) { if ([string](Get-WlProp $x $Property) -eq $Value) { return $x } }
+    foreach ($x in (Get-GapsioPage -Module $Module -Name $Name -Page $page)) { if ([string](Get-GapsioProp $x $Property) -eq $Value) { return $x } }
     $null
 }
 #endregion
 
-function Add-WlQueueMessage {
-    param([string]$Queue = 'wl-run', [Parameter(Mandatory)][string]$Text)
-    $suffix = Get-WlSetting -Name 'WL_STORAGE_SUFFIX' -Default 'core.windows.net'
+function Add-GapsioQueueMessage {
+    param([string]$Queue = 'gapsio-run', [Parameter(Mandatory)][string]$Text)
+    $suffix = Get-GapsioSetting -Name 'GAPSIO_STORAGE_SUFFIX' -Default 'core.windows.net'
     $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Text))
     $xml = "<QueueMessage><MessageText>$b64</MessageText></QueueMessage>"
-    Invoke-WlRest -Uri "https://$(Get-WlStorageAccount).queue.$suffix/$Queue/messages" -Method POST -Body $xml -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:WlStorageVersion } -ContentType 'application/xml' | Out-Null
+    Invoke-GapsioRest -Uri "https://$(Get-GapsioStorageAccount).queue.$suffix/$Queue/messages" -Method POST -Body $xml -Resource 'https://storage.azure.com/' -Headers @{ 'x-ms-version' = $script:GapsioStorageVersion } -ContentType 'application/xml' | Out-Null
 }
 #endregion
 
 #region Helpers
-function Get-WlHash {
+function Get-GapsioHash {
     param([AllowEmptyString()][string]$Text)
     $bytes = [System.Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(([string]$Text).ToLowerInvariant()))
     ([Convert]::ToHexString($bytes)).Substring(0, 24).ToLowerInvariant()
 }
 
-function ConvertTo-WlUtc {
+function ConvertTo-GapsioUtc {
     # Timestamps without a time zone are UTC (that is how Advanced Hunting returns them).
     param($Value)
     if ($Value -is [datetime]) { return $(if ($Value.Kind -eq 'Unspecified') { [datetime]::SpecifyKind($Value, 'Utc') } else { $Value.ToUniversalTime() }) }
     [DateTimeOffset]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).UtcDateTime
 }
 
-function Get-WlProp {
+function Get-GapsioProp {
     # Reads a property null-safely (also when the property does not exist).
     param($Object, [string]$Name)
     if ($null -eq $Object) { return $null }
@@ -630,61 +671,61 @@ function Get-WlProp {
     if ($p) { $p.Value } else { $null }
 }
 
-function Expand-WlSettingInstance {
+function Expand-GapsioSettingInstance {
     param($Instance, [System.Collections.Generic.List[object]]$Out, [string]$GroupKey)
     if ($null -eq $Instance) { return }
-    $def = [string](Get-WlProp $Instance 'settingDefinitionId')
-    $type = [string](Get-WlProp $Instance '@odata.type')
+    $def = [string](Get-GapsioProp $Instance 'settingDefinitionId')
+    $type = [string](Get-GapsioProp $Instance '@odata.type')
     switch -Wildcard ($type) {
         '*simpleSettingInstance' {
-            $v = Get-WlProp (Get-WlProp $Instance 'simpleSettingValue') 'value'
+            $v = Get-GapsioProp (Get-GapsioProp $Instance 'simpleSettingValue') 'value'
             $Out.Add([pscustomobject]@{ definitionId = $def; value = [string]$v; kind = 'simple'; group = $GroupKey })
         }
         '*simpleSettingCollectionInstance' {
-            foreach ($v in @(Get-WlProp $Instance 'simpleSettingCollectionValue')) {
+            foreach ($v in @(Get-GapsioProp $Instance 'simpleSettingCollectionValue')) {
                 if ($null -eq $v) { continue }
-                $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-WlProp $v 'value'); kind = 'simple'; group = $GroupKey })
+                $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-GapsioProp $v 'value'); kind = 'simple'; group = $GroupKey })
             }
         }
         '*choiceSettingInstance' {
-            $c = Get-WlProp $Instance 'choiceSettingValue'
-            $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-WlProp $c 'value'); kind = 'choice'; group = $GroupKey })
-            foreach ($ch in @(Get-WlProp $c 'children')) { Expand-WlSettingInstance -Instance $ch -Out $Out -GroupKey $GroupKey }
+            $c = Get-GapsioProp $Instance 'choiceSettingValue'
+            $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-GapsioProp $c 'value'); kind = 'choice'; group = $GroupKey })
+            foreach ($ch in @(Get-GapsioProp $c 'children')) { Expand-GapsioSettingInstance -Instance $ch -Out $Out -GroupKey $GroupKey }
         }
         '*choiceSettingCollectionInstance' {
-            foreach ($c in @(Get-WlProp $Instance 'choiceSettingCollectionValue')) {
+            foreach ($c in @(Get-GapsioProp $Instance 'choiceSettingCollectionValue')) {
                 if ($null -eq $c) { continue }
-                $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-WlProp $c 'value'); kind = 'choice'; group = $GroupKey })
-                foreach ($ch in @(Get-WlProp $c 'children')) { Expand-WlSettingInstance -Instance $ch -Out $Out -GroupKey $GroupKey }
+                $Out.Add([pscustomobject]@{ definitionId = $def; value = [string](Get-GapsioProp $c 'value'); kind = 'choice'; group = $GroupKey })
+                foreach ($ch in @(Get-GapsioProp $c 'children')) { Expand-GapsioSettingInstance -Instance $ch -Out $Out -GroupKey $GroupKey }
             }
         }
         '*groupSettingCollectionInstance' {
             $i = 0
-            foreach ($g in @(Get-WlProp $Instance 'groupSettingCollectionValue')) {
+            foreach ($g in @(Get-GapsioProp $Instance 'groupSettingCollectionValue')) {
                 if ($null -eq $g) { continue }
                 $i++
                 $gk = "$def#$i"
-                foreach ($ch in @(Get-WlProp $g 'children')) { Expand-WlSettingInstance -Instance $ch -Out $Out -GroupKey $gk }
+                foreach ($ch in @(Get-GapsioProp $g 'children')) { Expand-GapsioSettingInstance -Instance $ch -Out $Out -GroupKey $gk }
             }
         }
         '*groupSettingInstance' {
-            foreach ($ch in @(Get-WlProp (Get-WlProp $Instance 'groupSettingValue') 'children')) { Expand-WlSettingInstance -Instance $ch -Out $Out -GroupKey "$def#1" }
+            foreach ($ch in @(Get-GapsioProp (Get-GapsioProp $Instance 'groupSettingValue') 'children')) { Expand-GapsioSettingInstance -Instance $ch -Out $Out -GroupKey "$def#1" }
         }
     }
 }
 
-function Get-WlSettingValues {
+function Get-GapsioSettingValues {
     <#
     .SYNOPSIS
     Flattens a Settings Catalog settingInstance into values (definitionId, value, kind, group).
     #>
     param($Instance)
     $out = [System.Collections.Generic.List[object]]::new()
-    Expand-WlSettingInstance -Instance $Instance -Out $out -GroupKey ''
+    Expand-GapsioSettingInstance -Instance $Instance -Out $out -GroupKey ''
     $out.ToArray()
 }
 
-function New-WlText {
+function New-GapsioText {
     <#
     .SYNOPSIS
     Bilingual text for the portal (English/German). The portal shows the language the user selected.
@@ -693,16 +734,16 @@ function New-WlText {
     [ordered]@{ en = $En; de = $(if ($De) { $De } else { $En }) }
 }
 
-function ConvertTo-WlText {
+function ConvertTo-GapsioText {
     # Accepts a plain string (custom baselines) or an object with en/de and always returns {en, de}.
     param($Value)
     if ($null -eq $Value) { return $null }
-    if ($Value -is [string]) { return (New-WlText -En $Value -De $Value) }
-    $en = [string](Get-WlProp $Value 'en'); $de = [string](Get-WlProp $Value 'de')
-    New-WlText -En $(if ($en) { $en } else { $de }) -De $de
+    if ($Value -is [string]) { return (New-GapsioText -En $Value -De $Value) }
+    $en = [string](Get-GapsioProp $Value 'en'); $de = [string](Get-GapsioProp $Value 'de')
+    New-GapsioText -En $(if ($en) { $en } else { $de }) -De $de
 }
 
-function Get-WlRiskLevel {
+function Get-GapsioRiskLevel {
     param([int]$Score)
     if ($Score -ge 80) { return 'Critical' }
     if ($Score -ge 50) { return 'High' }
@@ -710,7 +751,7 @@ function Get-WlRiskLevel {
     'Low'
 }
 
-function Get-WlExclusionRisk {
+function Get-GapsioExclusionRisk {
     <#
     .SYNOPSIS
     Rates an exclusion using the criteria from "Microsoft Defender for Endpoint in Depth" (2nd ed., ch. 2 and 13):
@@ -727,7 +768,7 @@ function Get-WlExclusionRisk {
     )
     $score = 10
     $reasons = [System.Collections.Generic.List[object]]::new()
-    $add = { param($en, $de) $reasons.Add((New-WlText -En $en -De $de)) }
+    $add = { param($en, $de) $reasons.Add((New-GapsioText -En $en -De $de)) }
     $v = $Value.Trim()
     $lv = $v.ToLowerInvariant()
     $contextual = $v -match '\\:\{'
@@ -780,27 +821,27 @@ function Get-WlExclusionRisk {
     if ($Origin -eq 'GPO') { $score += 5; & $add 'Set by Group Policy – outside Intune/MDE' 'Per Gruppenrichtlinie gesetzt – außerhalb von Intune/MDE' }
 
     $score = [Math]::Max(0, [Math]::Min(100, $score))
-    [pscustomobject]@{ score = $score; level = (Get-WlRiskLevel $score); reasons = $reasons.ToArray() }
+    [pscustomobject]@{ score = $score; level = (Get-GapsioRiskLevel $score); reasons = $reasons.ToArray() }
 }
 
-function Get-WlIndicatorRisk {
+function Get-GapsioIndicatorRisk {
     param([Parameter(Mandatory)][string]$IndicatorType)
     switch ($IndicatorType) {
-        'FileSha256' { $s = 15; $r = New-WlText 'SHA256 allow indicator (recommended, narrowly scoped)' 'SHA256-Allow-Indikator (empfohlene, eng begrenzte Variante)' }
-        'FileSha1' { $s = 30; $r = New-WlText 'SHA1 allow indicator – prefer SHA256' 'SHA1-Allow-Indikator – SHA256 bevorzugen' }
-        'FileMd5' { $s = 35; $r = New-WlText 'MD5 allow indicator – prefer SHA256' 'MD5-Allow-Indikator – SHA256 bevorzugen' }
-        'CertificateThumbprint' { $s = 60; $r = New-WlText 'Certificate allowed – applies to every file signed with it' 'Zertifikat erlaubt – gilt für alle damit signierten Dateien' }
-        'DomainName' { $s = 35; $r = New-WlText 'Domain allowed – overrides web protection and blocks' 'Domain erlaubt – überschreibt Web-Schutz und Blockierungen' }
-        'Url' { $s = 30; $r = New-WlText 'URL allowed – overrides web protection and blocks' 'URL erlaubt – überschreibt Web-Schutz und Blockierungen' }
-        'IpAddress' { $s = 35; $r = New-WlText 'IP address allowed – overrides network protection' 'IP-Adresse erlaubt – überschreibt Network Protection' }
-        default { $s = 30; $r = New-WlText "Allow indicator ($IndicatorType)" "Allow-Indikator ($IndicatorType)" }
+        'FileSha256' { $s = 15; $r = New-GapsioText 'SHA256 allow indicator (recommended, narrowly scoped)' 'SHA256-Allow-Indikator (empfohlene, eng begrenzte Variante)' }
+        'FileSha1' { $s = 30; $r = New-GapsioText 'SHA1 allow indicator – prefer SHA256' 'SHA1-Allow-Indikator – SHA256 bevorzugen' }
+        'FileMd5' { $s = 35; $r = New-GapsioText 'MD5 allow indicator – prefer SHA256' 'MD5-Allow-Indikator – SHA256 bevorzugen' }
+        'CertificateThumbprint' { $s = 60; $r = New-GapsioText 'Certificate allowed – applies to every file signed with it' 'Zertifikat erlaubt – gilt für alle damit signierten Dateien' }
+        'DomainName' { $s = 35; $r = New-GapsioText 'Domain allowed – overrides web protection and blocks' 'Domain erlaubt – überschreibt Web-Schutz und Blockierungen' }
+        'Url' { $s = 30; $r = New-GapsioText 'URL allowed – overrides web protection and blocks' 'URL erlaubt – überschreibt Web-Schutz und Blockierungen' }
+        'IpAddress' { $s = 35; $r = New-GapsioText 'IP address allowed – overrides network protection' 'IP-Adresse erlaubt – überschreibt Network Protection' }
+        default { $s = 30; $r = New-GapsioText "Allow indicator ($IndicatorType)" "Allow-Indikator ($IndicatorType)" }
     }
-    [pscustomobject]@{ score = $s; level = (Get-WlRiskLevel $s); reasons = @($r) }
+    [pscustomobject]@{ score = $s; level = (Get-GapsioRiskLevel $s); reasons = @($r) }
 }
 #endregion
 
 #region Snapshots & Drift
-function Compare-WlCollection {
+function Compare-GapsioCollection {
     <#
     .SYNOPSIS
     Compares two collections by 'key' and 'fp' (fingerprint) and returns the changes.
@@ -824,7 +865,7 @@ function Compare-WlCollection {
         $k = if ($n -is [System.Collections.IDictionary]) { $n['key'] } else { $n.PSObject.Properties['key'].Value }
         if ($k) { $newMap[[string]$k] = $n }
     }
-    $mk = { param($k, $change, $src, $before, $after) [pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = $change; label = (Get-WlProp $src 'label'); before = $before; after = $after } }
+    $mk = { param($k, $change, $src, $before, $after) [pscustomobject]@{ at = $At; module = $Module; collection = $Name; key = $k; change = $change; label = (Get-GapsioProp $src 'label'); before = $before; after = $after } }
 
     foreach ($k in $newMap.Keys) {
         $n = $newMap[$k]
@@ -833,7 +874,7 @@ function Compare-WlCollection {
         $np = $null; if ($null -ne $npRaw) { $np = [bool]$npRaw }
         if (-not $oldMap.ContainsKey($k)) {
             if ($np -eq $false) { continue }   # first seen already removed: history, not a change
-            $changes.Add((& $mk $k 'Added' $n $null (Get-WlProp $n 'state')))
+            $changes.Add((& $mk $k 'Added' $n $null (Get-GapsioProp $n 'state')))
             continue
         }
         $o = $oldMap[$k]
@@ -841,26 +882,26 @@ function Compare-WlCollection {
         else { $ps = $o.PSObject.Properties; $ofp = $ps['fp'].Value; $opRaw = $ps['present'].Value }
         $op = $null; if ($null -ne $opRaw) { $op = [bool]$opRaw }
         if ($null -ne $np -and $null -ne $op) {
-            if ($op -and -not $np) { $changes.Add((& $mk $k 'Removed' $n (Get-WlProp $o 'state') $null)) }
-            elseif (-not $op -and $np) { $changes.Add((& $mk $k 'Added' $n $null (Get-WlProp $n 'state'))) }
+            if ($op -and -not $np) { $changes.Add((& $mk $k 'Removed' $n (Get-GapsioProp $o 'state') $null)) }
+            elseif (-not $op -and $np) { $changes.Add((& $mk $k 'Added' $n $null (Get-GapsioProp $n 'state'))) }
             continue
         }
         if ([string]$ofp -ne [string]$nfp) {
-            $changes.Add((& $mk $k 'Changed' $n (Get-WlProp $o 'state') (Get-WlProp $n 'state')))
+            $changes.Add((& $mk $k 'Changed' $n (Get-GapsioProp $o 'state') (Get-GapsioProp $n 'state')))
         }
     }
     foreach ($k in $oldMap.Keys) {
         if (-not $newMap.ContainsKey($k)) {
             $o = $oldMap[$k]
-            $opRaw = Get-WlProp $o 'present'
+            $opRaw = Get-GapsioProp $o 'present'
             if ($null -ne $opRaw -and -not [bool]$opRaw) { continue }   # clean-up of an entry that was already reported as removed
-            $changes.Add((& $mk $k 'Removed' $o (Get-WlProp $o 'state') $null))
+            $changes.Add((& $mk $k 'Removed' $o (Get-GapsioProp $o 'state') $null))
         }
     }
     $changes.ToArray()
 }
 
-function Get-WlDriftCounts {
+function Get-GapsioDriftCounts {
     # Added / changed / removed per run.
     param([object[]]$Changes)
     $c = [ordered]@{ Added = 0; Changed = 0; Removed = 0 }
@@ -868,29 +909,29 @@ function Get-WlDriftCounts {
     $c
 }
 
-function Get-WlOpenFindingCounts {
+function Get-GapsioOpenFindingCounts {
     # Findings per severity that are not accepted at the time of the run.
     param([object[]]$Findings)
     $c = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
     if (-not @($Findings | Where-Object { $_ }).Count) { return $c }
     $accepted = @{}
-    foreach ($a in @(Get-WlAcceptances)) { if (Test-WlAcceptanceActive -Acceptance $a) { $accepted[[string]$a.key] = $true } }
+    foreach ($a in @(Get-GapsioAcceptances)) { if (Test-GapsioAcceptanceActive -Acceptance $a) { $accepted[[string]$a.key] = $true } }
     foreach ($f in @($Findings)) {
         if (-not $f) { continue }
-        $sev = [string](Get-WlProp $f 'severity')
-        if ($c.Contains($sev) -and -not $accepted[[string](Get-WlProp $f 'key')]) { $c[$sev]++ }
+        $sev = [string](Get-GapsioProp $f 'severity')
+        if ($c.Contains($sev) -and -not $accepted[[string](Get-GapsioProp $f 'key')]) { $c[$sev]++ }
     }
     $c
 }
 
-function Get-WlProtectionCounts {
+function Get-GapsioProtectionCounts {
     # Devices per protection feature: on (GOOD) / off (BAD). Unknown is the rest of the device count.
     param([object[]]$Devices)
     $list = @($Devices | Where-Object { $_ })
     if (-not $list.Count) { return $null }
     $c = [ordered]@{ devices = $list.Count }
     foreach ($d in $list) {
-        $checks = Get-WlProp $d 'checks'
+        $checks = Get-GapsioProp $d 'checks'
         if (-not $checks) { continue }
         $pairs = if ($checks -is [System.Collections.IDictionary]) { $checks.GetEnumerator() } else { $checks.PSObject.Properties }
         foreach ($p in $pairs) {
@@ -902,7 +943,7 @@ function Get-WlProtectionCounts {
     $c
 }
 
-function Save-WlSnapshot {
+function Save-GapsioSnapshot {
     <#
     .SYNOPSIS
     Stores a snapshot (dated, optionally immutable), updates "latest", calculates drift against the
@@ -918,50 +959,50 @@ function Save-WlSnapshot {
     )
     $now = [DateTime]::UtcNow
     $at = $now.ToString('o')
-    $prev = Get-WlBlob -Container 'state' -Name "$Module-latest.json"
+    $prev = Get-GapsioBlob -Container 'state' -Name "$Module-latest.json"
 
     $changes = [System.Collections.Generic.List[object]]::new()
     if ($prev) {
         foreach ($c in $Collections) {
-            $old = if ($c -in $Paged) { $fpOld = Get-WlBlob -Container 'state' -Name "$Module-$c-fp.json"; if ($null -ne $fpOld) { @($fpOld) } else { @(Get-WlProp $prev $c) } } else { @(Get-WlProp $prev $c) }
-            foreach ($x in (Compare-WlCollection -Module $Module -Name $c -Old $old -New @($Snapshot[$c]) -At $at)) { $changes.Add($x) }
+            $old = if ($c -in $Paged) { $fpOld = Get-GapsioBlob -Container 'state' -Name "$Module-$c-fp.json"; if ($null -ne $fpOld) { @($fpOld) } else { @(Get-GapsioProp $prev $c) } } else { @(Get-GapsioProp $prev $c) }
+            foreach ($x in (Compare-GapsioCollection -Module $Module -Name $c -Old $old -New @($Snapshot[$c]) -At $at)) { $changes.Add($x) }
         }
     }
     $Snapshot['changesSincePrevious'] = $changes.Count
     $Snapshot['isFirstRun'] = ($null -eq $prev)
     if ($prev) {
-        $sent = Send-WlNotification -Module $Module -Changes $changes.ToArray() -Snapshot $Snapshot
+        $sent = Send-GapsioNotification -Module $Module -Changes $changes.ToArray() -Snapshot $Snapshot
         if ($sent) { $Snapshot['notified'] = $sent }
-        $Snapshot['warnings'] = @(Get-WlWarnings)
+        $Snapshot['warnings'] = @(Get-GapsioWarnings)
     }
-    $protection = Get-WlProtectionCounts -Devices @($Snapshot['devices'])
+    $protection = Get-GapsioProtectionCounts -Devices @($Snapshot['devices'])
 
     # Large per-device collections go to pages; the snapshot keeps only their meta data
     foreach ($c in $Paged) {
         if (-not $Snapshot.Contains($c)) { continue }
-        $Snapshot["${c}Pages"] = Write-WlPagedCollection -Module $Module -Name $c -Items @($Snapshot[$c]) -IndexColumns @($Index[$c]) -At $at
+        $Snapshot["${c}Pages"] = Write-GapsioPagedCollection -Module $Module -Name $c -Items @($Snapshot[$c]) -IndexColumns @($Index[$c]) -At $at
         $Snapshot.Remove($c)
     }
 
     $snapName = "$Module/$($now.ToString('yyyy/MM/dd/HHmmssfff')).json"
-    Set-WlBlob -Container 'snapshots' -Name $snapName -Object $Snapshot
-    Set-WlBlob -Container 'state' -Name "$Module-latest.json" -Object $Snapshot
+    Set-GapsioBlob -Container 'snapshots' -Name $snapName -Object $Snapshot
+    Set-GapsioBlob -Container 'state' -Name "$Module-latest.json" -Object $Snapshot
 
     # Change history (rolling)
-    $retDays = [int](Get-WlSetting -Name 'WL_CHANGE_RETENTION_DAYS' -Default '365')
+    $retDays = [int](Get-GapsioSetting -Name 'GAPSIO_CHANGE_RETENTION_DAYS' -Default '365')
     $cutoff = $now.AddDays(-$retDays)
-    $hist = @(Get-WlBlob -Container 'state' -Name "$Module-changes.json")
+    $hist = @(Get-GapsioBlob -Container 'state' -Name "$Module-changes.json")
     $merged = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $changes) { $merged.Add($c) }
     foreach ($h in $hist) {
         if ($null -eq $h) { continue }
         $hAt = $null
-        try { $hAt = ConvertTo-WlUtc (Get-WlProp $h 'at') } catch { }
+        try { $hAt = ConvertTo-GapsioUtc (Get-GapsioProp $h 'at') } catch { }
         if ($hAt -and $hAt -ge $cutoff) { $merged.Add($h) }
     }
     $maxEntries = 25000
     $out = if ($merged.Count -gt $maxEntries) { $merged.GetRange(0, $maxEntries).ToArray() } else { $merged.ToArray() }
-    Set-WlBlob -Container 'state' -Name "$Module-changes.json" -Object @($out)
+    Set-GapsioBlob -Container 'state' -Name "$Module-changes.json" -Object @($out)
 
     # Run index – with the numbers the portal charts over time (open findings, drift, protection per feature)
     $runs = [System.Collections.Generic.List[object]]::new()
@@ -970,41 +1011,41 @@ function Save-WlSnapshot {
             at          = $at
             durationSec = if ($Started) { [int]($now - $Started).TotalSeconds } else { $null }
             changes     = $changes.Count
-            drift       = Get-WlDriftCounts -Changes $changes.ToArray()
-            findings    = Get-WlOpenFindingCounts -Findings @($Snapshot['findings'])
+            drift       = Get-GapsioDriftCounts -Changes $changes.ToArray()
+            findings    = Get-GapsioOpenFindingCounts -Findings @($Snapshot['findings'])
             protection  = $protection
             warnings    = @($Snapshot['warnings']).Count
             snapshot    = $snapName
         })
-    foreach ($r in @(Get-WlBlob -Container 'state' -Name 'runs.json')) { if ($null -ne $r -and $runs.Count -lt 500) { $runs.Add($r) } }
-    Set-WlBlob -Container 'state' -Name 'runs.json' -Object @($runs.ToArray())
+    foreach ($r in @(Get-GapsioBlob -Container 'state' -Name 'runs.json')) { if ($null -ne $r -and $runs.Count -lt 500) { $runs.Add($r) } }
+    Set-GapsioBlob -Container 'state' -Name 'runs.json' -Object @($runs.ToArray())
 
     [pscustomobject]@{ module = $Module; at = $at; changes = $changes.Count; snapshot = $snapName; warnings = @($Snapshot['warnings']).Count }
 }
 #endregion
 
 #region Accepted risks
-function Get-WlAcceptances {
+function Get-GapsioAcceptances {
     <#
     .SYNOPSIS
     Accepted risks (state/acceptances.json): findings or exclusions an administrator consciously accepted with a
     justification, owner and expiry date. Expired acceptances count as not accepted again.
     #>
     $a = @()
-    try { $a = @(Get-WlBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) } catch { }
+    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) } catch { }
     $a
 }
 
-function Test-WlAcceptanceActive {
+function Test-GapsioAcceptanceActive {
     param($Acceptance, [datetime]$Now = [DateTime]::UtcNow)
-    if (-not $Acceptance -or (Get-WlProp $Acceptance 'revokedAt')) { return $false }
-    $raw = Get-WlProp $Acceptance 'expires'
+    if (-not $Acceptance -or (Get-GapsioProp $Acceptance 'revokedAt')) { return $false }
+    $raw = Get-GapsioProp $Acceptance 'expires'
     if ($null -eq $raw -or [string]$raw -eq '') { return $true }   # no expiry date = unlimited exception
-    try { $exp = ConvertTo-WlUtc $raw } catch { return $false }
+    try { $exp = ConvertTo-GapsioUtc $raw } catch { return $false }
     $exp.Date.AddDays(1) -gt $Now
 }
 
-function ConvertTo-WlAssignee {
+function ConvertTo-GapsioAssignee {
     <#
     .SYNOPSIS
     Validates and normalises an assignee from the portal: an Entra user, a (security) group, a distribution list
@@ -1013,10 +1054,10 @@ function ConvertTo-WlAssignee {
     param($Data)
     if ($null -eq $Data) { return $null }
     if ($Data -is [string]) { $Data = [pscustomobject]@{ type = 'email'; mail = $Data } }
-    $type = ([string](Get-WlProp $Data 'type')).Trim().ToLowerInvariant()
-    $mail = ([string](Get-WlProp $Data 'mail')).Trim()
-    $id = ([string](Get-WlProp $Data 'id')).Trim()
-    $name = ([string](Get-WlProp $Data 'displayName')).Trim()
+    $type = ([string](Get-GapsioProp $Data 'type')).Trim().ToLowerInvariant()
+    $mail = ([string](Get-GapsioProp $Data 'mail')).Trim()
+    $id = ([string](Get-GapsioProp $Data 'id')).Trim()
+    $name = ([string](Get-GapsioProp $Data 'displayName')).Trim()
     if (-not $type -and -not $mail -and -not $id) { return $null }
     $types = @{ 'user' = 'user'; 'group' = 'group'; 'distributionlist' = 'distributionList'; 'email' = 'email' }
     if (-not $types.ContainsKey($type)) { throw [System.ArgumentException]::new('Assignee type must be user, group, distributionList or email.') }
@@ -1031,18 +1072,18 @@ function ConvertTo-WlAssignee {
     [pscustomobject][ordered]@{ type = $type; id = $(if ($id) { $id } else { $null }); displayName = $name; mail = $(if ($mail) { $mail } else { $null }) }
 }
 
-function Set-WlAcceptance {
+function Set-GapsioAcceptance {
     <#
     .SYNOPSIS
     Accepts (or with -Revoke revokes) the risk of a finding or exclusion. Validates the input, keeps one entry per key
     and appends every action to the audit log (state/acceptances-log.json).
     #>
     param([Parameter(Mandatory)]$Data, [Parameter(Mandatory)][string]$By, [switch]$Revoke)
-    $key = [string](Get-WlProp $Data 'key')
+    $key = [string](Get-GapsioProp $Data 'key')
     if ($key -notmatch '^[a-f0-9]{8,64}$') { throw [System.ArgumentException]::new('Invalid key.') }
     $now = [DateTime]::UtcNow
     $list = [System.Collections.Generic.List[object]]::new()
-    foreach ($x in Get-WlAcceptances) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    foreach ($x in Get-GapsioAcceptances) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
     if ($Revoke) {
         if (-not $existing) { throw [System.ArgumentException]::new('No acceptance for this key.') }
         $existing | Add-Member -NotePropertyName revokedAt -NotePropertyValue $now.ToString('o') -Force
@@ -1050,85 +1091,85 @@ function Set-WlAcceptance {
         $list.Add($existing); $entry = $existing; $action = 'revoke'
     }
     else {
-        $just = ([string](Get-WlProp $Data 'justification')).Trim()
-        $owner = ([string](Get-WlProp $Data 'owner')).Trim()
+        $just = ([string](Get-GapsioProp $Data 'justification')).Trim()
+        $owner = ([string](Get-GapsioProp $Data 'owner')).Trim()
         if ($just.Length -lt 10 -or $just.Length -gt 1000) { throw [System.ArgumentException]::new('A justification of 10–1000 characters is required.') }
         if (-not $owner -or $owner.Length -gt 200) { throw [System.ArgumentException]::new('An owner is required.') }
-        $rawExp = Get-WlProp $Data 'expires'
+        $rawExp = Get-GapsioProp $Data 'expires'
         $expires = $null
         if ($null -ne $rawExp -and ([string]$rawExp).Trim() -ne '' -and ([string]$rawExp).Trim() -notin @('never', 'unlimited')) {
-            try { $exp = (ConvertTo-WlUtc $rawExp).Date } catch { throw [System.ArgumentException]::new('A valid expiry date is required (or none for an unlimited exception).') }
+            try { $exp = (ConvertTo-GapsioUtc $rawExp).Date } catch { throw [System.ArgumentException]::new('A valid expiry date is required (or none for an unlimited exception).') }
             if ($exp -le $now.Date -or $exp -gt $now.Date.AddYears(10)) { throw [System.ArgumentException]::new('The expiry date must be in the future and at most ten years ahead.') }
             $expires = $exp.ToString('yyyy-MM-dd')
         }
-        $assignee = ConvertTo-WlAssignee (Get-WlProp $Data 'assignee')
+        $assignee = ConvertTo-GapsioAssignee (Get-GapsioProp $Data 'assignee')
         $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
         $entry = [pscustomobject][ordered]@{
-            key = $key; kind = (& $clip (Get-WlProp $Data 'kind') 30); module = (& $clip (Get-WlProp $Data 'module') 20)
-            title = (& $clip (Get-WlProp $Data 'title') 300); justification = $just; owner = $owner; ticket = (& $clip (Get-WlProp $Data 'ticket') 100)
+            key = $key; kind = (& $clip (Get-GapsioProp $Data 'kind') 30); module = (& $clip (Get-GapsioProp $Data 'module') 20)
+            title = (& $clip (Get-GapsioProp $Data 'title') 300); justification = $just; owner = $owner; ticket = (& $clip (Get-GapsioProp $Data 'ticket') 100)
             expires = $expires; assignee = $assignee; acceptedBy = $By; acceptedAt = $now.ToString('o')
         }
         $list.Add($entry); $action = 'accept'
     }
-    Set-WlBlob -Container 'state' -Name 'acceptances.json' -Object @($list.ToArray())
-    Add-WlAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.justification; owner = $entry.owner; ticket = $entry.ticket; expires = $entry.expires; assignee = (Get-WlProp $entry 'assignee') })
+    Set-GapsioBlob -Container 'state' -Name 'acceptances.json' -Object @($list.ToArray())
+    Add-GapsioAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.justification; owner = $entry.owner; ticket = $entry.ticket; expires = $entry.expires; assignee = (Get-GapsioProp $entry 'assignee') })
     $entry
 }
 
-function Add-WlAcceptanceLog {
+function Add-GapsioAcceptanceLog {
     <# .SYNOPSIS Prepends one entry to the audit log (state/acceptances-log.json), capped at 5000 entries. #>
     param([Parameter(Mandatory)]$Entry)
     $log = [System.Collections.Generic.List[object]]::new()
     $log.Add($Entry)
-    try { foreach ($l in @(Get-WlBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } } } catch { }
-    Set-WlBlob -Container 'state' -Name 'acceptances-log.json' -Object @($log.ToArray())
+    try { foreach ($l in @(Get-GapsioBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } } } catch { }
+    Set-GapsioBlob -Container 'state' -Name 'acceptances-log.json' -Object @($log.ToArray())
 }
 
-function Get-WlAssignments {
+function Get-GapsioAssignments {
     <#
     .SYNOPSIS
     Assignments (state/assignments.json): who is working on a finding or exclusion – an Entra user, a group, a
     distribution list or a plain e-mail address. Independent of an exception: an item can be assigned and stay open.
     #>
     $a = @()
-    try { $a = @(Get-WlBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) } catch { }
+    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) } catch { }
     $a
 }
 
-function Set-WlAssignment {
+function Set-GapsioAssignment {
     <#
     .SYNOPSIS
     Assigns (or with -Clear unassigns) a finding or exclusion. One assignment per key; every action is written to
     the same audit log as the exceptions.
     #>
     param([Parameter(Mandatory)]$Data, [Parameter(Mandatory)][string]$By, [switch]$Clear)
-    $key = [string](Get-WlProp $Data 'key')
+    $key = [string](Get-GapsioProp $Data 'key')
     if ($key -notmatch '^[a-f0-9]{8,64}$') { throw [System.ArgumentException]::new('Invalid key.') }
     $now = [DateTime]::UtcNow
     $list = [System.Collections.Generic.List[object]]::new()
     $existing = $null
-    foreach ($x in Get-WlAssignments) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    foreach ($x in Get-GapsioAssignments) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
     $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
     if ($Clear) {
         if (-not $existing) { throw [System.ArgumentException]::new('No assignment for this key.') }
         $entry = $existing; $action = 'unassign'
     }
     else {
-        $assignee = ConvertTo-WlAssignee (Get-WlProp $Data 'assignee')
+        $assignee = ConvertTo-GapsioAssignee (Get-GapsioProp $Data 'assignee')
         if (-not $assignee) { throw [System.ArgumentException]::new('An assignee is required.') }
         $entry = [pscustomobject][ordered]@{
-            key = $key; kind = (& $clip (Get-WlProp $Data 'kind') 30); module = (& $clip (Get-WlProp $Data 'module') 20)
-            title = (& $clip (Get-WlProp $Data 'title') 300); assignee = $assignee; note = (& $clip (Get-WlProp $Data 'note') 1000)
+            key = $key; kind = (& $clip (Get-GapsioProp $Data 'kind') 30); module = (& $clip (Get-GapsioProp $Data 'module') 20)
+            title = (& $clip (Get-GapsioProp $Data 'title') 300); assignee = $assignee; note = (& $clip (Get-GapsioProp $Data 'note') 1000)
             assignedBy = $By; assignedAt = $now.ToString('o')
         }
         $list.Add($entry); $action = 'assign'
     }
-    Set-WlBlob -Container 'state' -Name 'assignments.json' -Object @($list.ToArray())
-    Add-WlAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.note; assignee = $entry.assignee })
+    Set-GapsioBlob -Container 'state' -Name 'assignments.json' -Object @($list.ToArray())
+    Add-GapsioAcceptanceLog -Entry ([pscustomobject]@{ at = $now.ToString('o'); action = $action; by = $By; key = $key; title = $entry.title; justification = $entry.note; assignee = $entry.assignee })
     $entry
 }
 
-function Search-WlDirectory {
+function Search-GapsioDirectory {
     <#
     .SYNOPSIS
     People picker for assignments: users (User.ReadBasic.All), groups and distribution lists (GroupMember.Read.All)
@@ -1141,41 +1182,41 @@ function Search-WlDirectory {
     $esc = $q.Replace("'", "''")
     $results = [System.Collections.Generic.List[object]]::new(); $notices = [System.Collections.Generic.List[string]]::new()
     try {
-        $users = Invoke-WlGraph -Path "users?`$filter=startswith(displayName,'$esc') or startswith(userPrincipalName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,userPrincipalName,accountEnabled&`$top=10"
+        $users = Invoke-GapsioGraph -Path "users?`$filter=startswith(displayName,'$esc') or startswith(userPrincipalName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,userPrincipalName,accountEnabled&`$top=10"
         foreach ($u in @($users.value)) {
             if ($u.PSObject.Properties['accountEnabled'] -and $u.accountEnabled -eq $false) { continue }
             $results.Add([pscustomobject][ordered]@{ type = 'user'; id = [string]$u.id; displayName = [string]$u.displayName; mail = [string]($(if ($u.mail) { $u.mail } else { $u.userPrincipalName })) })
         }
     }
-    catch { $notices.Add("Users: $(Get-WlErrorText -Exception $_.Exception -Context 'User.ReadBasic.All')") }
+    catch { $notices.Add("Users: $(Get-GapsioErrorText -Exception $_.Exception -Context 'User.ReadBasic.All')") }
     try {
-        $groups = Invoke-WlGraph -Path "groups?`$filter=startswith(displayName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,mailEnabled,securityEnabled,groupTypes&`$top=10"
+        $groups = Invoke-GapsioGraph -Path "groups?`$filter=startswith(displayName,'$esc') or startswith(mail,'$esc')&`$select=id,displayName,mail,mailEnabled,securityEnabled,groupTypes&`$top=10"
         foreach ($g in @($groups.value)) {
             $isDl = $g.mailEnabled -eq $true -and $g.securityEnabled -ne $true -and @($g.groupTypes) -notcontains 'Unified'
             $results.Add([pscustomobject][ordered]@{ type = $(if ($isDl) { 'distributionList' } else { 'group' }); id = [string]$g.id; displayName = [string]$g.displayName; mail = $(if ($g.mail) { [string]$g.mail } else { $null }) })
         }
     }
-    catch { $notices.Add("Groups: $(Get-WlErrorText -Exception $_.Exception -Context 'GroupMember.Read.All')") }
+    catch { $notices.Add("Groups: $(Get-GapsioErrorText -Exception $_.Exception -Context 'GroupMember.Read.All')") }
     [ordered]@{ results = @($results | Sort-Object { $_.type -ne 'user' }, displayName); notices = @($notices) }
 }
 #endregion
 
 #region Notifications
-function Send-WlNotification {
+function Send-GapsioNotification {
     <#
     .SYNOPSIS
-    Sends new findings of a run to a webhook (app setting WL_NOTIFY_WEBHOOK): a Teams workflow ("When a Teams webhook
+    Sends new findings of a run to a webhook (app setting GAPSIO_NOTIFY_WEBHOOK): a Teams workflow ("When a Teams webhook
     request is received"), a Power Automate flow (e.g. to send e-mail) or any endpoint that accepts JSON.
-    Only findings that are new since the previous run, at least WL_NOTIFY_MIN_SEVERITY (default High) and not accepted.
+    Only findings that are new since the previous run, at least GAPSIO_NOTIFY_MIN_SEVERITY (default High) and not accepted.
     #>
     param([string]$Module, [object[]]$Changes, [System.Collections.IDictionary]$Snapshot)
-    $url = Get-WlSetting -Name 'WL_NOTIFY_WEBHOOK'
+    $url = Get-GapsioSetting -Name 'GAPSIO_NOTIFY_WEBHOOK'
     if (-not $url) { return $null }
-    if ($url -notmatch '^https://') { Add-WlWarning 'WL_NOTIFY_WEBHOOK must be an https URL.'; return $null }
+    if ($url -notmatch '^https://') { Add-GapsioWarning 'GAPSIO_NOTIFY_WEBHOOK must be an https URL.'; return $null }
     $order = @{ 'Critical' = 0; 'High' = 1; 'Medium' = 2; 'Low' = 3 }
-    $min = Get-WlSetting -Name 'WL_NOTIFY_MIN_SEVERITY' -Default 'High'
+    $min = Get-GapsioSetting -Name 'GAPSIO_NOTIFY_MIN_SEVERITY' -Default 'High'
     $minRank = if ($order.ContainsKey($min)) { $order[$min] } else { 1 }
-    $accepted = @{}; foreach ($a in Get-WlAcceptances) { if (Test-WlAcceptanceActive $a) { $accepted[[string]$a.key] = $true } }
+    $accepted = @{}; foreach ($a in Get-GapsioAcceptances) { if (Test-GapsioAcceptanceActive $a) { $accepted[[string]$a.key] = $true } }
     $byKey = @{}; foreach ($f in @($Snapshot['findings'])) { if ($f) { $byKey[[string]$f.key] = $f } }
     $new = @(foreach ($c in @($Changes)) {
             if ($c.collection -ne 'findings' -or $c.change -ne 'Added' -or $accepted.ContainsKey([string]$c.key)) { continue }
@@ -1184,10 +1225,10 @@ function Send-WlNotification {
             $f
         }) | Sort-Object { $order[[string]$_.severity] }
     if (-not $new.Count) { return $null }
-    $assigned = @{}; foreach ($a in Get-WlAssignments) { if ($a.assignee) { $assigned[[string]$a.key] = $a.assignee } }
+    $assigned = @{}; foreach ($a in Get-GapsioAssignments) { if ($a.assignee) { $assigned[[string]$a.key] = $a.assignee } }
     $who = { param($f) $a = $assigned[[string]$f.key]; if ($a) { if ($a.mail) { "$($a.displayName) <$($a.mail)>" } else { [string]$a.displayName } } else { $null } }
     $portal = if ($env:WEBSITE_HOSTNAME) { "https://$($env:WEBSITE_HOSTNAME)/#/findings" } else { $null }
-    $lines = @($new | Select-Object -First 15 | ForEach-Object { "**$($_.severity)** · $(Get-WlProp $_.title 'en')$(if ($_.deviceName) { " · $($_.deviceName)" })$(if ($w = & $who $_) { " · → $w" })" })
+    $lines = @($new | Select-Object -First 15 | ForEach-Object { "**$($_.severity)** · $(Get-GapsioProp $_.title 'en')$(if ($_.deviceName) { " · $($_.deviceName)" })$(if ($w = & $who $_) { " · → $w" })" })
     if ($new.Count -gt 15) { $lines += "… and $($new.Count - 15) more" }
     $title = "Gapsio: $($new.Count) new finding(s) ($Module)"
     $body = @(@{ type = 'TextBlock'; text = $title; weight = 'Bolder'; size = 'Medium'; wrap = $true }) + @($lines | ForEach-Object { @{ type = 'TextBlock'; text = $_; wrap = $true; spacing = 'Small' } })
@@ -1196,18 +1237,51 @@ function Send-WlNotification {
     $payload = [ordered]@{
         type = 'message'; attachments = @(@{ contentType = 'application/vnd.microsoft.card.adaptive'; content = $card })
         # Plain fields for Power Automate or other receivers
-        gapsio = [ordered]@{ module = $Module; title = $title; portal = $portal; findings = @($new | ForEach-Object { [ordered]@{ severity = $_.severity; category = $_.category; title = (Get-WlProp $_.title 'en'); device = $_.deviceName; key = $_.key; assignee = $assigned[[string]$_.key] } }) }
+        gapsio = [ordered]@{ module = $Module; title = $title; portal = $portal; findings = @($new | ForEach-Object { [ordered]@{ severity = $_.severity; category = $_.category; title = (Get-GapsioProp $_.title 'en'); device = $_.deviceName; key = $_.key; assignee = $assigned[[string]$_.key] } }) }
     }
     try {
         Invoke-RestMethod -Method Post -Uri $url -ContentType 'application/json; charset=utf-8' -Body (ConvertTo-Json -InputObject $payload -Depth 12 -Compress) -TimeoutSec 20 | Out-Null
         $new.Count
     }
-    catch { Add-WlWarning "Notification webhook failed: $($_.Exception.Message)"; $null }
+    catch { Add-GapsioWarning "Notification webhook failed: $($_.Exception.Message)"; $null }
 }
 #endregion
 
 #region Auth (App Service Authentication / Easy Auth)
-function Get-WlPrincipal {
+$script:GapsioRoleCache = @{}
+function Get-GapsioAssignedAppRoles {
+    <#
+    .SYNOPSIS
+    App role values a user holds on the portal app, read from Entra (direct assignment or via a group).
+    Fallback for sign-ins whose header carries no roles claim. Cached for 5 minutes per user.
+    Uses direct app-role assignments on the user object. Group-based app-role assignments should arrive via roles claim.
+    Needs RoleManagement.Read.Directory.
+    #>
+    param([Parameter(Mandatory)][string]$UserId, [string]$PortalAppId)
+    if (-not $PortalAppId) { $PortalAppId = $env:WEBSITE_AUTH_CLIENT_ID }
+    if ($UserId -notmatch '^[0-9a-fA-F-]{36}$' -or $PortalAppId -notmatch '^[0-9a-fA-F-]{36}$') { return @() }
+
+    $hit = $script:GapsioRoleCache[$UserId]
+    if ($hit -and $hit.At -gt [DateTime]::UtcNow.AddMinutes(-5)) { return $hit.Roles }
+
+    $roles = @()
+    try {
+        $sp = @(Invoke-GapsioGraph -Path "servicePrincipals?`$filter=appId eq '$PortalAppId'&`$select=id,appRoles").value | Select-Object -First 1
+        if ($sp) {
+            $assigned = @(Invoke-GapsioGraph -Path "users/$UserId/appRoleAssignments?`$select=resourceId,appRoleId" -All |
+                    Where-Object { [string]$_.resourceId -eq [string]$sp.id } | ForEach-Object { $_.appRoleId })
+            $roles = @($sp.appRoles | Where-Object { $_.isEnabled -and [string]$_.id -in @($assigned | ForEach-Object { [string]$_ }) } | ForEach-Object { [string]$_.value })
+            Write-Information "Gapsio sign-in: Entra lookup found $($assigned.Count) assignment(s) for $UserId on the portal app."
+        }
+        else { Write-Warning "Gapsio sign-in: portal service principal $PortalAppId not found." }
+    }
+    catch { Write-Warning "Gapsio sign-in: could not read app role assignments from Entra: $($_.Exception.Message)" }
+
+    $script:GapsioRoleCache[$UserId] = @{ At = [DateTime]::UtcNow; Roles = $roles }
+    $roles
+}
+
+function Get-GapsioPrincipal {
     <#
     .SYNOPSIS
     Reads the signed-in user from X-MS-CLIENT-PRINCIPAL. The header is only trusted when App Service
@@ -1233,12 +1307,27 @@ function Get-WlPrincipal {
     }
     $roleTypes = @('roles', 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role')
     if ($p.PSObject.Properties['role_typ'] -and $p.role_typ) { $roleTypes += [string]$p.role_typ }
-    $roles = @($claims | Where-Object { $_.typ -in $roleTypes } | ForEach-Object { [string]$_.val })
+    # A roles claim can arrive as one claim per role, as a JSON array string or as an array value.
+    $roles = @($claims | Where-Object { $_.typ -in $roleTypes } | ForEach-Object {
+            foreach ($v in @($_.val)) {
+                $s = ([string]$v).Trim()
+                if ($s.StartsWith('[')) { try { @($s | ConvertFrom-Json) | ForEach-Object { ([string]$_).Trim() } } catch { $s } } else { $s }
+            }
+        } | Where-Object { $_ })
+    $oid = & $first @('http://schemas.microsoft.com/identity/claims/objectidentifier', 'oid')
+
+    # Fallback: if the sign-in header carries no admin role, ask Entra directly (direct and group assignments).
+    if ($roles -notcontains 'Gapsio.Admin' -and $oid) {
+        $aud = & $first @('aud')
+        $fromEntra = @(Get-GapsioAssignedAppRoles -UserId $oid -PortalAppId $aud)
+        Write-Information "Gapsio sign-in: header roles [$($roles -join ', ')], Entra roles [$($fromEntra -join ', ')] for $oid (app $aud)."
+        $roles = @(@($roles) + $fromEntra | Select-Object -Unique)
+    }
 
     [pscustomobject]@{
         ok          = $true
         status      = 200
-        oid         = & $first @('http://schemas.microsoft.com/identity/claims/objectidentifier', 'oid')
+        oid         = $oid
         tid         = & $first @('http://schemas.microsoft.com/identity/claims/tenantid', 'tid')
         upn         = & $first @('preferred_username', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn', 'upn', 'email')
         displayName = & $first @('name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name')
@@ -1249,13 +1338,13 @@ function Get-WlPrincipal {
 #endregion
 
 #region Baseline
-function Get-WlBaseline {
+function Get-GapsioBaseline {
     <#
     .SYNOPSIS
     Loads the MDAV baseline: the customer's own version from storage (config/mdav-baseline.json), otherwise the shipped one.
     #>
     $custom = $null
-    try { $custom = Get-WlBlob -Container 'config' -Name 'mdav-baseline.json' } catch { Add-WlWarning "Custom baseline could not be read: $($_.Exception.Message)" }
+    try { $custom = Get-GapsioBlob -Container 'config' -Name 'mdav-baseline.json' } catch { Add-GapsioWarning "Custom baseline could not be read: $($_.Exception.Message)" }
     if ($custom) { $custom | Add-Member -NotePropertyName source -NotePropertyValue 'custom' -Force; return $custom }
     $appRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
     $path = Join-Path $appRoot 'config/mdav-baseline.json'
@@ -1264,7 +1353,22 @@ function Get-WlBaseline {
     $b
 }
 
-function ConvertTo-WlComparable {
+function Get-GapsioControlMapping {
+    <#
+    .SYNOPSIS
+    Mapping of finding categories to controls (ISO/IEC 27001:2022 Annex A, NIS2 Art. 21(2)) for the audit evidence view:
+    the customer's own version from storage (config/control-mapping.json), otherwise the shipped one.
+    #>
+    $custom = $null
+    try { $custom = Get-GapsioBlob -Container 'config' -Name 'control-mapping.json' } catch { $custom = $null }
+    if ($custom) { $custom | Add-Member -NotePropertyName source -NotePropertyValue 'custom' -Force; return $custom }
+    $appRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $m = Get-Content -Raw -Path (Join-Path $appRoot 'config/control-mapping.json') | ConvertFrom-Json -Depth 16
+    $m | Add-Member -NotePropertyName source -NotePropertyValue 'default' -Force
+    $m
+}
+
+function ConvertTo-GapsioComparable {
     # Settings Catalog values: "..._cloudblocklevel_2" -> 2, "..._audit" -> 'audit', "50" -> 50
     param([AllowEmptyString()][string]$Value)
     if ($null -eq $Value) { return $null }
@@ -1275,21 +1379,21 @@ function ConvertTo-WlComparable {
     $Value.ToLowerInvariant()
 }
 
-function Test-WlBaselineValue {
+function Test-GapsioBaselineValue {
     # -Display: display name of the selected option (Settings Catalog), e.g. "real_time" or "admin_only".
     param([AllowEmptyString()][string]$Value, $Expect, [string]$Display)
-    $c = ConvertTo-WlComparable $Value
-    $op = [string](Get-WlProp $Expect 'op')
+    $c = ConvertTo-GapsioComparable $Value
+    $op = [string](Get-GapsioProp $Expect 'op')
     switch ($op) {
-        'display' { return ("$Display $Value").ToLowerInvariant() -match [string](Get-WlProp $Expect 'pattern') }
-        'eq' { return ([string]$c -eq [string](Get-WlProp $Expect 'value')) }
-        'ne' { return ([string]$c -ne [string](Get-WlProp $Expect 'value')) }
-        'in' { return (@(Get-WlProp $Expect 'values') | ForEach-Object { [string]$_ }) -contains [string]$c }
-        'gte' { return ($c -is [long]) -and $c -ge [long](Get-WlProp $Expect 'value') }
-        'lte' { return ($c -is [long]) -and $c -le [long](Get-WlProp $Expect 'value') }
-        'range' { return ($c -is [long]) -and $c -ge [long](Get-WlProp $Expect 'min') -and $c -le [long](Get-WlProp $Expect 'max') }
-        'match' { return ([string]$Value).ToLowerInvariant() -match [string](Get-WlProp $Expect 'pattern') }
-        'notmatch' { return ("$Display $Value").ToLowerInvariant() -notmatch [string](Get-WlProp $Expect 'pattern') }
+        'display' { return ("$Display $Value").ToLowerInvariant() -match [string](Get-GapsioProp $Expect 'pattern') }
+        'eq' { return ([string]$c -eq [string](Get-GapsioProp $Expect 'value')) }
+        'ne' { return ([string]$c -ne [string](Get-GapsioProp $Expect 'value')) }
+        'in' { return (@(Get-GapsioProp $Expect 'values') | ForEach-Object { [string]$_ }) -contains [string]$c }
+        'gte' { return ($c -is [long]) -and $c -ge [long](Get-GapsioProp $Expect 'value') }
+        'lte' { return ($c -is [long]) -and $c -le [long](Get-GapsioProp $Expect 'value') }
+        'range' { return ($c -is [long]) -and $c -ge [long](Get-GapsioProp $Expect 'min') -and $c -le [long](Get-GapsioProp $Expect 'max') }
+        'match' { return ([string]$Value).ToLowerInvariant() -match [string](Get-GapsioProp $Expect 'pattern') }
+        'notmatch' { return ("$Display $Value").ToLowerInvariant() -notmatch [string](Get-GapsioProp $Expect 'pattern') }
         default { return $false }
     }
 }

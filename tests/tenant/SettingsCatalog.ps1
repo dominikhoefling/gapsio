@@ -3,18 +3,18 @@
 # matching option is picked by suffix. Missing IDs or options are logged instead of failing the policy –
 # so creating the test policies doubles as an ID check.
 
-$script:WlDefCache = @{}
+$script:GapsioDefCache = @{}
 
-function Get-WlDefinition {
+function Get-GapsioDefinition {
     param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][scriptblock]$Fetch)
-    if ($script:WlDefCache.ContainsKey($Id)) { return $script:WlDefCache[$Id] }
+    if ($script:GapsioDefCache.ContainsKey($Id)) { return $script:GapsioDefCache[$Id] }
     $d = $null
     try { $d = & $Fetch $Id } catch { $d = $null }
-    $script:WlDefCache[$Id] = $d
+    $script:GapsioDefCache[$Id] = $d
     $d
 }
 
-function New-WlSettingInstance {
+function New-GapsioSettingInstance {
     <#
     .SYNOPSIS
     Creates a settingInstance for a definition.
@@ -29,7 +29,7 @@ function New-WlSettingInstance {
         [Parameter(Mandatory)][scriptblock]$Fetch,
         [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[string]]$Log
     )
-    $def = Get-WlDefinition -Id $Id -Fetch $Fetch
+    $def = Get-GapsioDefinition -Id $Id -Fetch $Fetch
     if (-not $def) { $Log.Add("MISSING    $Id"); return $null }
     $type = [string]$def.'@odata.type'
 
@@ -99,10 +99,10 @@ function New-WlSettingInstance {
                 $cid = $childIds | Where-Object { $_ -eq "$($Id)_$k" } | Select-Object -First 1
                 if (-not $cid) { $cid = $childIds | Where-Object { $_ -like "*_$k" } | Select-Object -First 1 }
                 # Settings that depend on an option (e.g. ASR per-rule exclusions) are not in childIds but exist as
-                # definitions; Move-WlDependentSettings nests them under the option afterwards.
-                if (-not $cid -and (Get-WlDefinition -Id "$($Id)_$k" -Fetch $Fetch)) { $cid = "$($Id)_$k" }
+                # definitions; Move-GapsioDependentSettings nests them under the option afterwards.
+                if (-not $cid -and (Get-GapsioDefinition -Id "$($Id)_$k" -Fetch $Fetch)) { $cid = "$($Id)_$k" }
                 if (-not $cid) { $Log.Add("CHILD MISSING $Id › $k (available: $($childIds -join ', '))"); continue }
-                $ci = New-WlSettingInstance -Id $cid -Value $item[$k] -Fetch $Fetch -Log $Log
+                $ci = New-GapsioSettingInstance -Id $cid -Value $item[$k] -Fetch $Fetch -Log $Log
                 if ($ci) { $ci }
             }
             $children = @($children | Where-Object { $_ })
@@ -110,12 +110,12 @@ function New-WlSettingInstance {
             # a valid $type) would be rejected by Intune – skip it instead.
             $have = @($children | ForEach-Object { [string]$_['settingDefinitionId'] })
             $orphan = $children | Where-Object {
-                $d = Get-WlDefinition -Id $_['settingDefinitionId'] -Fetch $Fetch
+                $d = Get-GapsioDefinition -Id $_['settingDefinitionId'] -Fetch $Fetch
                 $parents = @(@($d.dependentOn) | ForEach-Object { [string]$_.parentSettingId } | Where-Object { $_ })
                 $parents.Count -and -not @($parents | Where-Object { $have -contains $_ }).Count
             } | Select-Object -First 1
             if ($orphan) { $Log.Add("ITEM SKIPPED $Id › $([string]$orphan['settingDefinitionId']) requires a parent setting that did not resolve"); continue }
-            $children = @(Move-WlDependentSettings -Instances @($children) -Fetch $Fetch)
+            $children = @(Move-GapsioDependentSettings -Instances @($children) -Fetch $Fetch)
             if ($children.Count) { [ordered]@{ children = $children } }
         }
         $items = @($items)
@@ -131,7 +131,7 @@ function New-WlSettingInstance {
     $null
 }
 
-function Move-WlDependentSettings {
+function Move-GapsioDependentSettings {
     <#
     .SYNOPSIS
     Intune requires settings that depend on a selected option (dependedOnBy) to be passed as children of that
@@ -144,7 +144,7 @@ function Move-WlDependentSettings {
         if (-not $list.Contains($ci)) { continue }
         $csv = $ci['choiceSettingValue']
         if (-not $csv) { continue }
-        $def = Get-WlDefinition -Id $ci['settingDefinitionId'] -Fetch $Fetch
+        $def = Get-GapsioDefinition -Id $ci['settingDefinitionId'] -Fetch $Fetch
         $opt = @($def.options) | Where-Object { $_.itemId -eq $csv['value'] } | Select-Object -First 1
         $deps = @(@($opt.dependedOnBy) | ForEach-Object { [string]$_.dependedOnBy } | Where-Object { $_ })
         if (-not $deps.Count) { continue }
@@ -156,7 +156,7 @@ function Move-WlDependentSettings {
     $list.ToArray()
 }
 
-function New-WlSettingsList {
+function New-GapsioSettingsList {
     <#
     .SYNOPSIS
     Converts an ordered list of Id = value into the settings array of a configurationPolicy.
@@ -165,9 +165,9 @@ function New-WlSettingsList {
     param([Parameter(Mandatory)][System.Collections.IDictionary]$Spec, [Parameter(Mandatory)][scriptblock]$Fetch, [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[string]]$Log)
     $out = foreach ($key in @($Spec.Keys)) {
         $candidates = $key -split '\|'
-        $id = $candidates | Where-Object { Get-WlDefinition -Id $_ -Fetch $Fetch } | Select-Object -First 1
+        $id = $candidates | Where-Object { Get-GapsioDefinition -Id $_ -Fetch $Fetch } | Select-Object -First 1
         if (-not $id) { $Log.Add("MISSING    $($candidates -join ' | ')"); continue }
-        $inst = New-WlSettingInstance -Id $id -Value $Spec[$key] -Fetch $Fetch -Log $Log
+        $inst = New-GapsioSettingInstance -Id $id -Value $Spec[$key] -Fetch $Fetch -Log $Log
         if ($inst) { [ordered]@{ '@odata.type' = '#microsoft.graph.deviceManagementConfigurationSetting'; settingInstance = $inst } }
     }
     @($out)

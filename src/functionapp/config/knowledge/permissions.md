@@ -6,15 +6,18 @@ the install, grant and app registration scripts all read it.
 
 | Feature | Default | What you get | Permissions (read-only, application) |
 |---|---|---|---|
-| `Core` | always | Intune policies: exclusions, ASR configuration, MDAV baseline (Windows, macOS, Linux); people picker for assignments | Graph: `DeviceManagementConfiguration.Read.All`, `GroupMember.Read.All`, `User.ReadBasic.All` |
+| `Core` | always | Intune policies: exclusions, ASR configuration, MDAV baseline (Windows, macOS, Linux); people picker for assignments; portal sign-in fallback for missing roles claim | Graph: `DeviceManagementConfiguration.Read.All`, `GroupMember.Read.All`, `User.ReadBasic.All`, `RoleManagement.Read.Directory` |
 | `Hunting` | on | Device state, local exclusions, effective ASR mode, Linux/macOS drift, local AI agents (Advanced Hunting) | Graph: `ThreatHunting.Read.All` |
 | `Indicators` | on | Allow indicators from Defender for Endpoint | Defender for Endpoint: `Ti.Read.All` |
 | `Response` | on | Response readiness: response actions of the last 90 days, investigations waiting for approval, forgotten isolations, untriaged alerts | Defender for Endpoint: `Machine.Read.All`, `Alert.Read.All` |
 | `Coverage` | on | Intune-managed devices that are not onboarded to Defender for Endpoint (sensor problems and device discovery need only `Hunting`); Intune connector for Defender, device risk in compliance, Conditional Access requiring compliant devices | Graph: `DeviceManagementManagedDevices.Read.All`, `DeviceManagementServiceConfig.Read.All`, `Policy.Read.All` |
+| `Detections` | off | Custom detection rules of Defender XDR: rules switched off automatically, disabled rules, rules that act automatically, who changed them ([Endpoint module](modules/endpoint.md#custom-detection-rules)) | Graph: `CustomDetection.Read.All` |
 | `Agents` | on | Entra Agent ID, Agent 365 package catalog, Conditional Access coverage | Graph: `AgentIdentityBlueprint.Read.All`, `AgentIdentityBlueprintPrincipal.Read.All`, `AgentIdentity.Read.All`, `User.ReadBasic.All`, `CopilotPackages.Read.All`, `AgentInstance.Read.All` (legacy fallback), `Policy.Read.All` |
 | `Access` | off | Defender XDR unified RBAC: roles, assignments, data-source scope, PIM eligibility and activations, access packages, portal usage, Entra bypass roles; API apps with Defender permissions, access reviews, PIM activation rules | Graph: `RoleManagement.Read.Defender`, `RoleManagement.Read.Directory`, `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup`, `EntitlementManagement.Read.All`, `AuditLog.Read.All`, `Directory.Read.All`, `AccessReview.Read.All`, `RoleManagementPolicy.Read.AzureADGroup` |
 | `Audit` | off | Defender for Endpoint portal activity from the Purview unified audit log: offboarding package downloads, live response, setting changes | Graph: `AuditLogsQuery.Read.All` |
 | `Licensing` | off | Defender for Endpoint licence indication: plans owned, entitled users, onboarded client devices and their users ([Licensing module](modules/licensing.md)); needs `Hunting` | Graph: `Organization.Read.All`, `User.Read.All` |
+| `OfficePreview` | off | Defender for Office 365 private preview: telemetry probes, policy map and anti-phish drift ([Office preview module](modules/office-preview.md)); uses Advanced Hunting data | Graph: `ThreatHunting.Read.All` |
+| `PurviewPreview` | off | Purview DLP private preview: licences, Purview roles, sensitivity labels, DLP hunting ([Purview DLP preview module](modules/purview-preview.md)) | Graph: `ThreatHunting.Read.All`, `Organization.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`, `InformationProtectionPolicy.Read.All` |
 | `Inventory` | off | Device inventory via Intune Remediations (use `-DeviceInventory`) | Graph: `DeviceManagementScripts.Read.All`, `DeviceManagementManagedDevices.Read.All` |
 
 ```powershell
@@ -26,6 +29,9 @@ the install, grant and app registration scripts all read it.
 
 # Add the optional access module later
 ./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,Access
+
+# Add the optional Office preview module (private preview)
+./setup/Install-Gapsio.ps1 -ResourceGroup rg-gapsio -Features Hunting,Indicators,Coverage,Response,Agents,OfficePreview
 ```
 
 - **Switching a feature off** and running the script again removes the permissions that are no longer needed.
