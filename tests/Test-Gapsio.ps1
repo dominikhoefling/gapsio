@@ -1489,6 +1489,42 @@ foreach ($entry in Get-ChildItem (Join-Path $root 'src/functionapp') -Recurse -F
     Assert ($missing.Count -eq 0) "$($entry.Directory.Name)/run.ps1 calls functions the module does not export: $($missing -join ', ')"
 }
 
+Write-Host '== Portal: no empty value is inserted into the page as text' -ForegroundColor Cyan
+# Element.append(null) and replaceChildren(null) show the text "null" (the helper h() skips empty children, the
+# native methods do not). Finds every such call whose argument can be null, undefined or false.
+function Get-PortalEmptyInsertions {
+    param([string]$Js)
+    $bad = [System.Collections.Generic.List[string]]::new()
+    foreach ($m in [regex]::Matches($Js, '\.(append|replaceChildren|prepend|before|after)\(')) {
+        $i = $m.Index + $m.Length; $depth = 0; $top = [System.Text.StringBuilder]::new(); $list = [System.Collections.Generic.List[string]]::new()
+        while ($i -lt $Js.Length) {
+            $c = $Js[$i]
+            if ($c -eq "'" -or $c -eq '"') { $q = $c; $i++; while ($i -lt $Js.Length -and $Js[$i] -ne $q) { if ($Js[$i] -eq '\') { $i++ }; $i++ }; if ($depth -eq 0) { [void]$top.Append('S') }; $i++; continue }
+            if ($c -eq '`') {
+                $d = 0; $i++
+                while ($i -lt $Js.Length) { if ($Js[$i] -eq '\') { $i += 2; continue }; if ($Js[$i] -eq '`' -and $d -eq 0) { break }; if ($Js[$i] -eq '$' -and $Js[$i + 1] -eq '{') { $d++; $i += 2; continue }; if ($Js[$i] -eq '}' -and $d -gt 0) { $d-- }; $i++ }
+                if ($depth -eq 0) { [void]$top.Append('T') }; $i++; continue
+            }
+            if ($c -eq '(' -or $c -eq '[' -or $c -eq '{') { $depth++ }
+            elseif ($c -eq ')' -or $c -eq ']' -or $c -eq '}') { if ($depth -eq 0) { $list.Add($top.ToString()); break }; $depth-- }
+            elseif ($c -eq ',' -and $depth -eq 0) { $list.Add($top.ToString()); [void]$top.Clear(); $i++; continue }
+            elseif ($depth -eq 0) { [void]$top.Append($c) }
+            $i++
+        }
+        foreach ($a in $list) {
+            $t = $a.Trim()
+            if ($t.StartsWith('...')) { continue }
+            if ($t -match ':\s*(null|undefined)$' -or $t -match '^(null|undefined|false)$' -or ($t -match '&&' -and $t -notmatch '\?')) { $bad.Add("line $(($Js.Substring(0, $m.Index) -split "`n").Count): $t") }
+        }
+    }
+    $bad.ToArray()
+}
+$portalJs = Get-Content (Join-Path $root 'src/functionapp/www/app.js') -Raw
+$emptyInsertions = @(Get-PortalEmptyInsertions -Js $portalJs)
+Assert ($emptyInsertions.Count -eq 0) "Portal: native append()/replaceChildren() never gets null or false ($($emptyInsertions -join ' | '))"
+$probe = @(Get-PortalEmptyInsertions -Js "main.append(h('p', null, a ? b : null), cond ? h('i') : null);`nbox.replaceChildren(x && h('b'));`nok.append(h('p'), flag ? h('b') : '', ...items.map(i => i ? h('li') : null));")
+Assert ($probe.Count -eq 2 -and $probe[0] -match '^line 1: cond \? h : null$' -and $probe[1] -match '^line 2: x && h$') "The check finds a null argument and an && argument, and ignores what h() handles ($($probe -join ' | '))"
+
 Write-Host '== End-to-end: office preview (Defender for Office 365)' -ForegroundColor Cyan
 $env:GAPSIO_MODULES = 'endpoint,agents,access,licensing,officepreview'
 $ro = Invoke-GapsioOfficePreviewCollection 6>$null
@@ -1906,6 +1942,14 @@ Write-Host '== Posture checks (unit)' -ForegroundColor Cyan
         & $A (@(Get-GapsioCoverage -Devices $ds2 | Where-Object { $_.deviceId -eq 'd-old1' }).Count -eq 0) 'DeviceInfo did not answer: no coverage gap is claimed for listed devices'
     }
     finally { $script:Hunt.Tvm = $savedTvm; $script:Hunt.DeviceInfoFail = $false }
+    # A tenant without agents: no finding about an agent without a name
+    & $A (@(Get-GapsioAgentFindings -Agents $null -PolicySummary @() -SecurityDefaults $false).Count -eq 0 -and @(Get-GapsioAgentFindings -Agents @() -PolicySummary @() -SecurityDefaults $true).Count -eq 0) 'Agents: no agents, no findings (no finding for an empty entry)'
+    # Passive mode: Windows explains the registration, macOS/Linux the enforcement level; no empty brackets
+    $pm = { param($os, $av, $mode = '1') $d = New-GapsioDevice -Id 'p1' -Name 'P-1' -Os $os; $d.avMode = $mode; $d.avModeText = 'Passive'; $d.thirdPartyAv = @($av)
+        @(Get-GapsioEndpointFindings -Devices @{ p1 = $d } -PolicyExclusions @() -LocalExclusions @() -Indicators @() -Baseline @() -SettingValues @() -Asr ([pscustomobject]@{ rules = @() }) -LinuxEvents @() -Policies @() | Where-Object { $_.title.en -eq 'Microsoft Defender Antivirus in passive mode' })[0] }
+    $pl = & $pm 'Linux' @(); $pw = & $pm 'Windows11' @(); $pw3 = & $pm 'Windows11' @('Contoso EDR'); $pm3 = & $pm 'macOS' @('Contoso EDR')
+    & $A ($pl.severity -eq 'Critical' -and $pl.detail.en -match 'configured enforcement level' -and $pl.detail.en -notmatch '\(\)|Defendnot|EDR in block mode' -and $pl.recommendation.en -match 'real_time' -and $pl.detail.de -match 'Erzwingungsstufe' -and $pl.recommendation.de -match 'real_time') 'Passive mode on Linux: explains the enforcement level, no empty brackets, no Windows-only causes'
+    & $A ($pw.detail.en -match 'Defendnot' -and $pw.detail.en -match 'ForceDefenderPassiveMode' -and $pw3.detail.en -match 'the other product \(Contoso EDR\) misses' -and $pw3.detail.en -notmatch 'ForceDefenderPassiveMode' -and $pm3.detail.en -match 'Another product is installed: Contoso EDR\.' -and $pl.key -eq (& $pm 'Linux' @('x')).key) 'Passive mode on Windows keeps its explanation; a known other product is named; the finding key does not depend on the text'
     # Office policy changes: which values count as weakening
     $w = { param($family, $cmdlet, $settings) @(Get-GapsioOfficePolicyWeakening -Family $family -Cmdlet $cmdlet -Settings $settings | ForEach-Object { $_.id }) -join ',' }
     & $A ((& $w 'AntiSpam' 'Set-HostedContentFilterPolicy' ([ordered]@{ HighConfidencePhishAction = 'MoveToJmf'; PhishSpamAction = 'Quarantine'; SpamAction = 'AddXHeader'; PhishZapEnabled = '$false' })) -eq 'hcPhishNotQuarantined,spamStaysInInbox,zapOff') 'Anti-spam: high confidence phish not quarantined, spam left in the inbox, ZAP off'

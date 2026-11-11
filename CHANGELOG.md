@@ -6,6 +6,24 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.4] – 2026-11-11
+
+Found by opening every portal view with real tenant data in a browser and by running the collectors against an empty
+tenant. No new permissions.
+
+### Fixed
+- **The text "null" appeared in the portal** – on every device page (below the protection checks), under the role
+  chips of *Who can do what?*, in an assignment without a note and in the empty state for non-admins.
+- **Agents: a finding without a name in tenants that have no agents** (*Cloud agent without Entra Agent ID:* followed
+  by nothing).
+- **Passive mode on macOS and Linux** was explained with Windows causes and ended in empty brackets. The finding now
+  explains the enforcement level and how to change it.
+- Changes: the Purview preview had a tab without a name and without content; it keeps no change history and has no
+  tab any more.
+
+### Changed
+- A test scans the portal for values that the browser would show as "null" or "false".
+
 ## [0.8.3] – 2026-11-11
 
 The portal assistant was reviewed end to end against a real tenant and a real model. No new permissions.

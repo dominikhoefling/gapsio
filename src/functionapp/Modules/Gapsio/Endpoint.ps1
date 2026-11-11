@@ -2561,19 +2561,33 @@ function Get-GapsioEndpointFindings {
         if ($d.avMode -eq '1' -or $d.avMode -eq '2' -or $d.checks['PassiveModeOff'] -eq 'BAD') {
             $extraEn = if ($locals.Count -gt 0) { " In addition there are $($locals.Count) local exclusion(s)." } else { '' }
             $extraDe = if ($locals.Count -gt 0) { " Zusätzlich $($locals.Count) lokale Exclusion(s)." } else { '' }
-            if (@($d.thirdPartyAv).Count -eq 0 -and $d.os -match '^Windows') {
-                $extraEn += ' No third-party AV/EDR appears in the software inventory – a leftover ForceDefenderPassiveMode setting or a fake security-center registration is likely.'
-                $extraDe += ' Im Softwareinventar ist kein Fremd-AV/EDR zu sehen – wahrscheinlich ein übrig gebliebenes ForceDefenderPassiveMode oder eine gefälschte Security-Center-Registrierung.'
+            $others = (@($d.thirdPartyAv) | Where-Object { $_ } | Select-Object -First 2) -join ', '
+            $windows = $d.os -match '^Windows'
+            if ($windows) {
+                if (-not $others) {
+                    $extraEn += ' No third-party AV/EDR appears in the software inventory – a leftover ForceDefenderPassiveMode setting or a fake security-center registration is likely.'
+                    $extraDe += ' Im Softwareinventar ist kein Fremd-AV/EDR zu sehen – wahrscheinlich ein übrig gebliebenes ForceDefenderPassiveMode oder eine gefälschte Security-Center-Registrierung.'
+                }
+                elseif ($d.avMode -ne '4') {
+                    $extraEn += " EDR in block mode is not active, so Defender does not remediate what the other product ($others) misses."
+                    $extraDe += " EDR im Block-Modus ist nicht aktiv, Defender bereinigt also nicht, was das andere Produkt ($others) übersieht."
+                }
+                $whyEn = 'If this is not intended, a third-party or fake AV registration (e.g. Defendnot) may have disabled protection.'
+                $whyDe = 'Ist das nicht beabsichtigt, kann eine fremde oder gefälschte AV-Registrierung (z. B. Defendnot) den Schutz ausgehebelt haben.'
+                $fixEn = 'Check the running mode; if no third-party AV is intended, investigate the cause and switch back to active.'
+                $fixDe = 'Running Mode prüfen; falls kein Drittanbieter-AV vorgesehen ist, Ursache untersuchen und auf Aktiv zurückstellen.'
             }
-            elseif ($d.avMode -ne '4') {
-                $extraEn += " EDR in block mode is not active, so Defender does not remediate what the other product ($((@($d.thirdPartyAv) | Select-Object -First 2) -join ', ')) misses."
-                $extraDe += " EDR im Block-Modus ist nicht aktiv, Defender bereinigt also nicht, was das andere Produkt ($((@($d.thirdPartyAv) | Select-Object -First 2) -join ', ')) übersieht."
+            else {
+                # macOS and Linux: passive is an enforcement level somebody configured, not a security-center registration
+                if ($others) { $extraEn += " Another product is installed: $others."; $extraDe += " Ein anderes Produkt ist installiert: $others." }
+                $whyEn = 'On macOS and Linux this is a configured enforcement level: Defender scans only on demand and does not block or remediate. It is meant for devices that another antivirus product protects.'
+                $whyDe = 'Unter macOS und Linux ist das eine konfigurierte Erzwingungsstufe: Defender scannt nur bei Bedarf und blockiert oder bereinigt nicht. Sie ist für Geräte gedacht, die ein anderes Antivirus-Produkt schützt.'
+                $fixEn = 'Set the enforcement level to real_time (Intune or mdatp_managed.json) unless another antivirus product is meant to protect this device.'
+                $fixDe = 'Die Erzwingungsstufe auf real_time stellen (Intune oder mdatp_managed.json), sofern nicht ein anderes Antivirus-Produkt dieses Gerät schützen soll.'
             }
             $f.Add((New-GapsioFinding -Severity 'Critical' -Category 'Device' -Title (& $T 'Microsoft Defender Antivirus in passive mode' 'Microsoft Defender Antivirus im Passiv-Modus') `
-                        -Detail (& $T "$dn runs in mode '$($d.avModeText)'. If this is not intended, a third-party or fake AV registration (e.g. Defendnot) may have disabled protection.$extraEn" `
-                            "$dn läuft im Modus '$($d.avModeText)'. Ist das nicht beabsichtigt, kann eine fremde oder gefälschte AV-Registrierung (z. B. Defendnot) den Schutz ausgehebelt haben.$extraDe") `
-                        -Recommendation (& $T 'Check the running mode; if no third-party AV is intended, investigate the cause and switch back to active.' 'Running Mode prüfen; falls kein Drittanbieter-AV vorgesehen ist, Ursache untersuchen und auf Aktiv zurückstellen.') `
-                        -Subject 'passive' -DeviceId $d.deviceId -DeviceName $dn))
+                        -Detail (& $T "$dn runs in mode '$($d.avModeText)'. $whyEn$extraEn" "$dn läuft im Modus '$($d.avModeText)'. $whyDe$extraDe") `
+                        -Recommendation (& $T $fixEn $fixDe) -Subject 'passive' -DeviceId $d.deviceId -DeviceName $dn))
         }
         if ($av -eq 'BAD') { $f.Add((New-GapsioFinding -Severity 'Critical' -Category 'Device' -Title (& $T 'Antivirus disabled' 'Antivirus deaktiviert') -Detail (& $T "Defender reports antivirus as inactive on $dn." "Auf $dn meldet Defender Antivirus als nicht aktiv.") -Recommendation (& $T 'Enable Defender Antivirus or resolve the conflict with older policies.' 'Defender Antivirus aktivieren bzw. Konflikt mit älteren Richtlinien beseitigen.') -Subject 'av' -DeviceId $d.deviceId -DeviceName $dn)) }
         if ($rtp -eq 'BAD') { $f.Add((New-GapsioFinding -Severity 'Critical' -Category 'Device' -Title (& $T 'Real-time protection disabled' 'Echtzeitschutz deaktiviert') -Detail (& $T "Real-time protection is off on $dn." "Auf $dn ist der Echtzeitschutz aus.") -Recommendation (& $T 'Enforce real-time protection by policy.' 'Echtzeitschutz per Richtlinie erzwingen.') -Subject 'rtp' -DeviceId $d.deviceId -DeviceName $dn)) }
