@@ -225,7 +225,7 @@
     'ev.flat': ['Findings per control', 'Befunde pro Kontrolle'], 'ev.flat.lede': ['One row per control and finding – export it as CSV for the audit file.', 'Eine Zeile pro Kontrolle und Befund – als CSV für die Audit-Akte exportieren.'], 'ev.flat.none': ['No findings.', 'Keine Befunde.'],
     'ov.conflicts': ['settings in a policy conflict', 'Einstellungen im Policy-Konflikt'], 'ov.usb': ['devices using USB storage without device control', 'Geräte mit USB-Speicher ohne Device Control'], 'ov.disruption': ['gaps in attack disruption readiness', 'Lücken bei der Attack-Disruption-Readiness'], 'ov.detections': ['custom detection rules not running', 'Custom-Detection-Regeln laufen nicht'],
     // office preview: probes on documented hunting columns (back end: OfficePreview.ps1)
-    'mod.officepreview': ['Office (preview)', 'Office (Preview)'], 'cat.Office': ['Office 365', 'Office 365'],
+    'mod.officepreview': ['Office (preview)', 'Office (Preview)'], 'mod.purviewpreview': ['Purview DLP (preview)', 'Purview DLP (Preview)'], 'cat.Office': ['Office 365', 'Office 365'],
     'om.oldData': ['This data is from an older Gapsio version – run the Office module once to see the current checks.', 'Diese Daten stammen aus einer älteren Gapsio-Version – das Office-Modul einmal ausführen, um die aktuellen Prüfungen zu sehen.'],
     'om.kpi.inbox': ['phish/malware still in inboxes', 'Phishing/Malware noch in Posteingängen'], 'om.kpi.allowed': ['threats let through by an allow', 'Bedrohungen durch ein Allow durchgelassen'], 'om.kpi.clicks': ['clicks past the Safe Links warning', 'Klicks an der Safe-Links-Warnung vorbei'],
     'om.kpi.spoof': ['spoofs of your own domains delivered', 'zugestellte Fälschungen eigener Domänen'], 'om.kpi.zap': ['messages removed by ZAP', 'von ZAP entfernte Nachrichten'],
@@ -1209,7 +1209,7 @@
     const asgSec = h('div', { class: 'wf-section' }, h('h4', null, t('acc.section.assign')));
     if (asg) {
       asgSec.append(h('p', null, assigneeChip(asg.assignee, async () => { try { await post('assignments/clear', { key: item.key }); await after(t('asg.cleared')); } catch (err) { toast(t('error', err.message)); } }), ' ', h('span', { class: 'muted small' }, t('asg.by', asg.assignedBy, fmtDay(asg.assignedAt)))),
-        asg.note ? h('p', { class: 'muted small' }, asg.note) : null);
+        asg.note ? h('p', { class: 'muted small' }, asg.note) : '');
     } else {
       const openA = h('button', { type: 'button' }, t('asg.assign'));
       const picker = peoplePicker();
@@ -1299,7 +1299,7 @@
     if (err && err.status === 404) {
       const isAdmin = state.me && state.me.isAdmin;
       box.append(h('p', null, isAdmin ? t('nodata.admin') : t('nodata.user')),
-        isAdmin ? h('button', { class: 'primary', type: 'button', onclick: (e) => runNow(module, e.target) }, t('run.now')) : null);
+        isAdmin ? h('button', { class: 'primary', type: 'button', onclick: (e) => runNow(module, e.target) }, t('run.now')) : '');
     } else {
       box.append(h('p', null, t('load.failed', err ? err.message : t('unknown.error'))));
     }
@@ -1904,7 +1904,7 @@
       const order = ['AntivirusEnabled', 'RealtimeProtection', 'BehaviorMonitoring', 'CloudProtection', 'PUAProtection', 'TamperProtection', 'NetworkProtection', 'ControlledFolderAccess', 'EdrBlockMode', 'AntivirusSignatureVersion', 'SensorEnabled', 'ImpairedCommunications', 'PassiveModeOff'];
       const checks = Object.keys(d.checks || {}).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
       main.append(h('h2', null, t('dv.protection')), checks.length ? h('div', { class: 'checks' }, checks.map(k => h('div', { class: 'check-item' }, checkCell(d.checks[k]), ' ', code('chk', k)))) : h('p', { class: 'muted' }, t('dv.none')),
-        d.networkProtectionSource ? h('p', { class: 'muted small' }, t(`dv.np.${d.networkProtectionSource}`)) : null);
+        d.networkProtectionSource ? h('p', { class: 'muted small' }, t(`dv.np.${d.networkProtectionSource}`)) : '');
 
       const cat = {}; arr(ep.asrCatalog).forEach(x => { cat[x.id] = x; });
       const rules = arr(ep.asrRules);
@@ -3180,7 +3180,7 @@
           title: r.actions.slice(0, 12).join('\n'),
           onclick: () => { selected.has(r.id) ? selected.delete(r.id) : selected.add(r.id); drawChips(); run(); }
         }, r.name, h('span', { class: 'role-chip-n' }, String(count(r.id))))),
-        selected.size ? h('button', { type: 'button', class: 'link', onclick: () => { selected.clear(); drawChips(); run(); } }, t('w.clear')) : null);
+        selected.size ? h('button', { type: 'button', class: 'link', onclick: () => { selected.clear(); drawChips(); run(); } }, t('w.clear')) : '');
       drawChips();
 
       main.append(h('div', { class: 'toolbar ac' }, input, sugg), h('h3', null, t('w.pickRoles')), chips, out);
@@ -3266,8 +3266,9 @@
 
     async changes(main, params) {
       main.append(h('h1', null, t('v.changes')), h('p', { class: 'lede' }, t('ch.lede')));
-      const mod = modules().includes(params.get('module')) ? params.get('module') : 'endpoint';
-      main.append(h('div', { class: 'tabs', role: 'tablist' }, modules().map(id => h('button', { class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(id === mod), onclick: () => { location.hash = `#/changes?module=${id}`; } }, code('mod', id)))));
+      const withHistory = modules().filter(id => id !== 'purviewpreview');   // the Purview preview keeps no change history
+      const mod = withHistory.includes(params.get('module')) ? params.get('module') : 'endpoint';
+      main.append(h('div', { class: 'tabs', role: 'tablist' }, withHistory.map(id => h('button', { class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(id === mod), onclick: () => { location.hash = `#/changes?module=${id}`; } }, code('mod', id)))));
       let rows; try { rows = state.changes[mod] || (state.changes[mod] = await api(`changes?module=${mod}`)); } catch (e) { main.append(noData(e, mod)); return; }
       rows = arr(rows);
       const area = (r) => code('coll', r.collection);

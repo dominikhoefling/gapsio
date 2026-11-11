@@ -125,7 +125,7 @@ function Get-GapsioAssistantContext {
         if ($m -eq 'endpoint') {
             # Spelled out, because the model otherwise answers "how many devices do not report" from other numbers
             $quiet = [int](Get-GapsioProp $snap.summary 'devicesNotReporting')
-            if ($quiet -gt 0) { [void]$sb.AppendLine("  Note: $quiet of $([int](Get-GapsioProp $snap.summary 'devices')) devices are NOT REPORTING (no device information in the lookback, see #/devices and coverage gaps). Protection state and findings for them are the last known state.") }
+            if ($quiet -gt 0) { [void]$sb.AppendLine("  Note: $quiet of $([int](Get-GapsioProp $snap.summary 'devices')) devices are NOT REPORTING (no device information in the lookback). They carry the label 'not reporting' in the device list (#/devices) and are listed as 'sensor inactive' under its tab Coverage gaps (#/devices?tab=coverage); there is no separate filter for them. Protection state and findings for them are the last known state.") }
         }
         foreach ($f in @($snap.findings)) { if ($f) { $all.Add([pscustomobject]@{ module = $m; f = $f; o = $(if ($sevOrder.ContainsKey([string]$f.severity)) { $sevOrder[[string]$f.severity] } else { 9 }) }) } }
     }

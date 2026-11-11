@@ -582,6 +582,8 @@ function Get-GapsioAgentFindings {
     param([object[]]$Agents, [object[]]$PolicySummary, [bool]$SecurityDefaults)
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
+    # A tenant without agents passes $null: piping it on would yield one empty "agent" and a finding without a name
+    $Agents = @($Agents | Where-Object { $_ })
     $cloud = @($Agents | Where-Object { $_.agentType -ne 'Local' })
     $withId = @($cloud | Where-Object { $_.agentId })
     $withUser = @($cloud | Where-Object { $_.agentUserId })
