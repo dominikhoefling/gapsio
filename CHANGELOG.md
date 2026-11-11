@@ -6,6 +6,34 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.3] – 2026-11-11
+
+The portal assistant was reviewed end to end against a real tenant and a real model. No new permissions.
+
+### Fixed
+- **Doc search never returned anything by meaning.** The vector of the question was reduced to its first number, so
+  every similarity was zero.
+- **The MDAV baseline was missing from the knowledge index** (the checks were read under a wrong key). Every baseline
+  check and the ASR rule list are now sections with rationale and fix.
+- **Device records for the model were mostly empty** – the assistant asked for fields the snapshot does not have. It
+  now gets the protection state, the failed checks and whether the device still reports.
+- **The device a question names was cut off** at the end of an over-long context. Devices now come first and the
+  findings fill the rest, whole lines only.
+- **Dates read as the wrong day** (`11/02/2026`). Everything the model sees is `yyyy-MM-dd HH:mm UTC`.
+- **A failed live query looked like "nothing found".** Each part of a live result is now the data or an error; an
+  empty live result says that no device reported instead of implying healthy sensors.
+- **Answers after a tool call were sometimes prose without links.** Every round asks for JSON; a cut-off or empty
+  answer is handled.
+- **Links to devices could be dead** (device name instead of ID, wrong route). They are checked against the snapshot.
+- **`#/devices?q=NAME` did not search.** The device list now applies the search term of the link.
+- Two doc copies the assistant searches were out of date; a test now keeps them identical to `docs/`.
+
+### Changed
+- The knowledge index covers the Office, Licensing and Purview modules, compliance, installation and updates, is
+  built with the regular run instead of during the first question, is kept in memory, and falls back to keyword
+  search when embedding fails.
+- A failed attempt is no longer sent back to the model as part of the conversation.
+
 ## [0.8.2] – 2026-11-11
 
 No new permissions.

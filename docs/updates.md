@@ -16,7 +16,7 @@ Gapsio **never updates itself**. You decide when a new version goes into your te
 az login
 ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -CheckOnly   # what would change
 ./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio              # update to the latest release
-./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.8.2
+./setup/Update-Gapsio.ps1 -ResourceGroup rg-gapsio -Version 0.8.3
 ```
 
 Role needed: Contributor (or Website Contributor) on the resource group. The script
