@@ -126,8 +126,8 @@ param assistantModelVersion string = '2025-04-14'
 @description('Region for the created Azure OpenAI resource (model availability differs by region). Empty = same as location.')
 param assistantLocation string = ''
 
-@description('Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant.')
-param assistantCapacity int = 10
+@description('Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). One question with tool calls needs 6,000 to 12,000 tokens, so 10 is too small; billing is per token, not per capacity.')
+param assistantCapacity int = 50
 
 @description('Embedding model deployment used for semantic search in the Gapsio docs / baseline rationale. Empty = keyword search only.')
 param assistantEmbeddingDeployment string = 'text-embedding-3-small'

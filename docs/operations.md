@@ -63,6 +63,7 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 | `HTTP 403 … Not in the token: X` | Permission `X` is not granted, or was granted after the managed identity's current token was issued | Re-run the install or `Grant-GapsioPermissions.ps1` (lists what is granted). Azure caches managed identity tokens for up to 24 hours – the notice disappears with the next token. |
 | `HTTP 403 … The token contains X` | The permission is there, but the API refuses anyway | Usually a missing licence (Agent ID, Agent 365) or a preview API that is not enabled in the tenant |
 | `HTTP 400/404` on agent APIs | The API is not available in the tenant (yet) | Nothing – the agents module shows what it can |
+| Assistant: `Azure OpenAI rate limit: the deployment … has too few tokens per minute` | The chat deployment's capacity is smaller than one question needs (installations before 0.8.2 were created with 10,000 tokens per minute) | Raise the capacity – it is a rate limit, billing stays per token: `az cognitiveservices account deployment create -g <resource group> -n <oai-… resource> --deployment-name gpt-4.1-mini --model-name gpt-4.1-mini --model-version <current version> --model-format OpenAI --sku-name GlobalStandard --sku-capacity 50` |
 
 ## Storage layout
 
