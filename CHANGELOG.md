@@ -6,6 +6,23 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.2] – 2026-11-11
+
+No new permissions.
+
+### Fixed
+- **Assistant: every direct answer failed** with *Cannot bind argument to parameter 'Name'*. A final answer of the
+  model carries no tool calls, which the assistant took for one empty call.
+- **Assistant: rate limit.** New installations create the chat deployment with 50,000 tokens per minute instead of
+  10,000 – one question with tool calls needs 6,000 to 12,000. A rate limit is retried once when the service asks for
+  a short wait; otherwise the message says what to do. Existing installations: raise the capacity with the command in
+  *Operations › Notices after a run* (capacity is a rate limit, billing stays per token).
+- Assistant: the Purview preview snapshot was never found (other blob name).
+
+### Changed
+- The assistant knows the newer portal views (policy conflicts, device control, attack disruption, detection rules,
+  the Office pages, audit evidence) and can link to them; `search_findings` covers the Office module.
+
 ## [0.8.1] – 2026-11-11
 
 No new permissions.
