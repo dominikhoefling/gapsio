@@ -48,14 +48,55 @@ function Get-GapsioAssistantSnapshotName {
     if ($Module -eq 'purviewpreview') { 'purview-preview-latest.json' } else { "$Module-latest.json" }
 }
 
+function ConvertTo-GapsioAssistantTime {
+    # Dates for the model: always "yyyy-MM-dd HH:mm UTC". ConvertFrom-Json and the device index turn ISO timestamps
+    # into DateTime values or culture-formatted strings ("11/02/2026 …"), which read as the wrong day.
+    param($Value)
+    if ($null -eq $Value -or "$Value" -eq '') { return $null }
+    try { (ConvertTo-GapsioUtc $Value).ToString('yyyy-MM-dd HH:mm') + ' UTC' } catch { [string]$Value }
+}
+
+function ConvertTo-GapsioAssistantDevice {
+    <#
+    .SYNOPSIS
+    Compact device record for the model from a device row of the endpoint snapshot: identity, last report, protection
+    state and the checks that failed. Uses the field names of the snapshot (os, lastUser, localExclusions, checks …).
+    #>
+    param($Device)
+    if (-not $Device) { return $null }
+    $g = { param($n) Get-GapsioProp $Device $n }
+    $checks = & $g 'checks'
+    $failed = @()
+    if ($checks -is [System.Collections.IDictionary]) { $failed = @($checks.Keys | Where-Object { $checks[$_] -eq 'BAD' }) }
+    elseif ($checks) { $failed = @($checks.PSObject.Properties | Where-Object { $_.Value -eq 'BAD' } | ForEach-Object { $_.Name }) }
+    $reporting = & $g 'reporting'
+    $all = [ordered]@{
+        deviceId = [string](& $g 'deviceId'); deviceName = [string](& $g 'deviceName'); os = [string](& $g 'os'); osVersion = [string](& $g 'osVersion')
+        deviceGroup = [string](& $g 'deviceGroup'); lastUser = [string](& $g 'lastUser'); lastSeen = (ConvertTo-GapsioAssistantTime (& $g 'lastSeen'))
+        reporting = $(if ($reporting -eq $false -or "$reporting" -eq 'false') { 'not reporting – the state below is the last known one' } elseif ($null -eq $reporting -or "$reporting" -eq '') { 'unknown' } else { 'reporting' })
+        antivirusMode = [string](& $g 'avModeText'); sensorHealth = [string](& $g 'sensorHealth'); exposure = [string](& $g 'exposure')
+        failedChecks = $failed
+        asrRulesBelowTarget = (& $g 'asrBelowMinimum'); localExclusions = (& $g 'localExclusions'); localExclusionsHighRisk = (& $g 'localExclusionsHighRisk'); policyExclusions = (& $g 'policyExclusions')
+        tamperingEvents30d = (& $g 'tampering30d'); internetFacing = (& $g 'internetFacing')
+    }
+    # Values Defender did not report are left out – an empty field would read as "none"
+    $out = [ordered]@{}
+    foreach ($k in $all.Keys) { $v = $all[$k]; if ($null -ne $v -and "$v" -ne '' -or $k -eq 'failedChecks') { $out[$k] = $v } }
+    $out
+}
+
 function Get-GapsioAssistantFindingText {
-    param($Finding, [string]$Lang)
+    # One line per finding. -Short (context): title, device, category and the start of the detail – the tool
+    # search_findings returns the full line with the fix.
+    param($Finding, [string]$Lang, [switch]$Short)
     $pick = { param($o) if ($null -eq $o) { '' } elseif ($o -is [string]) { $o } else { $v = Get-GapsioProp $o $Lang; if (-not $v) { $v = Get-GapsioProp $o 'en' }; [string]$v } }
     $parts = @("[$($Finding.severity)] $(& $pick $Finding.title)")
     if ($Finding.deviceName) { $parts += "device=$($Finding.deviceName)" }
-    if ($Finding.subject) { $parts += "subject=$($Finding.subject)" }
-    $d = & $pick $Finding.detail; if ($d) { $parts += "detail=$($d.Substring(0, [Math]::Min($d.Length, 240)))" }
-    $r = & $pick $Finding.recommendation; if ($r) { $parts += "fix=$($r.Substring(0, [Math]::Min($r.Length, 240)))" }
+    if (Get-GapsioProp $Finding 'stale') { $parts += 'state=last known (the device is not reporting)' }
+    if ($Finding.subject -and -not $Short) { $parts += "subject=$($Finding.subject)" }
+    $max = $(if ($Short) { 160 } else { 240 })
+    $d = & $pick $Finding.detail; if ($d) { $parts += "detail=$($d.Substring(0, [Math]::Min($d.Length, $max)))$(if ($d.Length -gt $max) { '…' })" }
+    if (-not $Short) { $r = & $pick $Finding.recommendation; if ($r) { $parts += "fix=$($r.Substring(0, [Math]::Min($r.Length, 240)))$(if ($r.Length -gt 240) { '…' })" } }
     $parts += "category=$($Finding.category)"
     $parts -join ' | '
 }
@@ -63,8 +104,8 @@ function Get-GapsioAssistantFindingText {
 function Get-GapsioAssistantContext {
     <#
     .SYNOPSIS
-    Compact, deterministic context for the model: enabled modules, view catalogue, per-module summary, top findings,
-    and – when the question names a device – up to five matching devices. Size is capped (~14k chars).
+    Compact, deterministic context for the model: enabled modules, view catalogue, per-module summary, the devices
+    the question names (up to five each) and the top findings as far as they fit into about 12,000 characters.
     #>
     param([string]$Question, [string]$Lang = 'en')
     $modules = @(Get-GapsioModules)
@@ -80,16 +121,17 @@ function Get-GapsioAssistantContext {
         if (-not $snap) { [void]$sb.AppendLine("Module ${m}: no data yet (no run)."); continue }
         $sum = $null; try { $sum = $snap.summary | ConvertTo-Json -Compress -Depth 4 } catch { $sum = '' }
         if ($sum.Length -gt 1500) { $sum = $sum.Substring(0, 1500) + '…' }
-        [void]$sb.AppendLine("Module ${m}: generatedAt=$($snap.generatedAt) summary=$sum")
-        foreach ($f in @($snap.findings)) { $all.Add([pscustomobject]@{ module = $m; f = $f; o = $(if ($sevOrder.ContainsKey([string]$f.severity)) { $sevOrder[[string]$f.severity] } else { 9 }) }) }
-    }
-    $top = @($all | Sort-Object o | Select-Object -First 40)
-    if ($top.Count) {
-        [void]$sb.AppendLine("Top findings ($($top.Count) of $($all.Count), highest severity first):")
-        foreach ($x in $top) { [void]$sb.AppendLine("  [$($x.module)] $(Get-GapsioAssistantFindingText -Finding $x.f -Lang $Lang)") }
+        [void]$sb.AppendLine("Module ${m}: snapshot of $(ConvertTo-GapsioAssistantTime $snap.generatedAt) summary=$sum")
+        if ($m -eq 'endpoint') {
+            # Spelled out, because the model otherwise answers "how many devices do not report" from other numbers
+            $quiet = [int](Get-GapsioProp $snap.summary 'devicesNotReporting')
+            if ($quiet -gt 0) { [void]$sb.AppendLine("  Note: $quiet of $([int](Get-GapsioProp $snap.summary 'devices')) devices are NOT REPORTING (no device information in the lookback, see #/devices and coverage gaps). Protection state and findings for them are the last known state.") }
+        }
+        foreach ($f in @($snap.findings)) { if ($f) { $all.Add([pscustomobject]@{ module = $m; f = $f; o = $(if ($sevOrder.ContainsKey([string]$f.severity)) { $sevOrder[[string]$f.severity] } else { 9 }) }) } }
     }
 
-    # Device lookup: words that look like host names (letters/digits/dashes, 3+ chars, not plain English) are tried against the device search.
+    # Device lookup: words that look like host names (letters/digits/dashes, 3+ chars, not plain English) are tried
+    # against the device search. Before the findings, so the answer to "why is device X flagged" is never cut off.
     if ($modules -contains 'endpoint' -and $Question) {
         $cands = @([regex]::Matches($Question, '[A-Za-z0-9][A-Za-z0-9\-\.]{2,62}') | ForEach-Object { $_.Value } | Where-Object { $_ -match '\d|-' } | Select-Object -Unique -First 3)
         foreach ($c in $cands) {
@@ -97,15 +139,27 @@ function Get-GapsioAssistantContext {
                 $res = Search-GapsioDevices -Query $c -Page 0 -Size 5
                 if ($res -and @($res.rows).Count) {
                     [void]$sb.AppendLine("Devices matching '$c':")
-                    foreach ($d in @($res.rows)) { [void]$sb.AppendLine("  $(($d | Select-Object deviceName, osPlatform, riskScore, exposure, asrBelowMinimum, localExclusionsPresent, tamperProtection, findings -ErrorAction SilentlyContinue | ConvertTo-Json -Compress -Depth 2))") }
+                    foreach ($d in @($res.rows)) { [void]$sb.AppendLine("  $((ConvertTo-GapsioAssistantDevice -Device $d) | ConvertTo-Json -Compress -Depth 3)") }
                 }
             }
             catch { }
         }
     }
-    $text = $sb.ToString()
-    if ($text.Length -gt 14000) { $text = $text.Substring(0, 14000) + '…' }
-    $text
+
+    # Top findings, highest severity first, whole lines only, within the size budget
+    $budget = 12000
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $used = $sb.Length
+    foreach ($x in @($all | Sort-Object o | Select-Object -First 40)) {
+        $line = "  [$($x.module)] $(Get-GapsioAssistantFindingText -Finding $x.f -Lang $Lang -Short)"
+        if ($used + $line.Length + 2 -gt $budget) { break }
+        $lines.Add($line); $used += $line.Length + 2
+    }
+    if ($all.Count) {
+        [void]$sb.AppendLine("Top findings ($($lines.Count) of $($all.Count), highest severity first; use search_findings for the rest, for details and for the fix):")
+        foreach ($l in $lines) { [void]$sb.AppendLine($l) }
+    }
+    $sb.ToString()
 }
 
 
@@ -158,8 +212,9 @@ function Get-GapsioEmbeddings {
     $dep = Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT'
     if ([string]::IsNullOrWhiteSpace($dep)) { return $null }
     $out = [System.Collections.Generic.List[object]]::new()
-    for ($i = 0; $i -lt $Texts.Count; $i += 16) {
-        $batch = @($Texts[$i..([Math]::Min($i + 15, $Texts.Count - 1))])
+    # 64 texts per request: the whole knowledge index is a handful of calls instead of a dozen
+    for ($i = 0; $i -lt $Texts.Count; $i += 64) {
+        $batch = @($Texts[$i..([Math]::Min($i + 63, $Texts.Count - 1))])
         $r = Invoke-GapsioOpenAI -Operation 'embeddings' -Deployment $dep -Body @{ input = $batch } -TimeoutSec 90
         foreach ($d in @($r.data | Sort-Object index)) { $out.Add([float[]]$d.embedding) }
     }
@@ -180,8 +235,8 @@ function Get-GapsioCosine {
 function Get-GapsioKnowledgeSources {
     <#
     .SYNOPSIS
-    Text chunks the assistant may cite: the product docs shipped in config/knowledge/*.md (copied from docs/ by the
-    package build) split by heading, plus one chunk per MDAV baseline setting. No tenant data.
+    Text chunks the assistant may cite: the product docs shipped in config/knowledge/*.md (copies of the pages under
+    docs/, a test keeps them identical) split by heading, plus one chunk per MDAV baseline setting. No tenant data.
     #>
     $chunks = [System.Collections.Generic.List[object]]::new()
     $root = Join-Path $PSScriptRoot '..' '..' 'config'
@@ -216,14 +271,24 @@ function Get-GapsioKnowledgeSources {
     if (Test-Path $bl) {
         try {
             $b = Get-Content -Path $bl -Raw -Encoding utf8 | ConvertFrom-Json
-            foreach ($s in @($b.settings)) {
-                $name = [string](Get-GapsioProp $s 'name'); if (-not $name) { $name = [string](Get-GapsioProp $s 'id') }
-                $parts = @("MDAV baseline setting: $name")
-                foreach ($k in 'id', 'definitionId', 'expected', 'minimum', 'severity', 'category', 'why', 'rationale', 'description', 'reference', 'docs') { $v = Get-GapsioProp $s $k; if ($v) { $parts += "${k}: $($v | ConvertTo-Json -Compress -Depth 3)" } }
-                $chunks.Add([ordered]@{ source = 'config/mdav-baseline.json'; title = "Baseline › $name"; text = ($parts -join "`n") })
+            $both = { param($v) $x = ConvertTo-GapsioText $v; if (-not $x) { return '' }; if ($x.de -and $x.de -ne $x.en) { "$($x.en) (DE: $($x.de))" } else { [string]$x.en } }
+            foreach ($c in @($b.checks)) {
+                if (-not $c) { continue }
+                $title = [string](ConvertTo-GapsioText (Get-GapsioProp $c 'title')).en; if (-not $title) { $title = [string](Get-GapsioProp $c 'id') }
+                $parts = @("MDAV baseline check: $(& $both (Get-GapsioProp $c 'title'))",
+                    "id: $(Get-GapsioProp $c 'id'); platform: $(Get-GapsioProp $c 'platform'); severity: $(Get-GapsioProp $c 'severity'); category: $([string](ConvertTo-GapsioText (Get-GapsioProp $c 'category')).en)")
+                foreach ($k in @(@('expectText', 'Expected'), @('rationale', 'Why'), @('remediation', 'How to fix'))) { $v = & $both (Get-GapsioProp $c $k[0]); if ($v) { $parts += "$($k[1]): $v" } }
+                $chunks.Add([ordered]@{ source = 'config/mdav-baseline.json'; title = "Baseline › $title ($(Get-GapsioProp $c 'platform'))"; text = ($parts -join "`n") })
+            }
+            $asr = @($b.asrRules | Where-Object { $_ })
+            if ($asr.Count) {
+                $names = @{}; foreach ($r in $script:GapsioAsrRules) { $names[[string]$r.id] = [string]$r.name }
+                # All rules in one chunk: a question like "which rules must be in block mode" needs the whole list
+                $rows = @($asr | ForEach-Object { $id = [string](Get-GapsioProp $_ 'id'); "- $(if ($names[$id]) { $names[$id] } else { $id }): minimum $(Get-GapsioProp $_ 'minimum'), recommended $(Get-GapsioProp $_ 'recommended'), severity $(Get-GapsioProp $_ 'severity'). $([string](ConvertTo-GapsioText (Get-GapsioProp $_ 'note')).en)" })
+                $chunks.Add([ordered]@{ source = 'config/mdav-baseline.json'; title = 'Baseline › Attack surface reduction (ASR) rules: expected and recommended mode'; text = "MDAV baseline: all $($rows.Count) attack surface reduction (ASR) rules with the mode Gapsio expects at least (minimum: Block, Audit or Warn) and the mode it recommends. ASR-Regeln der Baseline mit Mindest- und empfohlenem Modus.`n" + ($rows -join "`n") })
             }
         }
-        catch { }
+        catch { Write-Warning "Assistant knowledge: the baseline could not be read: $($_.Exception.Message)" }
     }
     $chunks.ToArray()
 }
@@ -231,29 +296,51 @@ function Get-GapsioKnowledgeSources {
 function Get-GapsioKnowledgeHash {
     param($Chunks)
     $sb = [System.Text.StringBuilder]::new()
-    foreach ($c in $Chunks) { [void]$sb.Append($c.title).Append('|').Append($c.text.Length).Append(';') }
+    foreach ($c in $Chunks) { [void]$sb.Append($c.title).Append('|').Append($c.text).Append(';') }
     [void]$sb.Append((Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''))
     Get-GapsioHash $sb.ToString()
 }
+
+$script:GapsioAssistantIndexCache = $null
+$script:GapsioAssistantSources = $null
 
 function Update-GapsioAssistantIndex {
     <#
     .SYNOPSIS
     (Re)builds state/assistant-index.json when the sources or the embedding deployment changed. Returns the index.
-    Without an embedding deployment the index holds the chunks only and search falls back to keyword scoring.
+    Without an embedding deployment – or when embedding fails (rate limit, deployment gone) – the index holds the
+    chunks only and search falls back to keyword scoring; embedding is tried again after 30 minutes. The index of
+    the current sources is kept in memory, so a question does not download it again.
     #>
     param([switch]$Force)
-    $chunks = @(Get-GapsioKnowledgeSources)
-    $hash = Get-GapsioKnowledgeHash -Chunks $chunks
+    # The pages ship with the Function App and only change with a new version: read and split them once per worker
+    if ($Force -or -not $script:GapsioAssistantSources) { $c = @(Get-GapsioKnowledgeSources); $script:GapsioAssistantSources = @{ chunks = $c; hash = (Get-GapsioKnowledgeHash -Chunks $c); deployment = (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default '') } }
+    if ($script:GapsioAssistantSources.deployment -ne (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default '')) { $script:GapsioAssistantSources.hash = Get-GapsioKnowledgeHash -Chunks $script:GapsioAssistantSources.chunks; $script:GapsioAssistantSources.deployment = (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default '') }
+    $chunks = @($script:GapsioAssistantSources.chunks)
+    $hash = $script:GapsioAssistantSources.hash
+    $wantVectors = -not [string]::IsNullOrWhiteSpace((Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''))
+    $current = {
+        param($ix)
+        if (-not $ix -or $ix.hash -ne $hash) { return $false }
+        if ($ix.embedded -or -not $wantVectors) { return $true }
+        $built = [DateTime]::MinValue; try { $built = ConvertTo-GapsioUtc $ix.builtAt } catch { }
+        $built -gt [DateTime]::UtcNow.AddMinutes(-30)   # keyword-only index: try the embedding again later
+    }
+    if (-not $Force -and (& $current $script:GapsioAssistantIndexCache)) { return $script:GapsioAssistantIndexCache }
     $ix = $null; try { $ix = Get-GapsioBlob -Container 'state' -Name 'assistant-index.json' } catch { $ix = $null }
-    if (-not $Force -and $ix -and $ix.hash -eq $hash) { return $ix }
-    $vecs = $null
-    if ($chunks.Count) { $vecs = Get-GapsioEmbeddings -Texts @($chunks | ForEach-Object { "$($_.title)`n$($_.text)" }) }
+    if (-not $Force -and (& $current $ix)) { $script:GapsioAssistantIndexCache = $ix; return $ix }
+    $vecs = $null; $embedError = $null
+    if ($chunks.Count -and $wantVectors) {
+        try { $vecs = Get-GapsioEmbeddings -Texts @($chunks | ForEach-Object { "$($_.title)`n$($_.text)" }) }
+        catch { $vecs = $null; $embedError = [string]$_.Exception.Message; Write-Warning "Assistant knowledge index: embedding failed, keyword search is used. $embedError" }
+        if ($vecs -and @($vecs).Count -ne $chunks.Count) { $vecs = $null; $embedError = 'The embedding deployment returned fewer vectors than texts.' }
+    }
     $items = for ($i = 0; $i -lt $chunks.Count; $i++) {
         [ordered]@{ id = $i; source = $chunks[$i].source; title = $chunks[$i].title; text = $chunks[$i].text; vec = $(if ($vecs) { $vecs[$i] } else { $null }) }
     }
-    $ix = [ordered]@{ builtAt = [DateTime]::UtcNow.ToString('o'); hash = $hash; embedded = [bool]$vecs; embeddingDeployment = (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''); count = $chunks.Count; chunks = @($items) }
-    Set-GapsioBlob -Container 'state' -Name 'assistant-index.json' -Object $ix
+    $ix = [ordered]@{ builtAt = [DateTime]::UtcNow.ToString('o'); hash = $hash; embedded = [bool]$vecs; embedError = $embedError; embeddingDeployment = (Get-GapsioSetting -Name 'GAPSIO_AI_EMBEDDING_DEPLOYMENT' -Default ''); count = $chunks.Count; chunks = @($items) }
+    try { Set-GapsioBlob -Container 'state' -Name 'assistant-index.json' -Object $ix } catch { Write-Warning "Assistant knowledge index could not be stored: $($_.Exception.Message)" }
+    $script:GapsioAssistantIndexCache = $ix
     $ix
 }
 
@@ -267,7 +354,7 @@ function Search-GapsioKnowledge {
     if (-not $ix -or -not $ix.chunks) { return @() }
     $scored = [System.Collections.Generic.List[object]]::new()
     $qv = $null
-    if ($ix.embedded) { try { $qv = (Get-GapsioEmbeddings -Texts @($Query))[0] } catch { $qv = $null } }
+    if ($ix.embedded) { try { $qv = @(Get-GapsioEmbeddings -Texts @($Query))[0] } catch { $qv = $null } }   # no vector for the question: keyword scoring below
     $terms = @(($Query.ToLowerInvariant() -split '[^\p{L}\p{Nd}]+') | Where-Object { $_.Length -gt 2 } | Select-Object -Unique)
     foreach ($c in $ix.chunks) {
         $s = 0.0
@@ -280,7 +367,7 @@ function Search-GapsioKnowledge {
         if ($s -gt 0) { $scored.Add([pscustomobject]@{ score = $s; chunk = $c }) }
     }
     @($scored | Sort-Object score -Descending | Select-Object -First $Top | ForEach-Object {
-            [ordered]@{ source = $_.chunk.source; title = $_.chunk.title; score = [Math]::Round($_.score, 3); text = $_.chunk.text }
+            [ordered]@{ source = [string]$_.chunk.source; title = [string]$_.chunk.title; score = [Math]::Round($_.score, 3); text = [string]$_.chunk.text }
         })
 }
 #endregion
@@ -294,7 +381,7 @@ $script:GapsioAssistantTools = @(
                     query    = @{ type = 'string'; description = 'free text matched against title, device, subject and detail' }
                     limit    = @{ type = 'integer'; minimum = 1; maximum = 50 }
                 }; required = @() } } }
-    @{ type = 'function'; function = @{ name = 'search_devices'; description = 'Find devices in the endpoint inventory by name, user, OS, group. Returns risk, issues and the device id for #/device?id=.'; parameters = @{ type = 'object'; properties = @{
+    @{ type = 'function'; function = @{ name = 'search_devices'; description = 'Find devices in the endpoint inventory by name, user, OS, group. Returns the protection state, the failed checks, whether the device still reports, and the device id for #/device?id=.'; parameters = @{ type = 'object'; properties = @{
                     query      = @{ type = 'string' }
                     issuesOnly = @{ type = 'boolean' }
                     limit      = @{ type = 'integer'; minimum = 1; maximum = 25 }
@@ -318,6 +405,13 @@ function Invoke-GapsioAssistantTool {
     #>
     param([Parameter(Mandatory)][string]$Name, $Args, [string]$Lang = 'en')
     $modules = @(Get-GapsioModules)
+    # One live hunting query (last 7 days). Returns the rows as an array – or @{ error } when the query failed, so
+    # the model never mistakes a failed query for "nothing found".
+    $live = {
+        param([string]$Query)
+        try { , @(Invoke-GapsioHunting -Query $Query -Timespan 'P7D' | Where-Object { $_ }) }
+        catch { @{ error = "This live query failed: $(Get-GapsioErrorText -Exception $_.Exception -Context 'assistant ThreatHunting.Read.All')" } }
+    }
     try {
         switch ($Name) {
             'search_findings' {
@@ -345,7 +439,7 @@ function Invoke-GapsioAssistantTool {
                 if ($modules -notcontains 'endpoint') { return @{ error = 'endpoint module not enabled' } }
                 $limit = [Math]::Min(25, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 10 })))
                 $res = Search-GapsioDevices -Query ([string]$Args.query) -IssuesOnly:([bool]$Args.issuesOnly) -Page 0 -Size $limit
-                $rows = @(@($res.rows) | ForEach-Object { $_ | Select-Object deviceId, deviceName, osPlatform, osVersion, deviceGroup, primaryUser, riskScore, exposure, lastSeen, asrBelowMinimum, localExclusionsPresent, tamperProtection, findings -ErrorAction SilentlyContinue })
+                $rows = @(@($res.rows) | ForEach-Object { ConvertTo-GapsioAssistantDevice -Device $_ })
                 return [ordered]@{ total = $res.total; returned = $rows.Count; devices = $rows }
             }
             'get_device' {
@@ -354,7 +448,13 @@ function Invoke-GapsioAssistantTool {
                 if ($Args.deviceId) { $d = Get-GapsioDevice -DeviceId ([string]$Args.deviceId) }
                 elseif ($Args.name) { $r = Search-GapsioDevices -Query ([string]$Args.name) -Page 0 -Size 5; $d = @($r.rows) | Where-Object { $_.deviceName -eq [string]$Args.name } | Select-Object -First 1; if (-not $d -and @($r.rows).Count -eq 1) { $d = $r.rows[0] }; if ($d -and $d.deviceId) { $full = Get-GapsioDevice -DeviceId ([string]$d.deviceId); if ($full) { $d = $full } } }
                 if (-not $d) { return @{ error = 'device not found in the snapshot' } }
-                $json = $d | ConvertTo-Json -Depth 6 -Compress
+                # Same date format as everywhere else; the stored record keeps its other fields as they are
+                $copy = [ordered]@{}
+                foreach ($prop in $(if ($d -is [System.Collections.IDictionary]) { $d.GetEnumerator() | ForEach-Object { [pscustomobject]@{ Name = $_.Key; Value = $_.Value } } } else { $d.PSObject.Properties })) {
+                    if ($prop.Name.StartsWith('_') -or $prop.Name -in 'key', 'fp', 'label', 'state') { continue }
+                    $copy[$prop.Name] = $(if ($prop.Value -is [datetime] -or ($prop.Value -is [string] -and $prop.Value -match '^\d{1,2}/\d{1,2}/\d{4} \d{2}:\d{2}:\d{2}$') -or $prop.Name -in 'lastSeen', 'inventoryAt', 'troubleshootingLast', 'tamperingLast') { ConvertTo-GapsioAssistantTime $prop.Value } else { $prop.Value })
+                }
+                $json = $copy | ConvertTo-Json -Depth 6 -Compress
                 if ($json.Length -gt 9000) { $json = $json.Substring(0, 9000) + '…(truncated)' }
                 return [ordered]@{ device = $json }
             }
@@ -363,20 +463,20 @@ function Invoke-GapsioAssistantTool {
                 if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9\-\._]{0,62}$') { return @{ error = 'invalid device name' } }
                 if (-not (Test-GapsioFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable; use the snapshot tools.' } }
                 $n = ConvertTo-GapsioKqlString $name
-                $info = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status' -Timespan 'P7D' -Query @"
+                $info = & $live @"
 DeviceInfo
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | summarize arg_max(Timestamp, OSPlatform, OSVersionInfo, OnboardingStatus, SensorHealthState, IsAzureADJoined, JoinType, MachineGroup, LoggedOnUsers, ExposureLevel, DeviceId) by DeviceName
 | project DeviceName, DeviceId, LastSeen = Timestamp, OSPlatform, OSVersionInfo, OnboardingStatus, SensorHealthState, IsAzureADJoined, JoinType, MachineGroup, ExposureLevel
 "@
-                $alerts = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status alerts' -Timespan 'P7D' -Query @"
+                $alerts = & $live @"
 AlertEvidence
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | join kind=inner (AlertInfo | project AlertId, Title, Severity, Category, DetectionSource, Timestamp) on AlertId
 | summarize Count = count(), Last = max(Timestamp) by Title, Severity, Category, DetectionSource
 | top 10 by Last desc
 "@
-                $cfg = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant device_live_status config' -Timespan 'P7D' -Query @"
+                $cfg = & $live @"
 DeviceTvmSecureConfigurationAssessment
 | where DeviceName =~ $n or DeviceName startswith strcat($n, ".")
 | where IsCompliant == 0 and IsApplicable == 1
@@ -384,27 +484,30 @@ DeviceTvmSecureConfigurationAssessment
 | project ConfigurationId, ConfigurationName, ConfigurationImpact
 | top 15 by ConfigurationImpact desc
 "@
-                return [ordered]@{ asOf = [DateTime]::UtcNow.ToString('o'); source = 'Microsoft Defender Advanced Hunting (live)'; device = @($info | Select-Object -First 1); alertsLast7d = @($alerts); failedSecureConfiguration = @($cfg) }
+                $out = [ordered]@{ asOf = [DateTime]::UtcNow.ToString('o'); source = 'Microsoft Defender Advanced Hunting (live, last 7 days)'; device = $info; alertsLast7d = $alerts; failedSecureConfiguration = $cfg }
+                if ($info -is [array] -and -not $info.Count) { $out.note = 'No device information in the last 7 days: the device did not report in that time, or the name is not known to Defender. The secure configuration list is the last assessment Defender keeps.' }
+                elseif ($info -is [array]) { $out.device = $info[0] }
+                return $out
             }
             'tenant_live_summary' {
                 if (-not (Test-GapsioFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable.' } }
-                $dev = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary devices' -Timespan 'P7D' -Query @"
+                $dev = & $live @"
 DeviceInfo
 | where OnboardingStatus == "Onboarded"
 | summarize arg_max(Timestamp, SensorHealthState, OSPlatform) by DeviceId
 | summarize DevicesSeen7d = dcount(DeviceId), InactiveSensors = dcountif(DeviceId, SensorHealthState != "Active"), Windows = dcountif(DeviceId, OSPlatform startswith "Windows"), macOS = dcountif(DeviceId, OSPlatform == "macOS"), Linux = dcountif(DeviceId, OSPlatform == "Linux")
 "@
-                $al = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary alerts' -Timespan 'P7D' -Query @"
+                $al = & $live @"
 AlertInfo
 | summarize Alerts = count(), High = countif(Severity == "High"), Medium = countif(Severity == "Medium"), Low = countif(Severity == "Low"), Informational = countif(Severity == "Informational")
 "@
-                $alDev = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary alertdevices' -Timespan 'P7D' -Query @"
+                $alDev = & $live @"
 AlertEvidence
 | where EntityType == "Machine" and isnotempty(DeviceId)
 | join kind=inner (AlertInfo | where Severity in ("High", "Medium") | project AlertId) on AlertId
 | summarize DevicesWithHighMediumAlerts = dcount(DeviceId)
 "@
-                $cfg = Invoke-GapsioHuntingSafe -NoShard -Context 'assistant tenant_live_summary config' -Timespan 'P7D' -Query @"
+                $cfg = & $live @"
 DeviceTvmSecureConfigurationAssessment
 | where IsCompliant == 0 and IsApplicable == 1
 | summarize Devices = dcount(DeviceId) by ConfigurationId
@@ -412,7 +515,11 @@ DeviceTvmSecureConfigurationAssessment
 | top 10 by Devices desc
 | project ConfigurationId, ConfigurationName, Devices, ConfigurationImpact
 "@
-                return [ordered]@{ asOf = [DateTime]::UtcNow.ToString('o'); source = 'Microsoft Defender Advanced Hunting (live, last 7 days)'; devices = @($dev | Select-Object -First 1); alerts = @($al | Select-Object -First 1); alertDevices = @($alDev | Select-Object -First 1); topFailedSecureConfiguration = @($cfg) }
+                $first = { param($x) if ($x -is [array]) { if ($x.Count) { $x[0] } else { $null } } else { $x } }
+                $out = [ordered]@{ asOf = [DateTime]::UtcNow.ToString('o'); source = 'Microsoft Defender Advanced Hunting (live, last 7 days)'; devices = (& $first $dev); alerts = (& $first $al); alertDevices = (& $first $alDev); topFailedSecureConfiguration = $cfg }
+                $seen = Get-GapsioProp $out.devices 'DevicesSeen7d'
+                if ($dev -is [array] -and (-not $dev.Count -or [int]$seen -eq 0)) { $out.note = 'NO onboarded device reported in the last 7 days. The numbers here are empty because nothing reported – they do not mean that sensors are healthy or that the configuration is fine. Use the snapshot (devices not reporting, coverage gaps) for the last known state.' }
+                return $out
             }
             'search_docs' {
                 $limit = [Math]::Min(6, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 4 })))
@@ -425,6 +532,30 @@ DeviceTvmSecureConfigurationAssessment
     catch { return @{ error = [string]$_.Exception.Message } }
 }
 #endregion
+
+function Resolve-GapsioAssistantLink {
+    <#
+    .SYNOPSIS
+    Portal route for a link the model proposed, or $null. Only known views pass. Device links are checked against the
+    snapshot: #/device?id= needs a device ID that exists – a device name or an unknown ID becomes a search in the
+    device list (#/devices?q=), and #/devices?id= is corrected to the device page.
+    #>
+    param([string]$View, [string[]]$Allowed)
+    $v = $View.Trim() -replace '^#?/?', ''
+    if (-not $v -or $v -match '[<>"''\s]') { return $null }
+    $name, $query = $v -split '\?', 2
+    if ($name -notin $Allowed) { return $null }
+    if ($name -notin 'device', 'devices') { return $v }
+    $value = ''; $key = ''
+    if ($query -match '^(id|q)=([^&]+)') { $key = $Matches[1]; $value = [uri]::UnescapeDataString($Matches[2]) }
+    if (-not $value) { return 'devices' }
+    if ($key -eq 'id' -or $name -eq 'device') {
+        $exists = $false
+        try { $exists = [bool](Get-GapsioDevice -DeviceId $value) } catch { $exists = $false }
+        if ($exists) { return "device?id=$([uri]::EscapeDataString($value))" }
+    }
+    "devices?q=$([uri]::EscapeDataString($value))"
+}
 
 function Invoke-GapsioAssistant {
     <#
@@ -447,13 +578,14 @@ function Invoke-GapsioAssistant {
     $hunting = [bool](Test-GapsioFeature -Name 'hunting')
 
     $system = @"
-You are the Gapsio Assistant inside the Gapsio portal, a read-only security posture tool for Microsoft Defender for Endpoint, Intune, Entra ID and AI agents, self-hosted in the customer's Azure subscription.
+You are the Gapsio Assistant inside the Gapsio portal, a read-only security posture tool for Microsoft Defender for Endpoint, Defender for Office 365, Intune, Entra ID and AI agents, self-hosted in the customer's Azure subscription.
 You have tools. Use them instead of guessing:
 - search_findings / search_devices / get_device read the stored snapshot of the last Gapsio run (the same data the portal shows).
 - device_live_status / tenant_live_summary query Microsoft Defender Advanced Hunting LIVE$(if (-not $hunting) { ' (NOT available in this installation – say so if asked for live data)' }). Use them when the user asks about "now", "today", "currently", alerts, last seen, or wants to verify a snapshot finding against the current state. Always state that these numbers are live and from which time window.
 - search_docs explains Gapsio views, the MDAV baseline rationale, permissions and limitations. Cite the titles you used.
 Rules:
-- Never invent devices, numbers, policies or findings. Quote numbers exactly as returned. If a tool returns an error or nothing, say so and point to the view where the user can look, or suggest starting a run ("Collect now").
+- Never invent devices, numbers, policies or findings. Quote numbers exactly as returned. If a tool returns an error or nothing, say so and point to the view where the user can look, or suggest starting a run ("Collect now"). A part of a tool result that carries "error" was NOT read – never report it as zero or as "none".
+- A device marked "not reporting" has not sent data for days: say that its state is the last known one.
 - Distinguish snapshot data (generatedAt in CONTEXT) from live data (tool asOf).
 - Gapsio is read-only: never claim it changed or will change anything. Recommendations are for the admin to apply in Intune / Defender / Entra.
 - Be concise (max ~200 words), use short bullet points when listing. Reply in $langName.
@@ -476,9 +608,10 @@ $context
     $promptTokens = 0; $completionTokens = 0; $model = ''
     $r = $null
     for ($round = 0; $round -le $maxRounds; $round++) {
-        $body = @{ messages = $messages.ToArray(); temperature = 0.2; max_tokens = 900; user = $userTag }
+        # JSON mode in every round: an answer is always the JSON object the portal expects, also when the model
+        # answers straight after a tool call. In the last round the tools are withheld, so it has to answer.
+        $body = @{ messages = $messages.ToArray(); temperature = 0.2; max_tokens = 900; user = $userTag; response_format = @{ type = 'json_object' } }
         if ($round -lt $maxRounds) { $body.tools = $script:GapsioAssistantTools; $body.tool_choice = 'auto' }
-        else { $body.response_format = @{ type = 'json_object' } }   # last round: force the final JSON answer
         $r = Invoke-GapsioOpenAI -Operation 'chat/completions' -Deployment $deployment -Body $body -TimeoutSec 90
         if ($r.usage) { $promptTokens += [int]$r.usage.prompt_tokens; $completionTokens += [int]$r.usage.completion_tokens }
         $model = [string]$r.model
@@ -500,21 +633,28 @@ $context
         }
     }
     $content = [string]$r.choices[0].message.content
+    $finish = [string]$r.choices[0].finish_reason
+    if ([string]::IsNullOrWhiteSpace($content)) { throw [System.Exception]::new("The model returned no answer (finish reason: $(if ($finish) { $finish } else { 'unknown' })). Ask again or rephrase the question.") }
     $answer = $content; $links = @(); $sources = @()
     try {
         $j = $content | ConvertFrom-Json
         if ($j.answer) { $answer = [string]$j.answer }
         $allowed = @($script:GapsioAssistantViews | ForEach-Object { $_.view }) + @('device', 'devices')
         $links = @(@($j.links) | Where-Object { $_ -and $_.view } | ForEach-Object {
-                $v = [string]$_.view; $v = $v -replace '^#?/?', ''
-                $name = ($v -split '\?')[0]
-                if ($name -in $allowed -and $v -notmatch '[<>"'']') { [ordered]@{ view = "#/$v"; label = [string]$(if ($_.label) { $_.label } else { $name }) } }
+                $v = Resolve-GapsioAssistantLink -View ([string]$_.view) -Allowed $allowed
+                if ($v) { [ordered]@{ view = "#/$v"; label = [string]$(if ($_.label) { $_.label } else { ($v -split '\?')[0] }) } }
             } | Select-Object -First 5)
         $sources = @(@($j.sources) | Where-Object { $_ } | ForEach-Object { ([string]$_).Substring(0, [Math]::Min(([string]$_).Length, 120)) } | Select-Object -First 8)
     }
     catch {
-        # model answered in prose despite the instruction – strip a stray code fence and return as is
+        # Not valid JSON: either prose despite the instruction (strip a stray code fence), or JSON cut off at the token
+        # limit – then show the answer text that is there instead of raw JSON
         $answer = ($content -replace '^\s*```(json)?\s*', '' -replace '\s*```\s*$', '').Trim()
+        if ($answer -match '(?s)^\{\s*"answer"\s*:\s*"((?:[^"\\]|\\.)*)') {
+            $text = $Matches[1]
+            try { $text = [string]("`"$text`"" | ConvertFrom-Json) } catch { $text = $text -replace '\\n', "`n" -replace '\\"', '"' }
+            $answer = $text.Trim() + $(if ($finish -eq 'length') { ' …' } else { '' })
+        }
     }
     [ordered]@{
         answer   = $answer

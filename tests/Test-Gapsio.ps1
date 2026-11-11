@@ -1975,7 +1975,7 @@ $navViews = @([regex]::Matches($navBlock, "items: \[([^\]]+)\]") | ForEach-Objec
         $script:AiQueue.Add((& $answer '{"answer":"Two devices.","links":[{"view":"#/officechanges","label":"Policy changes"},{"view":"#/nope","label":"x"}],"sources":["snapshot"]}'))
         $x = & $ask
         & $A (-not $x.e -and $x.r.answer -eq 'Two devices.' -and @($x.r.tools).Count -eq 0 -and @($x.r.links).Count -eq 1 -and $x.r.links[0].view -eq '#/officechanges') "Direct answer without a tool call is returned (was a crash); only known views are linked ($($x.e))"
-        & $A ($script:AiBodies[0].messages[0].content -match '#/officequarantine => ' -and $script:AiBodies[0].messages[0].content -match 'Module officepreview: generatedAt=' -and @($script:AiBodies[0].tools).Count -ge 5) 'The model gets the view list, the module summaries and the tools'
+        & $A ($script:AiBodies[0].messages[0].content -match '#/officequarantine => ' -and $script:AiBodies[0].messages[0].content -match 'Module officepreview: snapshot of \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC summary=' -and @($script:AiBodies[0].tools).Count -ge 5 -and $script:AiBodies[0].response_format.type -eq 'json_object') 'The model gets the view list, the module summaries with unambiguous dates and the tools; answers are requested as JSON'
 
         $script:AiBodies.Clear(); $script:AiQueue.Add($toolCall); $script:AiQueue.Add((& $answer '{"answer":"Found.","links":[],"sources":["snapshot"]}'))
         $x = & $ask
@@ -1997,6 +1997,91 @@ $navViews = @([regex]::Matches($navBlock, "items: \[([^\]]+)\]") | ForEach-Objec
         $x = & $ask
         & $A ($x.e -eq 'Azure OpenAI chat/completions failed: The API deployment for this resource does not exist.') 'Other errors keep the message of the service'
 
+        # --- answers the model cuts short or leaves empty ---
+        $script:AiQueue.Add(@{ ok = $true; data = ('{"model":"m","choices":[{"finish_reason":"content_filter","message":{"role":"assistant","content":null}}]}' | ConvertFrom-Json) })
+        $x = & $ask
+        & $A ($x.e -match '^The model returned no answer \(finish reason: content_filter\)') 'No answer from the model is an error with the reason, not an empty reply'
+        $script:AiQueue.Add(@{ ok = $true; data = ('{"model":"m","choices":[{"finish_reason":"length","message":{"role":"assistant","content":"{\"answer\":\"First line.\\nSecond li"}}]}' | ConvertFrom-Json) })
+        $x = & $ask
+        & $A (-not $x.e -and $x.r.answer -eq "First line.`nSecond li …" -and @($x.r.links).Count -eq 0) "An answer cut off at the token limit shows its text, not raw JSON ($($x.r.answer))"
+        $script:AiBodies.Clear(); $script:AiQueue.Add($toolCall); $script:AiQueue.Add((& $answer '{"answer":"x","links":[],"sources":[]}'))
+        $null = & $ask
+        & $A (@($script:AiBodies | Where-Object { $_.response_format.type -ne 'json_object' }).Count -eq 0 -and @($script:AiBodies[1].messages | Where-Object role -eq 'tool')[0].content -match '"state=last known|"total":') 'Every round asks for JSON; the tool result is passed on'
+
+        # --- what the model sees: dates, devices, findings ---
+        & $A ((ConvertTo-GapsioAssistantTime '11/02/2026 00:43:59') -eq '2026-11-02 00:43 UTC' -and (ConvertTo-GapsioAssistantTime ([datetime]::new(2026, 11, 2, 0, 43, 59, [DateTimeKind]::Utc))) -eq '2026-11-02 00:43 UTC' -and (ConvertTo-GapsioAssistantTime '2026-11-02T00:43:59.15Z') -eq '2026-11-02 00:43 UTC' -and $null -eq (ConvertTo-GapsioAssistantTime $null) -and $null -eq (ConvertTo-GapsioAssistantTime '')) 'Dates for the model are always yyyy-MM-dd HH:mm UTC (no month/day confusion)'
+        $dv = ConvertTo-GapsioAssistantDevice -Device ([ordered]@{ deviceId = 'x1'; deviceName = 'PC-1'; os = 'Windows11'; osVersion = ''; lastUser = $null; lastSeen = '11/02/2026 00:43:59'; reporting = 'False'; avModeText = 'Active'; checks = [ordered]@{ TamperProtection = 'BAD'; RealtimeProtection = 'GOOD'; NetworkProtection = 'BAD' }; asrBelowMinimum = 18; localExclusions = 0; localExclusionsHighRisk = $false })
+        & $A ($dv.reporting -like 'not reporting*' -and $dv.lastSeen -eq '2026-11-02 00:43 UTC' -and ($dv.failedChecks -join ',') -eq 'TamperProtection,NetworkProtection' -and $dv.asrRulesBelowTarget -eq 18 -and $dv.localExclusions -eq 0 -and -not $dv.Contains('osVersion') -and -not $dv.Contains('lastUser') -and -not $dv.Contains('exposure')) 'Device record for the model: real field names, failed checks, not-reporting marker, empty values left out'
+        & $A ((ConvertTo-GapsioAssistantDevice -Device ([pscustomobject]@{ deviceId = 'x2'; deviceName = 'PC-2'; reporting = $true; checks = [pscustomobject]@{ TamperProtection = 'GOOD' } })).reporting -eq 'reporting' -and (ConvertTo-GapsioAssistantDevice -Device ([pscustomobject]@{ deviceId = 'x3'; reporting = $null })).reporting -eq 'unknown') 'Device record: reporting and unknown'
+        $ft = New-GapsioFinding -Severity 'High' -Category 'Device' -Title (New-GapsioText 'Tamper Protection not active' 'Tamper Protection nicht aktiv') -Detail (New-GapsioText ('d' * 300) 'x') -Recommendation (New-GapsioText 'Turn it on.' 'Einschalten.') -Subject 'tp' -DeviceId 'x1' -DeviceName 'PC-1'
+        $ft | Add-Member -NotePropertyName stale -NotePropertyValue $true
+        $full = Get-GapsioAssistantFindingText -Finding $ft -Lang 'en'; $brief = Get-GapsioAssistantFindingText -Finding $ft -Lang 'en' -Short
+        & $A ($full -match 'state=last known \(the device is not reporting\)' -and $full -match 'fix=Turn it on\.' -and $full -match 'subject=tp' -and $brief -notmatch 'fix=|subject=' -and $brief -match 'detail=d{160}…' -and (Get-GapsioAssistantFindingText -Finding $ft -Lang 'de') -match 'Tamper Protection nicht aktiv') 'Finding line: last-known-state marker, short form for the context, language'
+        $ctx = Get-GapsioAssistantContext -Question 'Why is WIN-01 flagged?' -Lang 'en'
+        & $A ($ctx.Length -le 12600 -and $ctx.IndexOf("Devices matching 'WIN-01'") -gt 0 -and $ctx.IndexOf("Devices matching 'WIN-01'") -lt $ctx.IndexOf('Top findings (') -and $ctx -match '"deviceName":"WIN-01","os":"Windows11"' -and $ctx -match 'Top findings \(\d+ of \d+, highest severity first; use search_findings' -and $ctx -notmatch '\d{2}/\d{2}/\d{4}') "Context: the devices the question names come before the findings, whole lines only, within the budget ($($ctx.Length) characters)"
+        $sd = Invoke-GapsioAssistantTool -Name 'search_devices' -Args ([pscustomobject]@{ query = 'WIN-01' }) -Lang 'en'
+        & $A ($sd.returned -eq 1 -and $sd.devices[0].deviceName -eq 'WIN-01' -and $sd.devices[0].os -eq 'Windows11' -and $sd.devices[0].Contains('failedChecks') -and $sd.devices[0].reporting -eq 'reporting') 'Tool search_devices returns the compact device record'
+        $gd = Invoke-GapsioAssistantTool -Name 'get_device' -Args ([pscustomobject]@{ name = 'WIN-01' }) -Lang 'en'
+        & $A ($gd.device -match '"deviceName":"WIN-01"' -and $gd.device -notmatch '\d{2}/\d{2}/\d{4} \d{2}:' -and $gd.device -notmatch '"_filter"|"fp":') 'Tool get_device: stored record without internal fields and without culture-formatted dates'
+
+        # --- live tools: a failed query is an error, an empty tenant is not "healthy" ---
+        $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Args ([pscustomobject]@{}) -Lang 'en'
+        & $A ($tl.note -match '^NO onboarded device reported in the last 7 days' -and $tl.source -match 'last 7 days') 'Live summary without reporting devices says so instead of showing empty numbers'
+        $origHunt = ${function:Invoke-GapsioHunting}
+        function script:Invoke-GapsioHunting { param($Query, $Timespan) throw [System.Exception]::new('HTTP 500 for POST runHuntingQuery :: test') }
+        try {
+            $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Args ([pscustomobject]@{}) -Lang 'en'
+            $dl = Invoke-GapsioAssistantTool -Name 'device_live_status' -Args ([pscustomobject]@{ deviceName = 'WIN-01' }) -Lang 'en'
+            & $A ($tl.devices.error -match '^This live query failed: HTTP 500' -and $tl.alerts.error -and $tl.topFailedSecureConfiguration.error -and -not $tl.Contains('note') -and $dl.device.error -match '^This live query failed:' -and $dl.alertsLast7d.error -and -not $dl.Contains('note')) 'A failed live query is reported as failed for that part – not as "nothing found"'
+        }
+        finally { Set-Item function:script:Invoke-GapsioHunting $origHunt }
+        & $A ((Invoke-GapsioAssistantTool -Name 'device_live_status' -Args ([pscustomobject]@{ deviceName = 'x"; drop' }) -Lang 'en').error -eq 'invalid device name') 'Live device status rejects names that are not host names'
+
+        # --- links ---
+        $views = @($script:GapsioAssistantViews | ForEach-Object { $_.view }) + @('device', 'devices')
+        $lk = { param($v) Resolve-GapsioAssistantLink -View $v -Allowed $views }
+        & $A ((& $lk '#/device?id=d-win1') -eq 'device?id=d-win1' -and (& $lk '#/device?id=WIN-01') -eq 'devices?q=WIN-01' -and (& $lk 'devices?id=d-win1') -eq 'device?id=d-win1' -and (& $lk '/devices?q=WIN') -eq 'devices?q=WIN' -and (& $lk '#/device') -eq 'devices') 'Device links: an ID that exists opens the device, a name becomes a search, the wrong route is corrected'
+        & $A ((& $lk '#/findings') -eq 'findings' -and (& $lk '#/officequarantine') -eq 'officequarantine' -and $null -eq (& $lk '#/nope') -and $null -eq (& $lk '#/findings"><script>') -and $null -eq (& $lk 'https://evil.example/') -and $null -eq (& $lk '')) 'Other links: known views only, nothing that is not a route'
+
+        # --- knowledge index ---
+        $kc = @(Get-GapsioKnowledgeSources)
+        $asrChunk = @($kc | Where-Object { $_.title -like '*Attack surface reduction (ASR) rules*' })
+        & $A (@($kc | Where-Object { $_.source -eq 'config/mdav-baseline.json' }).Count -ge 60 -and @($kc | Where-Object { $_.title -eq 'Baseline › Tamper Protection enabled (Windows)' -and $_.text -match 'Why: Tamper Protection prevents' -and $_.text -match 'DE: Tamper Protection verhindert' -and $_.text -match 'How to fix:' }).Count -eq 1) "Knowledge: every baseline check is a section with its rationale and fix in both languages ($(@($kc | Where-Object { $_.source -eq 'config/mdav-baseline.json' }).Count))"
+        & $A ($asrChunk.Count -eq 1 -and @($asrChunk[0].text -split "`n" | Where-Object { $_ -like '- *minimum *' }).Count -eq @($script:GapsioAsrRules).Count -and $asrChunk[0].text -match '- Block abuse of exploited vulnerable signed drivers: minimum Block') 'Knowledge: one section lists all ASR rules with their expected mode'
+        & $A (@('docs/office-preview.md', 'docs/licensing.md', 'docs/compliance.md', 'docs/purview-preview.md', 'docs/installation.md', 'docs/agents.md') | Where-Object { $src = $_; -not @($kc | Where-Object { $_.source -eq $src }).Count } | Measure-Object | ForEach-Object { $_.Count -eq 0 }) 'Knowledge: the module pages (Office, Licensing, Purview, Agents), compliance and installation are included'
+
+        $env:GAPSIO_AI_EMBEDDING_DEPLOYMENT = 'embed'
+        $script:GapsioAssistantIndexCache = $null; $script:Blobs.Remove('state/assistant-index.json') | Out-Null
+        $script:EmbedCalls = 0; $script:EmbedFail = $true
+        function script:Send-GapsioOpenAIRequest {
+            param($Uri, $Token, $Json, $TimeoutSec)
+            if ($Uri -notmatch '/embeddings\?') { $script:AiBodies.Add(($Json | ConvertFrom-Json -Depth 20)); $next = $script:AiQueue[0]; $script:AiQueue.RemoveAt(0); return $next }
+            $script:EmbedCalls++
+            if ($script:EmbedFail) { return @{ ok = $false; status = 429; retryAfter = 55; message = 'Requests to the Embeddings_Create Operation have exceeded token rate limit.' } }
+            # three dimensions: is the text about tamper protection, about quarantine, or about something else
+            $inputs = @(($Json | ConvertFrom-Json).input)
+            $data = for ($i = 0; $i -lt $inputs.Count; $i++) { $t = [string]$inputs[$i]; [pscustomobject]@{ index = $i; embedding = @($(if ($t -match '(?i)tamper') { 1.0 } else { 0.0 }), $(if ($t -match '(?i)quarantine') { 1.0 } else { 0.0 }), 0.2) } }
+            @{ ok = $true; data = [pscustomobject]@{ data = @($data) } }
+        }
+        $ix = Update-GapsioAssistantIndex 3>$null
+        $kw = @(Search-GapsioKnowledge -Query 'tamper protection' -Top 3 3>$null)
+        & $A ($ix.embedded -eq $false -and $ix.embedError -match 'rate limit' -and $ix.count -eq $kc.Count -and $kw.Count -eq 3 -and $kw[0].title -match 'Tamper' -and $script:Blobs.ContainsKey('state/assistant-index.json')) "Embedding fails (rate limit): the index is built without vectors and the search answers by keywords ($($kw[0].title))"
+        $n = $script:EmbedCalls; $null = Update-GapsioAssistantIndex 3>$null; $script:GapsioAssistantIndexCache = $null; $null = Update-GapsioAssistantIndex 3>$null
+        & $A ($script:EmbedCalls -eq $n) 'A keyword-only index is kept for a while – the embedding is not retried on every question'
+        $script:EmbedFail = $false; $script:EmbedCalls = 0
+        $ix = Update-GapsioAssistantIndex -Force
+        $sem = @(Search-GapsioKnowledge -Query 'Why is tamper protection needed?' -Top 3)
+        $semQ = @(Search-GapsioKnowledge -Query 'quarantine' -Top 2)
+        & $A ($ix.embedded -eq $true -and -not $ix.embedError -and $script:EmbedCalls -le [Math]::Ceiling($kc.Count / 64) + 2 -and $sem.Count -eq 3 -and @($sem | Where-Object { $_.title -notmatch 'Tamper' -and $_.text -notmatch '(?i)tamper' }).Count -eq 0 -and $sem[0].score -gt 0.9 -and $semQ[0].text -match '(?i)quarantine') "Embedding works: semantic search finds the sections by meaning, in a handful of requests ($($script:EmbedCalls) calls, top: $($sem[0].title))"
+        $n = $script:EmbedCalls; $script:Blobs.Remove('state/assistant-index.json') | Out-Null; $null = Search-GapsioKnowledge -Query 'tamper' -Top 1
+        & $A ($script:EmbedCalls -eq $n + 1) 'The index is kept in memory: a search embeds the question only and does not load or rebuild the index'
+        $stored = $null; $script:GapsioAssistantIndexCache = $null
+        $null = Update-GapsioAssistantIndex -Force; $stored = $script:Blobs['state/assistant-index.json'] | ConvertFrom-Json
+        $script:GapsioAssistantIndexCache = $null; $n = $script:EmbedCalls
+        $fromBlob = @(Search-GapsioKnowledge -Query 'tamper' -Top 1)
+        & $A ($stored.embedded -eq $true -and $stored.count -eq $kc.Count -and $fromBlob[0].score -gt 0.9 -and $script:EmbedCalls -eq $n + 1) 'A new worker loads the stored index instead of embedding everything again'
+        $env:GAPSIO_AI_EMBEDDING_DEPLOYMENT = ''; $script:GapsioAssistantIndexCache = $null
+
         & $A ((Get-GapsioAssistantSnapshotName -Module 'purviewpreview') -eq 'purview-preview-latest.json' -and (Get-GapsioAssistantSnapshotName -Module 'officepreview') -eq 'officepreview-latest.json') 'Snapshot names per module'
         $known = @($script:GapsioAssistantViews | ForEach-Object { $_.view })
         $unknown = @($navViews | Where-Object { $_ -notin $known -and $_ -notin 'mine', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting' })
@@ -2004,6 +2089,29 @@ $navViews = @([regex]::Matches($navBlock, "items: \[([^\]]+)\]") | ForEach-Objec
     }
     finally { Set-Item function:script:Send-GapsioOpenAIRequest $origSend; Set-Item function:script:Get-GapsioToken $origToken }
 } ${function:Assert} $navViews
+# The HTTP route: admins only, POST with the request header, JSON in and out
+$origAi = & $mod { @{ send = ${function:Send-GapsioOpenAIRequest}; token = ${function:Get-GapsioToken} } }
+& $mod {
+    function script:Get-GapsioToken { param($Resource) 'test-token' }
+    function script:Send-GapsioOpenAIRequest { param($Uri, $Token, $Json, $TimeoutSec) @{ ok = $true; data = ('{"model":"m","usage":{"prompt_tokens":10,"completion_tokens":2},"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"{\"answer\":\"Hello.\",\"links\":[{\"view\":\"#/findings\",\"label\":\"Findings\"}],\"sources\":[\"snapshot\"]}"}}]}' | ConvertFrom-Json) } }
+}
+try {
+    $askBody = @{ question = 'Hello'; history = @(@{ role = 'user'; content = 'earlier' }, @{ role = 'assistant'; content = 'reply' }); lang = 'de' } | ConvertTo-Json -Depth 5
+    $r = Call 'assistant' -Method 'POST' -Principal $adminP -Headers @{ 'X-Gapsio' = '1' } -Body $askBody
+    $rb = $r.Body | ConvertFrom-Json
+    Assert ([int]$r.StatusCode -eq 200 -and $rb.answer -eq 'Hello.' -and $rb.links[0].view -eq '#/findings' -and $rb.sources[0] -eq 'snapshot' -and $rb.usage.prompt -eq 10) "api/assistant answers an admin's question as JSON ($([int]$r.StatusCode))"
+    $r = Call 'assistant' -Method 'POST' -Principal $adminP -Body $askBody; Assert ([int]$r.StatusCode -eq 400) 'api/assistant without the request header is rejected'
+    $r = Call 'assistant' -Method 'POST' -Principal $userP -Headers @{ 'X-Gapsio' = '1' } -Body $askBody; Assert ([int]$r.StatusCode -eq 403) 'api/assistant is for admins only'
+    $r = Call 'assistant' -Method 'POST' -Principal $adminP -Headers @{ 'X-Gapsio' = '1' } -Body '{"question":"   "}'; Assert ([int]$r.StatusCode -eq 400) 'api/assistant rejects an empty question'
+    $r = Call 'me' -Principal $adminP; Assert (($r.Body | ConvertFrom-Json).features.assistant -eq $true -or ($r.Body | ConvertFrom-Json).assistant -eq $true) 'api/me tells the portal that the assistant is on'
+    $env:GAPSIO_ASSISTANT = 'false'
+    $r = Call 'assistant' -Method 'POST' -Principal $adminP -Headers @{ 'X-Gapsio' = '1' } -Body $askBody; Assert ([int]$r.StatusCode -eq 404) 'api/assistant answers 404 when the assistant is switched off'
+}
+finally { & $mod { param($o) Set-Item function:script:Send-GapsioOpenAIRequest $o.send; Set-Item function:script:Get-GapsioToken $o.token } $origAi }
+# The doc pages the assistant searches are copies of docs/ – they must not drift
+$global:LASTEXITCODE = 0
+$syncOut = & (Join-Path $root 'build/Sync-GapsioKnowledge.ps1') -Check 6>&1
+Assert ($LASTEXITCODE -eq 0) "The assistant's doc copies match docs/ ($syncOut)"
 foreach ($n in $aiEnv.Keys) { [Environment]::SetEnvironmentVariable($n, $aiEnv[$n]) }
 
 Write-Host '== Versions and update check' -ForegroundColor Cyan
