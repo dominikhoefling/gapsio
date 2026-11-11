@@ -28,5 +28,7 @@ function Invoke-GapsioCollection {
         }
     }
     if ($todo -contains 'endpoint') { try { Update-GapsioReleaseInfo | Out-Null } catch { Write-Warning "Update check: $($_.Exception.Message)" } }
+    # Build the assistant's knowledge index with the run, so the first question does not have to wait for it
+    if ($todo -contains 'endpoint' -and (Test-GapsioAssistant)) { try { Update-GapsioAssistantIndex | Out-Null } catch { Write-Warning "Assistant knowledge index: $($_.Exception.Message)" } }
     $results
 }

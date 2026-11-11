@@ -817,6 +817,13 @@
     return h('dl', null, pairs.filter(p => p && p[1] !== undefined && p[1] !== null && p[1] !== '').map(([k, v]) => [h('dt', null, k), h('dd', null, v)]));
   }
 
+  /** Applies ?q=… of the route to the search field of a table (device links from the assistant: #/devices?q=NAME). */
+  function prefillSearch(table, params) {
+    const q = params && params.get && params.get('q');
+    const input = q && table.querySelector('input[type=search]');
+    if (input) { input.value = q; input.dispatchEvent(new Event('input')); }
+  }
+
   /** Device table for large fleets: search and filters run on the server (api/devices), one page at a time. */
   function remoteDeviceTable({ name, columns, filters = [], detail, empty, fixed = {}, size = 200 }) {
     const wrap = h('div');
@@ -1827,6 +1834,7 @@
         });
         main.append(h('h2', null, t('d.glance')), h('p', { class: 'muted small' }, t('d.glance.lede')), h('div', { class: 'glance' }, cards));
         main.append(table);
+        prefillSearch(table, params);
         return;
       }
 
@@ -1863,6 +1871,7 @@
         main.append(h('h2', null, t('d.glance')), h('p', { class: 'muted small' }, t('d.glance.lede')), h('div', { class: 'glance' }, cards));
       }
       main.append(table);
+      prefillSearch(table, params);
     },
 
     async device(main, params) {
@@ -3426,12 +3435,13 @@
   async function askAssistant() {
     const input = $('#ai-input'); const q = input && input.value.trim();
     if (!q || ai.busy) return;
-    const hist = ai.history.map(m => ({ role: m.role, content: m.content }));
+    // A failed attempt is shown but not sent back as conversation: neither the error text nor the question it belongs to
+    const hist = ai.history.filter((m, i, all) => !m.failed && !(m.role === 'user' && all[i + 1] && all[i + 1].failed)).map(m => ({ role: m.role, content: m.content }));
     ai.history.push({ role: 'user', content: q }); ai.busy = true; renderAssistant();
     try {
       const r = await api('assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, history: hist.slice(-6), lang }) });
       ai.history.push({ role: 'assistant', content: r.answer || '', links: arr(r.links), sources: arr(r.sources), tools: arr(r.tools) });
-    } catch (e) { ai.history.push({ role: 'assistant', content: t('ai.failed', e.message) }); }
+    } catch (e) { ai.history.push({ role: 'assistant', content: t('ai.failed', e.message), failed: true }); }
     finally { ai.busy = false; renderAssistant(); const i = $('#ai-input'); if (i) i.focus(); }
   }
   function renderNotice() {

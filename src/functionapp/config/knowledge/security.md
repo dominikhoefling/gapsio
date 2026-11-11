@@ -7,6 +7,8 @@ Customer subscription / resource group
 │   ├─ CollectEndpoint (daily)  ─┐                                         │
 │   ├─ CollectAgents   (daily)  ─┼─► Microsoft Graph (read-only)           │
 │   ├─ CollectAccess   (optional)┤   Advanced Hunting, Defender API        │
+│   ├─ CollectLicensing(optional)│                                         │
+│   ├─ CollectOfficePreview      │                                         │
 │   ├─ RunOnDemand (queue)      ─┘                                         │
 │   ├─ Api    (/api/…)                                                     │
 │   └─ Portal (/)  ◄── App Service Authentication (Entra ID, no secret)    │
