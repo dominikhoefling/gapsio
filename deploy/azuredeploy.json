@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "13784775598516772615"
+      "templateHash": "4301980202672142650"
     }
   },
   "parameters": {
@@ -285,9 +285,9 @@
     },
     "assistantCapacity": {
       "type": "int",
-      "defaultValue": 10,
+      "defaultValue": 50,
       "metadata": {
-        "description": "Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). 10 is plenty for a portal assistant."
+        "description": "Capacity of the created deployment in thousands of tokens per minute (GlobalStandard). One question with tool calls needs 6,000 to 12,000 tokens, so 10 is too small; billing is per token, not per capacity."
       }
     },
     "assistantEmbeddingDeployment": {

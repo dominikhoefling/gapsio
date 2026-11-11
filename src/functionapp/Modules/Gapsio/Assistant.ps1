@@ -20,6 +20,17 @@ $script:GapsioAssistantViews = @(
     @{ view = 'asr'; module = 'endpoint'; en = 'Attack surface reduction rules: target vs effective mode per rule and device' }
     @{ view = 'devices'; module = 'endpoint'; en = 'Device list with search (?q=name), issues, OS, groups; device detail (#/device?id=)' }
     @{ view = 'baseline'; module = 'endpoint'; en = 'MDAV baseline comparison (what you want vs what Intune configures)' }
+    @{ view = 'conflicts'; module = 'endpoint'; en = 'Policy conflicts: the same setting with different values from two or more Intune policies' }
+    @{ view = 'devicecontrol'; module = 'endpoint'; en = 'Device control: USB storage in use versus device control policies' }
+    @{ view = 'disruption'; module = 'endpoint'; en = 'Attack disruption readiness: prerequisites that can be verified and those only visible in the Defender portal' }
+    @{ view = 'detections'; module = 'endpoint'; en = 'Custom detection rules: switched off automatically, failed, disabled' }
+    @{ view = 'officepreview'; module = 'officepreview'; en = 'Defender for Office 365: phishing and malware still in inboxes, threats delivered by an allow, Safe Links click-through, own-domain spoofing' }
+    @{ view = 'officeantiphish'; module = 'officepreview'; en = 'Anti-phish policy drift: who changed which setting, weaker or stronger, delivered phishing before and after' }
+    @{ view = 'officepolicymap'; module = 'officepreview'; en = 'Policy map: which protection acted on inbound mail, organisation-level and mailbox policies' }
+    @{ view = 'officechanges'; module = 'officepreview'; en = 'Changes to all Defender for Office 365 protection policies, rated when they weaken protection' }
+    @{ view = 'officequarantine'; module = 'officepreview'; en = 'Quarantine: releases, release requests, who released mail with a phishing or malware verdict' }
+    @{ view = 'officeteams'; module = 'officepreview'; en = 'Teams protection: Teams messages rated phishing or malware, delivered and not removed' }
+    @{ view = 'purview'; module = 'purviewpreview'; en = 'Purview DLP overview (private preview)' }
     @{ view = 'agents'; module = 'agents'; en = 'AI agents inventory: Entra Agent ID, Agent 365, local agents' }
     @{ view = 'agentca'; module = 'agents'; en = 'Conditional Access coverage for agents' }
     @{ view = 'access'; module = 'access'; en = 'Admin roles and paths: active, PIM-eligible, access packages' }
@@ -27,8 +38,15 @@ $script:GapsioAssistantViews = @(
     @{ view = 'licensing'; module = 'licensing'; en = 'Defender for Endpoint licence indication: SKUs, licensed users, devices without licensed user' }
     @{ view = 'changes'; module = $null; en = 'Changes between runs (added/changed/removed), per module and day' }
     @{ view = 'accepted'; module = $null; en = 'Accepted risks (acceptances) and their log' }
+    @{ view = 'evidence'; module = $null; en = 'Audit evidence: open findings and accepted risks by ISO 27001 and NIS2 control' }
     @{ view = 'license'; module = $null; en = 'Gapsio licence key and tier' }
 )
+
+function Get-GapsioAssistantSnapshotName {
+    # Blob name of a module's latest snapshot (the Purview preview keeps its older name).
+    param([Parameter(Mandatory)][string]$Module)
+    if ($Module -eq 'purviewpreview') { 'purview-preview-latest.json' } else { "$Module-latest.json" }
+}
 
 function Get-GapsioAssistantFindingText {
     param($Finding, [string]$Lang)
@@ -58,7 +76,7 @@ function Get-GapsioAssistantContext {
     $sevOrder = @{ Critical = 0; High = 1; Medium = 2; Low = 3 }
     $all = [System.Collections.Generic.List[object]]::new()
     foreach ($m in $modules) {
-        $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name "$m-latest.json" } catch { $snap = $null }
+        $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name (Get-GapsioAssistantSnapshotName -Module $m) } catch { $snap = $null }
         if (-not $snap) { [void]$sb.AppendLine("Module ${m}: no data yet (no run)."); continue }
         $sum = $null; try { $sum = $snap.summary | ConvertTo-Json -Compress -Depth 4 } catch { $sum = '' }
         if ($sum.Length -gt 1500) { $sum = $sum.Substring(0, 1500) + '…' }
@@ -92,24 +110,45 @@ function Get-GapsioAssistantContext {
 
 
 #region Azure OpenAI calls
+function Send-GapsioOpenAIRequest {
+    # One HTTP call to the Azure OpenAI data-plane. Returns @{ ok; data } or @{ ok = $false; status; retryAfter; message }.
+    param([Parameter(Mandatory)][string]$Uri, [Parameter(Mandatory)][string]$Token, [Parameter(Mandatory)][string]$Json, [int]$TimeoutSec = 60)
+    try {
+        @{ ok = $true; data = (Invoke-RestMethod -Method Post -Uri $Uri -Headers @{ Authorization = "Bearer $Token" } -ContentType 'application/json' -Body $Json -TimeoutSec $TimeoutSec) }
+    }
+    catch {
+        $msg = $_.Exception.Message; $status = 0; $retry = $null
+        try { $status = [int]$_.Exception.Response.StatusCode } catch { }
+        try { $delta = $_.Exception.Response.Headers.RetryAfter.Delta; if ($delta) { $retry = [int][Math]::Ceiling($delta.TotalSeconds) } } catch { }
+        try { $err = $_.ErrorDetails.Message | ConvertFrom-Json; if ($err.error.message) { $msg = [string]$err.error.message } } catch { }
+        @{ ok = $false; status = $status; retryAfter = $retry; message = $msg }
+    }
+}
+
+$script:GapsioOpenAIMaxWaitSeconds = 20
+
 function Invoke-GapsioOpenAI {
     <#
     .SYNOPSIS
     One call to the Azure OpenAI data-plane (chat/completions or embeddings) with the managed identity. Throws with the
-    service's error message.
+    service's error message. A rate limit (HTTP 429) is retried once when the service asks for a short wait; otherwise
+    the error says what to do: the deployment has too few tokens per minute.
     #>
     param([Parameter(Mandatory)][ValidateSet('chat/completions', 'embeddings')][string]$Operation, [Parameter(Mandatory)][string]$Deployment, [Parameter(Mandatory)]$Body, [int]$TimeoutSec = 60)
     $endpoint = (Get-GapsioSetting -Name 'GAPSIO_AI_ENDPOINT').TrimEnd('/')
     $apiVersion = Get-GapsioSetting -Name 'GAPSIO_AI_API_VERSION' -Default '2024-10-21'
     $token = Get-GapsioToken -Resource 'https://cognitiveservices.azure.com'
     $uri = "$endpoint/openai/deployments/$([uri]::EscapeDataString($Deployment))/${Operation}?api-version=$apiVersion"
-    try {
-        Invoke-RestMethod -Method Post -Uri $uri -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Depth 12 -Compress) -TimeoutSec $TimeoutSec
-    }
-    catch {
-        $msg = $_.Exception.Message
-        try { $err = $_.ErrorDetails.Message | ConvertFrom-Json; if ($err.error.message) { $msg = [string]$err.error.message } } catch { }
-        throw [System.Exception]::new("Azure OpenAI $Operation failed: $msg")
+    $json = $Body | ConvertTo-Json -Depth 12 -Compress
+    for ($attempt = 1; ; $attempt++) {
+        $r = Send-GapsioOpenAIRequest -Uri $uri -Token $token -Json $json -TimeoutSec $TimeoutSec
+        if ($r.ok) { return $r.data }
+        if ($r.status -eq 429 -or [string]$r.message -match 'rate limit') {
+            $wait = if ($null -ne $r.retryAfter) { [int]$r.retryAfter } elseif ([string]$r.message -match 'retry after (\d+) second') { [int]$Matches[1] } else { 10 }
+            if ($attempt -eq 1 -and $wait -le $script:GapsioOpenAIMaxWaitSeconds) { if ($wait -gt 0) { Start-Sleep -Seconds $wait }; continue }
+            throw [System.Exception]::new("Azure OpenAI rate limit: the deployment '$Deployment' has too few tokens per minute for this question (a question with tool calls needs 6,000 to 12,000 tokens). Wait a minute and ask again, or raise the capacity of the deployment – 50 (50,000 tokens per minute) is a sensible size; see docs/operations. [$($r.message)]")
+        }
+        throw [System.Exception]::new("Azure OpenAI $Operation failed: $($r.message)")
     }
 }
 
@@ -249,7 +288,7 @@ function Search-GapsioKnowledge {
 #region Tools (what the model may call; every tool is read-only and bounded)
 $script:GapsioAssistantTools = @(
     @{ type = 'function'; function = @{ name = 'search_findings'; description = 'Search the stored findings of the last run. Use for questions about problems, severities, categories, counts, a specific device or subject.'; parameters = @{ type = 'object'; properties = @{
-                    module   = @{ type = 'string'; description = 'endpoint | agents | access | licensing (omit for all)' }
+                    module   = @{ type = 'string'; description = 'endpoint | agents | access | licensing | officepreview (omit for all)' }
                     severity = @{ type = 'string'; enum = @('Critical', 'High', 'Medium', 'Low') }
                     category = @{ type = 'string'; description = 'finding category as shown in the portal, e.g. exclusions, asr, baseline, coverage, hygiene, updates' }
                     query    = @{ type = 'string'; description = 'free text matched against title, device, subject and detail' }
@@ -289,7 +328,7 @@ function Invoke-GapsioAssistantTool {
                 $sevOrder = @{ Critical = 0; High = 1; Medium = 2; Low = 3 }
                 foreach ($m in $mods) {
                     if ($m -notin $modules) { continue }
-                    $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name "$m-latest.json" } catch { }
+                    $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name (Get-GapsioAssistantSnapshotName -Module $m) } catch { }
                     foreach ($f in @($snap.findings)) {
                         if ($Args.severity -and [string]$f.severity -ne [string]$Args.severity) { continue }
                         if ($Args.category -and [string]$f.category -notlike "*$($Args.category)*") { continue }
@@ -444,7 +483,8 @@ $context
         if ($r.usage) { $promptTokens += [int]$r.usage.prompt_tokens; $completionTokens += [int]$r.usage.completion_tokens }
         $model = [string]$r.model
         $choice = $r.choices[0]
-        $calls = @($choice.message.tool_calls)
+        # A final answer has no tool_calls property at all – @($null) would count as one (empty) call
+        $calls = @($choice.message.tool_calls | Where-Object { $_ -and $_.function -and $_.function.name })
         if (-not $calls.Count) { break }
         # echo the assistant turn (with tool_calls) then one tool message per call
         $messages.Add(@{ role = 'assistant'; content = $(if ($choice.message.content) { [string]$choice.message.content } else { $null }); tool_calls = @($calls | ForEach-Object { @{ id = $_.id; type = 'function'; function = @{ name = $_.function.name; arguments = [string]$_.function.arguments } } }) })

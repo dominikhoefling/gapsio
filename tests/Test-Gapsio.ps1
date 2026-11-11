@@ -1952,6 +1952,60 @@ Write-Host '== macOS/Linux platform (unit)' -ForegroundColor Cyan
     & $A (@(Get-GapsioPlatformFindings -Devices @{ w = $devs['WIN-A'] } -Policies @()).Count -eq 0) 'Platform: Windows-only fleet -> nothing'
 } ${function:Assert}
 
+Write-Host '== Assistant (unit)' -ForegroundColor Cyan
+$aiEnv = @{}; foreach ($n in 'GAPSIO_ASSISTANT', 'GAPSIO_AI_ENDPOINT', 'GAPSIO_AI_DEPLOYMENT', 'GAPSIO_AI_EMBEDDING_DEPLOYMENT', 'GAPSIO_MODULES') { $aiEnv[$n] = [Environment]::GetEnvironmentVariable($n) }
+$env:GAPSIO_ASSISTANT = 'true'; $env:GAPSIO_AI_ENDPOINT = 'https://oai.contoso.example/'; $env:GAPSIO_AI_DEPLOYMENT = 'chat'; $env:GAPSIO_AI_EMBEDDING_DEPLOYMENT = ''
+$env:GAPSIO_MODULES = 'endpoint,agents,access,licensing,officepreview'
+# Admin views of the portal navigation (www/app.js) – the assistant may only link to views it knows
+$navSource = Get-Content (Join-Path $root 'src/functionapp/www/app.js') -Raw
+$navBlock = [regex]::Match($navSource, '(?s)const NAV = \[(.*?)\n  \];').Groups[1].Value
+$navViews = @([regex]::Matches($navBlock, "items: \[([^\]]+)\]") | ForEach-Object { $_.Groups[1].Value -split ',' } | ForEach-Object { $_.Trim().Trim("'") } | Where-Object { $_ })
+& $mod {
+    param($A, $navViews)
+    $origSend = ${function:Send-GapsioOpenAIRequest}; $origToken = ${function:Get-GapsioToken}
+    $script:AiQueue = [System.Collections.Generic.List[object]]::new(); $script:AiBodies = [System.Collections.Generic.List[object]]::new()
+    function script:Get-GapsioToken { param($Resource) 'test-token' }
+    function script:Send-GapsioOpenAIRequest { param($Uri, $Token, $Json, $TimeoutSec) $script:AiBodies.Add(($Json | ConvertFrom-Json -Depth 20)); $next = $script:AiQueue[0]; $script:AiQueue.RemoveAt(0); $next }
+    # Shapes as Azure OpenAI returns them: a final answer has no tool_calls property at all
+    $answer = { param($text) @{ ok = $true; data = ('{"model":"m","usage":{"prompt_tokens":100,"completion_tokens":20},"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":' + ($text | ConvertTo-Json) + ',"refusal":null,"annotations":[]}}]}' | ConvertFrom-Json) } }
+    $toolCall = @{ ok = $true; data = ('{"model":"m","usage":{"prompt_tokens":100,"completion_tokens":20},"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"refusal":null,"annotations":[],"tool_calls":[{"id":"call_1","type":"function","function":{"name":"search_findings","arguments":"{\"severity\":\"Critical\",\"limit\":3}"}}]}}]}' | ConvertFrom-Json) }
+    $limit = { param($retry) @{ ok = $false; status = 429; retryAfter = $retry; message = 'Your requests to chat for gpt-4.1-mini in swedencentral have exceeded token rate limit.' } }
+    $ask = { $e = $null; $r = $null; try { $r = Invoke-GapsioAssistant -Question 'Which devices have tamper protection off?' -Lang 'en' -User 'admin@contoso.com' } catch { $e = [string]$_.Exception.Message }; @{ r = $r; e = $e } }
+    try {
+        $script:AiQueue.Add((& $answer '{"answer":"Two devices.","links":[{"view":"#/officechanges","label":"Policy changes"},{"view":"#/nope","label":"x"}],"sources":["snapshot"]}'))
+        $x = & $ask
+        & $A (-not $x.e -and $x.r.answer -eq 'Two devices.' -and @($x.r.tools).Count -eq 0 -and @($x.r.links).Count -eq 1 -and $x.r.links[0].view -eq '#/officechanges') "Direct answer without a tool call is returned (was a crash); only known views are linked ($($x.e))"
+        & $A ($script:AiBodies[0].messages[0].content -match '#/officequarantine => ' -and $script:AiBodies[0].messages[0].content -match 'Module officepreview: generatedAt=' -and @($script:AiBodies[0].tools).Count -ge 5) 'The model gets the view list, the module summaries and the tools'
+
+        $script:AiBodies.Clear(); $script:AiQueue.Add($toolCall); $script:AiQueue.Add((& $answer '{"answer":"Found.","links":[],"sources":["snapshot"]}'))
+        $x = & $ask
+        & $A (-not $x.e -and $x.r.answer -eq 'Found.' -and @($x.r.tools).Count -eq 1 -and $x.r.tools[0].name -eq 'search_findings' -and $x.r.tools[0].ok -and $script:AiBodies.Count -eq 2 -and @($script:AiBodies[1].messages | Where-Object role -eq 'tool').Count -eq 1 -and $x.r.usage.prompt -eq 200) "Tool call, then the answer: the tool runs once and its result goes back to the model ($($x.e))"
+
+        $script:AiQueue.Add((& $limit 0)); $script:AiQueue.Add((& $answer '{"answer":"Late.","links":[],"sources":[]}'))
+        $x = & $ask
+        & $A (-not $x.e -and $x.r.answer -eq 'Late.' -and $script:AiQueue.Count -eq 0) "Rate limit with a short wait is retried once ($($x.e))"
+
+        $script:AiQueue.Add((& $limit 0)); $script:AiQueue.Add((& $limit 0))
+        $x = & $ask
+        & $A ($x.e -match "^Azure OpenAI rate limit: the deployment 'chat' has too few tokens per minute" -and $x.e -match 'raise the capacity' -and $x.e -match 'exceeded token rate limit\.\]$' -and $script:AiQueue.Count -eq 0) 'Rate limit twice: one clear message that says what to do'
+
+        $script:AiQueue.Add((& $limit 55))
+        $sw = [System.Diagnostics.Stopwatch]::StartNew(); $x = & $ask
+        & $A ($x.e -match '^Azure OpenAI rate limit' -and $script:AiQueue.Count -eq 0 -and $sw.Elapsed.TotalSeconds -lt 10) 'Rate limit with a long wait: no retry, no waiting'
+
+        $script:AiQueue.Add(@{ ok = $false; status = 404; retryAfter = $null; message = 'The API deployment for this resource does not exist.' })
+        $x = & $ask
+        & $A ($x.e -eq 'Azure OpenAI chat/completions failed: The API deployment for this resource does not exist.') 'Other errors keep the message of the service'
+
+        & $A ((Get-GapsioAssistantSnapshotName -Module 'purviewpreview') -eq 'purview-preview-latest.json' -and (Get-GapsioAssistantSnapshotName -Module 'officepreview') -eq 'officepreview-latest.json') 'Snapshot names per module'
+        $known = @($script:GapsioAssistantViews | ForEach-Object { $_.view })
+        $unknown = @($navViews | Where-Object { $_ -notin $known -and $_ -notin 'mine', 'purviewdevices', 'purviewlicensing', 'purviewaccess', 'purviewhunting' })
+        & $A ($navViews.Count -ge 25 -and $unknown.Count -eq 0) "The assistant knows every admin view of the portal navigation (missing: $($unknown -join ', '))"
+    }
+    finally { Set-Item function:script:Send-GapsioOpenAIRequest $origSend; Set-Item function:script:Get-GapsioToken $origToken }
+} ${function:Assert} $navViews
+foreach ($n in $aiEnv.Keys) { [Environment]::SetEnvironmentVariable($n, $aiEnv[$n]) }
+
 Write-Host '== Versions and update check' -ForegroundColor Cyan
 & $mod {
     param($A)
