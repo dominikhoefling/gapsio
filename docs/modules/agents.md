@@ -14,16 +14,24 @@ Inventory from **Microsoft Entra Agent ID**, the **Agent 365 package catalog** a
 Agent 365 data is read from the **Package Management API** (`GET /v1.0/copilot/admin/catalog/packages`, application
 permission `CopilotPackages.Read.All`, requires an Agent 365 licence). If that is denied or unavailable, Gapsio falls
 back to the legacy registry (`/beta/agentRegistry/agentInstances`, `AgentInstance.Read.All`, retired from May 2026) and
-says so on the page. The snapshot exposes `registryStatus`, `registrySource` and `registryNote`.
+says so on the page. When the retired registry answers "not found" or a server error, the Agent 365 source is shown as
+*not available* – a note, not a notice on every run. The snapshot exposes `registryStatus`, `registrySource` and `registryNote`.
 
 ### Defender AgentsInfo
 
-Gapsio reads the documented columns of the Advanced Hunting table
+Gapsio reads the Advanced Hunting table
 [`AgentsInfo`](https://learn.microsoft.com/defender-xdr/advanced-hunting-agentsinfo-table) (one row per `AgentId`,
-latest `Timestamp`): `AgentName`, `Platform`, `AgentDescription`, `Version`, `EntraAgentId`, `EntraBlueprintId`,
-`SourceAgentId`, `PublishedStatus`, `LifecycleStatus`, `Availability`, `InstanceCount`, `Model`, the timestamps and the
-dynamic columns `Owners`, `SharedWith`, `Permissions`, `Guardrails`, `Endpoints`, `McpServers`, `ConnectedAgents`,
-`DeclaredTools`, `DeclaredDataSources`, `Channels`.
+latest `Timestamp`): name, platform, description, version, Entra agent ID, Entra blueprint ID, `SourceAgentId`,
+`PublishedStatus`, `LifecycleStatus`, `Availability`, `InstanceCount`, `Model`, the timestamps and the dynamic columns
+`Owners`, `SharedWith`, `Permissions`, `Guardrails`, `Endpoints`, `McpServers`, `ConnectedAgents`, `DeclaredTools`,
+`DeclaredDataSources`, `Channels`.
+
+The table is in preview and its real columns differ from the schema reference: tenants have `Name`, `Description`,
+`EntraAgentID` and `EntraBlueprintID` where the reference says `AgentName`, `AgentDescription`, `EntraAgentId` and
+`EntraBlueprintId` (KQL is case-sensitive, so a query on the documented names fails). Gapsio therefore reads the
+column list of the tenant's table first and builds the query from the columns that exist, under either name. A column
+that exists under neither name gives an empty value and one notice that lists the missing columns and the columns
+present.
 
 The **inner structure of the dynamic columns is not documented**. Gapsio therefore only derives counts (tools, data
 sources, permissions, shared-with entries), display names (owners, connected agents, channels) and looks up obvious
@@ -31,10 +39,11 @@ property names inside `Endpoints`/`McpServers` (`url`, `transport`, `external…
 unknown, never as zero. Local agents on endpoints are read from `RawAgentInfo.localAgentMetadata`, which is not part
 of the documented schema either; if it is absent, only cloud agents are listed.
 
-!!! warning "Verified against documentation, not against a tenant"
-    The AgentsInfo integration follows the schema reference (October 2026). Column names in KQL are case-sensitive;
-    if Microsoft changes the table, the run reports a warning and the agent inventory falls back to Entra and the
-    catalog. Please report deviations.
+!!! warning "Column names verified against a tenant, contents not"
+    The query runs against the column list of a real tenant (November 2026). The contents of the rows – above all the
+    dynamic columns and `RawAgentInfo` – are not verified: the test tenant has no agents. If Microsoft changes the
+    table again, the run reports a notice and the agent inventory falls back to Entra and the catalog. Please report
+    deviations.
 
 ## Conditional Access coverage
 

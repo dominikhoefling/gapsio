@@ -6,6 +6,20 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.1] – 2026-11-11
+
+No new permissions.
+
+### Fixed
+- **Agents: the Defender agent inventory (`AgentsInfo`) never loaded.** The table has other column names than the
+  schema reference (`Name`, `Description`, `EntraAgentID`, `EntraBlueprintID`), so the query failed on every run with
+  an HTTP 400 notice. Gapsio now reads the column list of the tenant's table and builds the query from the columns
+  that exist; a column that exists under no known name gives an empty value and one notice.
+
+### Changed
+- Agents: a server error of the retired legacy Agent 365 registry is shown as *not available* instead of a notice on
+  every run.
+
 ## [0.8.0] – 2026-11-10
 
 ### Added

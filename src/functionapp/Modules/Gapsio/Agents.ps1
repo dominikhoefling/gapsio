@@ -128,8 +128,8 @@ function Get-GapsioAgentRegistry {
       1. Agent 365 Package Management API (v1.0 copilot/admin/catalog/packages, CopilotPackages.Read.All) – the
          successor API. 403 = permission not granted or no Agent 365 licence, 404 = not available: both fall through.
       2. Legacy registry (beta agentRegistry/agentInstances, AgentInstance.Read.All), retired from May 2026.
-    Both are optional sources: if neither exists the status is NotAvailable (a note, not a warning). Any other
-    error on the last attempted source is a warning.
+    Both are optional sources: if neither exists the status is NotAvailable (a note, not a warning) – that includes
+    server errors of the retired legacy registry. Any other error on the last attempted source is a warning.
     #>
     $script:GapsioAgentRegistrySource = $null; $script:GapsioAgentRegistryNote = $null
     try {
@@ -149,7 +149,8 @@ function Get-GapsioAgentRegistry {
         return $r
     }
     catch {
-        if (Test-GapsioHttpStatus $_ @('404')) { $script:GapsioAgentRegistryStatus = 'NotAvailable' }
+        # The legacy registry is retired: "not found" and server errors there mean it is gone, not that something is wrong
+        if (Test-GapsioHttpStatus $_ @('404', '410', '500', '502', '503', '504')) { $script:GapsioAgentRegistryStatus = 'NotAvailable' }
         else { $script:GapsioAgentRegistryStatus = 'Error'; Add-GapsioWarning "Agent 365 registry (AgentInstance.Read.All): $($_.Exception.Message)" }
         return @()
     }
@@ -160,7 +161,8 @@ function Get-GapsioAgentsInfo {
     .SYNOPSIS
     Defender XDR Advanced Hunting: AgentsInfo (Copilot Studio, Foundry, Agent 365, local agents on endpoints, ...).
     .NOTES
-    Column names follow the documented schema (learn.microsoft.com/defender-xdr/advanced-hunting-agentsinfo-table):
+    Column names follow the documented schema (learn.microsoft.com/defender-xdr/advanced-hunting-agentsinfo-table) and
+    the names real tenants use where they differ (Name, Description, EntraAgentID, EntraBlueprintID):
     AgentId, AgentName, Platform, AgentDescription, Version, SourceAgentId, EntraAgentId, EntraBlueprintId, PublishedStatus,
     LifecycleStatus, Availability, CreatedDateTime, LastPublishedDateTime, LastUpdatedDateTime, InstanceCount, Model and the
     dynamic columns Owners, SharedWith, Permissions, Guardrails, Endpoints, McpServers, ConnectedAgents, DeclaredTools,
@@ -169,21 +171,39 @@ function Get-GapsioAgentsInfo {
     defensively in PowerShell (counts, obvious flags). RawAgentInfo.localAgentMetadata (local agents on endpoints) is
     not documented either – treated as optional.
     #>
-    $q = @"
-AgentsInfo
-| summarize arg_max(Timestamp, *) by AgentId
-| extend m = RawAgentInfo.localAgentMetadata
-| project AgentId = tostring(AgentId), Name = AgentName, Platform, Description = AgentDescription, Version, EntraAgentId, EntraBlueprintId, SourceAgentId,
-          PublishedStatus, LifecycleStatus, Availability, InstanceCount, Model, CreatedDateTime, LastUpdatedDateTime, LastPublishedDateTime,
-          Owners = tostring(Owners), SharedWith = tostring(SharedWith), Permissions = tostring(Permissions), Guardrails = tostring(Guardrails),
-          Endpoints = tostring(Endpoints), ConnectedAgents = tostring(ConnectedAgents), DeclaredTools = tostring(DeclaredTools),
-          DeclaredDataSources = tostring(DeclaredDataSources), Channels = tostring(Channels),
-          McpServers = tostring(McpServers), RawMcpServers = tostring(RawAgentInfo.mcpServers),
-          IsLocal = isnotempty(m) or Platform has "Local",
-          Vendor = tostring(m.vendor), LocalDeviceId = tostring(m.machineId), LocalDeviceName = tostring(m.deviceName), LocalOs = tostring(m.osPlatform),
-          LocalUser = tostring(m.upn), AutoApprove = tostring(m.autoApprove), TrustedProcess = tostring(m.trustedProcess), Process = tostring(m.relatedProcess),
-          LocalMcps = tostring(m.localMcps)
-"@
+    if (-not (Test-GapsioFeature -Name 'hunting')) { return @() }
+    # The table is in preview and its real columns differ from the schema reference: tenants have Name, Description,
+    # EntraAgentID and EntraBlueprintID where the reference says AgentName, AgentDescription, EntraAgentId and
+    # EntraBlueprintId (KQL is case-sensitive). The projection is therefore built from the columns the tenant's table
+    # really has; a column that exists under neither name gives an empty value and one notice.
+    $strings = @('Platform', 'AgentDescription', 'Version', 'EntraAgentId', 'EntraBlueprintId', 'SourceAgentId', 'PublishedStatus', 'LifecycleStatus', 'Availability', 'Model')
+    $dynamics = @('Owners', 'SharedWith', 'Permissions', 'Guardrails', 'Endpoints', 'ConnectedAgents', 'DeclaredTools', 'DeclaredDataSources', 'Channels', 'McpServers')
+    $dates = @('CreatedDateTime', 'LastUpdatedDateTime', 'LastPublishedDateTime')
+    $alternates = @{ AgentName = @('AgentName', 'Name'); AgentDescription = @('AgentDescription', 'Description'); EntraAgentId = @('EntraAgentId', 'EntraAgentID'); EntraBlueprintId = @('EntraBlueprintId', 'EntraBlueprintID') }
+    $documented = @('AgentId', 'AgentName') + $strings + @('InstanceCount') + $dates + $dynamics + @('RawAgentInfo')
+    $have = @()
+    try { $have = @(Invoke-GapsioHunting -Query "AgentsInfo`n| getschema`n| project ColumnName" | ForEach-Object { [string](Get-GapsioProp $_ 'ColumnName') } | Where-Object { $_ }) }
+    catch { $have = @() }   # no table, or no schema: the query below reports it
+    $known = $have.Count -gt 0
+    if (-not $known) { $have = $documented }
+    # Column of the tenant's table for a documented column name (case-sensitive), or $null
+    $pick = { param($n) @($(if ($alternates.ContainsKey($n)) { $alternates[$n] } else { @($n) }) | Where-Object { $have -ccontains $_ })[0] }
+    if (-not (& $pick 'AgentId')) { Add-GapsioWarning "Advanced Hunting AgentsInfo: the table in this tenant has no AgentId column – the Defender agent inventory is skipped. Columns present: $(($have | Select-Object -First 60) -join ', ')."; return @() }
+    $missing = @($documented | Where-Object { -not (& $pick $_) })
+    if ($missing.Count) { Add-GapsioWarning "Advanced Hunting AgentsInfo: the table in this tenant has no column(s) $($missing -join ', ') – these values stay empty. Columns present: $(($have | Select-Object -First 60) -join ', ')." }
+    $empty = '""'   # KQL empty string – kept in a variable because "" inside an expandable PowerShell string is one quote
+    $text = { param($n) $c = & $pick $n; if ($c) { "tostring($c)" } else { $empty } }
+    $raw = & $pick 'RawAgentInfo'
+    $project = @('AgentId = tostring(AgentId)', "Name = $(& $text 'AgentName')")
+    foreach ($c in $strings) { $project += "$(if ($c -eq 'AgentDescription') { 'Description' } else { $c }) = $(& $text $c)" }
+    $project += "InstanceCount = $(if (& $pick 'InstanceCount') { 'InstanceCount' } else { 'long(null)' })"
+    foreach ($c in $dates) { $project += "$c = $(if (& $pick $c) { $c } else { 'datetime(null)' })" }
+    foreach ($c in $dynamics) { $project += "$c = $(& $text $c)" }
+    $project += "RawMcpServers = $(if ($raw) { 'tostring(RawAgentInfo.mcpServers)' } else { $empty })"
+    $project += "IsLocal = isnotempty(m)$(if (& $pick 'Platform') { ' or Platform has "Local"' })"
+    $project += 'Vendor = tostring(m.vendor)', 'LocalDeviceId = tostring(m.machineId)', 'LocalDeviceName = tostring(m.deviceName)', 'LocalOs = tostring(m.osPlatform)',
+    'LocalUser = tostring(m.upn)', 'AutoApprove = tostring(m.autoApprove)', 'TrustedProcess = tostring(m.trustedProcess)', 'Process = tostring(m.relatedProcess)', 'LocalMcps = tostring(m.localMcps)'
+    $q = "AgentsInfo`n| summarize arg_max(Timestamp, *) by AgentId`n| extend m = $(if ($raw) { 'RawAgentInfo.localAgentMetadata' } else { 'dynamic(null)' })`n| project $($project -join ', ')"
     @(Invoke-GapsioHuntingSafe -Query $q -Context 'Advanced Hunting AgentsInfo' -ShardColumn 'AgentId' | Where-Object { $_ })
 }
 
