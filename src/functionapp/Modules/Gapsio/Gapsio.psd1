@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Gapsio.psm1'
-    ModuleVersion     = '0.8.0'
+    ModuleVersion     = '0.8.1'
     GUID              = '6b0f7c52-2a0e-4d6f-9a51-3c1d8e0b7a41'
     Author            = 'Gapsio'
     CompanyName       = 'Gapsio'

@@ -683,7 +683,8 @@ $queue = [System.Collections.Generic.List[string]]::new()
         if ($Uri -match 'runHuntingQuery') {
             $q = [string]$Body.Query
             $script:HuntQueries.Add($q)
-            $rows = if ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
+            $rows = if ($q -match '^AgentsInfo\s*\|\s*getschema') { if ($script:Hunt.AgentsSchemaFail) { throw 'getschema is not supported' }; @($script:Hunt.AgentsSchema | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ ColumnName = $_ } }) }
+            elseif ($q -match '^AgentsInfo') { $script:Hunt.AgentsInfo }
             elseif ($q -match '// GapsioOffice:(\w+)') { $ok = $Matches[1]; if ($script:Hunt.OfficeFail -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message "Failed to resolve table for $ok") }; if ($script:Hunt.OfficeMissing -contains $ok) { throw (New-GapsioHttpException -Status 400 -Message 'HTTP 400 for POST https://graph.microsoft.com/v1.0/security/runHuntingQuery :: {"error":{"code":"BadRequest","message":"''where'' operator: Failed to resolve table expression named ''[\"MessageEvents\"]'' in the database. Fix semantic errors in your query."}}') }; $script:Hunt.Office[$ok] }
             elseif ($q -match '// GapsioUsbMounts') { $script:Hunt.UsbMounts }
             elseif ($q -match '// GapsioDeviceControl') { $script:Hunt.DeviceControl }
@@ -738,7 +739,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
                 if ($script:Fx.agents.packages) { return (V $script:Fx.agents.packages) }
                 throw (New-GapsioHttpException -Status 403 -Message 'HTTP 403 Forbidden')
             }
-            '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-GapsioHttpException -Status 404 -Message 'HTTP 404 Not Found') }; return (V $script:Fx.agents.registry) }
+            '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-GapsioHttpException -Status 404 -Message 'HTTP 404 Not Found') }; if ($script:Fx.agents.registry502) { throw (New-GapsioHttpException -Status 502 -Message 'HTTP 502 for GET https://graph.microsoft.com/beta/agentRegistry/agentInstances :: {"error":{"code":"UnknownError","message":""}}') }; return (V $script:Fx.agents.registry) }
             '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
             '^subscribedSkus' { return (V $script:Fx.skus) }
             '^security/rules/detectionRules' { if ($Uri -notmatch '/v1\.0/') { throw 'detection rules must be read from v1.0 first' }; return (V $script:Fx.detectionRules) }
@@ -1235,6 +1236,41 @@ Assert ($ag404.registryStatus -eq 'NotAvailable' -and @($ag404.warnings | Where-
 Assert ($ag404.registryNote -match 'CopilotPackages.Read.All') 'Package API 403 is recorded as a note'
 $fixtures.agents.registry404 = $false
 Assert ($agSnap.registrySource -eq 'AgentRegistry') 'Legacy registry used when the package API is denied'
+# The legacy registry is retired: a server error there is "not available", not a warning on every run
+$fixtures.agents | Add-Member -NotePropertyName registry502 -NotePropertyValue $true -Force
+$null = Invoke-GapsioAgentsCollection 6>$null 3>$null
+$ag502 = $blobs['state/agents-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($ag502.registryStatus -eq 'NotAvailable' -and @($ag502.warnings | Where-Object { $_ -match 'registry' }).Count -eq 0 -and $ag502.registryNote -match 'CopilotPackages.Read.All') 'Retired legacy registry answers HTTP 502: not available, no warning'
+$fixtures.agents.registry502 = $false
+
+# AgentsInfo is in preview and its columns differ between tenants: the query is built from the columns that exist
+$agentsQuery = { & $mod { @($script:HuntQueries | Where-Object { $_ -match '^AgentsInfo\s*\|\s*summarize' })[-1] } }
+& $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); $null = Get-GapsioAgentsInfo }
+$q0 = & $agentsQuery
+Assert ($q0 -match 'Name = tostring\(AgentName\)' -and $q0 -match 'Model = tostring\(Model\)' -and $q0 -match 'extend m = RawAgentInfo\.localAgentMetadata' -and @(& $mod { Get-GapsioWarnings }).Count -eq 0) 'AgentsInfo without a readable schema: documented columns, no notice'
+$hunting.AgentsSchema = @('Timestamp', 'AgentId', 'Name', 'Platform', 'Description', 'EntraAgentID', 'Owners', 'RawAgentInfo')
+$rowsAi = & $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); @(Get-GapsioAgentsInfo) }
+$q1 = & $agentsQuery
+$w1 = @(& $mod { Get-GapsioWarnings })
+Assert ($q1 -match 'Name = tostring\(Name\)' -and $q1 -notmatch 'AgentName|AgentDescription' -and $q1 -match 'Description = tostring\(Description\)' -and $q1 -cmatch 'EntraAgentId = tostring\(EntraAgentID\)' -and $q1 -match 'EntraBlueprintId = ""' -and $q1 -match 'Model = ""' -and $q1 -match 'InstanceCount = long\(null\)' -and $q1 -match 'CreatedDateTime = datetime\(null\)' -and $q1 -match 'Guardrails = ""' -and $q1 -match 'Owners = tostring\(Owners\)' -and $rowsAi.Count -gt 0) 'AgentsInfo with other columns: the query uses what exists and empty values for the rest'
+Assert ($w1.Count -eq 1 -and $w1[0] -match 'has no column\(s\) Version, EntraBlueprintId, SourceAgentId' -and $w1[0] -notmatch 'AgentName|AgentDescription' -and $w1[0] -cnotmatch 'EntraAgentId' -and $w1[0] -match 'Columns present: Timestamp, AgentId, Name') 'One notice names the columns that exist under no known name, and the columns present'
+# The column list of a real tenant (November 2026): every value is found, nothing to report
+$hunting.AgentsSchema = @('Timestamp', 'AgentId', 'Name', 'Platform', 'Description', 'Version', 'SourceAgentId', 'EntraAgentID', 'EntraBlueprintID', 'ToolsAuthenticationType', 'Permissions', 'PublishedStatus', 'LifecycleStatus', 'Availability', 'CreatedDateTime', 'LastPublishedDateTime', 'LastUpdatedDateTime', 'Owners', 'SharedWith', 'InstanceCount', 'Instructions', 'Model', 'Channels', 'Capabilities', 'DeclaredDataSources', 'DeclaredTools', 'McpServers', 'Skills', 'ConnectedAgents', 'Memory', 'Triggers', 'Guardrails', 'Endpoints', 'ObservabilityID', 'RawAgentInfo', 'RiskIndicators')
+& $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); $null = Get-GapsioAgentsInfo }
+$qr = & $agentsQuery
+Assert (@(& $mod { Get-GapsioWarnings }).Count -eq 0 -and $qr -cmatch 'EntraBlueprintId = tostring\(EntraBlueprintID\)' -and $qr -match 'Description = tostring\(Description\)' -and $qr -match 'InstanceCount = InstanceCount' -and $qr -notmatch '= ""|null\)') 'AgentsInfo with the column names real tenants use: all values read, no notice'
+$hunting.AgentsSchema = @('Timestamp', 'AgentId', 'AgentName', 'Platform')
+& $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); $null = Get-GapsioAgentsInfo }
+$q2 = & $agentsQuery
+Assert ($q2 -match 'extend m = dynamic\(null\)' -and $q2 -match 'RawMcpServers = ""' -and $q2 -match 'IsLocal = isnotempty\(m\) or Platform has "Local"' -and $q2 -notmatch 'RawAgentInfo') 'AgentsInfo without RawAgentInfo: no local agent details, query still valid'
+$hunting.AgentsSchema = @('Timestamp', 'Name')
+$none = & $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); @(Get-GapsioAgentsInfo) }
+Assert ($none.Count -eq 0 -and @(& $mod { $script:HuntQueries | Where-Object { $_ -match 'summarize' } }).Count -eq 0 -and @(& $mod { Get-GapsioWarnings })[0] -match 'no AgentId column') 'AgentsInfo without AgentId: skipped with a notice, no failing query'
+$hunting.AgentsSchema = $null
+$hunting.AgentsSchemaFail = $true
+& $mod { Reset-GapsioWarnings; $script:HuntQueries.Clear(); $null = Get-GapsioAgentsInfo }
+Assert ((& $agentsQuery) -match 'Name = tostring\(AgentName\)' -and @(& $mod { Get-GapsioWarnings }).Count -eq 0) 'Schema query fails: fall back to the documented columns'
+$hunting.AgentsSchemaFail = $false
 
 # Agent 365 Package Management API (successor of the registry)
 $fixtures.agents.packages = @(
