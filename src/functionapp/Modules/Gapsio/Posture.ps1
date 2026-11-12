@@ -163,7 +163,7 @@ function Get-GapsioPolicyConflictFindings {
     if (-not $c.Count) { return @() }
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
     $line = { param($x) "$($x.setting) [$($x.platform)]: $((@($x.values | ForEach-Object { "$($_.value) ($((@($_.policies | ForEach-Object name)) -join ', '))" })) -join ' vs. ')$(if ($null -ne $x.devices) { " – $($x.devices) device(s)" })" }
-    $list = (@($c | Select-Object -First 6 | ForEach-Object { & $line $_ })) -join '; '
+    $list = (@($c | Sort-Object setting, platform | Select-Object -First 6 | ForEach-Object { & $line $_ })) -join '; '
     $more = if ($c.Count -gt 6) { ' …' } else { '' }
     $asr = @($c | Where-Object { $_.isAsrRule }).Count
     @(New-GapsioFinding -Severity 'Medium' -Category 'Conflict' -Title (& $T "$($c.Count) Defender setting(s) reach the same devices with different values" "$($c.Count) Defender-Einstellung(en) erreichen dieselben Geräte mit unterschiedlichen Werten") `
@@ -276,7 +276,7 @@ function Get-GapsioDeviceControlFindings {
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
     $open = @($DeviceControl.devices | Where-Object { $_.mounts -gt 0 -and $_.hasPolicy -eq $false -and $_.supported })
     if (-not $open.Count) { return @() }
-    $names = (@($open | Select-Object -First 8 | ForEach-Object { "$($_.deviceName) ($($_.mounts))" })) -join ', '
+    $names = (@($open | Sort-Object deviceName | Select-Object -First 8 | ForEach-Object { "$($_.deviceName) ($($_.mounts))" })) -join ', '
     $more = if ($open.Count -gt 8) { ' …' } else { '' }
     $none = [int]$DeviceControl.summary.assignedPolicies -eq 0
     @(New-GapsioFinding -Severity 'Medium' -Category 'DeviceControl' -Title (& $T "USB storage used on $($open.Count) device(s) without a device control policy" "USB-Speicher auf $($open.Count) Gerät(en) ohne Device-Control-Richtlinie genutzt") `
@@ -412,7 +412,7 @@ function Get-GapsioDisruptionFindings {
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
     $sense = @($Readiness.checks | Where-Object { $_.id -eq 'sense' -and $_.status -eq 'Gap' })[0]
     if (-not $sense) { return @() }
-    $names = (@($sense.devices | Select-Object -First 8)) -join ', '
+    $names = (@($sense.devices | Sort-Object | Select-Object -First 8)) -join ', '
     @(New-GapsioFinding -Severity 'Medium' -Category 'Response' -Title (& $T "Contain User cannot be enforced on $($sense.count) Windows device(s)" "Contain User lässt sich auf $($sense.count) Windows-Gerät(en) nicht durchsetzen") `
             -Detail (& $T "Automatic attack disruption contains a compromised user on every device – but only devices with Sense agent $($Readiness.minSense) or later enforce it. Older agents: $names$(if ($sense.count -gt 8) { ' …' })." "Automatic Attack Disruption dämmt einen kompromittierten Benutzer auf jedem Gerät ein – durchgesetzt wird das aber nur von Geräten mit Sense-Agent ab $($Readiness.minSense). Ältere Agents: $names$(if ($sense.count -gt 8) { ' …' }).") `
             -Recommendation (& $T 'Bring the devices up to date (Windows cumulative updates carry the Sense agent; down-level servers use the unified agent package).' 'Die Geräte aktualisieren (die kumulativen Windows-Updates enthalten den Sense-Agent; ältere Server nutzen das Unified-Agent-Paket).') `
@@ -500,7 +500,7 @@ function Get-GapsioDetectionRuleFindings {
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
     $rules = @($Detections.rules)
-    $list = { param($rows) ((@($rows | Select-Object -First 8 | ForEach-Object { $_.name })) -join ', ') + $(if (@($rows).Count -gt 8) { ' …' } else { '' }) }
+    $list = { param($rows) ((@($rows | Sort-Object name | Select-Object -First 8 | ForEach-Object { $_.name })) -join ', ') + $(if (@($rows).Count -gt 8) { ' …' } else { '' }) }
 
     $auto = @($rules | Where-Object { $_.status -eq 'autoDisabled' })
     if ($auto.Count) {
@@ -511,7 +511,7 @@ function Get-GapsioDetectionRuleFindings {
     $failed = @($rules | Where-Object { $_.status -eq 'enabled' -and $_.lastRun -and $_.lastRun.status -in 'failed', 'partiallyFailed' })
     if ($failed.Count) {
         $f.Add((New-GapsioFinding -Severity 'Medium' -Category 'Detection' -Title (& $T "$($failed.Count) custom detection rule(s) failed in their last run" "$($failed.Count) Custom-Detection-Regel(n) sind im letzten Lauf fehlgeschlagen") `
-                    -Detail (& $T "The last run did not complete: $((@($failed | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.lastRun.errorCode))" })) -join ', ')." "Der letzte Lauf wurde nicht abgeschlossen: $((@($failed | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.lastRun.errorCode))" })) -join ', ').") `
+                    -Detail (& $T "The last run did not complete: $((@($failed | Sort-Object name | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.lastRun.errorCode))" })) -join ', ')." "Der letzte Lauf wurde nicht abgeschlossen: $((@($failed | Sort-Object name | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.lastRun.errorCode))" })) -join ', ').") `
                     -Recommendation (& $T 'Run the query in Advanced Hunting and fix the reported error; rules that keep failing are switched off by Defender.' 'Die Abfrage in Advanced Hunting ausführen und den gemeldeten Fehler beheben; dauerhaft fehlschlagende Regeln schaltet Defender ab.') -Subject 'detection|failed' -StableKey))
     }
     $off = @($rules | Where-Object { $_.status -eq 'disabled' })
@@ -523,7 +523,7 @@ function Get-GapsioDetectionRuleFindings {
     $impact = @($rules | Where-Object { $_.status -eq 'enabled' -and @($_.impactActions).Count })
     if ($impact.Count) {
         $f.Add((New-GapsioFinding -Severity 'Low' -Category 'Detection' -Title (& $T "$($impact.Count) custom detection rule(s) act automatically" "$($impact.Count) Custom-Detection-Regel(n) handeln automatisch") `
-                    -Detail (& $T "These rules isolate devices, disable users, quarantine files or move mail without anyone approving it: $((@($impact | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.impactActions -join ', '))" })) -join '; ')." "Diese Regeln isolieren Geräte, deaktivieren Benutzer, stellen Dateien unter Quarantäne oder verschieben Mails, ohne dass jemand zustimmt: $((@($impact | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.impactActions -join ', '))" })) -join '; ').") `
+                    -Detail (& $T "These rules isolate devices, disable users, quarantine files or move mail without anyone approving it: $((@($impact | Sort-Object name | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.impactActions -join ', '))" })) -join '; ')." "Diese Regeln isolieren Geräte, deaktivieren Benutzer, stellen Dateien unter Quarantäne oder verschieben Mails, ohne dass jemand zustimmt: $((@($impact | Sort-Object name | Select-Object -First 8 | ForEach-Object { "$($_.name) ($($_.impactActions -join ', '))" })) -join '; ').") `
                     -Recommendation (& $T 'Review who may change these rules (Detection tuning permission) and check their queries after schema changes – a query that matches too much acts on every match.' 'Prüfen, wer diese Regeln ändern darf (Berechtigung „Detection tuning“), und die Abfragen nach Schemaänderungen kontrollieren – eine zu breite Abfrage handelt bei jedem Treffer.') -Subject 'detection|actions' -StableKey))
     }
     @($f.ToArray())

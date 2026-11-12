@@ -21,6 +21,12 @@ No new permissions.
   run skipped both; it now runs like a manual run (and is skipped when the endpoint module is not enabled).
 - **Assistant: asking about a device whose name is also the start of other names** (WIN-01 next to WIN-010) answered
   "not found".
+- **Every device showed up as "Changed" in every run** (and some findings too), although nothing had changed. The
+  order of Advanced Hunting rows decided the order of the checks in the device state, which of two results for the
+  same check won (EDR in block mode flipped between GOOD and N/A) and the order of names in findings; the signature
+  age finding said "N days ago". Checks now merge by severity (BAD over GOOD over N/A), the state and all name lists
+  are sorted, and the signature finding names the publication date. The first run after the update records one
+  change per device for the new state format; after that only real changes appear.
 - Connection resets and timeouts towards Azure Storage, Microsoft Graph and the Defender API are retried like HTTP 5xx.
 - `Update-Gapsio.ps1` refuses a `SHA256SUMS` file that has no checksum for the package (instead of reporting
   "verified").

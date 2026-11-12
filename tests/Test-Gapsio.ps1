@@ -1170,6 +1170,21 @@ Assert ($lastRun.protection.devices -ge 4 -and $lastRun.protection.NetworkProtec
     & $A ($c.Count -eq 1 -and $c[0].change -eq 'Added') 'Lifecycle: removed -> present again is Added'
 } ${function:Assert}
 
+Write-Host '== End-to-end: a run without changes reports none' -ForegroundColor Cyan
+# Advanced Hunting returns rows in no fixed order. The same tenant read in a different order must not produce
+# "Changed" devices or findings (device state text, check merging, name lists in findings).
+$huntRef = & $mod { $script:Hunt }
+$savedHunt = @{}
+foreach ($k in @($huntRef.Keys)) { $savedHunt[$k] = $huntRef[$k]; $v = @($huntRef[$k]); if ($v.Count -gt 1) { [array]::Reverse($v); $huntRef[$k] = $v } }
+$rSame = Invoke-GapsioEndpointCollection 6>$null
+foreach ($k in @($savedHunt.Keys)) { $huntRef[$k] = $savedHunt[$k] }
+$sameCh = @(@($blobs['state/endpoint-changes.json'] | ConvertFrom-Json -Depth 64) | Select-Object -First ([int]$rSame.changes))   # newest first
+Assert ($rSame.changes -eq 0) "Unchanged tenant, rows in reverse order: no changes ($(@($sameCh | ForEach-Object { "$($_.collection):$($_.change):$(if ($_.label.en) { $_.label.en } else { $_.label })" }) -join ' | '))"
+& $mod {
+    param($A)
+    & $A ((Merge-GapsioCheckValue -Current 'N/A' -New 'GOOD') -eq 'GOOD' -and (Merge-GapsioCheckValue -Current 'GOOD' -New 'N/A') -eq 'GOOD' -and (Merge-GapsioCheckValue -Current 'GOOD' -New 'BAD') -eq 'BAD' -and (Merge-GapsioCheckValue -Current 'BAD' -New 'GOOD') -eq 'BAD' -and (Merge-GapsioCheckValue -Current $null -New 'N/A') -eq 'N/A') 'Check merging: BAD over GOOD over N/A, in any order'
+} ${function:Assert}
+
 Write-Host '== End-to-end: device inventory (optional)' -ForegroundColor Cyan
 Assert ($ep.localDetection -eq 'AdvancedHunting') 'Default: Advanced Hunting only'
 $env:GAPSIO_DEVICE_INVENTORY = 'true'
