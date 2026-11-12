@@ -78,7 +78,9 @@ try {
                     tier = $tier; communityRows = $(if ($community) { Get-GapsioCommunityRows } else { $null })
                     features = @(@('hunting', 'indicators', 'coverage', 'inventory', 'response', 'detections', 'audit') | Where-Object { Test-GapsioFeature -Name $_ })
                     tenantId = Get-GapsioSetting -Name 'GAPSIO_TENANT_ID'; version = (Get-GapsioVersion)
-                    assistant = $(if ($principal.isAdmin) { [bool](Test-GapsioAssistant) } else { $false })
+                    # The assistant summarises the whole tenant and cannot be cut to the first rows: Enterprise only
+                    assistant = $(if ($principal.isAdmin -and -not $community) { [bool](Test-GapsioAssistant) } else { $false })
+                    assistantNeedsLicense = [bool]($principal.isAdmin -and $community -and (Test-GapsioAssistant))
                     update = $(if ($principal.isAdmin) { try { Get-GapsioBlob -Container 'state' -Name 'release.json' } catch { $null } })
                     license = $(if ($principal.isAdmin) { try { $l = Get-GapsioLicense; [ordered]@{ status = $l.status; plan = $l.plan; customer = $l.customer; expires = $l.expires; daysLeft = $l.daysLeft } } catch { $null } })
                 })
@@ -103,14 +105,16 @@ try {
             $pg = 0; if ($pageQ -match '^\d+$') { $pg = [int]$pageQ }
             $res = Search-GapsioDevices -Query ([string]$Request.Query.q) -Os ([string]$Request.Query.os) -Group ([string]$Request.Query.group) -IssuesOnly:([string]$Request.Query.issues -eq '1') `
                 -Chart ([string]$Request.Query.chart) -AsrBelow:([string]$Request.Query.asrBelow -eq '1') -Page $pg -Size $size
-            if ($community) { $res.rows = Protect-GapsioCommunityList -Items @($res.rows) -Offset ($pg * [int]$res.size); $res.tier = 'Community'; $res.communityRows = Get-GapsioCommunityRows }
+            if ($community) { $res.rows = @(Protect-GapsioCommunityDevices -Items @($res.rows) -Allowed (Get-GapsioCommunityDeviceIds)); $res.tier = 'Community'; $res.communityRows = Get-GapsioCommunityRows }
             Send-Response -Status 200 -Body $res
         }
         'device' {
             $id = [string]$Request.Query.id
             if (-not $id) { Send-Response -Status 400 -Body 'Parameter id is required.'; return }
             $d = Get-GapsioDevice -DeviceId $id
-            if ($d) { Send-Response -Status 200 -Body ([ordered]@{ device = $d }) } else { Send-Response -Status 404 -Body 'Device not found.' }
+            if (-not $d) { Send-Response -Status 404 -Body 'Device not found.'; return }
+            if ($community -and -not (Get-GapsioCommunityDeviceIds).ContainsKey([string]$d.deviceId)) { $d = Hide-GapsioItem $d }
+            Send-Response -Status 200 -Body ([ordered]@{ device = $d })
         }
         'agents' { Send-Snapshot -Name 'agents-latest.json' }
         'access' { Send-Snapshot -Name 'access-latest.json' }
@@ -121,6 +125,7 @@ try {
         'assistant' {
             # Optional chat helper (GAPSIO_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.
             if (-not (Test-GapsioAssistant)) { Send-Response -Status 404 -Body 'The assistant is not enabled in this installation.'; return }
+            if ($community) { Send-Response -Status 403 -Body 'The assistant is part of Gapsio Enterprise. Enter a licence key under Settings › Licence.'; return }
             if (-not (Test-GapsioCsrf)) { return }
             try {
                 $q = Get-GapsioRequestJson

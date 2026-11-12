@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Gapsio.psm1'
-    ModuleVersion     = '0.8.5'
+    ModuleVersion     = '0.8.6'
     GUID              = '6b0f7c52-2a0e-4d6f-9a51-3c1d8e0b7a41'
     Author            = 'Gapsio'
     CompanyName       = 'Gapsio'
@@ -14,7 +14,7 @@
         'Get-GapsioHash', 'ConvertTo-GapsioUtc', 'Get-GapsioSettingValues', 'Get-GapsioExclusionRisk', 'Get-GapsioIndicatorRisk',
         'Compare-GapsioCollection', 'Save-GapsioSnapshot', 'Get-GapsioPrincipal', 'Get-GapsioBaseline', 'Get-GapsioControlMapping', 'Test-GapsioBaselineValue',
         'Invoke-GapsioEndpointCollection', 'Invoke-GapsioAccessCollection', 'Invoke-GapsioAgentsCollection', 'Invoke-GapsioLicensingCollection', 'Invoke-GapsioOfficePreviewCollection', 'Invoke-GapsioPurviewPreviewCollection', 'Get-GapsioLicensingModel', 'Get-GapsioSkuDisplayName', 'Invoke-GapsioCollection',
-        'Get-GapsioModules', 'Test-GapsioModuleEnabled', 'Test-GapsioFeature', 'Get-GapsioVersion', 'Compare-GapsioVersion', 'Update-GapsioReleaseInfo', 'Get-GapsioAcceptances', 'Test-GapsioAcceptanceActive', 'Set-GapsioAcceptance', 'Get-GapsioAssignments', 'Set-GapsioAssignment', 'Search-GapsioDirectory', 'Send-GapsioNotification', 'Test-GapsioLicenseKey', 'Get-GapsioLicense', 'Set-GapsioLicense', 'Get-GapsioLicenseTier', 'Get-GapsioCommunityRows', 'Get-GapsioPageSize', 'Protect-GapsioCommunity', 'Protect-GapsioCommunityList', 'Hide-GapsioItem',
+        'Get-GapsioModules', 'Test-GapsioModuleEnabled', 'Test-GapsioFeature', 'Get-GapsioVersion', 'Compare-GapsioVersion', 'Update-GapsioReleaseInfo', 'Get-GapsioAcceptances', 'Test-GapsioAcceptanceActive', 'Set-GapsioAcceptance', 'Get-GapsioAssignments', 'Set-GapsioAssignment', 'Search-GapsioDirectory', 'Send-GapsioNotification', 'Test-GapsioLicenseKey', 'Get-GapsioLicense', 'Set-GapsioLicense', 'Get-GapsioLicenseTier', 'Get-GapsioCommunityRows', 'Get-GapsioPageSize', 'Protect-GapsioCommunity', 'Protect-GapsioCommunityList', 'Hide-GapsioItem', 'Get-GapsioCommunityDeviceIds', 'Protect-GapsioCommunityDevices',
         'Update-GapsioLocalExclusionState', 'Get-GapsioEndpointFindings', 'Test-GapsioBaseline',
         'Test-GapsioAssistant', 'Get-GapsioAssistantContext', 'Invoke-GapsioAssistant',
         'Update-GapsioOfficeAntiPhishHistory', 'ConvertFrom-GapsioAntiPhishParams', 'Get-GapsioAntiPhishChangeDirection', 'Test-GapsioAntiPhishPolicyMatch'

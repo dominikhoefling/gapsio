@@ -170,6 +170,27 @@ function Protect-GapsioCommunityList {
     $out.ToArray()
 }
 
+function Get-GapsioCommunityDeviceIds {
+    <#
+    .SYNOPSIS
+    The devices a Community installation shows in full: the first rows of the stored device list – the same rows the
+    Devices view shows. Search results and device pages are real only for these devices; otherwise a search per name
+    or a device link would reveal every device.
+    #>
+    $ids = @{}
+    foreach ($d in @(Get-GapsioPage -Module 'endpoint' -Name 'devices' -Page 0)) {
+        if ($ids.Count -ge $script:GapsioCommunityRows) { break }
+        $id = [string](Get-GapsioProp $d 'deviceId'); if ($id) { $ids[$id] = $true }
+    }
+    $ids
+}
+
+function Protect-GapsioCommunityDevices {
+    # Device rows of a search: real for the devices of Get-GapsioCommunityDeviceIds, masked otherwise.
+    param([AllowEmptyCollection()][object[]]$Items, [hashtable]$Allowed)
+    @(foreach ($it in @($Items)) { if ($null -eq $it) { continue }; if ($Allowed -and $Allowed.ContainsKey([string](Get-GapsioProp $it 'deviceId'))) { $it } else { Hide-GapsioItem $it } })
+}
+
 function Protect-GapsioCommunity {
     <#
     .SYNOPSIS

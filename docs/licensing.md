@@ -13,6 +13,11 @@ correct, but names, identifiers, users, paths and free text are replaced by `•
 portal, cannot be opened and are left out of CSV exports. Summaries, statistics, charts, warnings and the history of
 runs are complete.
 
+The device search and single device pages follow the device list: only the devices among its first 10 entries are
+shown in clear, whatever is searched for or linked. The optional [portal assistant](installation.md#optional-portal-assistant)
+needs a licence – it summarises the whole tenant and cannot be limited to the first entries; without a key the portal
+shows a note under **Settings › Licence** instead of the assistant.
+
 Administrators see "No licence (Community edition)" in the sidebar and under **Settings › Licence**. Entering a valid key
 switches to the full view immediately – nothing has to be collected again, because the stored data is always complete.
 

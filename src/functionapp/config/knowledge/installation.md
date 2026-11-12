@@ -70,7 +70,7 @@ Example: enable the Office preview module in addition to the defaults:
 
 ## Optional: portal assistant
 
-`-Assistant` adds a chat helper to the portal (admins only). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
+`-Assistant` adds a chat helper to the portal (admins, with a valid [licence](licensing.md)). It explains findings in plain language, answers “what should I fix first?” and points to the right view – it never changes anything and never replaces the tables.
 
 - **Where it runs:** an Azure OpenAI resource with a `gpt-4.1-mini` chat deployment and a `text-embedding-3-small` embedding deployment **in your own subscription**, created by the installer (`-AssistantLocation` picks the region, default = installation region; `swedencentral` has the broadest model availability). Or point to an existing resource with `-AssistantEndpoint https://<name>.openai.azure.com/` and grant Gapsio's runner identity the role *Cognitive Services OpenAI User* on it (`-AssistantEmbeddingDeployment ''` if that resource has no embedding model – doc search then falls back to keywords).
 - **Authentication:** managed identity only; key-based access on the created resource is disabled.

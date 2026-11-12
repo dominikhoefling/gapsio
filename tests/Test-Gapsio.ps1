@@ -1705,6 +1705,27 @@ $r = Call 'me' -Principal $userP; $m = $r.Body | ConvertFrom-Json; Assert ($m.ti
 $r = Call 'endpoint' -Principal $adminP; $cs = $r.Body | ConvertFrom-Json -Depth 64; Assert ($cs.tier -eq 'Community' -and $cs.module -eq 'endpoint' -and $cs.summary) 'api/endpoint: Community snapshot keeps summary'
 $r = Call 'devices' -Principal $adminP -Query @{ q = '' ; size = '3'; page = '4' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.tier -eq 'Community' -and @($sr.rows | Where-Object { -not $_._masked }).Count -eq 0 -or $sr.total -le 12) "devices search: rows beyond 10 masked in Community ($($sr.total))"
 
+# Device search and device pages: real only for the devices the list shows in clear (otherwise a search per name or a
+# device link would reveal every device); the assistant is Enterprise only
+& $mod { $script:GapsioCommunityRows = 2 }
+$firstTwo = @(@($blobs['state/endpoint-devices/0000.json'] | ConvertFrom-Json -Depth 64) | Select-Object -First 2 | ForEach-Object deviceId)
+$other = @(@($blobs['state/endpoint-devices/0000.json'] | ConvertFrom-Json -Depth 64) | Select-Object -Skip 2 | ForEach-Object { $_ })[0]
+$r = Call 'devices' -Principal $adminP -Query @{ page = '0'; size = '200'; q = [string]$other.deviceName }; $sr = $r.Body | ConvertFrom-Json -Depth 64
+Assert ($sr.total -ge 1 -and @($sr.rows | Where-Object { -not $_._masked }).Count -eq 0) "Community: a search for a device beyond the first rows returns it masked ($($other.deviceName))"
+$r = Call 'devices' -Principal $adminP -Query @{ page = '0'; size = '200' }; $sr = $r.Body | ConvertFrom-Json -Depth 64
+Assert (@($sr.rows | Where-Object { -not $_._masked } | ForEach-Object deviceId | Sort-Object) -join ',' -eq (@($firstTwo | Sort-Object) -join ',')) 'Community: the server-side list shows exactly the first rows of the device list in clear'
+$r = Call 'device' -Principal $adminP -Query @{ id = [string]$other.deviceId }; $dv = ($r.Body | ConvertFrom-Json -Depth 64).device
+Assert ([int]$r.StatusCode -eq 200 -and $dv._masked -and $dv.deviceName -ne $other.deviceName) 'Community: the device page of a device beyond the first rows is masked'
+$r = Call 'device' -Principal $adminP -Query @{ id = [string]$firstTwo[0] }; $dv = ($r.Body | ConvertFrom-Json -Depth 64).device
+Assert ([int]$r.StatusCode -eq 200 -and -not $dv._masked -and $dv.deviceId -eq $firstTwo[0]) 'Community: the device page of a device in the clear rows is complete'
+& $mod { $script:GapsioCommunityRows = 10 }
+$savedAi = @($env:GAPSIO_ASSISTANT, $env:GAPSIO_AI_ENDPOINT, $env:GAPSIO_AI_DEPLOYMENT)
+$env:GAPSIO_ASSISTANT = 'true'; $env:GAPSIO_AI_ENDPOINT = 'https://example.openai.azure.com/'; $env:GAPSIO_AI_DEPLOYMENT = 'chat'
+$m = (Call 'me' -Principal $adminP).Body | ConvertFrom-Json
+$r = Call 'assistant' -Method 'POST' -Principal $adminP -Headers @{ 'X-Gapsio' = '1' } -Body '{"question":"What should I fix first?"}'
+Assert ($m.assistant -eq $false -and $m.assistantNeedsLicense -eq $true -and [int]$r.StatusCode -eq 403 -and ($r.Body | ConvertFrom-Json).message -match 'Enterprise') 'Community: the assistant is not offered and its route answers 403 with the reason'
+$env:GAPSIO_ASSISTANT, $env:GAPSIO_AI_ENDPOINT, $env:GAPSIO_AI_DEPLOYMENT = $savedAi
+
 Write-Host '== Licence keys' -ForegroundColor Cyan
 $licEc = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve]::CreateFromFriendlyName('nistP256'))
 $licPem = Join-Path ([IO.Path]::GetTempPath()) "gapsio-lic-$([guid]::NewGuid().ToString('n')).pem"
