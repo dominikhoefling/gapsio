@@ -585,8 +585,8 @@ DeviceTvmSecureConfigurationAssessment
         }
         if (-not $name) { continue }
         $result = if (-not [bool]$r.IsApplicable) { 'N/A' } elseif ([bool]$r.IsCompliant) { 'GOOD' } else { 'BAD' }
-        # Several checks per category: BAD wins
-        if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
+        # Several checks per category: BAD wins over GOOD, GOOD over N/A – independent of the order of the rows
+        $devices[$id].checks[$name] = Merge-GapsioCheckValue -Current $devices[$id].checks[$name] -New $result
     }
 
     # macOS/Linux: installed Defender agent version (101.YYMM.x) from the software inventory
@@ -626,7 +626,7 @@ DeviceTvmSecureConfigurationAssessment
         }
         if (-not $name) { continue }
         $result = if (-not [bool]$r.IsApplicable) { 'N/A' } elseif ([bool]$r.IsCompliant) { 'GOOD' } else { 'BAD' }
-        if ($devices[$id].checks[$name] -ne 'BAD') { $devices[$id].checks[$name] = $result }
+        $devices[$id].checks[$name] = Merge-GapsioCheckValue -Current $devices[$id].checks[$name] -New $result
     }
 
     # Network protection: when TVM has no assessment for a device, its network protection events (30 days) show that it
@@ -803,7 +803,7 @@ function Get-GapsioFleetFindings {
     param([hashtable]$Devices, $Facts)
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
-    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $names = { param($rows) ((@($rows) | Sort-Object deviceName | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
     $all = @($Devices.Values)
 
     foreach ($d in $all) {
@@ -1041,7 +1041,7 @@ function Get-GapsioHygieneFindings {
     param([hashtable]$Devices, $Facts, $Asr)
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
-    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $names = { param($rows) ((@($rows) | Sort-Object deviceName | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
     $all = @($Devices.Values)
     $now = [DateTime]::UtcNow
 
@@ -1118,7 +1118,7 @@ function Get-GapsioHygieneFindings {
     # 7) Browser extensions rated High/Critical by Vulnerability Management – one finding per extension
     foreach ($x in @(@(Get-GapsioProp $Facts 'browserExtensions') | Where-Object { $_ -and $_.devices -gt 0 })) {
         $sev = if ($x.risk -match '^Critical$') { 'High' } else { 'Medium' }
-        $sample = (@($x.names | Select-Object -First 10) -join ', ') + $(if ($x.devices -gt 10) { ', …' } else { '' })
+        $sample = (@($x.names | Sort-Object | Select-Object -First 10) -join ', ') + $(if ($x.devices -gt 10) { ', …' } else { '' })
         $browsers = if ($x.browsers.Count) { $x.browsers -join '/' } else { 'browser' }
         $vendorEn = if ($x.vendor) { " by $($x.vendor)" } else { '' }; $vendorDe = if ($x.vendor) { " von $($x.vendor)" } else { '' }
         $f.Add((New-GapsioFinding -Severity $sev -Category 'Fleet' -Title (& $T "$($x.risk)-risk browser extension '$($x.name)' on $($x.devices) device(s)" "Browser-Erweiterung '$($x.name)' mit Risiko $($x.risk) auf $($x.devices) Gerät(en)") `
@@ -1918,7 +1918,7 @@ function Get-GapsioCoverageFindings {
     param([object[]]$Coverage)
     $T = { param($en, $de) New-GapsioText $en $de }
     $f = [System.Collections.Generic.List[object]]::new()
-    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $names = { param($rows) ((@($rows) | Sort-Object deviceName | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
     $notOnb = @($Coverage | Where-Object { $_.status -eq 'NotOnboarded' })
     if ($notOnb.Count) {
         $f.Add((New-GapsioFinding -Severity 'High' -Category 'Coverage' -Title (& $T "$($notOnb.Count) Intune-managed device(s) not onboarded to Defender for Endpoint" "$($notOnb.Count) Intune-verwaltete(s) Gerät(e) nicht in Defender for Endpoint onboarded") `
@@ -1944,7 +1944,8 @@ function Get-GapsioUsageFindings {
     param([object[]]$Exclusions)
     $unused = @($Exclusions | Where-Object { $_ -and $_.usage -eq 'Unused' })
     if (-not $unused.Count) { return @() }
-    $list = ((@($unused) | Select-Object -First 8 | ForEach-Object { $_.value }) -join ', ') + $(if ($unused.Count -gt 8) { ', …' } else { '' })
+    $values = @($unused | ForEach-Object { [string]$_.value } | Sort-Object -Unique)   # sorted: the text (and so the fingerprint) must not depend on the order of the sources
+    $list = ((@($values) | Select-Object -First 8) -join ', ') + $(if ($values.Count -gt 8) { ', …' } else { '' })
     @(New-GapsioFinding -Severity 'Low' -Category 'Hygiene' -Title (New-GapsioText "$($unused.Count) exclusion(s) without any activity in 30 days" "$($unused.Count) Exclusion(s) ohne jede Aktivität in 30 Tagen") `
             -Detail (New-GapsioText "No process or file activity was seen for these excluded values on any device in the last 30 days: $list. They are probably no longer needed." "Für diese ausgeschlossenen Werte gab es in den letzten 30 Tagen auf keinem Gerät Prozess- oder Dateiaktivität: $list. Sie werden wahrscheinlich nicht mehr gebraucht.") `
             -Recommendation (New-GapsioText 'Review them with the application owners and remove unused exclusions (Exclusions › filter "No activity").' 'Mit den Anwendungsverantwortlichen prüfen und ungenutzte Exclusions entfernen (Exclusions › Filter „Keine Aktivität“).') -Subject 'unused' -StableKey)
@@ -2108,6 +2109,20 @@ function Test-GapsioBaseline {
         }
     }
     @($results)
+}
+
+function Merge-GapsioCheckValue {
+    <#
+    .SYNOPSIS
+    Combines two results for the same check (several secure configurations map to one check): BAD wins over GOOD,
+    GOOD over N/A. Order-independent on purpose – Advanced Hunting returns rows in no fixed order, and "last row
+    wins" made a device flip between GOOD and N/A from run to run.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Current, [AllowNull()][AllowEmptyString()][string]$New)
+    $rank = @{ 'BAD' = 3; 'GOOD' = 2; 'N/A' = 1 }
+    $rc = if ($Current -and $rank.ContainsKey($Current)) { $rank[$Current] } else { 0 }
+    $rn = if ($New -and $rank.ContainsKey($New)) { $rank[$New] } else { 0 }
+    if ($rn -gt $rc) { $New } elseif ($Current) { $Current } else { $New }
 }
 
 function New-GapsioFinding {
@@ -2320,8 +2335,8 @@ function Get-GapsioUpdateFindings {
         if ($age -lt 3) { continue }
         $sev = if ($age -ge 7) { 'High' } else { 'Medium' }
         $f.Add((New-GapsioFinding -Severity $sev -Category 'Updates' -Title (& $T 'Security intelligence older than three days on an active device' 'Security Intelligence auf aktivem Gerät älter als drei Tage') `
-                    -Detail (& $T "$($d.deviceName) was seen recently, but its security intelligence (version $($d.avSignatureVersion)) was published $age days ago. Signatures are released several times a day; a device that is online and still days behind has a broken update source – the 'up to date' flag alone can hide this." `
-                        "$($d.deviceName) war kürzlich online, seine Security Intelligence (Version $($d.avSignatureVersion)) wurde aber vor $age Tagen veröffentlicht. Signaturen erscheinen mehrmals täglich; ein Gerät, das online ist und trotzdem Tage hinterherhängt, hat eine defekte Update-Quelle – das 'aktuell'-Flag allein verdeckt das.") `
+                    -Detail (& $T "$($d.deviceName) was seen recently, but its security intelligence (version $($d.avSignatureVersion)) was published on $($sigAt.ToString('yyyy-MM-dd')), more than $(if ($age -ge 7) { 'a week' } else { 'three days' }) ago. Signatures are released several times a day; a device that is online and still days behind has a broken update source – the 'up to date' flag alone can hide this." `
+                        "$($d.deviceName) war kürzlich online, seine Security Intelligence (Version $($d.avSignatureVersion)) wurde aber am $($sigAt.ToString('dd.MM.yyyy')) veröffentlicht, vor mehr als $(if ($age -ge 7) { 'einer Woche' } else { 'drei Tagen' }). Signaturen erscheinen mehrmals täglich; ein Gerät, das online ist und trotzdem Tage hinterherhängt, hat eine defekte Update-Quelle – das 'aktuell'-Flag allein verdeckt das.") `
                     -Recommendation (& $T 'Check SignatureFallbackOrder and connectivity to MMPC/WU; run "MpCmdRun -SignatureUpdate" on the device and read Get-MpComputerStatus.' 'SignatureFallbackOrder und Verbindung zu MMPC/WU prüfen; auf dem Gerät „MpCmdRun -SignatureUpdate“ ausführen und Get-MpComputerStatus lesen.') `
                     -Subject 'upd|sig-age' -DeviceId $d.deviceId -DeviceName $d.deviceName))
     }
@@ -2383,7 +2398,7 @@ function Get-GapsioInventoryFindings {
     param([hashtable]$Devices, [object[]]$SettingValues, $Asr)
     $f = [System.Collections.Generic.List[object]]::new()
     $T = { param($en, $de) New-GapsioText -En $en -De $de }
-    $names = { param($rows) ((@($rows) | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
+    $names = { param($rows) ((@($rows) | Sort-Object deviceName | Select-Object -First 10 | ForEach-Object { $_.deviceName }) -join ', ') + $(if (@($rows).Count -gt 10) { ', …' } else { '' }) }
     $all = @($Devices.Values)
 
     # 1) Ungrouped devices (only when the tenant uses device groups at all)
@@ -2502,8 +2517,8 @@ function Get-GapsioPlatformFindings {
         $auditd = if ($grp.os -eq 'Linux' -and @($old | Where-Object { $_.m -lt (24 * 12 + 8) }).Count) { ' Builds before 101.2408 still rely on auditd, which is no longer supported as event provider.' } else { '' }
         $auditdDe = if ($auditd) { ' Builds vor 101.2408 nutzen noch auditd, das als Ereignisquelle nicht mehr unterstützt wird.' } else { '' }
         $f.Add((New-GapsioFinding -Severity 'Medium' -Category 'Platform' -Title (& $T "$($old.Count) $($grp.os) device(s) with a Defender agent 6+ months behind" "$($old.Count) $($grp.os)-Gerät(e) mit 6+ Monate altem Defender-Agent") `
-                    -Detail (& $T "Newest build in the fleet is $newest; these devices run $((@($old | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Old agents miss sensor fixes and fall out of support after about nine months.$auditd" `
-                        "Neuester Build in der Flotte ist $newest; diese Geräte laufen mit $((@($old | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Alte Agents fehlen Sensor-Fixes, nach etwa neun Monaten fallen sie aus dem Support.$auditdDe") `
+                    -Detail (& $T "Newest build in the fleet is $newest; these devices run $((@($old | Sort-Object { [string]$_.d.deviceName } | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Old agents miss sensor fixes and fall out of support after about nine months.$auditd" `
+                        "Neuester Build in der Flotte ist $newest; diese Geräte laufen mit $((@($old | Sort-Object { [string]$_.d.deviceName } | ForEach-Object { "$($_.d.deviceName) ($($_.v))" } | Select-Object -First 8)) -join ', ')$(if ($old.Count -gt 8) { ' …' }). Alte Agents fehlen Sensor-Fixes, nach etwa neun Monaten fallen sie aus dem Support.$auditdDe") `
                     -Recommendation (& $T "$(if ($grp.os -eq 'macOS') { 'Check Microsoft AutoUpdate (MAU) reaches these Macs and that the update channel is set; on Jamf-managed Macs verify the MAU profile.' } else { 'Check the package repository and update job (apt/yum/zypper) on these hosts; pin the production channel and automate upgrades.' })" "$(if ($grp.os -eq 'macOS') { 'Prüfen, ob Microsoft AutoUpdate (MAU) diese Macs erreicht und der Update-Kanal gesetzt ist; bei Jamf das MAU-Profil kontrollieren.' } else { 'Paket-Repository und Update-Job (apt/yum/zypper) auf diesen Hosts prüfen; Production-Kanal setzen und Upgrades automatisieren.' })") -Subject "plat|agent-old|$($grp.os)" -StableKey))
     }
 
@@ -2561,7 +2576,7 @@ function Get-GapsioEndpointFindings {
         if ($d.avMode -eq '1' -or $d.avMode -eq '2' -or $d.checks['PassiveModeOff'] -eq 'BAD') {
             $extraEn = if ($locals.Count -gt 0) { " In addition there are $($locals.Count) local exclusion(s)." } else { '' }
             $extraDe = if ($locals.Count -gt 0) { " Zusätzlich $($locals.Count) lokale Exclusion(s)." } else { '' }
-            $others = (@($d.thirdPartyAv) | Where-Object { $_ } | Select-Object -First 2) -join ', '
+            $others = (@($d.thirdPartyAv) | Where-Object { $_ } | Sort-Object | Select-Object -First 2) -join ', '
             $windows = $d.os -match '^Windows'
             if ($windows) {
                 if (-not $others) {
@@ -2658,7 +2673,7 @@ function Get-GapsioEndpointFindings {
     # ASR rules: target / configured / effective
     foreach ($r in @(Get-GapsioProp $Asr 'rules')) {
         if (-not $r) { continue }
-        $groupsText = (@($r.belowByGroup | Select-Object -First 5 | ForEach-Object { "$($_.group) ($($_.devices))" }) -join ', ')
+        $groupsText = (@($r.belowByGroup | Sort-Object @{ Expression = { [int]$_.devices }; Descending = $true }, group | Select-Object -First 5 | ForEach-Object { "$($_.group) ($($_.devices))" }) -join ', ')
         $assignedText = (@($r.configured | Where-Object { $_.assigned } | ForEach-Object { "$($_.policyName) = $($_.mode)" }) -join '; ')
         switch ($r.status) {
             'Conflict' {
@@ -3019,8 +3034,11 @@ function Invoke-GapsioEndpointCollection {
     $deviceList = @($(foreach ($d in $devices.Values) {
                 $d.key = Get-GapsioHash "dev|$($d.deviceId)"
                 $d.label = New-GapsioText "Device $($d.deviceName)" "Gerät $($d.deviceName)"
-                $d.state = "Mode=$($d.avModeText); " + (@($d.checks.Keys | ForEach-Object { "$_=$($d.checks[$_])" }) -join '; ') +
-                $(if ($d.asr) { '; ASR ' + (@($d.asr.Keys | ForEach-Object { "$_=$($d.asr[$_])" }) -join ',') } else { '' })
+                # Sorted, and ASR rules without a state (n/a) left out: the order of the hunting rows and whether TVM
+                # listed non-applicable rules this time must not make a device "Changed" in every run
+                $asrState = @(@($(if ($d.asr) { $d.asr.Keys })) | Sort-Object | Where-Object { [string]$d.asr[$_] -ne 'n/a' } | ForEach-Object { "$_=$($d.asr[$_])" })
+                $d.state = "Mode=$($d.avModeText); " + (@($d.checks.Keys | Sort-Object | ForEach-Object { "$_=$($d.checks[$_])" }) -join '; ') +
+                $(if ($asrState.Count) { '; ASR ' + ($asrState -join ',') } else { '' })
                 $d.fp = Get-GapsioHash "$($d.state)|$($d.localExclusions)"
                 $d._filter = Get-GapsioDeviceFilter -Device $d
                 $d._search = Get-GapsioDeviceSearchText -Device $d
