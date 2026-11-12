@@ -845,7 +845,7 @@ function Get-GapsioFleetFindings {
     if ($thirdParty.Count) {
         $vendors = @{}
         foreach ($d in $thirdParty) { foreach ($p in @($d.thirdPartyAv)) { $v = ([string]$p -split ' ')[0]; $vendors[$v] = [int]$vendors[$v] + 1 } }
-        $vendorText = (@($vendors.GetEnumerator() | Sort-Object { -$_.Value } | ForEach-Object { "$($_.Key) ($($_.Value))" }) -join ', ')
+        $vendorText = (@($vendors.GetEnumerator() | Sort-Object { -$_.Value }, Key | ForEach-Object { "$($_.Key) ($($_.Value))" }) -join ', ')
         $passive = @($thirdParty | Where-Object { $_.avMode -in '1', '2' }).Count
         $f.Add((New-GapsioFinding -Severity 'Low' -Category 'Fleet' -Title (& $T "$($thirdParty.Count) onboarded device(s) with a third-party AV/EDR product" "$($thirdParty.Count) onboardete(s) Gerät(e) mit Fremd-AV/EDR-Produkt") `
                     -Detail (& $T "Vendors: $vendorText. $passive device(s) run Defender in passive mode behind the other product. Every onboarded device is covered by the Defender for Endpoint licence of its user – a second EDR on the same device is a double spend unless it is a deliberate migration or defence-in-depth decision." "Hersteller: $vendorText. $passive Gerät(e) betreiben Defender im passiven Modus hinter dem anderen Produkt. Jedes onboardete Gerät ist durch die Defender-for-Endpoint-Lizenz seines Benutzers abgedeckt – ein zweites EDR auf demselben Gerät ist eine Doppelausgabe, sofern es nicht bewusste Migration oder Defense-in-Depth ist.") `
@@ -1674,7 +1674,7 @@ function Get-GapsioAsrOverview {
         elseif ($eff.Block -lt $measured -and $recommended -eq 'Block') { 'BlockRecommended' }
         else { 'OK' }
 
-        $belowGroups = @($below | Group-Object { & $grp $_ } | Sort-Object Count -Descending | ForEach-Object { [pscustomobject]@{ group = $_.Name; devices = $_.Count } })
+        $belowGroups = @($below | Group-Object { & $grp $_ } | Sort-Object @{ Expression = 'Count'; Descending = $true }, Name | ForEach-Object { [pscustomobject]@{ group = $_.Name; devices = $_.Count } })
         [pscustomobject]@{
             key          = Get-GapsioHash "asr|$($r.id)"
             fp           = Get-GapsioHash "$status|$(@($configured | ForEach-Object { "$($_.policyId)=$($_.mode)" }) -join ';')|$($below.Count)"

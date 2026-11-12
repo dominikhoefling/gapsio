@@ -549,7 +549,7 @@ function Get-GapsioDefenderAuditFindings {
     }
     $set = @($ev | Where-Object { $_.kind -eq 'Settings' })
     if ($set.Count) {
-        $ops = (@($set | Group-Object operation | Sort-Object Count -Descending | Select-Object -First 6 | ForEach-Object { "$($_.Name) ($($_.Count))" })) -join ', '
+        $ops = (@($set | Group-Object operation | Sort-Object @{ Expression = 'Count'; Descending = $true }, Name | Select-Object -First 6 | ForEach-Object { "$($_.Name) ($($_.Count))" })) -join ', '
         $f.Add((New-GapsioFinding -Severity 'Low' -Category 'Platform' -Title (& $T "$($set.Count) Defender setting change(s) in the portal in 30 days" "$($set.Count) Defender-Einstellungsänderung(en) im Portal in 30 Tagen") `
                     -Detail (& $T "Changes: $ops. Last by: $(& $list $set). Portal changes (advanced features, indicators, rules) do not appear in any device timeline." "Änderungen: $ops. Zuletzt durch: $(& $list $set). Portal-Änderungen (erweiterte Features, Indikatoren, Regeln) erscheinen in keiner Geräte-Timeline.") `
                     -Recommendation (& $T 'Match the changes against change tickets; forward the unified audit log to the SIEM and alert on tamper protection, EDR in block mode and indicator changes.' 'Änderungen mit Change-Tickets abgleichen; das Unified Audit Log ins SIEM leiten und bei Änderungen an Tamper Protection, EDR im Block-Modus und Indikatoren alarmieren.') -Subject 'audit|settings' -StableKey))
@@ -655,7 +655,7 @@ function Get-GapsioPermissionUsage {
                 count        = $_.count
                 first        = $_.first.ToString('o')
                 last         = $_.last.ToString('o')
-                actions      = @($_.actions.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object { [pscustomobject]@{ action = $_.Key; count = $_.Value } })
+                actions      = @($_.actions.GetEnumerator() | Sort-Object @{ Expression = 'Value'; Descending = $true }, Key | ForEach-Object { [pscustomobject]@{ action = $_.Key; count = $_.Value } })
                 source       = (@($_.sources.Keys) | Sort-Object) -join ', '
             }
         })
