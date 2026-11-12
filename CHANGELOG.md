@@ -6,6 +6,17 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.6] – 2026-11-12
+
+### Fixed
+- **Community edition: every device could be read in full through the device search or a device page.** Each search
+  showed its first 10 hits in clear, and `api/device` was not masked at all. Both now follow the device list: only the
+  devices among its first 10 entries are shown in clear.
+
+### Changed
+- The portal assistant needs a licence. It summarises the whole tenant and cannot be limited to the first entries;
+  without a key administrators see a note under *Settings › Licence* instead.
+
 ## [0.8.5] – 2026-11-12
 
 Found in a code review of the whole product (API, storage handling, timers, assistant, update script, documentation).

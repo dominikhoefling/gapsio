@@ -322,7 +322,8 @@
     'ch.chart': ['Changes per day', 'Änderungen pro Tag'], 'ch.day': ['Day', 'Tag'], 'ch.chart.hint': ['Hover a day for details, click it to filter the table.', 'Mouse-over zeigt Details zum Tag, ein Klick filtert die Tabelle.'],
     'ch.areas': ['By area', 'Nach Bereich'],
     'v.license': ['Licence', 'Lizenz'],
-    'lic.lede': ['Gapsio checks the licence offline – it never calls home. Without a valid licence Gapsio runs as Community edition: all checks run, summaries and charts are complete, but every list shows only its first {0} entries in clear – the rest is masked on the server.', 'Gapsio prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz läuft Gapsio als Community-Edition: alle Prüfungen laufen, Zusammenfassungen und Diagramme sind vollständig, aber jede Liste zeigt nur die ersten {0} Einträge im Klartext – der Rest wird serverseitig maskiert.'],
+    'lic.lede': ['Gapsio checks the licence offline – it never calls home. Without a valid licence Gapsio runs as Community edition: all checks run, summaries and charts are complete, but every list shows only its first {0} entries in clear – the rest is masked on the server. The assistant needs a licence.', 'Gapsio prüft die Lizenz offline – es wird nichts nach Hause gemeldet. Ohne gültige Lizenz läuft Gapsio als Community-Edition: alle Prüfungen laufen, Zusammenfassungen und Diagramme sind vollständig, aber jede Liste zeigt nur die ersten {0} Einträge im Klartext – der Rest wird serverseitig maskiert. Der Assistent braucht eine Lizenz.'],
+    'lic.assistant': ['The assistant is switched on in this installation but needs a licence: it summarises the whole tenant and cannot be limited to the first entries. It appears in the portal as soon as a valid licence key is entered.', 'Der Assistent ist in dieser Installation eingeschaltet, braucht aber eine Lizenz: Er fasst den ganzen Tenant zusammen und lässt sich nicht auf die ersten Einträge begrenzen. Er erscheint im Portal, sobald ein gültiger Lizenzschlüssel eingetragen ist.'],
     'lic.community.rows': ['Community edition: {0} of {1} entries shown in clear, the rest is masked.', 'Community-Edition: {0} von {1} Einträgen im Klartext, der Rest ist maskiert.'],
     'lic.community.link': ['Get a licence for the full list.', 'Mit Lizenz die ganze Liste sehen.'], 'lic.community.masked': ['Masked – licence required', 'Maskiert – Lizenz erforderlich'],
     'lic.community.export': ['The export contains only the unmasked entries.', 'Der Export enthält nur die unmaskierten Einträge.'],
@@ -3243,6 +3244,7 @@
 
     async license(main) {
       main.append(h('h1', null, t('v.license')), h('p', { class: 'lede' }, t('lic.lede', num(communityRows() || 10))));
+      if (state.me && state.me.assistantNeedsLicense) main.append(h('div', { class: 'card' }, t('lic.assistant')));
       let l; try { l = await api('license'); } catch (e) { main.append(noData(e, 'endpoint')); return; }
       const st = h('span', { class: `state ${l.status === 'Valid' ? 'good' : l.status === 'ExpiringSoon' || l.status === 'None' ? 'warn' : 'bad'}` }, code('lic.st', l.status));
       main.append(h('div', { class: 'detail card' }, dl([
