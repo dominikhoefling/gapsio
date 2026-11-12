@@ -126,7 +126,7 @@ function Get-GapsioDeviceUsage {
     $reasons = [System.Collections.Generic.List[string]]::new()
     $name = [string](Get-GapsioProp $Row 'DeviceName'); $os = [string](Get-GapsioProp $Row 'OSPlatform')
     $model = ([string](Get-GapsioProp $Row 'Model') + ' ' + [string](Get-GapsioProp $Row 'Vendor') + ' ' + [string](Get-GapsioProp $Intune 'model') + ' ' + [string](Get-GapsioProp $Intune 'manufacturer')).Trim()
-    $enrol = [string](Get-GapsioProp $Intune 'deviceEnrollmentType'); $profile = [string](Get-GapsioProp $Intune 'enrollmentProfileName')
+    $enrol = [string](Get-GapsioProp $Intune 'deviceEnrollmentType'); $enrolProfile = [string](Get-GapsioProp $Intune 'enrollmentProfileName')
     $usage = 'Personal'
     if ($os -match 'WVD$' -or $os -match 'AVD' -or $enrol -eq 'azureAdJoinUsingAzureVmExtension' -or $model -match $script:GapsioLicensingVdiPattern -or $name -match '^(avd|wvd|vdi|cpc)-') {
         $usage = 'VDI'
@@ -134,10 +134,10 @@ function Get-GapsioDeviceUsage {
         if ($enrol -eq 'azureAdJoinUsingAzureVmExtension') { $reasons.Add('Intune: joined via Azure VM extension') }
         if ($model -match $script:GapsioLicensingVdiPattern) { $reasons.Add("Model/vendor: $model") }
     }
-    elseif ($enrol -eq 'windowsAzureADJoinUsingDeviceAuth' -or $profile -match $script:GapsioLicensingKioskPattern -or $name -match $script:GapsioLicensingKioskPattern) {
+    elseif ($enrol -eq 'windowsAzureADJoinUsingDeviceAuth' -or $enrolProfile -match $script:GapsioLicensingKioskPattern -or $name -match $script:GapsioLicensingKioskPattern) {
         $usage = 'Kiosk'
         if ($enrol -eq 'windowsAzureADJoinUsingDeviceAuth') { $reasons.Add('Intune: self-deploying / shared-PC enrolment (device authentication)') }
-        if ($profile -match $script:GapsioLicensingKioskPattern) { $reasons.Add("Enrolment profile: $profile") }
+        if ($enrolProfile -match $script:GapsioLicensingKioskPattern) { $reasons.Add("Enrolment profile: $enrolProfile") }
         if ($name -match $script:GapsioLicensingKioskPattern) { $reasons.Add("Device name: $name") }
     }
     if ($DistinctUsers -ge $script:GapsioLicensingSharedMinUsers) {

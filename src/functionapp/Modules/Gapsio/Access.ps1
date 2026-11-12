@@ -797,9 +797,9 @@ function Invoke-GapsioAccessCollection {
         $role = & $roleOf $a.roleDefinitionId
         $scope = Get-GapsioXdrScope -AppScopeIds @(Get-GapsioProp $a 'appScopeIds') -DirectoryScopeIds @(Get-GapsioProp $a 'directoryScopeIds')
         $aName = [string](Get-GapsioProp $a 'displayName')
-        foreach ($pid in @(Get-GapsioProp $a 'principalIds')) {
-            if (-not $pid) { continue }
-            $p = Resolve-GapsioPrincipalInfo -Id ([string]$pid) -Expanded $null
+        foreach ($principalId in @(Get-GapsioProp $a 'principalIds')) {
+            if (-not $principalId) { continue }
+            $p = Resolve-GapsioPrincipalInfo -Id ([string]$principalId) -Expanded $null
             if ($p.type -eq 'group') {
                 if (-not $groupGrants.ContainsKey($p.id)) { $groupGrants[$p.id] = [System.Collections.Generic.List[object]]::new() }
                 $groupGrants[$p.id].Add([pscustomobject]@{ roleId = $role.id; role = $role.name; privileged = $role.privileged; permissionGroups = $role.permissionGroups; scope = $scope; assignment = $aName })

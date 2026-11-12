@@ -98,14 +98,19 @@ try {
     $pkg = Join-Path $work 'gapsio-functionapp.zip'
     $sumFile = Join-Path $work 'SHA256SUMS'
     if (Test-Path $sumFile) {
+        $checked = @()
         foreach ($line in Get-Content $sumFile) {
             if ($line -notmatch '^([0-9a-f]{64})\s+\*?(.+)$') { continue }
-            $f = Join-Path $work $Matches[2].Trim()
+            $name = $Matches[2].Trim(); $expected = $Matches[1]
+            $f = Join-Path $work $name
             if (-not (Test-Path $f)) { continue }
             $actual = (Get-FileHash -Algorithm SHA256 $f).Hash.ToLowerInvariant()
-            if ($actual -ne $Matches[1]) { throw "Checksum mismatch for $($Matches[2]) – the download is corrupt or was tampered with. Nothing was changed." }
+            if ($actual -ne $expected) { throw "Checksum mismatch for $name – the download is corrupt or was tampered with. Nothing was changed." }
+            $checked += $name
         }
-        Write-Ok 'SHA256 checksums verified'
+        # The package itself must be listed – a SHA256SUMS without it would otherwise "verify" nothing
+        if ($checked -notcontains 'gapsio-functionapp.zip' -and -not $Force) { throw 'SHA256SUMS has no checksum for gapsio-functionapp.zip. Use -Force to deploy an unverified package.' }
+        Write-Ok "SHA256 checksums verified ($($checked -join ', '))"
     }
     elseif (-not $Force) { throw 'SHA256SUMS missing next to the package. Use -Force to deploy an unverified package.' }
     if (-not $PackagePath -and (Get-Command gh -ErrorAction SilentlyContinue)) {

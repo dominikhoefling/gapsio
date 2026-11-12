@@ -121,7 +121,9 @@ function Update-GapsioOfficePolicyHistory {
     $now = [DateTime]::UtcNow
     $title = 'Protection policy changes (Exchange admin audit)'
     $history = $null
-    try { $history = Get-GapsioBlob -Container 'state' -Name 'office-policy-history.json' } catch { Add-GapsioWarning "office policy history: $($_.Exception.Message)" }
+    # A failed read must not be followed by a write: the 30 days in Advanced Hunting would replace up to 400 days of history
+    $historyReadFailed = $false
+    try { $history = Get-GapsioBlob -Container 'state' -Name 'office-policy-history.json' } catch { $historyReadFailed = $true; Add-GapsioWarning "office policy history could not be read (not updated in this run): $($_.Exception.Message)" }
     $changes = @{}
     foreach ($c in @(Get-GapsioProp $history 'changes')) {
         if ($null -eq $c) { continue }
@@ -153,7 +155,7 @@ function Update-GapsioOfficePolicyHistory {
 
     $keepFrom = $now.AddDays(-400)
     $list = @($changes.Values | Where-Object { ([datetime]$_.ts) -ge $keepFrom } | Sort-Object { [datetime]$_.ts })
-    if (-not $row) {
+    if (-not $row -and -not $historyReadFailed) {
         try { Set-GapsioBlob -Container 'state' -Name 'office-policy-history.json' -Object ([ordered]@{ version = 1; since = $since; updatedAt = $now.ToString('o'); changes = $list }) -Depth 12 }
         catch { Add-GapsioWarning "office policy history write: $($_.Exception.Message)" }
     }

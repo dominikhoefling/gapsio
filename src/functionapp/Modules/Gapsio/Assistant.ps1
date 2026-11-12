@@ -403,7 +403,7 @@ function Invoke-GapsioAssistantTool {
     Executes one tool call. Returns an object (serialised for the model, capped). Never throws – errors go back to
     the model as { error } so it can tell the user.
     #>
-    param([Parameter(Mandatory)][string]$Name, $Args, [string]$Lang = 'en')
+    param([Parameter(Mandatory)][string]$Name, $Arguments, [string]$Lang = 'en')
     $modules = @(Get-GapsioModules)
     # One live hunting query (last 7 days). Returns the rows as an array – or @{ error } when the query failed, so
     # the model never mistakes a failed query for "nothing found".
@@ -415,17 +415,17 @@ function Invoke-GapsioAssistantTool {
     try {
         switch ($Name) {
             'search_findings' {
-                $mods = $(if ($Args.module) { @([string]$Args.module) } else { $modules })
-                $limit = [Math]::Min(50, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 20 })))
-                $q = ([string]$Args.query).Trim().ToLowerInvariant()
+                $mods = $(if ($Arguments.module) { @([string]$Arguments.module) } else { $modules })
+                $limit = [Math]::Min(50, [Math]::Max(1, [int]$(if ($Arguments.limit) { $Arguments.limit } else { 20 })))
+                $q = ([string]$Arguments.query).Trim().ToLowerInvariant()
                 $hits = [System.Collections.Generic.List[object]]::new(); $total = 0
                 $sevOrder = @{ Critical = 0; High = 1; Medium = 2; Low = 3 }
                 foreach ($m in $mods) {
                     if ($m -notin $modules) { continue }
                     $snap = $null; try { $snap = Get-GapsioBlob -Container 'state' -Name (Get-GapsioAssistantSnapshotName -Module $m) } catch { }
                     foreach ($f in @($snap.findings)) {
-                        if ($Args.severity -and [string]$f.severity -ne [string]$Args.severity) { continue }
-                        if ($Args.category -and [string]$f.category -notlike "*$($Args.category)*") { continue }
+                        if ($Arguments.severity -and [string]$f.severity -ne [string]$Arguments.severity) { continue }
+                        if ($Arguments.category -and [string]$f.category -notlike "*$($Arguments.category)*") { continue }
                         $line = Get-GapsioAssistantFindingText -Finding $f -Lang $Lang
                         if ($q -and -not $line.ToLowerInvariant().Contains($q)) { continue }
                         $total++
@@ -437,16 +437,24 @@ function Invoke-GapsioAssistantTool {
             }
             'search_devices' {
                 if ($modules -notcontains 'endpoint') { return @{ error = 'endpoint module not enabled' } }
-                $limit = [Math]::Min(25, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 10 })))
-                $res = Search-GapsioDevices -Query ([string]$Args.query) -IssuesOnly:([bool]$Args.issuesOnly) -Page 0 -Size $limit
+                $limit = [Math]::Min(25, [Math]::Max(1, [int]$(if ($Arguments.limit) { $Arguments.limit } else { 10 })))
+                $res = Search-GapsioDevices -Query ([string]$Arguments.query) -IssuesOnly:([bool]$Arguments.issuesOnly) -Page 0 -Size $limit
                 $rows = @(@($res.rows) | ForEach-Object { ConvertTo-GapsioAssistantDevice -Device $_ })
                 return [ordered]@{ total = $res.total; returned = $rows.Count; devices = $rows }
             }
             'get_device' {
                 if ($modules -notcontains 'endpoint') { return @{ error = 'endpoint module not enabled' } }
                 $d = $null
-                if ($Args.deviceId) { $d = Get-GapsioDevice -DeviceId ([string]$Args.deviceId) }
-                elseif ($Args.name) { $r = Search-GapsioDevices -Query ([string]$Args.name) -Page 0 -Size 5; $d = @($r.rows) | Where-Object { $_.deviceName -eq [string]$Args.name } | Select-Object -First 1; if (-not $d -and @($r.rows).Count -eq 1) { $d = $r.rows[0] }; if ($d -and $d.deviceId) { $full = Get-GapsioDevice -DeviceId ([string]$d.deviceId); if ($full) { $d = $full } } }
+                if ($Arguments.deviceId) { $d = Get-GapsioDevice -DeviceId ([string]$Arguments.deviceId) }
+                elseif ($Arguments.name) {
+                    # The exact name wins over partial matches (WIN-01 vs WIN-010). Kept in a variable: inside a
+                    # Where-Object block $args is the block's own automatic variable.
+                    $wanted = ([string]$Arguments.name).Trim()
+                    $r = Search-GapsioDevices -Query $wanted -Page 0 -Size 25
+                    $d = @($r.rows) | Where-Object { [string]$_.deviceName -eq $wanted } | Select-Object -First 1
+                    if (-not $d -and @($r.rows).Count -eq 1) { $d = $r.rows[0] }
+                    if ($d -and $d.deviceId) { $full = Get-GapsioDevice -DeviceId ([string]$d.deviceId); if ($full) { $d = $full } }
+                }
                 if (-not $d) { return @{ error = 'device not found in the snapshot' } }
                 # Same date format as everywhere else; the stored record keeps its other fields as they are
                 $copy = [ordered]@{}
@@ -459,7 +467,7 @@ function Invoke-GapsioAssistantTool {
                 return [ordered]@{ device = $json }
             }
             'device_live_status' {
-                $name = ([string]$Args.deviceName).Trim()
+                $name = ([string]$Arguments.deviceName).Trim()
                 if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9\-\._]{0,62}$') { return @{ error = 'invalid device name' } }
                 if (-not (Test-GapsioFeature -Name 'hunting')) { return @{ error = 'Advanced Hunting (ThreatHunting.Read.All) is not enabled in this installation – live data unavailable; use the snapshot tools.' } }
                 $n = ConvertTo-GapsioKqlString $name
@@ -522,8 +530,8 @@ DeviceTvmSecureConfigurationAssessment
                 return $out
             }
             'search_docs' {
-                $limit = [Math]::Min(6, [Math]::Max(1, [int]$(if ($Args.limit) { $Args.limit } else { 4 })))
-                $hits = @(Search-GapsioKnowledge -Query ([string]$Args.query) -Top $limit)
+                $limit = [Math]::Min(6, [Math]::Max(1, [int]$(if ($Arguments.limit) { $Arguments.limit } else { 4 })))
+                $hits = @(Search-GapsioKnowledge -Query ([string]$Arguments.query) -Top $limit)
                 return [ordered]@{ returned = $hits.Count; results = $hits }
             }
             default { return @{ error = "unknown tool $Name" } }
@@ -622,13 +630,13 @@ $context
         # echo the assistant turn (with tool_calls) then one tool message per call
         $messages.Add(@{ role = 'assistant'; content = $(if ($choice.message.content) { [string]$choice.message.content } else { $null }); tool_calls = @($calls | ForEach-Object { @{ id = $_.id; type = 'function'; function = @{ name = $_.function.name; arguments = [string]$_.function.arguments } } }) })
         foreach ($c in $calls) {
-            $args = @{}
-            try { if ($c.function.arguments) { $args = $c.function.arguments | ConvertFrom-Json } } catch { $args = @{} }
+            $toolArgs = @{}
+            try { if ($c.function.arguments) { $toolArgs = $c.function.arguments | ConvertFrom-Json } } catch { $toolArgs = @{} }
             $tsw = [System.Diagnostics.Stopwatch]::StartNew()
-            $result = Invoke-GapsioAssistantTool -Name $c.function.name -Args $args -Lang $Lang
+            $result = Invoke-GapsioAssistantTool -Name $c.function.name -Arguments $toolArgs -Lang $Lang
             $json = $result | ConvertTo-Json -Depth 8 -Compress
             if ($json.Length -gt 12000) { $json = $json.Substring(0, 12000) + '…(truncated)' }
-            $toolsUsed.Add([ordered]@{ name = $c.function.name; args = $args; ms = $tsw.ElapsedMilliseconds; ok = -not [bool](Get-GapsioProp $result 'error') })
+            $toolsUsed.Add([ordered]@{ name = $c.function.name; args = $toolArgs; ms = $tsw.ElapsedMilliseconds; ok = -not [bool](Get-GapsioProp $result 'error') })
             $messages.Add(@{ role = 'tool'; tool_call_id = $c.id; content = $json })
         }
     }

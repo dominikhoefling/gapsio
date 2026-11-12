@@ -2425,8 +2425,8 @@ function Get-GapsioInventoryFindings {
         if (-not $r) { continue }
         $auditPolicies = @($r.configured | Where-Object { $_.assigned -and $_.mode -eq 'Audit' } | ForEach-Object { $_.policyId } | Sort-Object -Unique)
         if (-not $auditPolicies.Count) { continue }
-        $stale = foreach ($pid in $auditPolicies) {
-            $sv = @($SettingValues | Where-Object { $_.policyId -eq $pid -and $_.lastModified })[0]
+        $stale = foreach ($policyId in $auditPolicies) {
+            $sv = @($SettingValues | Where-Object { $_.policyId -eq $policyId -and $_.lastModified })[0]
             if (-not $sv) { continue }
             $lm = $null; try { $lm = ConvertTo-GapsioUtc $sv.lastModified } catch { continue }
             $ageDays = [math]::Floor(($now - $lm).TotalDays)
@@ -2979,8 +2979,9 @@ function Invoke-GapsioEndpointCollection {
     $response = Get-GapsioResponseFacts
     $devices = Get-GapsioDeviceStates
 
-    $prevLocal = @()
-    try { $prevLocal = @(Get-GapsioBlob -Container 'state' -Name 'endpoint-localstate.json') } catch { Add-GapsioWarning "Local exclusion state could not be read: $($_.Exception.Message)" }
+    # No try/catch on purpose: the run writes this state back at the end, and continuing after a failed read would
+    # replace the 90-day history of local exclusions with an empty one.
+    $prevLocal = @(Get-GapsioBlob -Container 'state' -Name 'endpoint-localstate.json')
     $events = Get-GapsioLocalExclusionEvents
     $inventory = Resolve-GapsioInventoryDevices -Inventory @(Get-GapsioDeviceInventory) -Devices $devices
     $local = Update-GapsioLocalExclusionState -Events $events -Previous $prevLocal -Inventory $inventory

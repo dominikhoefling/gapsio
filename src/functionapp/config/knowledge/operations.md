@@ -2,7 +2,10 @@
 
 ## Runs
 
-- Scheduled daily (times below, UTC) and on demand via **Collect now** in the portal.
+- Scheduled daily (times below, UTC) and on demand via **Collect now** in the portal. The preview modules run every
+  six hours (`officepreview` at :15, `purviewpreview` at :45; fixed schedules).
+- After the endpoint run (scheduled or on demand) Gapsio checks once a day for a new release and refreshes the
+  assistant's knowledge index when the assistant is enabled.
 - Logs: Application Insights in the Gapsio resource group.
 - Cost: Flex Consumption with daily runs, a small storage account and Log Analytics with little data – usually a few
   euros per month; larger tenants accordingly more.
@@ -13,7 +16,7 @@ Set by the install script; change them in the Function App configuration or via 
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`) – derived from `-Features` |
+| `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`, `purviewpreview`) – derived from `-Features` |
 | `GAPSIO_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `coverage`, `response`, `detections`, `inventory`, `audit`) – derived from `-Features` |
 | `GAPSIO_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `GAPSIO_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
@@ -22,6 +25,8 @@ Set by the install script; change them in the Function App configuration or via 
 | `GAPSIO_LICENSING_DAYS` | `30` | Observation window for device logons (7–90, [Licensing module](modules/licensing.md)) |
 | `GAPSIO_LICENSING_DEVICES_PER_USER` | `5` | Devices covered per user licence |
 | `GAPSIO_LICENSING_DETAIL` | `users` | `users` keeps UPNs in the licensing snapshot, `aggregate` pseudonymises them |
+| `GAPSIO_LICENSING_SHARED_MIN_USERS` | `4` | A client used by at least this many people in the window counts as shared (minimum 2) |
+| `GAPSIO_LICENSING_SERVICE_PATTERN` | built-in list (svc, srv, service, admin, kiosk, scan …) | Regular expression for account names that are service or admin accounts and do not count as users; an invalid expression is ignored with a notice |
 | `GAPSIO_CHANGE_RETENTION_DAYS` | `365` | Retention of the change history (`-ChangeRetentionDays`) |
 | `GAPSIO_SNAPSHOT_RETENTION_DAYS` | `365` | Retention of the snapshots (`-SnapshotRetentionDays`); informational – the storage lifecycle rule enforces it |
 | `GAPSIO_DEVICE_INVENTORY` | `false` | Device inventory via Intune Remediations (`-DeviceInventory`) |
@@ -34,6 +39,13 @@ Set by the install script; change them in the Function App configuration or via 
 | `GAPSIO_MAX_GROUP_MEMBERS` | `10000` | Cap when resolving group members (Access module) |
 | `GAPSIO_PAGE_SIZE` | `2000` | Devices per stored page (`state/endpoint-devices/NNNN.json`) |
 | `GAPSIO_FINDING_ROLLUP` | `200` | Above this many devices, identical per-device findings are rolled up into one finding with the device count |
+| `GAPSIO_ASSISTANT` | `false` | Portal assistant on/off (`-Assistant`, [installation](installation.md#optional-portal-assistant)) |
+| `GAPSIO_AI_ENDPOINT` | – | Azure OpenAI endpoint (`https://<name>.openai.azure.com/`, `-AssistantEndpoint`) |
+| `GAPSIO_AI_DEPLOYMENT` | `gpt-4.1-mini` | Chat deployment (`-AssistantDeployment`) |
+| `GAPSIO_AI_EMBEDDING_DEPLOYMENT` | `text-embedding-3-small` | Embedding deployment for the documentation search; empty = keyword search (`-AssistantEmbeddingDeployment`) |
+| `GAPSIO_AI_API_VERSION` | `2024-10-21` | Azure OpenAI API version |
+| `GAPSIO_AI_TOOL_ROUNDS` | `4` | Maximum tool rounds per question (0–6) |
+| `GAPSIO_LOGIN_HOST`, `GAPSIO_MDE_API` | `login.microsoftonline.com`, `https://api.securitycenter.microsoft.com/api/indicators` | Sign-in host for the data-access app and Defender for Endpoint API base – only for other clouds |
 | `GAPSIO_TENANT_ID`, `GAPSIO_CLIENT_ID`, `GAPSIO_STORAGE_ACCOUNT`, `GAPSIO_STORAGE_SUFFIX` | set by the template | Do not change |
 
 ## Notifications
@@ -69,10 +81,10 @@ Missing data does not abort a run; it shows up as a notice in the portal.
 
 | Container | Content |
 |---|---|
-| `state` | Current state per module, change history, run log, update info, exceptions, assignments and their audit log |
+| `state` | Current state per module, change history, run log, update info, exceptions, assignments and their audit log, licence key entered in the portal, local exclusion history (`endpoint-localstate.json`), Office policy histories (`office-*-history.json`, 400 days) and the assistant's knowledge index (`assistant-index.json`, documentation only) |
 | `state/endpoint-devices/`, `state/endpoint-coverage/` | Device and coverage lists in pages of `GAPSIO_PAGE_SIZE` entries, with a tab-separated search index (`endpoint-devices.tsv`) and a fingerprint list for drift detection |
 | `snapshots` | Dated snapshots of every run (optionally immutable) |
-| `config` | Your custom baseline (`mdav-baseline.json`) |
+| `config` | Your custom baseline (`mdav-baseline.json`) and control mapping (`control-mapping.json`) |
 
 ## Large fleets
 
