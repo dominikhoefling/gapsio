@@ -184,17 +184,24 @@ function Invoke-GapsioRest {
         }
 
         $status = 0; $respHeaders = $null
-        if ($Raw) {
-            # Invoke-WebRequest has no -StatusCodeVariable/-ResponseHeadersVariable – read them from the response object.
-            $resp = Invoke-WebRequest @params
-            $status = [int]$resp.StatusCode
-            $respHeaders = $resp.Headers
-            $content = $resp.Content
-            if ($content -is [byte[]]) { $content = [Text.Encoding]::UTF8.GetString($content) }
+        try {
+            if ($Raw) {
+                # Invoke-WebRequest has no -StatusCodeVariable/-ResponseHeadersVariable – read them from the response object.
+                $resp = Invoke-WebRequest @params
+                $status = [int]$resp.StatusCode
+                $respHeaders = $resp.Headers
+                $content = $resp.Content
+                if ($content -is [byte[]]) { $content = [Text.Encoding]::UTF8.GetString($content) }
+            }
+            else {
+                $resp = Invoke-RestMethod @params -StatusCodeVariable 'status' -ResponseHeadersVariable 'respHeaders'
+                $content = $resp
+            }
         }
-        else {
-            $resp = Invoke-RestMethod @params -StatusCodeVariable 'status' -ResponseHeadersVariable 'respHeaders'
-            $content = $resp
+        catch [System.Net.Http.HttpRequestException], [System.Threading.Tasks.TaskCanceledException], [System.IO.IOException] {
+            # No HTTP answer at all (connection reset, DNS hiccup, timeout): retried like a 5xx.
+            if ($attempt -le $MaxRetries) { Start-Sleep -Seconds ([Math]::Min([Math]::Pow(2, $attempt), 60)); continue }
+            throw
         }
 
         if ($status -ge 200 -and $status -lt 300) { return $content }
@@ -1035,9 +1042,13 @@ function Get-GapsioAcceptances {
     .SYNOPSIS
     Accepted risks (state/acceptances.json): findings or exclusions an administrator consciously accepted with a
     justification, owner and expiry date. Expired acceptances count as not accepted again.
+    -Strict: a read error throws instead of returning an empty list. Every caller that writes the list back (or shows
+    it as the full list) uses it, so a failed read can never overwrite the stored exceptions with an empty list.
     #>
+    param([switch]$Strict)
+    if ($Strict) { return @(Get-GapsioBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) }
     $a = @()
-    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) } catch { }
+    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'acceptances.json' | Where-Object { $_ }) } catch { Write-Warning "Exceptions could not be read: $($_.Exception.Message)" }
     $a
 }
 
@@ -1088,7 +1099,8 @@ function Set-GapsioAcceptance {
     if ($key -notmatch '^[a-f0-9]{8,64}$') { throw [System.ArgumentException]::new('Invalid key.') }
     $now = [DateTime]::UtcNow
     $list = [System.Collections.Generic.List[object]]::new()
-    foreach ($x in Get-GapsioAcceptances) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    $existing = $null
+    foreach ($x in Get-GapsioAcceptances -Strict) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
     if ($Revoke) {
         if (-not $existing) { throw [System.ArgumentException]::new('No acceptance for this key.') }
         $existing | Add-Member -NotePropertyName revokedAt -NotePropertyValue $now.ToString('o') -Force
@@ -1122,11 +1134,12 @@ function Set-GapsioAcceptance {
 }
 
 function Add-GapsioAcceptanceLog {
-    <# .SYNOPSIS Prepends one entry to the audit log (state/acceptances-log.json), capped at 5000 entries. #>
+    <# .SYNOPSIS Prepends one entry to the audit log (state/acceptances-log.json), capped at 5000 entries. A read error
+    throws: rewriting the log from an empty read would erase the audit trail. #>
     param([Parameter(Mandatory)]$Entry)
     $log = [System.Collections.Generic.List[object]]::new()
     $log.Add($Entry)
-    try { foreach ($l in @(Get-GapsioBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } } } catch { }
+    foreach ($l in @(Get-GapsioBlob -Container 'state' -Name 'acceptances-log.json')) { if ($l -and $log.Count -lt 5000) { $log.Add($l) } }
     Set-GapsioBlob -Container 'state' -Name 'acceptances-log.json' -Object @($log.ToArray())
 }
 
@@ -1135,9 +1148,12 @@ function Get-GapsioAssignments {
     .SYNOPSIS
     Assignments (state/assignments.json): who is working on a finding or exclusion – an Entra user, a group, a
     distribution list or a plain e-mail address. Independent of an exception: an item can be assigned and stay open.
+    -Strict: a read error throws (see Get-GapsioAcceptances).
     #>
+    param([switch]$Strict)
+    if ($Strict) { return @(Get-GapsioBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) }
     $a = @()
-    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) } catch { }
+    try { $a = @(Get-GapsioBlob -Container 'state' -Name 'assignments.json' | Where-Object { $_ }) } catch { Write-Warning "Assignments could not be read: $($_.Exception.Message)" }
     $a
 }
 
@@ -1153,7 +1169,7 @@ function Set-GapsioAssignment {
     $now = [DateTime]::UtcNow
     $list = [System.Collections.Generic.List[object]]::new()
     $existing = $null
-    foreach ($x in Get-GapsioAssignments) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
+    foreach ($x in Get-GapsioAssignments -Strict) { if ($x.key -ne $key) { $list.Add($x) } else { $existing = $x } }
     $clip = { param($v, $n) $s = ([string]$v).Trim(); if ($s.Length -gt $n) { $s.Substring(0, $n) } else { $s } }
     if ($Clear) {
         if (-not $existing) { throw [System.ArgumentException]::new('No assignment for this key.') }

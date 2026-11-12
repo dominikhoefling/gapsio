@@ -87,7 +87,9 @@ try {
         { $_ -in 'devices', 'coverage' } {
             # Paged collections: ?page=N returns one stored page as-is; devices additionally support server-side search.
             $pageQ = [string]$Request.Query.page
-            $isSearch = $route -eq 'devices' -and @('q', 'os', 'group', 'issues', 'chart', 'asrBelow', 'size') | Where-Object { $null -ne $Request.Query.$_ }
+            # A request with a search or list parameter (the portal's server-side list always sends size) is a search; a bare
+            # ?page=N (loading the stored pages) is not. Parenthesised on purpose: -and binds tighter than the pipeline.
+            $isSearch = $route -eq 'devices' -and @(@('q', 'os', 'group', 'issues', 'chart', 'asrBelow', 'size') | Where-Object { $null -ne $Request.Query.$_ }).Count -gt 0
             if ($pageQ -match '^\d+$' -and -not $isSearch) {
                 if ($community) {
                     $items = @(Get-GapsioPage -Module 'endpoint' -Name $route -Page ([int]$pageQ))
@@ -167,7 +169,7 @@ try {
         }
         'acceptances' {
             if ($method -eq 'GET') {
-                $list = @(Get-GapsioAcceptances | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (Test-GapsioAcceptanceActive $_) -Force -PassThru })
+                $list = @(Get-GapsioAcceptances -Strict | ForEach-Object { $_ | Add-Member -NotePropertyName active -NotePropertyValue (Test-GapsioAcceptanceActive $_) -Force -PassThru })
                 Send-Response -Status 200 -Body ([ordered]@{ acceptances = $list })
                 return
             }
@@ -191,7 +193,7 @@ try {
             Send-Response -Status 200 -Body ($(if ($t) { $t } else { '[]' })) -RawJson
         }
         'assignments' {
-            if ($method -eq 'GET') { Send-Response -Status 200 -Body ([ordered]@{ assignments = @(Get-GapsioAssignments) }); return }
+            if ($method -eq 'GET') { Send-Response -Status 200 -Body ([ordered]@{ assignments = @(Get-GapsioAssignments -Strict) }); return }
             if (-not (Test-GapsioCsrf)) { return }
             try { $e = Set-GapsioAssignment -Data (Get-GapsioRequestJson) -By $principal.upn; Send-Response -Status 200 -Body ([ordered]@{ assignment = $e }) }
             catch [System.ArgumentException] { Send-Response -Status 400 -Body $_.Exception.Message }

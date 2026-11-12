@@ -6,6 +6,29 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.8.5] – 2026-11-12
+
+Found in a code review of the whole product (API, storage handling, timers, assistant, update script, documentation).
+No new permissions.
+
+### Fixed
+- **Devices view in fleets above 10,000 devices stayed empty.** The portal's server-side list sends `page` together
+  with the search, and the API answered with the stored page instead of the search result.
+- **Exceptions, assignments and their audit log could be overwritten by a failed read.** When reading the stored list
+  failed for a moment, saving the next exception wrote a list with only that entry. A failed read now stops the write;
+  the same applies to the local exclusion history and the Office policy histories (400 days).
+- **The daily update check and the assistant's knowledge index only ran after *Collect now*.** The scheduled endpoint
+  run skipped both; it now runs like a manual run (and is skipped when the endpoint module is not enabled).
+- **Assistant: asking about a device whose name is also the start of other names** (WIN-01 next to WIN-010) answered
+  "not found".
+- Connection resets and timeouts towards Azure Storage, Microsoft Graph and the Defender API are retried like HTTP 5xx.
+- `Update-Gapsio.ps1` refuses a `SHA256SUMS` file that has no checksum for the package (instead of reporting
+  "verified").
+
+### Changed
+- Documentation: all app settings are listed (assistant, licensing classification, other clouds, Purview preview),
+  together with the six-hourly schedule of the preview modules and the files Gapsio keeps in storage.
+
 ## [0.8.4] – 2026-11-11
 
 Found by opening every portal view with real tenant data in a browser and by running the collectors against an empty

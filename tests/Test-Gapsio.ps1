@@ -674,6 +674,7 @@ $queue = [System.Collections.Generic.List[string]]::new()
         param([string]$Uri, [string]$Method = 'GET', $Body, [string]$Resource, [hashtable]$Headers = @{}, [string]$ContentType, [switch]$Raw, [int]$MaxRetries)
         if ($Uri -match '\.blob\.core\.windows\.net/(.+)$') {
             $k = $Matches[1]
+            if ($Method -eq 'GET' -and @($script:BlobReadFail) -contains $k) { throw (New-GapsioHttpException -Status 503 -Message "503 $k") }
             if ($Method -eq 'PUT') { $script:Blobs[$k] = [string]$Body; return '' }
             if ($Method -eq 'DELETE') { if ($script:Blobs.ContainsKey($k)) { $script:Blobs.Remove($k); return '' }; throw (New-GapsioHttpException -Status 404 -Message "404 $k") }
             if (-not $script:Blobs.ContainsKey($k)) { throw (New-GapsioHttpException -Status 404 -Message "404 $k") }
@@ -1062,6 +1063,21 @@ Write-Host '== Accepted risks and notifications' -ForegroundColor Cyan
     $unl2 = Set-GapsioAcceptance -Data ([pscustomobject]@{ key = 'ffff6666'; kind = 'finding'; module = 'endpoint'; title = 'Unlimited'; justification = 'Permanent compensating control in place'; owner = 'CISO'; expires = 'never' }) -By 'alice@contoso.com'
     & $A ($null -eq $unl2.expires) "Expiry 'never' means unlimited"
     Set-GapsioAcceptance -Data ([pscustomobject]@{ key = 'ffff6666' }) -By 'alice@contoso.com' -Revoke | Out-Null
+
+    # A failed read must never let a write replace the stored list (or the audit log) with a shorter one
+    $keepAcc = $script:Blobs['state/acceptances.json']; $keepLog = $script:Blobs['state/acceptances-log.json']; $keepAsg = $script:Blobs['state/assignments.json']
+    $script:BlobReadFail = @('state/acceptances.json')
+    $err = $null; try { Set-GapsioAcceptance -Data ([pscustomobject]@{ key = 'eeee5555'; justification = 'Known vendor requirement'; owner = 'App team' }) -By 'a' | Out-Null } catch { $err = $_.Exception.Message }
+    & $A ($err -match '503' -and $script:Blobs['state/acceptances.json'] -eq $keepAcc -and $script:Blobs['state/acceptances-log.json'] -eq $keepLog) 'Exceptions: a failed read stops the write, the stored list and the audit log stay unchanged'
+    $script:BlobReadFail = @('state/acceptances-log.json')
+    $err = $null; try { Set-GapsioAcceptance -Data ([pscustomobject]@{ key = 'eeee5555'; justification = 'Known vendor requirement'; owner = 'App team' }) -By 'a' | Out-Null } catch { $err = $_.Exception.Message }
+    & $A ($err -match '503' -and $script:Blobs['state/acceptances-log.json'] -eq $keepLog) 'Audit log: a failed read is never answered by rewriting the log from scratch'
+    $script:Blobs['state/acceptances.json'] = $keepAcc
+    $script:BlobReadFail = @('state/assignments.json')
+    $err = $null; try { Set-GapsioAssignment -Data ([pscustomobject]@{ key = 'eeee5555'; assignee = 'secops@contoso.com' }) -By 'a' | Out-Null } catch { $err = $_.Exception.Message }
+    & $A ($err -match '503' -and $script:Blobs['state/assignments.json'] -eq $keepAsg) 'Assignments: a failed read stops the write'
+    & $A (@(Get-GapsioAssignments 3>$null).Count -eq 0) 'Reading for display only (notifications, counts) still degrades to an empty list'
+    $script:BlobReadFail = @()
 
     # Assignments: user / group / distribution list / plain e-mail, one per key, audit-logged
     $as1 = Set-GapsioAssignment -Data ([pscustomobject]@{ key = 'aaaa1111'; kind = 'finding'; module = 'endpoint'; title = 'New high'; assignee = [pscustomobject]@{ type = 'user'; id = 'u-bob'; displayName = 'Bob'; mail = 'bob@contoso.com' }; note = 'Please check' }) -By 'alice@contoso.com'
@@ -1489,6 +1505,15 @@ foreach ($entry in Get-ChildItem (Join-Path $root 'src/functionapp') -Recurse -F
     Assert ($missing.Count -eq 0) "$($entry.Directory.Name)/run.ps1 calls functions the module does not export: $($missing -join ', ')"
 }
 
+Write-Host '== Timer functions' -ForegroundColor Cyan
+# Every scheduled collection skips a module that is not enabled; the endpoint timer goes through Invoke-GapsioCollection,
+# which also runs the daily update check and refreshes the assistant's knowledge index.
+foreach ($fn in Get-ChildItem (Join-Path $root 'src/functionapp') -Directory -Filter 'Collect*') {
+    $code = Get-Content (Join-Path $fn.FullName 'run.ps1') -Raw
+    Assert ($code -match "Test-GapsioModuleEnabled -Name '\w+'") "$($fn.Name): skips the module when it is not enabled"
+}
+Assert ((Get-Content (Join-Path $root 'src/functionapp/CollectEndpoint/run.ps1') -Raw) -match "Invoke-GapsioCollection -Module 'endpoint'") 'CollectEndpoint: runs through Invoke-GapsioCollection (update check, knowledge index)'
+
 Write-Host '== Portal: no empty value is inserted into the page as text' -ForegroundColor Cyan
 # Element.append(null) and replaceChildren(null) show the text "null" (the helper h() skips empty children, the
 # native methods do not). Finds every such call whose argument can be null, undefined or false.
@@ -1549,6 +1574,13 @@ Assert ($pcs.Count -eq 8 -and $pcs[0].cmdlet -eq 'Set-MalwareFilterPolicy' -and 
 Assert (@($pcs | Where-Object { $_.family -eq 'SafeAttachments' })[0].failed -eq $true -and @(@($pcs | Where-Object { $_.family -eq 'SafeAttachments' })[0].weaker).Count -eq 0 -and @(@($pcs | Where-Object { $_.family -eq 'AntiPhish' })[0].weaker).Count -eq 0 -and @($of.policyChanges.families | Where-Object { $_.family -eq 'SafeLinks' })[0].changes -eq 2) 'Policy changes: a failed call and anti-phish changes are listed but not rated'
 Assert (($blobs['state/office-policy-history.json'] | ConvertFrom-Json).changes.Count -eq 8) 'Policy change history is kept in its own blob'
 Assert (@(($blobs['state/runs.json'] | ConvertFrom-Json) | Where-Object { $_.module -eq 'officepreview' }).Count -eq 1) 'Office run is in the run index'
+# A failed read of the history must not be followed by a write (30 days of Advanced Hunting would replace 400 days)
+$keepHist = $blobs['state/office-policy-history.json']
+& $mod { $script:BlobReadFail = @('state/office-policy-history.json') }
+$ofr = Invoke-GapsioOfficePreviewCollection 6>$null
+& $mod { $script:BlobReadFail = @() }
+$ofrs = $blobs['state/officepreview-latest.json'] | ConvertFrom-Json -Depth 64
+Assert ($blobs['state/office-policy-history.json'] -eq $keepHist -and @($ofrs.warnings | Where-Object { $_ -match 'office policy history could not be read' }).Count -eq 1) 'Policy change history: a failed read leaves the stored history untouched and says so'
 # A probe that fails is an error – not "no data" – and removes nothing silently
 $hunting.OfficeFail = @('threat_in_inbox', 'own_domain_spoof')
 $null = Invoke-GapsioOfficePreviewCollection 6>$null
@@ -1615,6 +1647,11 @@ $r = Call 'devices' -Principal $adminP -Query @{ page = '7' }; Assert ([int]$r.S
 $nWin0 = @($ep.devices | Where-Object { $_.deviceName -like 'WIN-0*' }).Count
 $r = Call 'devices' -Principal $adminP -Query @{ q = 'win-0' ; size = '1' }; $sr = $r.Body | ConvertFrom-Json -Depth 64
 Assert ([int]$r.StatusCode -eq 200 -and $sr.total -eq $nWin0 -and $sr.pages -eq $nWin0 -and @($sr.rows).Count -eq 1 -and $sr.rows[0].checks.TamperProtection -and $null -eq $sr.rows[0].page) "devices search: total=$($sr.total) pages=$($sr.pages) rows=$(@($sr.rows).Count)"
+# The portal's server-side list (fleets above 10,000 devices) always sends page and size together with the search
+$r = Call 'devices' -Principal $adminP -Query @{ page = '0'; size = '200'; q = 'win-0' }; $sr = $r.Body | ConvertFrom-Json -Depth 64
+Assert ([int]$r.StatusCode -eq 200 -and $sr.total -eq $nWin0 -and @($sr.rows).Count -eq $nWin0) "devices search with page=0 and size (as the portal sends it) is a search, not the stored page (total=$($sr.total))"
+$r = Call 'devices' -Principal $adminP -Query @{ page = '0'; size = '200' }; $sr = $r.Body | ConvertFrom-Json -Depth 64
+Assert ([int]$r.StatusCode -eq 200 -and $sr.total -eq $ep.devicesPages.count -and $null -ne $sr.rows) "devices list without search term (portal, large fleet) returns rows and a total ($($sr.total))"
 $r = Call 'devices' -Principal $adminP -Query @{ os = 'Windows11'; issues = '1' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.total -ge 1 -and @($sr.rows | Where-Object { $_.os -ne 'Windows11' }).Count -eq 0) "devices search: platform + issues filter ($($sr.total))"
 $r = Call 'devices' -Principal $adminP -Query @{ chart = 'TamperProtection|off' }; $sr = $r.Body | ConvertFrom-Json -Depth 64; Assert ($sr.total -eq $ep.deviceStats.charts.TamperProtection.off -and @($sr.rows | Where-Object { $_.checks.TamperProtection -ne 'BAD' }).Count -eq 0) "devices search: chart segment filter ($($sr.total))"
 $r = Call 'device' -Principal $adminP -Query @{ id = 'd-win1' }; $dv = ($r.Body | ConvertFrom-Json -Depth 64).device; Assert ([int]$r.StatusCode -eq 200 -and $dv.deviceName -eq 'WIN-01' -and $dv.asr) 'device?id= returns the full device from its page'
@@ -2063,23 +2100,31 @@ $navViews = @([regex]::Matches($navBlock, "items: \[([^\]]+)\]") | ForEach-Objec
         & $A ($full -match 'state=last known \(the device is not reporting\)' -and $full -match 'fix=Turn it on\.' -and $full -match 'subject=tp' -and $brief -notmatch 'fix=|subject=' -and $brief -match 'detail=d{160}…' -and (Get-GapsioAssistantFindingText -Finding $ft -Lang 'de') -match 'Tamper Protection nicht aktiv') 'Finding line: last-known-state marker, short form for the context, language'
         $ctx = Get-GapsioAssistantContext -Question 'Why is WIN-01 flagged?' -Lang 'en'
         & $A ($ctx.Length -le 12600 -and $ctx.IndexOf("Devices matching 'WIN-01'") -gt 0 -and $ctx.IndexOf("Devices matching 'WIN-01'") -lt $ctx.IndexOf('Top findings (') -and $ctx -match '"deviceName":"WIN-01","os":"Windows11"' -and $ctx -match 'Top findings \(\d+ of \d+, highest severity first; use search_findings' -and $ctx -notmatch '\d{2}/\d{2}/\d{4}') "Context: the devices the question names come before the findings, whole lines only, within the budget ($($ctx.Length) characters)"
-        $sd = Invoke-GapsioAssistantTool -Name 'search_devices' -Args ([pscustomobject]@{ query = 'WIN-01' }) -Lang 'en'
+        $sd = Invoke-GapsioAssistantTool -Name 'search_devices' -Arguments ([pscustomobject]@{ query = 'WIN-01' }) -Lang 'en'
         & $A ($sd.returned -eq 1 -and $sd.devices[0].deviceName -eq 'WIN-01' -and $sd.devices[0].os -eq 'Windows11' -and $sd.devices[0].Contains('failedChecks') -and $sd.devices[0].reporting -eq 'reporting') 'Tool search_devices returns the compact device record'
-        $gd = Invoke-GapsioAssistantTool -Name 'get_device' -Args ([pscustomobject]@{ name = 'WIN-01' }) -Lang 'en'
+        $gd = Invoke-GapsioAssistantTool -Name 'get_device' -Arguments ([pscustomobject]@{ name = 'WIN-01' }) -Lang 'en'
         & $A ($gd.device -match '"deviceName":"WIN-01"' -and $gd.device -notmatch '\d{2}/\d{2}/\d{4} \d{2}:' -and $gd.device -notmatch '"_filter"|"fp":') 'Tool get_device: stored record without internal fields and without culture-formatted dates'
+        # A name that is also the start of other names (WIN-01, WIN-010): the exact match wins
+        $origSearch = ${function:Search-GapsioDevices}
+        try {
+            function script:Search-GapsioDevices { param([string]$Query, [switch]$IssuesOnly, [int]$Page, [int]$Size) [ordered]@{ total = 2; rows = @([pscustomobject]@{ deviceId = 'd-x10'; deviceName = 'WIN-010' }, [pscustomobject]@{ deviceId = 'd-win1'; deviceName = 'WIN-01' }) } }
+            $gd = Invoke-GapsioAssistantTool -Name 'get_device' -Arguments ([pscustomobject]@{ name = 'WIN-01' }) -Lang 'en'
+            & $A ($gd.device -match '"deviceName":"WIN-01"' -and $gd.device -notmatch 'WIN-010') 'Tool get_device: the exact name wins when the search also finds longer names'
+        }
+        finally { ${function:script:Search-GapsioDevices} = $origSearch }
 
         # --- live tools: a failed query is an error, an empty tenant is not "healthy" ---
-        $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Args ([pscustomobject]@{}) -Lang 'en'
+        $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Arguments ([pscustomobject]@{}) -Lang 'en'
         & $A ($tl.note -match '^NO onboarded device reported in the last 7 days' -and $tl.source -match 'last 7 days') 'Live summary without reporting devices says so instead of showing empty numbers'
         $origHunt = ${function:Invoke-GapsioHunting}
         function script:Invoke-GapsioHunting { param($Query, $Timespan) throw [System.Exception]::new('HTTP 500 for POST runHuntingQuery :: test') }
         try {
-            $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Args ([pscustomobject]@{}) -Lang 'en'
-            $dl = Invoke-GapsioAssistantTool -Name 'device_live_status' -Args ([pscustomobject]@{ deviceName = 'WIN-01' }) -Lang 'en'
+            $tl = Invoke-GapsioAssistantTool -Name 'tenant_live_summary' -Arguments ([pscustomobject]@{}) -Lang 'en'
+            $dl = Invoke-GapsioAssistantTool -Name 'device_live_status' -Arguments ([pscustomobject]@{ deviceName = 'WIN-01' }) -Lang 'en'
             & $A ($tl.devices.error -match '^This live query failed: HTTP 500' -and $tl.alerts.error -and $tl.topFailedSecureConfiguration.error -and -not $tl.Contains('note') -and $dl.device.error -match '^This live query failed:' -and $dl.alertsLast7d.error -and -not $dl.Contains('note')) 'A failed live query is reported as failed for that part – not as "nothing found"'
         }
         finally { Set-Item function:script:Invoke-GapsioHunting $origHunt }
-        & $A ((Invoke-GapsioAssistantTool -Name 'device_live_status' -Args ([pscustomobject]@{ deviceName = 'x"; drop' }) -Lang 'en').error -eq 'invalid device name') 'Live device status rejects names that are not host names'
+        & $A ((Invoke-GapsioAssistantTool -Name 'device_live_status' -Arguments ([pscustomobject]@{ deviceName = 'x"; drop' }) -Lang 'en').error -eq 'invalid device name') 'Live device status rejects names that are not host names'
 
         # --- links ---
         $views = @($script:GapsioAssistantViews | ForEach-Object { $_.view }) + @('device', 'devices')
@@ -2358,6 +2403,11 @@ Assert ((Test-GapsioAntiPhishPolicyMatch -AuditName 'Office365 AntiPhish Default
         $h2 = $script:apBlobs['office-antiphish-history.json']
         & $A (@($h1.changes).Count -eq 2 -and @($h2.changes).Count -eq 2 -and @($h2.daily).Count -eq @($h1.daily).Count) 'Anti-phish: re-run merges history without duplicates'
         & $A ($r2.rows[0].result[0].newChanges -eq 0 -and $h2.since -eq $h1.since) 'Anti-phish: second run adds no new changes and keeps history start'
+        $getOk = ${function:Get-GapsioBlob}
+        ${function:script:Get-GapsioBlob} = { param($Container, $Name) if ($Name -eq 'office-antiphish-history.json') { throw '503 storage unavailable' }; & $getOk -Container $Container -Name $Name }
+        $null = Update-GapsioOfficeAntiPhishHistory 3>$null
+        ${function:script:Get-GapsioBlob} = $getOk
+        & $A ($script:apBlobs['office-antiphish-history.json'] -eq $h2) 'Anti-phish: a failed history read leaves the stored history untouched'
     }
     finally { ${function:Invoke-GapsioOfficeHunting} = $origHunt; ${function:Get-GapsioBlob} = $origGet; ${function:Set-GapsioBlob} = $origSet }
 } ${function:Assert}

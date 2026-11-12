@@ -204,7 +204,9 @@ function Update-GapsioOfficeAntiPhishHistory {
 
     # ---- 1. Load history ---------------------------------------------------------------------------------------
     $history = $null
-    try { $history = Get-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' } catch { Add-GapsioWarning "anti-phish history: $($_.Exception.Message)" }
+    # A failed read must not be followed by a write: the 30 days in Advanced Hunting would replace up to 400 days of history
+    $historyReadFailed = $false
+    try { $history = Get-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' } catch { $historyReadFailed = $true; Add-GapsioWarning "anti-phish history could not be read (not updated in this run): $($_.Exception.Message)" }
     $changes = @{}   # key -> ordered
     $daily = @{}     # key -> ordered
     foreach ($c in @(Get-GapsioProp $history 'changes')) {
@@ -266,7 +268,7 @@ function Update-GapsioOfficeAntiPhishHistory {
     $changeList = @($changes.Values | Where-Object { ([datetime]$_.ts) -ge $keepFrom } | Sort-Object { [datetime]$_.ts })
     $dailyList = @($daily.Values | Where-Object { ([datetime]$_.day) -ge $keepFrom } | Sort-Object { $_.day }, { $_.policy }, { $_.method }, { $_.outcome })
     $hist = [ordered]@{ version = 1; since = $historySince; updatedAt = $now.ToString('o'); changes = $changeList; daily = $dailyList }
-    try { Set-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' -Object $hist -Depth 16 } catch { Add-GapsioWarning "anti-phish history write: $($_.Exception.Message)" }
+    if (-not $historyReadFailed) { try { Set-GapsioBlob -Container 'state' -Name 'office-antiphish-history.json' -Object $hist -Depth 16 } catch { Add-GapsioWarning "anti-phish history write: $($_.Exception.Message)" } }
 
     # ---- 5. Derive policy state, per-change effects, periods ---------------------------------------------------
     $tracked = $script:GapsioAntiPhishKeySettings
