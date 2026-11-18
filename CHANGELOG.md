@@ -6,6 +6,13 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Changed
+- Maintainer tooling: the news agent (`tools/Get-GapsioNews.ps1`) also reads Intune, Entra, Purview and Defender for
+  Office 365, the Microsoft Defender and Agent 365 blogs and the Microsoft Security blog. The Defender for Endpoint
+  blog it read before was retired by Microsoft and had returned nothing since – a source without a result is now
+  named in the digest. Roadmap entries are matched by the product in their title; event promotion and build numbers
+  are left out.
+
 ## [0.10.0] – 2026-11-18
 
 ### Added

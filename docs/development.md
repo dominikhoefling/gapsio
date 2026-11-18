@@ -41,9 +41,12 @@ Every push and pull request runs the tests, parses every PowerShell file, checks
 
 ## News agent
 
-`tools/Get-GapsioNews.ps1` collects what is new around Defender for Endpoint and Microsoft Agent 365 from public,
-unauthenticated sources – the Microsoft Learn *What's new* pages (Windows, macOS, Linux, Defender XDR), the Tech
-Community blogs (RSS) and the Microsoft 365 roadmap API – and writes a Markdown digest. The maintainer runs it weekly
+`tools/Get-GapsioNews.ps1` collects what is new around the products Gapsio audits – Defender for Endpoint and XDR,
+Defender for Office 365, Intune, Entra, Purview and Microsoft Agent 365 – from public, unauthenticated sources: the
+Microsoft Learn *What's new* pages, the Tech Community blogs (Microsoft Defender, Intune, Entra, Agent 365, Security
+Community), the Microsoft Security blog and the Microsoft 365 roadmap API. It writes a Markdown digest with a hint
+per item which module it may concern, at most twelve items per source (the rest follows with the next digest), and
+names every source that returned nothing – Microsoft retires feeds without notice. The maintainer runs it weekly
 from a private tracker and decides per item whether it becomes a check, a baseline setting or documentation; nothing is
 implemented automatically (rules in `AGENTS.md` › *News digest*). Locally: `./tools/Get-GapsioNews.ps1 -NoState -Days 14`
 prints the digest without touching the state.

@@ -55,8 +55,10 @@ with a paid Enterprise key that only lifts a display limit. Everything runs read
 
 ## News digest
 
-`tools/Get-GapsioNews.ps1` collects new Defender for Endpoint / Agent 365 items (Microsoft Learn "What's new",
-Tech Community, Microsoft 365 roadmap). A weekly workflow in the maintainer's private tracker opens an issue with a
+`tools/Get-GapsioNews.ps1` collects new items about the products Gapsio audits – Defender for Endpoint and XDR,
+Defender for Office 365, Intune, Entra, Purview, Agent 365 (Microsoft Learn "What's new", Tech Community and
+Microsoft Security blogs, Microsoft 365 roadmap). A source that returns nothing is listed at the end of the digest;
+check it before trusting a quiet week. A weekly workflow in the maintainer's private tracker opens an issue with a
 checklist from it. Rules for working on such a digest:
 
 - Implement **only** items the maintainer has ticked or answered with *einbauen* / *implement*. Never act on the
