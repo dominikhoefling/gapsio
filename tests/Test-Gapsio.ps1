@@ -1257,6 +1257,8 @@ $rpf = @($af | Where-Object { $_.title.en -match 'run local AI agents without De
 Assert ($rpf.Count -eq 1 -and $rpf[0].severity -eq 'High' -and $rpf[0].category -eq 'LocalAgent' -and $rpf[0].title.en -match '^1 Windows device' -and $rpf[0].detail.en -match 'WIN-01 \(1\)' -and $rpf[0].detail.de -match 'ohne Bestätigung' -and $agSnap.summary.localNoRuntimeProtection -eq 1) 'Finding: device with a local agent (auto-approve) and no runtime protection policy – one finding per state, High'
 Assert ($dWin1.aiAgentProtection -eq 'NotConfigured' -and @($ep.devices | Where-Object { $_.os -eq 'macOS' })[0].aiAgentProtection -eq 'NotSupported' -and $ep.aiAgentProtection.devices.NotConfigured -ge 2 -and @($ep.aiAgentProtection.policies).Count -eq 0) "Endpoint: AI agent runtime protection per device (Windows not configured, macOS not supported)"
 $blAi = @($ep.baseline | Where-Object { $_.id -eq 'ai-agent-protection' })[0]
+$blMem = @($ep.baseline | Where-Object { $_.id -eq 'linux-memory-scan' })[0]
+Assert ($blMem.state -eq 'NotConfigured' -and @($f | Where-Object { $_.title.en -match '^Linux: memory scan enabled \(preview\)' -and $_.severity -eq 'Low' }).Count -eq 1) "Baseline: Linux memory scan is a Low finding while the Linux policies do not set it ($($blMem.state))"
 Assert ($blAi.state -eq 'NotConfigured' -and @($f | Where-Object { $_.title.en -match '^Runtime protection for local AI agents in block mode' }).Count -eq 1) "Baseline: runtime protection for local AI agents is a check and a finding while no policy sets it ($($blAi.state))"
 & $mod {
     param($A, $BaselinePath)
@@ -1290,6 +1292,13 @@ Assert ($blAi.state -eq 'NotConfigured' -and @($f | Where-Object { $_.title.en -
     $one = [pscustomobject]@{ checks = @($bl.checks | Where-Object { $_.id -eq 'ai-agent-protection' }) }
     $st = { param($val) @(Test-GapsioBaseline -Baseline $one -SettingValues @((& $sv 'p' $val)) -Devices @{})[0].state }
     & $A ((& $st 1) -eq 'OK' -and (& $st 2) -eq 'Deviation' -and (& $st 0) -eq 'Deviation' -and @(Test-GapsioBaseline -Baseline $one -SettingValues @() -Devices @{})[0].state -eq 'NotConfigured') "Baseline check ai-agent-protection: block OK, audit and off are deviations, no policy is NotConfigured"
+
+    # --- Linux memory scan (preview): enabled is the target; without Linux devices and policies the check is not relevant ---
+    $mem = [pscustomobject]@{ checks = @($bl.checks | Where-Object { $_.id -eq 'linux-memory-scan' }) }
+    $msv = { param($val, $disp) [pscustomobject]@{ policyId = 'pl'; policyName = 'Linux AV'; platform = 'Linux'; definitionId = 'linux_mdatp_managed_antivirusengine_memoryscan'; value = "linux_mdatp_managed_antivirusengine_memoryscan_$val"; display = $disp; assignments = @('All devices') } }
+    $lnx = @{ 'l1' = [ordered]@{ deviceId = 'l1'; deviceName = 'LNX-1'; os = 'Linux'; checks = [ordered]@{} } }
+    $mst = { param($settings, $devs) @(Test-GapsioBaseline -Baseline $mem -SettingValues $settings -Devices $devs)[0].state }
+    & $A ($mem.checks.Count -eq 1 -and $mem.checks[0].severity -eq 'Low' -and (& $mst @((& $msv 'enabled' 'Enabled')) $lnx) -eq 'OK' -and (& $mst @((& $msv '1' $null)) $lnx) -eq 'OK' -and (& $mst @((& $msv '0' $null)) $lnx) -eq 'Deviation' -and (& $mst @((& $msv 'disabled' 'Disabled')) $lnx) -eq 'Deviation' -and (& $mst @((& $msv 'true' $null)) $lnx) -eq 'OK' -and (& $mst @() $lnx) -eq 'NotConfigured' -and (& $mst @() @{}) -eq 'NotRelevant') "Baseline check linux-memory-scan (Low): enabled is OK (by display name or option number), disabled a deviation, no policy NotConfigured, no Linux devices NotRelevant"
 
     # --- device of a local agent: Defender device ID, Entra device ID, name (also FQDN) ---
     $ix = @{ cols = @{ deviceId = 0; deviceName = 1; aadDeviceId = 2; page = 3 }; rows = [System.Collections.Generic.List[string[]]]::new() }

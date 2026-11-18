@@ -6,6 +6,12 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Added
+- **Baseline check *Linux: memory scan enabled (preview)*** (Low). Defender for Endpoint on Linux can scan process
+  memory for threats that never touch the disk; off by default. The check says clearly that it is a preview in the
+  Insiders-slow channel and that Microsoft recommends the default unless its support advises otherwise – accept it
+  where the performance impact is not acceptable. Not relevant in tenants without Linux devices.
+
 ### Changed
 - Maintainer tooling: the news agent (`tools/Get-GapsioNews.ps1`) also reads Intune, Entra, Purview and Defender for
   Office 365, the Microsoft Defender and Agent 365 blogs and the Microsoft Security blog. The Defender for Endpoint

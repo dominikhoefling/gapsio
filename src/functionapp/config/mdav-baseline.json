@@ -3,7 +3,7 @@
     "en": "Gapsio MDAV best practice",
     "de": "Gapsio MDAV Best Practice"
   },
-  "version": "2026.11.18",
+  "version": "2026.11.19",
   "description": {
     "en": "Recommended configuration for Microsoft Defender Antivirus (Windows) and Microsoft Defender for Endpoint (macOS, Linux). Customise per customer: edit this file and upload it to the storage account as config/mdav-baseline.json. Text fields can be a string or {\"en\": \"...\", \"de\": \"...\"}.",
     "de": "Empfohlene Konfiguration für Microsoft Defender Antivirus (Windows) und Microsoft Defender for Endpoint (macOS). Werte können pro Kunde angepasst werden: diese Datei bearbeiten und als config/mdav-baseline.json in den Storage Account hochladen."
@@ -1261,6 +1261,36 @@
         "de": "Linux-Richtlinie › Network protection › Enforcement level = block."
       },
       "effective": "NetworkProtection"
+    },
+    {
+      "id": "linux-memory-scan",
+      "platform": "Linux",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Linux: memory scan enabled (preview)",
+        "de": "Linux: Memory Scan aktiv (Preview)"
+      },
+      "severity": "Low",
+      "definitionIdPattern": "^linux_.*memoryscan$",
+      "expect": {
+        "op": "display",
+        "pattern": "enabled|aktiv|true|memoryscan_1$"
+      },
+      "expectText": {
+        "en": "MemoryScan = enabled",
+        "de": "MemoryScan = enabled"
+      },
+      "rationale": {
+        "en": "Memory scan lets Defender for Endpoint on Linux inspect process memory for known malicious behaviour and memory-resident threats – code that never touches the disk and is therefore invisible to file scanning. It is a preview: Microsoft documents it from version 101.26071.0005 in the Insiders-slow channel, it is off by default, it can affect performance, and Microsoft recommends the default values unless its support advises otherwise. Treat this check as a reminder to decide, not as a must: accept it for servers where the performance impact is not acceptable. Gapsio reads the value from the assigned policies; a value set only in a local mdatp_managed.json is not visible here.",
+        "de": "Der Memory Scan lässt Defender for Endpoint unter Linux den Prozessspeicher auf bekannte schädliche Verhaltensweisen und rein speicherresidente Bedrohungen prüfen – Code, der nie auf die Platte kommt und für den Dateiscan unsichtbar ist. Er ist eine Preview: Microsoft dokumentiert ihn ab Version 101.26071.0005 im Kanal Insiders-slow, er ist standardmäßig aus, kann die Leistung beeinflussen, und Microsoft empfiehlt die Standardwerte, sofern der Support nichts anderes rät. Diese Prüfung ist eine Erinnerung zur Entscheidung, kein Muss: für Server, auf denen der Leistungseinfluss nicht tragbar ist, als Ausnahme akzeptieren. Gapsio liest den Wert aus den zugewiesenen Richtlinien; ein nur lokal in mdatp_managed.json gesetzter Wert ist hier nicht sichtbar."
+      },
+      "remediation": {
+        "en": "Defender portal > Endpoint security policies (or Intune) > Linux > Microsoft Defender Antivirus policy > Advanced Settings > Memory scan = Enabled. Pilot on a few servers first and watch CPU and memory; requires a Defender for Endpoint on Linux version that has the feature.",
+        "de": "Defender-Portal > Endpunktsicherheitsrichtlinien (oder Intune) > Linux > Microsoft-Defender-Antivirus-Richtlinie > Advanced Settings > Memory scan = Enabled. Zuerst auf wenigen Servern pilotieren und CPU und Speicher beobachten; setzt eine Version von Defender for Endpoint für Linux voraus, die die Funktion enthält."
+      }
     },
     {
       "id": "threat-default-action",
