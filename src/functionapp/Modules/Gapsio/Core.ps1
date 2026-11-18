@@ -20,11 +20,12 @@ function Get-GapsioModules {
     <#
     .SYNOPSIS
     Enabled modules from the app setting GAPSIO_MODULES (comma-separated). Default: endpoint,agents.
-    The 'access' (PIM/roles), 'licensing' (Defender licence indication) and
-    'officepreview' (Defender for Office 365 private preview) modules are optional.
+    The 'access' (PIM/roles), 'licensing' (Defender licence indication), 'officepreview' (Defender for Office 365
+    private preview), 'purviewpreview' (Purview DLP private preview) and 'digest' (message center change digest)
+    modules are optional.
     #>
     $raw = Get-GapsioSetting -Name 'GAPSIO_MODULES' -Default 'endpoint,agents'
-    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview' } | Select-Object -Unique)
+    @($raw -split '[,; ]+' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in 'endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'digest' } | Select-Object -Unique)
 }
 
 function Test-GapsioFeature {

@@ -17,6 +17,8 @@ App Service Authentication (Entra ID).
 | Endpoint | Overview, Findings, Exclusions (policy, local, indicators, EDR), ASR rules (rules, device groups, devices, exclusions), Devices, Baseline, Policy conflicts, Device control, Attack disruption, Detection rules |
 | AI agents | Agents (cloud / local), Conditional Access |
 | Access | Roles, Who can do what?, My access |
+| Licences | Licence indication |
+| Microsoft changes | Change digest: message center posts about security products with deadlines ([module](modules/digest.md)) |
 | History | Changes between runs, exceptions and assignments, Audit evidence (findings by ISO 27001 / NIS2 control, printable) |
 
 Every table can be filtered and exported as CSV. Device names link to the device page.

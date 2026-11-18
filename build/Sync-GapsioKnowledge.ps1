@@ -30,6 +30,7 @@ $pages = [ordered]@{
     'permissions.md'          = 'permissions.md'
     'portal.md'               = 'portal.md'
     'purview-preview.md'      = 'modules/purview-preview.md'
+    'digest.md'               = 'modules/digest.md'
     'security.md'             = 'security.md'
     'separation-of-duties.md' = 'separation-of-duties.md'
     'updates.md'              = 'updates.md'

@@ -2,17 +2,18 @@
 # Gapsio core module. Loads the parts (Core, Endpoint, Posture, Agents, Access, Licensing, previews, Assistant).
 $ErrorActionPreference = 'Stop'
 
-foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Posture.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'OfficeAntiPhish.ps1', 'OfficePolicy.ps1', 'OfficePreview.ps1', 'PurviewPreview.ps1', 'Assistant.ps1')) {
+foreach ($part in @('Core.ps1', 'License.ps1', 'Endpoint.ps1', 'Posture.ps1', 'Agents.ps1', 'Access.ps1', 'Licensing.ps1', 'OfficeAntiPhish.ps1', 'OfficePolicy.ps1', 'OfficePreview.ps1', 'PurviewPreview.ps1', 'Digest.ps1', 'Assistant.ps1')) {
     . (Join-Path $PSScriptRoot $part)
 }
 
 function Invoke-GapsioCollection {
     <#
     .SYNOPSIS
-    Runs the data collection for a module ('endpoint', 'agents', 'access', 'licensing', 'officepreview' or 'all').
+    Runs the data collection for a module ('endpoint', 'agents', 'access', 'licensing', 'officepreview',
+    'purviewpreview', 'digest' or 'all').
     'all' covers the enabled modules only (app setting GAPSIO_MODULES).
     #>
-    param([ValidateSet('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'all')][string]$Module = 'all')
+    param([ValidateSet('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'digest', 'all')][string]$Module = 'all')
     $enabled = Get-GapsioModules
     $todo = if ($Module -eq 'all') { $enabled } else { @($Module) }
     $results = @()
@@ -25,6 +26,7 @@ function Invoke-GapsioCollection {
             'licensing' { $results += Invoke-GapsioLicensingCollection }
             'officepreview' { $results += Invoke-GapsioOfficePreviewCollection }
             'purviewpreview' { $results += Invoke-GapsioPurviewPreviewCollection }
+            'digest' { $results += Invoke-GapsioDigestCollection }
         }
     }
     if ($todo -contains 'endpoint') { try { Update-GapsioReleaseInfo | Out-Null } catch { Write-Warning "Update check: $($_.Exception.Message)" } }

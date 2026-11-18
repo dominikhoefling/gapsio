@@ -27,10 +27,12 @@ stays free, see the [open-core promise](docs/manifesto.md).
   and custom detection rules that Defender switched off (optional feature `Detections`)
 - **Audit evidence** – open findings and accepted risks by ISO/IEC 27001:2022 and NIS2 Art. 21(2) control, printable
 - **AI agents** – cloud agents (Entra Agent ID, Agent 365, Defender AgentsInfo) with blueprint, agent and agent user IDs
-  and their Conditional Access coverage; local AI agents on endpoints with auto-approve and MCP servers
+  and their Conditional Access coverage; local AI agents on endpoints with auto-approve, MCP servers and whether
+  Defender's runtime protection against prompt injection is configured for their device
 - **Access** (optional) – Defender XDR unified RBAC: who holds which Defender role, how (direct, group, PIM eligible, access package), for which data sources – and whether it was ever used
 - **Licensing** (optional) – Defender for Endpoint licence indication: plans owned vs. users entitled vs. client devices actually onboarded and who uses them; servers listed separately
 - **Office preview** (optional, private preview) – Defender for Office 365 telemetry view: policy map (top recipients/domains), MDO trend probes and anti-phish drift (who changed settings, before/after outcome shifts)
+- **Change digest** (optional) – the tenant's message center posts about Defender, Intune, Entra and Purview, sorted by what needs action first; deadlines and major changes become findings you can assign
 - **Third-party AV/EDR** – devices running CrowdStrike, SentinelOne & co. alongside an active Defender Antivirus
 - **History** – dated snapshots and drift between runs, accepted risks with audit log, notifications to Teams, CSV export; portal in English and German
 

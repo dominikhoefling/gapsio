@@ -97,6 +97,9 @@ function Test-DemoTextReplace {
     # Which collected originals are also replaced inside free text
     param($Entry)
     if ($Entry.kind -in 'hex', 'guid', 'ip4', 'ip6', 'sid') { return $false }
+    # Generic account names are ordinary words in sentences ("Admin impact", "System update") – replaced in their own
+    # fields only
+    if ($Entry.old -match '^(admin|administrator|system|root|user|guest|automation|service|support|security)$') { return $false }
     if ($Entry.kind -in 'group', 'policy', 'agent') { return $Entry.old.Length -ge 8 -or $Entry.old -match '[\d_-]' }
     $Entry.old.Length -ge 3
 }

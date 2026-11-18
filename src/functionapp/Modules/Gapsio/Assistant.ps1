@@ -31,6 +31,7 @@ $script:GapsioAssistantViews = @(
     @{ view = 'officequarantine'; module = 'officepreview'; en = 'Quarantine: releases, release requests, who released mail with a phishing or malware verdict' }
     @{ view = 'officeteams'; module = 'officepreview'; en = 'Teams protection: Teams messages rated phishing or malware, delivered and not removed' }
     @{ view = 'purview'; module = 'purviewpreview'; en = 'Purview DLP overview (private preview)' }
+    @{ view = 'digest'; module = 'digest'; en = 'Change digest: message center posts about Defender, Intune, Entra and Purview with deadlines and what Microsoft asks to do' }
     @{ view = 'agents'; module = 'agents'; en = 'AI agents inventory: Entra Agent ID, Agent 365, local agents' }
     @{ view = 'agentca'; module = 'agents'; en = 'Conditional Access coverage for agents' }
     @{ view = 'access'; module = 'access'; en = 'Admin roles and paths: active, PIM-eligible, access packages' }

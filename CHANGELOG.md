@@ -6,6 +6,24 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.10.0] – 2026-11-18
+
+### Added
+- **Change digest** (optional feature `Digest`, module `digest`): the message center posts of the tenant about
+  Defender, Intune, Entra, Purview and Agent 365, sorted by what needs action first – with the deadline and
+  Microsoft's own "what you need to do to prepare" section. No AI: the rating uses the fields Microsoft sets.
+  Posts with a deadline, passed deadlines and major changes or retirements are findings, so they can be assigned,
+  documented as handled and sent to Teams. New view *Microsoft changes › Change digest*, block on the overview,
+  module in *Changes*. Runs daily at 04:05 UTC.
+  New read-only permission **`ServiceMessage.Read.All`** (Microsoft Graph) – only when the feature is selected:
+  `./setup/Install-Gapsio.ps1 … -Features …,Digest`.
+- When the message center cannot be read, the digest keeps the posts of the last successful run and says since when,
+  instead of reporting every post as removed and as new again.
+
+### Fixed
+- **Reload** in the portal did not refresh the Office and Purview views; they kept showing the data loaded first.
+- Demo build: generic account names ("Admin", "System") were replaced by a pseudonym inside ordinary text.
+
 ## [0.9.0] – 2026-11-18
 
 Microsoft Ignite 2026: Defender's runtime protection for local AI agents. No new permissions.

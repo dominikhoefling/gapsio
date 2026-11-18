@@ -43,11 +43,12 @@ New-Item -ItemType Directory -Force -Path $demo | Out-Null
 Copy-Item -Path (Join-Path $root 'src/functionapp/www/*') -Destination $demo -Recurse -Force
 $read = { param($n) $p = Join-Path $tmp $n; if (Test-Path $p) { Get-Content -Raw $p | ConvertFrom-Json -Depth 64 } else { $null } }
 $data = [ordered]@{
-    me       = [ordered]@{ oid = 'u-demo'; upn = 'demo@contoso.example'; displayName = 'Demo account (Contoso)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Gapsio/Gapsio.psd1')).ModuleVersion }
+    me       = [ordered]@{ oid = 'u-demo'; upn = 'demo@contoso.example'; displayName = 'Demo account (Contoso)'; isAdmin = $true; tenantId = 'contoso.example'; license = [ordered]@{ status = 'Valid'; plan = 'Annual'; customer = 'Contoso (Demo)'; expires = [DateTime]::UtcNow.AddMonths(10).ToString('yyyy-MM-dd'); daysLeft = 300 }; modules = @('endpoint', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'digest'); version = (Import-PowerShellDataFile (Join-Path $root 'src/functionapp/Modules/Gapsio/Gapsio.psd1')).ModuleVersion }
     endpoint = & $read 'endpoint-latest.json'
     agents   = & $read 'agents-latest.json'
     licensing = & $read 'licensing-latest.json'
     access   = & $read 'access-latest.json'
+    digest   = & $read 'digest-latest.json'
     controls = Get-Content -Raw (Join-Path $root 'src/functionapp/config/control-mapping.json') | ConvertFrom-Json -Depth 16
     runs     = @(& $read 'runs.json')
     changes  = @(& $read 'endpoint-changes.json')
