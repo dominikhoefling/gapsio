@@ -195,6 +195,12 @@ asset value, tampering and troubleshooting counters.
 
 ## macOS and Linux
 
+The Linux baseline also has **Memory scan enabled (preview)** (Low): Defender for Endpoint on Linux can scan process
+memory for threats that never touch the disk. Microsoft ships it as a preview in the Insiders-slow channel, off by
+default, and recommends the default unless its support advises otherwise – so the check is a prompt to decide, not a
+must: accept it for servers where the performance impact is not acceptable. The setting ID is matched by pattern and
+has not been confirmed against a tenant.
+
 The *macOS / Linux* category covers what is different on non-Windows endpoints – the places where Defender is
 installed but not actually working:
 
