@@ -18,7 +18,7 @@ nobody has to guess what might be taken away later.
 
 ## What Enterprise pays for
 
-The Enterprise licence (per tenant, [€19 per month or €199 per year](https://gapsio.cloud/#pricing)) removes the
+The Enterprise licence (per tenant, [€59 per month or €590 per year](https://gapsio.cloud/#pricing)) removes the
 10-row display limit and unlocks governance: assigning findings, accepting risks with expiry and justification,
 the change history and notifications. In short: everything that an organisation needs to *run* Gapsio as an
 auditable control rather than look at it.
