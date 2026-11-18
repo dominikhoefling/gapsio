@@ -129,8 +129,9 @@ and policy reach:
   nor security settings management reach them, so none of the Defender policies Gapsio evaluates apply.
 - **Eternal audit** – an ASR rule is assigned in audit mode by a policy that has not been modified for 90+ days.
   Audit is an evaluation step, not a protection state.
-- **Linux AV/Tamper in audit mode (preview)** – assigned Linux policies keep antivirus or tamper protection in
-  *audit* mode. Gapsio reports this as rollout hygiene: useful for short pilots, but not a target state.
+- **Linux antivirus or tamper protection in audit mode** – assigned Linux policies keep antivirus or tamper
+  protection (the latter still a preview) in *audit* mode. Gapsio reports this as rollout hygiene: useful for short
+  pilots, but not a target state.
 
 ## Fleet findings
 

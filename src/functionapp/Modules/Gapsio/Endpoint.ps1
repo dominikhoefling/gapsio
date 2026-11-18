@@ -2394,7 +2394,7 @@ function Get-GapsioInventoryFindings {
       - onboarded Windows devices with no management channel (ManagedBy unknown): no Intune, ConfigMgr or
         security settings management – no Defender policy reaches them
       - ASR rules left in audit mode although the policy has not been touched for 90+ days ("eternal audit")
-            - Linux AV / Tamper Protection left in audit mode (preview) on assigned policies
+            - Linux AV / Tamper Protection (preview) left in audit mode on assigned policies
     #>
     param([hashtable]$Devices, [object[]]$SettingValues, $Asr)
     $f = [System.Collections.Generic.List[object]]::new()
@@ -2454,7 +2454,8 @@ function Get-GapsioInventoryFindings {
                     -Recommendation (& $T 'Review the audit events in Advanced Hunting (DeviceEvents, AsrAudited), add the necessary exclusions and move the rule to Block or Warn.' 'Audit-Ereignisse in Advanced Hunting prüfen (DeviceEvents, AsrAudited), nötige Ausnahmen ergänzen und die Regel auf Block oder Warn stellen.') -Subject "inv|audit|$($r.id)" -StableKey))
     }
 
-    # 5) Linux audit modes (preview): useful for rollout pilots, but not a target state
+    # 5) Linux audit modes: useful for rollout pilots, but not a target state. Antivirus audit mode is generally
+    #    available since October 2026; tamper protection in audit mode is still a preview.
     $linuxAuditAv = @($SettingValues | Where-Object {
             $_ -and $_.platform -eq 'Linux' -and $_.definitionId -match '^linux_.*antivirusengine_enforcementlevel$' -and
             (Test-GapsioAssigned $_.assignments) -and (([string]$_.display -match 'audit') -or ([string]$_.value -match 'audit'))
@@ -2462,7 +2463,7 @@ function Get-GapsioInventoryFindings {
     if ($linuxAuditAv.Count) {
         $pol = @($linuxAuditAv | ForEach-Object { [string]$_.policyName } | Sort-Object -Unique)
         $grp = @($linuxAuditAv | ForEach-Object { @($_.assignments) } | ForEach-Object { [string]$_ } | Sort-Object -Unique)
-        $f.Add((New-GapsioFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T 'Linux antivirus in audit mode (preview)' 'Linux-Antivirus im Audit-Modus (Preview)') `
+        $f.Add((New-GapsioFinding -Severity 'Medium' -Category 'Inventory' -Title (& $T 'Linux antivirus in audit mode' 'Linux-Antivirus im Audit-Modus') `
                     -Detail (& $T "Assigned policy/policies keep Linux Defender antivirus in audit mode: $($pol -join ', '). Assigned to: $($grp -join ', '). Audit mode is an evaluation phase: detections are logged but not blocked, so this should remain a short pilot stage." "Zugewiesene Richtlinie(n) halten Linux-Defender-Antivirus im Audit-Modus: $($pol -join ', '). Zugewiesen an: $($grp -join ', '). Audit ist eine Bewertungsphase: Erkennungen werden protokolliert, aber nicht blockiert – das sollte nur eine kurze Pilotphase sein.") `
                     -Recommendation (& $T 'Use audit mode for rollout validation (typically 2-4 weeks), then switch to real_time and keep only narrowly scoped exclusions.' 'Audit-Modus für den Rollout-Check nutzen (typisch 2–4 Wochen), danach auf real_time wechseln und nur eng gefasste Exclusions behalten.') -Subject 'inv|linux-av-audit' -StableKey))
     }
