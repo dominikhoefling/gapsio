@@ -31,6 +31,7 @@ function New-GapsioDevice {
         deviceId = $Id; deviceName = $Name; os = $Os; osVersion = $null; deviceGroup = $null; deviceType = $null; lastSeen = $null; reporting = $null; aadDeviceId = $null
         sensorHealth = $null; exposure = $null; joinType = $null; lastUser = $null; intuneDeviceId = $null; managedBy = $null
         inventoryAt = $null; localMergeDisabled = $null
+        aiAgentProtection = $null   # runtime protection for local AI agents as configured by policy (Posture.ps1); $null = not evaluated
         avMode = $null; avModeText = 'Unknown'; signatureUpToDate = $null; platformUpToDate = $null; engineUpToDate = $null
         avSignatureVersion = $null; avEngineVersion = $null; avPlatformVersion = $null; avSignatureTime = $null; agentVersion = $null
         checks = [ordered]@{}; networkProtectionSource = $null; localExclusions = 0; localExclusionsHighRisk = 0; policyExclusions = $null; policyExclusionPolicyIds = @(); exclusionAlerts = 0; asr = $null; asrBelowMinimum = $null; asrBlocked = $null
@@ -3002,6 +3003,8 @@ function Invoke-GapsioEndpointCollection {
     $local = Update-GapsioLocalExclusionState -Events $events -Previous $prevLocal -Inventory $inventory
 
     Set-GapsioDevicePolicyExclusions -Devices $devices -Exclusions $pol.Exclusions -Targets $pol.Targets
+    $aiAgentProtection = $null
+    try { $aiAgentProtection = Set-GapsioDeviceAiAgentProtection -SettingValues $pol.SettingValues -Devices $devices -Targets $pol.Targets } catch { Add-GapsioWarning "AI agent runtime protection: $($_.Exception.Message)" }
     Get-GapsioAsrDeviceStates -Devices $devices
     $asr = Get-GapsioAsrOverview -Baseline $baseline -SettingValues $pol.SettingValues -Devices $devices
     $linuxEvents = Get-GapsioLinuxConfigEvents
@@ -3109,6 +3112,7 @@ function Invoke-GapsioEndpointCollection {
         inactiveDevices      = @($fleet.inactive | Select-Object -First 1000)
         policyConflicts      = @($conflicts)
         deviceControl        = $deviceControl
+        aiAgentProtection    = $aiAgentProtection
         disruption           = $disruption
         detectionRules       = @($(if ($detections) { $detections.rules } else { @() }))
         detectionRulesStatus = $(if ($detections) { $detections.status } else { 'off' })

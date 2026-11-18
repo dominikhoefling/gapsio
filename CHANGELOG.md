@@ -6,6 +6,31 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-11-18
+
+Microsoft Ignite 2026: Defender's runtime protection for local AI agents. No new permissions.
+
+### Added
+- **Runtime protection for local AI agents.** Defender for Endpoint can stop prompt injection in supported local
+  agents (Claude Code, GitHub Copilot CLI …) – off by default. Gapsio now shows which mode the assigned policies set
+  for each Windows device (block, audit, off, not configured, policy conflict): on the device page, per local agent
+  in *Agents › Local agents* (with a filter) and in the snapshot.
+- **Baseline check** *Runtime protection for local AI agents in block mode* (Windows, Medium).
+- **Findings**: Windows devices that run local agents without the protection (High when an agent there runs actions
+  without confirmation, otherwise Medium) and devices where it only audits (Low) – one finding per state with the
+  devices, not one per agent.
+
+### Fixed
+- **Local agents were not matched to their device** when Defender reports it the way Microsoft documents it (Entra
+  device ID and name instead of a Defender device ID). The combined finding *Local agent on a weakened device* then
+  never appeared. The device is now found by Defender device ID, Entra device ID or name; the user falls back to
+  domain and account name.
+
+### Notes
+- Configured, not effective: Defender does not report the effective value per device through Advanced Hunting yet, so
+  a value set locally (`Set-MpPreference`) is not visible. The setting ID follows the Defender CSP and still has to be
+  confirmed against a tenant that has such a policy.
+
 ## [0.8.6] – 2026-11-12
 
 ### Fixed

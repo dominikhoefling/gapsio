@@ -152,6 +152,11 @@
     'g.caPolAgent': ['CA policies (agent)', 'CA-Richtlinien Agent'], 'g.caPolUser': ['CA policies (agent user)', 'CA-Richtlinien Agent-User'], 'g.excluded': ['excluded', 'ausgenommen'],
     'g.none.cloud': ['No cloud agents found. Entra Agent ID and Agent 365 require the corresponding licences.', 'Keine Cloud-Agents gefunden. Für Entra Agent ID und Agent 365 sind die entsprechenden Lizenzen nötig.'],
     'g.local.lede': ['Local agents run with the rights of the signed-in user – Conditional Access does not apply to them. What matters is the device and the agent’s configuration: auto-approve, MCP servers and whether the process is trusted.', 'Lokale Agents laufen mit den Rechten des angemeldeten Benutzers – Conditional Access greift für sie nicht. Entscheidend sind das Gerät und die Konfiguration des Agents: Auto-Approve, MCP-Server und ob der Prozess vertrauenswürdig ist.'],
+    'g.runtime': ['Runtime protection', 'Laufzeitschutz'], 'g.onlyNoRuntime': ['Only without runtime protection', 'Nur ohne Laufzeitschutz'],
+    'g.runtime.i': ['Defender runtime protection for AI agents as set by the policies that reach the device (Windows). A value set locally on the device is not visible.', 'Defender-Laufzeitschutz für KI-Agents laut den Richtlinien, die das Gerät erreichen (Windows). Ein lokal am Gerät gesetzter Wert ist nicht sichtbar.'],
+    'rp.Block': ['Block', 'Block'], 'rp.Audit': ['Audit only', 'Nur Audit'], 'rp.Off': ['Off', 'Aus'], 'rp.NotConfigured': ['Not configured', 'Nicht konfiguriert'], 'rp.Conflict': ['Policy conflict', 'Richtlinienkonflikt'],
+    'rp.NotSupported': ['Windows only', 'Nur Windows'], 'rp.Unknown': ['Unknown value', 'Unbekannter Wert'],
+    'dv.aiAgent': ['AI agent runtime protection (policy)', 'KI-Agent-Laufzeitschutz (Richtlinie)'],
     'g.vendor': ['Vendor', 'Hersteller'], 'g.device': ['Device', 'Gerät'], 'g.user': ['User', 'Benutzer'], 'g.autoApprove': ['Auto-approve', 'Auto-Approve'], 'g.mcp': ['MCP servers', 'MCP-Server'],
     'g.mcpUnpinned': ['{0} ({1} unpinned)', '{0} ({1} ohne feste Version)'], 'g.deviceState': ['Device state', 'Gerätezustand'], 'g.tamperOff': ['Tamper off', 'Tamper aus'], 'g.localExcl': ['{0} local excl.', '{0} lokale Excl.'],
     'g.deviceOk': ['ok', 'ok'], 'g.onlyAuto': ['Auto-approve only', 'Nur mit Auto-Approve'], 'g.process': ['Process', 'Prozess'], 'g.trusted': ['Trusted process', 'Vertrauenswürdiger Prozess'],
@@ -1898,6 +1903,7 @@
         [t('dv.thirdParty'), arr(d.thirdPartyAv).length ? h('span', { class: d.avMode === '0' ? 'state warn' : '' }, arr(d.thirdPartyAv).join(', ')) : null],
         [t('dv.troubleshooting'), d.troubleshooting30d > 0 || d.troubleshootingActive ? h('span', { class: d.troubleshootingActive ? 'state bad' : 'state warn' }, `${d.troubleshooting30d || 0}${d.troubleshootingActive ? ` · ${t('dv.tsActive')}` : ''}${d.troubleshootingLast ? ` · ${fmtDate(d.troubleshootingLast)}` : ''}`) : null],
         [t('dv.clientVersion'), d.clientVersion || null],
+        [t('dv.aiAgent'), d.aiAgentProtection && d.aiAgentProtection !== 'NotSupported' ? h('span', { class: d.aiAgentProtection === 'Block' ? 'state good' : d.aiAgentProtection === 'Audit' ? 'state warn' : d.aiAgentProtection === 'Unknown' ? '' : 'state bad', title: t('g.runtime.i') }, code('rp', d.aiAgentProtection)) : null],
         [t('d.lastSeen'), d.reporting === false ? h('span', { class: 'state warn' }, `${t('d.notReporting')}${d.lastSeen ? ` · ${fmtDate(d.lastSeen)}` : ''}`) : fmtDate(d.lastSeen)], [t('dv.sigver'), d.avSignatureVersion || null], [t('dv.engver'), [d.avEngineVersion, d.avPlatformVersion].filter(Boolean).join(' / ') || null],
         [t('dv.sigtime'), d.avSignatureTime ? fmtDate(d.avSignatureTime) : null], [t('d.sig'), yesNo(d.signatureUpToDate)], [t('d.plat'), yesNo(d.platformUpToDate)],
         [t('d.aad'), d.aadDeviceId ? h('span', { class: 'mono small' }, d.aadDeviceId) : null], [t('dv.links'), h('span', null, links)]])));
@@ -2126,6 +2132,9 @@
 
       if (active === 'local') {
         main.append(h('p', { class: 'muted small' }, t('g.local.lede')));
+        // Defender runtime protection for AI agents on the agent's device (configured by policy; empty = not evaluated yet)
+        const runtimeCell = (v) => !v ? h('span', { class: 'muted' }, '–')
+          : h('span', { class: v === 'Block' ? 'state good' : v === 'Audit' ? 'state warn' : (v === 'NotSupported' || v === 'Unknown') ? 'muted' : 'state bad', title: t('g.runtime.i') }, code('rp', v));
         const devState = (a) => {
           const d = a.device || {};
           const bad = [];
@@ -2139,13 +2148,15 @@
           filters: [
             { label: t('g.vendor'), options: [...new Set(local.map(a => a.vendor).filter(Boolean))].sort(), test: (a, v) => a.vendor === v },
             { label: t('d.group'), options: [...new Set(local.map(a => a.device && a.device.group).filter(Boolean))].sort(), test: (a, v) => a.device && a.device.group === v },
-            { type: 'check', label: t('g.onlyAuto'), test: a => a.autoApprove === true }],
+            { type: 'check', label: t('g.onlyAuto'), test: a => a.autoApprove === true },
+            { type: 'check', label: t('g.onlyNoRuntime'), test: a => ['NotConfigured', 'Off', 'Conflict'].includes(a.device && a.device.runtimeProtection) }],
           columns: [
             { title: t('g.agent'), cell: a => h('span', null, a.name || '–', h('br'), h('span', { class: 'muted small' }, a.vendor || '')), text: a => a.name },
             { title: t('g.device'), text: a => (a.device && a.device.name) || '–' },
             { title: t('g.user'), text: a => a.user || '–' },
             { title: t('g.autoApprove'), cell: a => a.autoApprove ? h('span', { class: 'state bad' }, t('yes')) : h('span', { class: 'muted' }, t('no')), text: a => a.autoApprove ? t('yes') : t('no') },
             { title: t('g.mcp'), cell: a => { const n = arr(a.mcpServers).length, u = arr(a.mcpServers).filter(m => m.unpinned).length; return u ? h('span', { class: 'state warn' }, t('g.mcpUnpinned', n, u)) : String(n); }, text: a => arr(a.mcpServers).length },
+            { title: t('g.runtime'), cell: a => runtimeCell(a.device && a.device.runtimeProtection), text: a => (a.device && a.device.runtimeProtection) ? code('rp', a.device.runtimeProtection) : '–' },
             { title: t('g.deviceState'), cell: a => { const b = devState(a); return b.length ? h('span', { class: 'state bad' }, b.join(', ')) : (a.device && a.device.tamper ? h('span', { class: 'state good' }, t('g.deviceOk')) : h('span', { class: 'muted' }, '–')); }, text: a => devState(a).join(', ') }],
           detail: a => dl([[t('g.process'), a.process ? h('span', { class: 'mono' }, a.process) : null], [t('g.trusted'), a.trustedProcess === null || a.trustedProcess === undefined ? null : (a.trustedProcess ? t('yes') : t('no'))],
             [t('g.version'), a.version], [t('g.devGroup'), a.device && a.device.group], [t('g.avMode'), a.device && a.device.avMode ? code('mode', a.device.avMode) : null],

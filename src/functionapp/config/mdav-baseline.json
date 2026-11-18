@@ -3,7 +3,7 @@
     "en": "Gapsio MDAV best practice",
     "de": "Gapsio MDAV Best Practice"
   },
-  "version": "2026.10.31",
+  "version": "2026.11.18",
   "description": {
     "en": "Recommended configuration for Microsoft Defender Antivirus (Windows) and Microsoft Defender for Endpoint (macOS, Linux). Customise per customer: edit this file and upload it to the storage account as config/mdav-baseline.json. Text fields can be a string or {\"en\": \"...\", \"de\": \"...\"}.",
     "de": "Empfohlene Konfiguration für Microsoft Defender Antivirus (Windows) und Microsoft Defender for Endpoint (macOS). Werte können pro Kunde angepasst werden: diese Datei bearbeiten und als config/mdav-baseline.json in den Storage Account hochladen."
@@ -1351,6 +1351,36 @@
       "remediation": {
         "en": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block.",
         "de": "Settings Catalog > Defender > Remote Encryption Protection Configured State = Block."
+      }
+    },
+    {
+      "id": "ai-agent-protection",
+      "platform": "Windows",
+      "category": {
+        "en": "Advanced protection",
+        "de": "Erweiterter Schutz"
+      },
+      "title": {
+        "en": "Runtime protection for local AI agents in block mode",
+        "de": "Laufzeitschutz für lokale KI-Agents im Block-Modus"
+      },
+      "severity": "Medium",
+      "definitionIdPattern": "_defender_configuration_aiagentprotection$",
+      "expect": {
+        "op": "eq",
+        "value": 1
+      },
+      "expectText": {
+        "en": "Block (1); audit (2) only as an interim step",
+        "de": "Blockieren (1); Audit (2) nur als Zwischenschritt"
+      },
+      "rationale": {
+        "en": "Local AI agents such as Claude Code or GitHub Copilot CLI read files, web pages and tool output – any of them can carry hidden instructions (prompt injection) that the agent then executes with the user's rights. Defender inspects the prompts and tool results of supported agents and stops a detected injection before the agent acts. Disabled by default; in audit mode the action continues. Needs Defender for Endpoint Plan 2 and Defender Antivirus in active mode. Gapsio reads the value the policies set – a value set locally (Set-MpPreference) is not visible.",
+        "de": "Lokale KI-Agents wie Claude Code oder GitHub Copilot CLI lesen Dateien, Webseiten und Tool-Ausgaben – jede davon kann versteckte Anweisungen enthalten (Prompt Injection), die der Agent dann mit den Rechten des Benutzers ausführt. Defender prüft Prompts und Tool-Ergebnisse unterstützter Agents und stoppt eine erkannte Injection, bevor der Agent handelt. Standardmäßig aus; im Audit-Modus läuft die Aktion weiter. Benötigt Defender for Endpoint Plan 2 und Defender Antivirus im aktiven Modus. Gapsio liest den Wert, den die Richtlinien setzen – ein lokal gesetzter Wert (Set-MpPreference) ist nicht sichtbar."
+      },
+      "remediation": {
+        "en": "Intune > Endpoint security > Antivirus > Create policy > Windows > profile 'Microsoft Defender AI agent runtime protection' (or the same template in the Defender portal): Ai Agent Protection = Audit first, review the 'Suspicious AI prompt injection' alerts for one to two weeks, then Block. Network inspection for agents without their own event interface (AiAgentNetworkInspection) is a separate setting – use the profile where it offers it, otherwise Set-MpPreference.",
+        "de": "Intune > Endpunktsicherheit > Antivirus > Richtlinie erstellen > Windows > Profil 'Microsoft Defender AI agent runtime protection' (oder dieselbe Vorlage im Defender-Portal): Ai Agent Protection zuerst auf Audit, die Alerts 'Suspicious AI prompt injection' ein bis zwei Wochen prüfen, dann Block. Die Netzwerk-Inspektion für Agents ohne eigene Ereignisschnittstelle (AiAgentNetworkInspection) ist eine eigene Einstellung – über das Profil setzen, wo es sie anbietet, sonst per Set-MpPreference."
       }
     },
     {

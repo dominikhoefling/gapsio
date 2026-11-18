@@ -63,6 +63,10 @@ Windows, macOS and Linux checks on three levels: target · configured in Intune 
 protection, running mode, real-time, cloud, behaviour and PUA protection, sensor communication). Linux: local weakening
 via `mdatp config …` and changes to `mdatp_managed.json` outside of Defender. See [customising the baseline](../baseline.md).
 
+Since 0.9.0 the Windows baseline also checks **runtime protection for local AI agents** (`AiAgentProtection` = block),
+and every Windows device carries the mode its assigned policies set – see
+[Agents › Runtime protection for local agents](agents.md#runtime-protection-for-local-agents).
+
 ### ASR telemetry
 
 `DeviceEvents` action types `Asr…Audited` / `Asr…Blocked` (30 days) are counted per rule with the top five

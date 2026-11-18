@@ -534,7 +534,8 @@ $hunting.AgentsInfo = @(
         Model = 'gpt-5'; Guardrails = '[]'; Endpoints = '[{"url":"https://agent.contoso.com/api","transport":"https","isExternal":true}]'; Owners = '[{"displayName":"Bob","userPrincipalName":"bob@contoso.com"}]'
         DeclaredTools = '[{"name":"search"},{"name":"mail"}]'; McpServers = '[{"name":"crm","url":"https://mcp.contoso.com","transport":"http"}]' },
     [pscustomobject]@{ AgentId = 'mde-2'; Name = 'Local Agent'; Platform = 'LocalAgents'; EntraAgentId = ''; EntraBlueprintId = ''; PublishedStatus = ''; LifecycleStatus = ''; IsLocal = $true
-        Vendor = 'OpenAI'; LocalDeviceId = 'd-win1'; LocalDeviceName = 'WIN-01'; LocalOs = 'Windows11'; LocalUser = 'alice@contoso.com'; AutoApprove = 'true'; TrustedProcess = 'true'; Process = 'codex.exe'
+        # Device as Microsoft documents it for local agents: Entra device ID and name, no Defender device ID, no OS
+        Vendor = 'OpenAI'; LocalDeviceId = ''; LocalAadDeviceId = 'aad-win1'; LocalDeviceName = 'WIN-01'; LocalOs = ''; LocalUser = 'alice@contoso.com'; AutoApprove = 'true'; TrustedProcess = 'true'; Process = 'codex.exe'
         LocalMcps = '[{"name":"filesystem","commandName":"npx","commandArgs":["-y","@modelcontextprotocol/server-filesystem"]},{"name":"pinned","commandName":"npx","commandArgs":["tool@1.2.3"]}]'; McpServers = '[]' }
 )
 $fixtures.agents = $agentFx
@@ -1249,6 +1250,71 @@ Assert (@($af | Where-Object { $_.category -eq 'LocalAgent' -and $_.title.en -ma
 Assert (@($af | Where-Object { $_.title.en -match '^MCP server loaded unpinned' }).Count -eq 1) 'Finding: unpinned MCP server'
 Assert (@($af | Where-Object { $_.category -eq 'Combined' -and $_.title.en -match 'weakened device: Local Agent' -and $_.severity -eq 'Critical' }).Count -eq 1) 'Finding: local agent on weakened device (tamper off + auto-approve)'
 Assert ($agSnap.summary.localAgents -eq 1 -and $agSnap.summary.cloudAgents -eq 5) "Summary cloud/local ($($agSnap.summary.cloudAgents)/$($agSnap.summary.localAgents))"
+# Defender runtime protection for AI agents: no policy sets it in this tenant
+Assert ($la.device.id -eq 'd-win1' -and $la.device.os -eq 'Windows11' -and $la.device.runtimeProtection -eq 'NotConfigured') "Local agent: device found by its Entra device ID, OS from the endpoint module, runtime protection not configured ($($la.device.id)/$($la.device.os)/$($la.device.runtimeProtection))"
+$rpf = @($af | Where-Object { $_.title.en -match 'run local AI agents without Defender runtime protection' })
+Assert ($rpf.Count -eq 1 -and $rpf[0].severity -eq 'High' -and $rpf[0].category -eq 'LocalAgent' -and $rpf[0].title.en -match '^1 Windows device' -and $rpf[0].detail.en -match 'WIN-01 \(1\)' -and $rpf[0].detail.de -match 'ohne Bestätigung' -and $agSnap.summary.localNoRuntimeProtection -eq 1) 'Finding: device with a local agent (auto-approve) and no runtime protection policy – one finding per state, High'
+Assert ($dWin1.aiAgentProtection -eq 'NotConfigured' -and @($ep.devices | Where-Object { $_.os -eq 'macOS' })[0].aiAgentProtection -eq 'NotSupported' -and $ep.aiAgentProtection.devices.NotConfigured -ge 2 -and @($ep.aiAgentProtection.policies).Count -eq 0) "Endpoint: AI agent runtime protection per device (Windows not configured, macOS not supported)"
+$blAi = @($ep.baseline | Where-Object { $_.id -eq 'ai-agent-protection' })[0]
+Assert ($blAi.state -eq 'NotConfigured' -and @($f | Where-Object { $_.title.en -match '^Runtime protection for local AI agents in block mode' }).Count -eq 1) "Baseline: runtime protection for local AI agents is a check and a finding while no policy sets it ($($blAi.state))"
+& $mod {
+    param($A, $BaselinePath)
+    # --- mode of a policy value ---
+    $modes = @(
+        (ConvertTo-GapsioAiAgentMode -Value 'device_vendor_msft_defender_configuration_aiagentprotection_1' -Display ''),
+        (ConvertTo-GapsioAiAgentMode -Value 'device_vendor_msft_defender_configuration_aiagentprotection_2' -Display ''),
+        (ConvertTo-GapsioAiAgentMode -Value 'device_vendor_msft_defender_configuration_aiagentprotection_0' -Display ''),
+        (ConvertTo-GapsioAiAgentMode -Value 'x_7' -Display 'Block'), (ConvertTo-GapsioAiAgentMode -Value 'x_7' -Display 'Audit'), (ConvertTo-GapsioAiAgentMode -Value 'x_7' -Display 'Default'), (ConvertTo-GapsioAiAgentMode -Value 'x_7' -Display ''))
+    & $A (($modes -join ',') -eq 'Block,Audit,Off,Block,Audit,Off,Unknown') "AI agent mode: numeric option suffix (1 block, 2 audit, 0 off), the option's display name wins, anything else is Unknown ($($modes -join ','))"
+
+    # --- per device: which mode do the assigned policies set ---
+    $devs = @{}
+    foreach ($x in @(@('w1', 'Windows11'), @('w2', 'Windows11'), @('w3', 'WindowsServer2022'), @('w4', 'Windows10'), @('w5', 'Windows11'), @('m1', 'macOS'), @('l1', 'Linux'))) { $devs[$x[0]] = [ordered]@{ deviceId = $x[0]; deviceName = $x[0].ToUpper(); os = $x[1]; aiAgentProtection = $null } }
+    $def = 'device_vendor_msft_defender_configuration_aiagentprotection'
+    $sv = { param($pol, $val, $assigned = $true) [pscustomobject]@{ policyId = $pol; policyName = "Policy $pol"; platform = 'Windows'; definitionId = $def; value = "${def}_$val"; display = $null; assignments = $(if ($assigned) { @('All devices') } else { @() }) } }
+    $settings = @((& $sv 'p-block' 1), (& $sv 'p-audit' 2), (& $sv 'p-off' 0), (& $sv 'p-unassigned' 1 $false),
+        [pscustomobject]@{ policyId = 'p-other'; policyName = 'Other'; platform = 'Windows'; definitionId = 'device_vendor_msft_defender_configuration_disablelocaladminmerge'; value = 'x_1'; display = $null; assignments = @('All devices') })
+    $origMap = ${function:Get-GapsioPolicyDeviceMap}
+    try {
+        function script:Get-GapsioPolicyDeviceMap { param($Devices, $Targets, $PolicyPlatform, $Cache) @{ 'p-block' = @('w1', 'w4'); 'p-audit' = @('w2', 'w4'); 'p-off' = @('w3') } }
+        $r = Set-GapsioDeviceAiAgentProtection -SettingValues $settings -Devices $devs -Targets @{}
+    }
+    finally { ${function:script:Get-GapsioPolicyDeviceMap} = $origMap }
+    $got = (@('w1', 'w2', 'w3', 'w4', 'w5', 'm1', 'l1') | ForEach-Object { "$_=$($devs[$_].aiAgentProtection)" }) -join ' '
+    & $A ($got -eq 'w1=Block w2=Audit w3=Off w4=Conflict w5=NotConfigured m1=NotSupported l1=NotSupported') "AI agent protection per device: block, audit, off, conflict of two policies, no policy, not Windows ($got)"
+    & $A ($r.devices.Block -eq 1 -and $r.devices.Audit -eq 1 -and $r.devices.Off -eq 1 -and $r.devices.Conflict -eq 1 -and $r.devices.NotConfigured -eq 1 -and @($r.policies).Count -eq 4 -and @($r.policies | Where-Object { $_.id -eq 'p-unassigned' })[0].assigned -eq $false -and @($r.policies | Where-Object { $_.id -eq 'p-block' })[0].devices -eq 2) 'AI agent protection: counts per mode, policies with their mode and reach; an unassigned policy protects nothing'
+
+    # --- baseline: block is the target, audit a deviation ---
+    $bl = Get-Content $BaselinePath -Raw | ConvertFrom-Json -Depth 32
+    $one = [pscustomobject]@{ checks = @($bl.checks | Where-Object { $_.id -eq 'ai-agent-protection' }) }
+    $st = { param($val) @(Test-GapsioBaseline -Baseline $one -SettingValues @((& $sv 'p' $val)) -Devices @{})[0].state }
+    & $A ((& $st 1) -eq 'OK' -and (& $st 2) -eq 'Deviation' -and (& $st 0) -eq 'Deviation' -and @(Test-GapsioBaseline -Baseline $one -SettingValues @() -Devices @{})[0].state -eq 'NotConfigured') "Baseline check ai-agent-protection: block OK, audit and off are deviations, no policy is NotConfigured"
+
+    # --- device of a local agent: Defender device ID, Entra device ID, name (also FQDN) ---
+    $ix = @{ cols = @{ deviceId = 0; deviceName = 1; aadDeviceId = 2; page = 3 }; rows = [System.Collections.Generic.List[string[]]]::new() }
+    $ix.rows.Add([string[]]@('d-a', 'PC-A', 'AAD-A', '0')); $ix.rows.Add([string[]]@('d-b', 'PC-B', 'AAD-B', '1')); $ix.rows.Add([string[]]@('d-c', 'pc-c.corp.contoso.com', '', '1'))
+    $pagesRead = [System.Collections.Generic.List[int]]::new()
+    $getPage = { param($p) $pagesRead.Add($p); if ($p -eq 0) { @([pscustomobject]@{ deviceId = 'd-a'; deviceName = 'PC-A'; aiAgentProtection = 'Block' }) } else { @([pscustomobject]@{ deviceId = 'd-b'; deviceName = 'PC-B' }, [pscustomobject]@{ deviceId = 'd-c'; deviceName = 'pc-c.corp.contoso.com' }) } }.GetNewClosure()
+    $row = { param($id, $aad, $name) [pscustomobject]@{ AgentId = "$id$aad$name"; IsLocal = $true; LocalDeviceId = $id; LocalAadDeviceId = $aad; LocalDeviceName = $name } }
+    $rows = @((& $row 'd-a' '' ''), (& $row '' 'aad-b' 'whatever'), (& $row '' '' 'PC-C'), (& $row '' '' 'pc-b.other.domain'), (& $row 'gone' 'AAD-GONE' 'GONE'), [pscustomobject]@{ AgentId = 'cloud'; IsLocal = $false; LocalDeviceId = 'd-a' })
+    $res = Resolve-GapsioAgentDevices -AgentsInfo $rows -Index $ix -GetPage $getPage
+    & $A ((@($rows | ForEach-Object { $_.LocalDeviceId }) -join ',') -eq 'd-a,d-b,d-c,d-b,gone,d-a' -and (@($res.Keys | Sort-Object) -join ',') -eq 'd-a,d-b,d-c' -and $res['d-a'].aiAgentProtection -eq 'Block' -and $pagesRead.Count -eq 2) "Local agent devices: by Defender device ID, Entra device ID (any case) and name (with or without DNS suffix); unknown devices stay unresolved; each page is read once ($(@($rows | ForEach-Object { $_.LocalDeviceId }) -join ','))"
+    $inl = Resolve-GapsioAgentDevices -AgentsInfo @((& $row '' 'AAD-X' '')) -Index $null -Inline @{ 'd-x' = [pscustomobject]@{ deviceId = 'd-x'; deviceName = 'X'; aadDeviceId = 'aad-x' } }
+    & $A ($inl.ContainsKey('d-x')) 'Local agent devices: also resolved against devices stored inline by older snapshots'
+
+    # --- findings: one per state with the devices, not one per agent ---
+    $ag = { param($name, $dev, $rp, $auto = $false) [pscustomobject]@{ name = $name; agentType = 'Local'; defenderAgentId = "id-$name"; autoApprove = $auto; trustedProcess = $true; mcpServers = @(); user = 'u'; device = [ordered]@{ id = "d-$dev"; name = $dev; os = 'Windows11'; tamper = 'GOOD'; localExclusions = 0; runtimeProtection = $rp } } }
+    $fa = @(Get-GapsioAgentFindings -Agents @((& $ag 'Claude Code' 'PC-B' 'NotConfigured'), (& $ag 'Copilot CLI' 'PC-B' 'NotConfigured'), (& $ag 'Cursor' 'PC-A' 'Off'), (& $ag 'Codex' 'PC-D' 'Conflict'),
+            (& $ag 'Gemini' 'PC-E' 'Audit'), (& $ag 'Warp' 'MAC-1' 'NotSupported'), (& $ag 'Old' 'PC-F' $null), (& $ag 'Safe' 'PC-G' 'Block'), (& $ag 'Odd' 'PC-H' 'Unknown')) -PolicySummary @() -SecurityDefaults $false)
+    $off = @($fa | Where-Object { $_.title.en -match 'without Defender runtime protection' }); $aud = @($fa | Where-Object { $_.title.en -match 'only audits' })
+    & $A ($fa.Count -eq 2 -and $off.Count -eq 1 -and $off[0].severity -eq 'Medium' -and $off[0].title.en -match '^3 Windows device' -and $off[0].detail.en -match 'PC-A \(1\), PC-B \(2\), PC-D \(1\)' -and $off[0].detail.en -match 'different modes reach PC-D' -and $off[0].detail.de -match 'PC-A \(1\), PC-B \(2\), PC-D \(1\)') "Runtime protection finding: three devices (sorted, with agent counts), Medium without auto-approve, the conflict is named ($($off[0].title.en))"
+    & $A ($aud.Count -eq 1 -and $aud[0].severity -eq 'Low' -and $aud[0].detail.en -match 'PC-E \(1\)') 'Runtime protection finding: audit-only devices are a separate Low finding; block, not supported, unknown and not evaluated raise nothing'
+    $k1 = $off[0].key
+    $fb = @(Get-GapsioAgentFindings -Agents @((& $ag 'Claude Code' 'PC-B' 'NotConfigured' $true)) -PolicySummary @() -SecurityDefaults $false | Where-Object { $_.title.en -match 'without Defender runtime protection' })
+    & $A ($fb[0].severity -eq 'High' -and $fb[0].key -eq $k1 -and $fb[0].detail.en -match '1 agent\(s\) there run actions without confirmation') 'Runtime protection finding: High when an agent there runs without confirmation; the key stays the same when the device count changes'
+} ${function:Assert} (Join-Path $root 'src/functionapp/config/mdav-baseline.json')
+$qAgents = & $mod { @($script:HuntQueries | Where-Object { $_ -match '^AgentsInfo\s*\n\| summarize' })[-1] }
+Assert ($qAgents -match 'LocalAadDeviceId = tostring\(m\.aadDeviceId\)' -and $qAgents -match 'LocalAccountName = tostring\(m\.accountName\)' -and $qAgents -match 'LocalDeviceId = tostring\(m\.machineId\)') 'AgentsInfo query reads the documented device and account fields of local agents next to the earlier ones'
 Assert ($agSnap.summary.identitiesCovered -eq 2 -and $agSnap.summary.withEntraId -eq 3) 'Agents summary'
 # Attribute filter
 $fxp = [pscustomobject]@{ id = 'ca-f'; displayName = 'Filter'; state = 'enabled'; conditions = [pscustomobject]@{ clientApplications = [pscustomobject]@{ agentIdServicePrincipalFilter = [pscustomobject]@{ mode = 'include'; rule = 'CustomSecurityAttribute.Agents.Approved -eq "true"' } } } }
