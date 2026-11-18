@@ -6,6 +6,10 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.11.0] – 2026-11-18
+
+From the weekly news digest. No new permissions.
+
 ### Added
 - **Baseline check *Linux: memory scan enabled (preview)*** (Low). Defender for Endpoint on Linux can scan process
   memory for threats that never touch the disk; off by default. The check says clearly that it is a preview in the
