@@ -1587,6 +1587,14 @@ foreach ($entry in Get-ChildItem (Join-Path $root 'src/functionapp') -Recurse -F
     Assert ($missing.Count -eq 0) "$($entry.Directory.Name)/run.ps1 calls functions the module does not export: $($missing -join ', ')"
 }
 
+Write-Host '== Scripts parse without errors' -ForegroundColor Cyan
+# Setup, build and maintainer scripts are not loaded by the tests – a syntax error there would only show when run
+foreach ($script in @(Get-ChildItem (Join-Path $root 'setup'), (Join-Path $root 'build'), (Join-Path $root 'tools') -Filter *.ps1)) {
+    $errs = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$errs)
+    Assert (@($errs).Count -eq 0) "$($script.Directory.Name)/$($script.Name) parses$(if (@($errs).Count) { ": $($errs[0].Message) (line $($errs[0].Extent.StartLineNumber))" })"
+}
+
 Write-Host '== Timer functions' -ForegroundColor Cyan
 # Every scheduled collection skips a module that is not enabled; the endpoint timer goes through Invoke-GapsioCollection,
 # which also runs the daily update check and refreshes the assistant's knowledge index.
