@@ -878,7 +878,7 @@ $inv = @($f | Where-Object { $_.category -eq 'Inventory' })
 Assert (@($ep.devices | Where-Object { $_.deviceName -eq 'WIN-01' -and $_.managedBy -eq 'Intune' }).Count -eq 1) 'Inventory: ManagedBy collected from DeviceInfo'
 Assert (@($inv | Where-Object { $_.title.en -match 'device group|Duplicate|management channel' }).Count -eq 0) 'Inventory: clean fixture -> no grouping/duplicate/unmanaged findings'
 Assert (@($inv | Where-Object { $_.title.en -match '^ASR rule in audit mode for 1\d\d\+ days' }).Count -eq 1) 'Inventory: eternal audit for pol-asr (psexec-wmi), not for the 59-day-old pol-win'
-Assert (@($inv | Where-Object { $_.title.en -eq 'Linux antivirus in audit mode (preview)' -and $_.detail.en -match 'Linux AV' -and $_.detail.en -match 'Group: All clients' }).Count -eq 1) 'Inventory: Linux antivirus audit mode preview finding'
+Assert (@($inv | Where-Object { $_.title.en -eq 'Linux antivirus in audit mode' -and $_.title.de -eq 'Linux-Antivirus im Audit-Modus' -and $_.detail.en -match 'Linux AV' -and $_.detail.en -match 'Group: All clients' }).Count -eq 1) 'Inventory: Linux antivirus audit mode preview finding'
 Assert (@($inv | Where-Object { $_.title.en -eq 'Linux tamper protection in audit mode (preview)' -and $_.detail.en -match 'Linux AV' -and $_.detail.en -match 'Group: All clients' }).Count -eq 1) 'Inventory: Linux tamper audit mode preview finding'
 Assert (@($f | Where-Object { $_.title.en -match 'Tamper' -and $_.deviceName -eq 'MAC-01' }).Count -eq 1) 'macOS tamper finding'
 # Fleet (tags, internet-facing, TVM exclusion, troubleshooting mode, tampering attempts, inactive devices)

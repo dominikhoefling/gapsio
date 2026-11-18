@@ -13,6 +13,9 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
   where the performance impact is not acceptable. Not relevant in tenants without Linux devices.
 
 ### Changed
+- The finding *Linux antivirus in audit mode* no longer says "(preview)": Microsoft made antivirus audit mode for
+  Linux generally available in October 2026. Key and exceptions stay as they are; tamper protection in audit mode
+  remains a preview.
 - Maintainer tooling: the news agent (`tools/Get-GapsioNews.ps1`) also reads Intune, Entra, Purview and Defender for
   Office 365, the Microsoft Defender and Agent 365 blogs and the Microsoft Security blog. The Defender for Endpoint
   blog it read before was retired by Microsoft and had returned nothing since – a source without a result is now
