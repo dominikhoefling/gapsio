@@ -5,7 +5,8 @@
 # Rated by Conditional Access coverage, separately for the agent identity and the agent user.
 # Local agents (e.g. coding assistants and IDE extensions on endpoints) – source: Defender AgentsInfo
 # (RawAgentInfo.localAgentMetadata). They run in the signed-in user's context; rated by device and configuration
-# (auto-approve, MCP servers, trusted process) and combined with the endpoint module's device state.
+# (auto-approve, MCP servers, trusted process) and combined with the endpoint module's device state, including the
+# Defender runtime protection for AI agents that the assigned policies set for the device.
 #
 # Conditional Access rules (product documentation, 10/2026):
 # - Agent identities are targeted via conditions.clientApplications.includeAgentIdServicePrincipals
@@ -202,7 +203,7 @@ function Get-GapsioAgentsInfo {
     $project += "RawMcpServers = $(if ($raw) { 'tostring(RawAgentInfo.mcpServers)' } else { $empty })"
     $project += "IsLocal = isnotempty(m)$(if (& $pick 'Platform') { ' or Platform has "Local"' })"
     $project += 'Vendor = tostring(m.vendor)', 'LocalDeviceId = tostring(m.machineId)', 'LocalDeviceName = tostring(m.deviceName)', 'LocalOs = tostring(m.osPlatform)',
-    'LocalUser = tostring(m.upn)', 'AutoApprove = tostring(m.autoApprove)', 'TrustedProcess = tostring(m.trustedProcess)', 'Process = tostring(m.relatedProcess)', 'LocalMcps = tostring(m.localMcps)'
+    'LocalUser = tostring(m.upn)', 'LocalAadDeviceId = tostring(m.aadDeviceId)', 'LocalAccountName = tostring(m.accountName)', 'LocalAccountDomain = tostring(m.accountDomain)', 'AutoApprove = tostring(m.autoApprove)', 'TrustedProcess = tostring(m.trustedProcess)', 'Process = tostring(m.relatedProcess)', 'LocalMcps = tostring(m.localMcps)'
     $q = "AgentsInfo`n| summarize arg_max(Timestamp, *) by AgentId`n| extend m = $(if ($raw) { 'RawAgentInfo.localAgentMetadata' } else { 'dynamic(null)' })`n| project $($project -join ', ')"
     @(Invoke-GapsioHuntingSafe -Query $q -Context 'Advanced Hunting AgentsInfo' -ShardColumn 'AgentId' | Where-Object { $_ })
 }
@@ -405,6 +406,59 @@ function Add-GapsioAgentsInfoDetails {
     if (-not @($Agent.mcpServers).Count) { $Agent.mcpServers = @(Get-GapsioLocalMcpInfo -LocalMcps ([string](Get-GapsioProp $Row 'LocalMcps')) -McpServers $mcp) }
 }
 
+function Resolve-GapsioAgentDevices {
+    <#
+    .SYNOPSIS
+    Finds the endpoint device of every local agent and returns deviceId -> device record. Microsoft documents the
+    device of a local agent as aadDeviceId and deviceName (RawAgentInfo.localAgentMetadata); a Defender device ID
+    (machineId) is used when present. Order: Defender device ID, Entra device ID, device name (also without the DNS
+    suffix). The resolved Defender device ID is written back to the row (LocalDeviceId), so the inventory and the
+    findings refer to the same device as the endpoint module.
+    -Index: columnar device index of the endpoint module (Get-GapsioPagedIndexRaw); -Inline: devices of snapshots
+    written by older versions; -GetPage: scriptblock that returns the devices of one page (tests replace it).
+    #>
+    param([object[]]$AgentsInfo, $Index, [hashtable]$Inline = @{}, [scriptblock]$GetPage = { param($p) Get-GapsioPage -Module 'endpoint' -Name 'devices' -Page $p })
+    $out = @{}
+    $local = @($AgentsInfo | Where-Object { $_ -and ([string](Get-GapsioProp $_ 'IsLocal')) -match '^(true|1)$' })
+    if (-not $local.Count) { return $out }
+    $byId = @{}; $byAad = @{}; $byName = @{}   # key -> @(deviceId, page); page -1 = inline record
+    $short = { param($n) (([string]$n).ToLowerInvariant() -split '\.')[0] }
+    foreach ($d in @($Inline.Values)) {
+        $id = [string]$d.deviceId; if (-not $id) { continue }
+        $byId[$id] = @($id, -1)
+        if ($d.aadDeviceId) { $byAad[([string]$d.aadDeviceId).ToLowerInvariant()] = @($id, -1) }
+        if ($d.deviceName) { $byName[(& $short $d.deviceName)] = @($id, -1) }
+    }
+    if ($Index -and $Index.cols -and $null -ne $Index.cols['deviceId']) {
+        $ci = $Index.cols['deviceId']; $ca = $Index.cols['aadDeviceId']; $cn = $Index.cols['deviceName']; $cp = $Index.cols['page']
+        foreach ($r in $Index.rows) {
+            $ref = @($r[$ci], [int]$r[$cp])
+            if (-not $byId.ContainsKey($r[$ci])) { $byId[$r[$ci]] = $ref }
+            if ($null -ne $ca -and $r[$ca]) { $k = $r[$ca].ToLowerInvariant(); if (-not $byAad.ContainsKey($k)) { $byAad[$k] = $ref } }
+            if ($null -ne $cn -and $r[$cn]) { $k = & $short $r[$cn]; if (-not $byName.ContainsKey($k)) { $byName[$k] = $ref } }
+        }
+    }
+    $pages = @{}
+    foreach ($row in $local) {
+        $ref = $null
+        $id = [string](Get-GapsioProp $row 'LocalDeviceId'); $aad = ([string](Get-GapsioProp $row 'LocalAadDeviceId')).ToLowerInvariant(); $name = [string](Get-GapsioProp $row 'LocalDeviceName')
+        if ($id -and $byId.ContainsKey($id)) { $ref = $byId[$id] }
+        elseif ($aad -and $byAad.ContainsKey($aad)) { $ref = $byAad[$aad] }
+        elseif ($name -and $byName.ContainsKey((& $short $name))) { $ref = $byName[(& $short $name)] }
+        if (-not $ref) { continue }
+        $devId = [string]$ref[0]
+        if (-not $out.ContainsKey($devId)) {
+            if ($ref[1] -lt 0) { $out[$devId] = $Inline[$devId] }
+            else {
+                $pg = [int]$ref[1]; if (-not $pages.ContainsKey($pg)) { $pages[$pg] = @(& $GetPage $pg) }
+                foreach ($d in $pages[$pg]) { if ([string]$d.deviceId -eq $devId) { $out[$devId] = $d } }
+            }
+        }
+        if ($out.ContainsKey($devId)) { $row | Add-Member -NotePropertyName LocalDeviceId -NotePropertyValue $devId -Force }
+    }
+    $out
+}
+
 function Get-GapsioAgentInventory {
     <#
     .SYNOPSIS
@@ -491,18 +545,27 @@ function Get-GapsioAgentInventory {
             $ep = if ($devId -and $EndpointDevices.ContainsKey($devId)) { $EndpointDevices[$devId] } else { $null }
             $a.vendor = [string](Get-GapsioProp $ai 'Vendor')
             $a.user = [string](Get-GapsioProp $ai 'LocalUser')
+            if (-not $a.user) {
+                $acct = [string](Get-GapsioProp $ai 'LocalAccountName'); $dom = [string](Get-GapsioProp $ai 'LocalAccountDomain')
+                $a.user = if ($acct -and $dom) { "$dom\$acct" } else { $acct }
+            }
             $a.autoApprove = ([string](Get-GapsioProp $ai 'AutoApprove')) -match '^(true|1)$'
             $tp = [string](Get-GapsioProp $ai 'TrustedProcess')
             $a.trustedProcess = if ($tp) { $tp -match '^(true|1)$' } else { $null }
             $a.process = [string](Get-GapsioProp $ai 'Process')
             $a.device = [ordered]@{
-                id = $devId; name = [string](Get-GapsioProp $ai 'LocalDeviceName'); os = [string](Get-GapsioProp $ai 'LocalOs')
+                id = $devId; name = [string](Get-GapsioProp $ai 'LocalDeviceName')
+                os = $(if ([string](Get-GapsioProp $ai 'LocalOs')) { [string](Get-GapsioProp $ai 'LocalOs') } elseif ($ep) { [string]$ep.os } else { $null })
                 group = $(if ($ep) { [string]$ep.deviceGroup } else { $null })
                 tamper = $(if ($ep) { [string](Get-GapsioProp $ep.checks 'TamperProtection') } else { $null })
                 localExclusions = $(if ($ep) { [int]$ep.localExclusions } else { $null })
                 asrBelowMinimum = $(if ($ep) { $ep.asrBelowMinimum } else { $null })
                 avMode = $(if ($ep) { [string]$ep.avModeText } else { $null })
+                # Defender runtime protection for AI agents as configured by policy (endpoint module); $null = not evaluated
+                runtimeProtection = $(if ($ep) { [string](Get-GapsioProp $ep 'aiAgentProtection') } else { $null })
             }
+            if (-not $a.device.runtimeProtection) { $a.device.runtimeProtection = $null }
+            if (-not $a.device.name -and $ep) { $a.device.name = [string]$ep.deviceName }
         }
         Add-GapsioAgentsInfoDetails $a $ai
         $agents.Add($a)
@@ -683,6 +746,31 @@ function Get-GapsioAgentFindings {
                         -Recommendation (& $T 'Fix the device first (Tamper Protection, remove local exclusions), then allow the agent again.' 'Zuerst das Gerät absichern (Tamper Protection, lokale Exclusions entfernen), dann den Agent wieder zulassen.') -Subject "$subj|device" -DeviceId $d.id -DeviceName $dev))
         }
     }
+    # Defender runtime protection for AI agents (prompt injection): devices that host local agents and get no
+    # protecting policy. One finding per state with the devices – a device often runs several agents.
+    $localAgents = @($Agents | Where-Object { $_.agentType -eq 'Local' -and $_.device -and $_.device.id })
+    $devList = { param($group) ((@($group | ForEach-Object { "$($_.Name) ($($_.Count))" }) | Select-Object -First 10) -join ', ') + $(if (@($group).Count -gt 10) { ', …' } else { '' }) }
+    $unprotected = @($localAgents | Where-Object { $_.device.runtimeProtection -in 'NotConfigured', 'Off', 'Conflict' })
+    if ($unprotected.Count) {
+        $byDev = @($unprotected | Group-Object { [string]$_.device.name } | Sort-Object Name)
+        $auto = @($unprotected | Where-Object { $_.autoApprove }).Count
+        $conflict = @($unprotected | Where-Object { $_.device.runtimeProtection -eq 'Conflict' } | ForEach-Object { [string]$_.device.name } | Sort-Object -Unique)
+        $f.Add((New-GapsioFinding -Severity $(if ($auto) { 'High' } else { 'Medium' }) -Category 'LocalAgent' `
+                    -Title (& $T "$($byDev.Count) Windows device(s) run local AI agents without Defender runtime protection" "$($byDev.Count) Windows-Gerät(e) mit lokalen KI-Agents ohne Defender-Laufzeitschutz") `
+                    -Detail (& $T "No assigned policy turns on Defender's runtime protection for AI agents on these devices (device and number of agents): $(& $devList $byDev). Files, web pages and tool output an agent reads can carry hidden instructions; without the protection nothing stops the agent from acting on them.$(if ($auto) { " $auto agent(s) there run actions without confirmation." })$(if ($conflict.Count) { " Policies with different modes reach $($conflict -join ', ') – Intune then applies none." }) This is the value set by policy; a value set locally on the device is not visible." `
+                        "Auf diesen Geräten schaltet keine zugewiesene Richtlinie den Defender-Laufzeitschutz für KI-Agents ein (Gerät und Anzahl Agents): $(& $devList $byDev). Dateien, Webseiten und Tool-Ausgaben, die ein Agent liest, können versteckte Anweisungen enthalten; ohne den Schutz hält nichts den Agent davon ab, sie auszuführen.$(if ($auto) { " $auto Agent(s) dort führen Aktionen ohne Bestätigung aus." })$(if ($conflict.Count) { " Auf $($conflict -join ', ') treffen Richtlinien mit unterschiedlichen Modi – Intune wendet dann keine an." }) Das ist der per Richtlinie gesetzte Wert; ein lokal am Gerät gesetzter Wert ist nicht sichtbar.") `
+                    -Recommendation (& $T "Assign the Intune antivirus profile 'Microsoft Defender AI agent runtime protection' (Ai Agent Protection) to these devices: audit first, then block. It covers the agents Microsoft lists as supported (e.g. Claude Code, GitHub Copilot CLI); needs Defender for Endpoint Plan 2 and Defender Antivirus in active mode." "Das Intune-Antivirus-Profil 'Microsoft Defender AI agent runtime protection' (Ai Agent Protection) diesen Geräten zuweisen: zuerst Audit, dann Block. Es deckt die von Microsoft als unterstützt gelisteten Agents ab (z. B. Claude Code, GitHub Copilot CLI); benötigt Defender for Endpoint Plan 2 und Defender Antivirus im aktiven Modus.") `
+                    -Subject 'local|runtime-off' -StableKey))
+    }
+    $auditOnly = @($localAgents | Where-Object { $_.device.runtimeProtection -eq 'Audit' })
+    if ($auditOnly.Count) {
+        $byDev = @($auditOnly | Group-Object { [string]$_.device.name } | Sort-Object Name)
+        $f.Add((New-GapsioFinding -Severity 'Low' -Category 'LocalAgent' `
+                    -Title (& $T "Runtime protection for AI agents only audits on $($byDev.Count) device(s) with local agents" "Laufzeitschutz für KI-Agents nur im Audit-Modus auf $($byDev.Count) Gerät(en) mit lokalen Agents") `
+                    -Detail (& $T "The policy for these devices sets audit mode (device and number of agents): $(& $devList $byDev). Defender reports a detected prompt injection, but the agent action continues." "Die Richtlinie für diese Geräte setzt den Audit-Modus (Gerät und Anzahl Agents): $(& $devList $byDev). Defender meldet eine erkannte Prompt Injection, die Aktion des Agents läuft aber weiter.") `
+                    -Recommendation (& $T "Review the 'Suspicious AI prompt injection' alerts of the audit phase and switch the policy to block." "Die Alerts 'Suspicious AI prompt injection' der Audit-Phase prüfen und die Richtlinie auf Block stellen.") `
+                    -Subject 'local|runtime-audit' -StableKey))
+    }
     @($f | Sort-Object { $script:GapsioSeverityOrder[$_.severity] }, category, { Get-GapsioProp $_.title 'en' })
 }
 
@@ -704,21 +792,11 @@ function Invoke-GapsioAgentsCollection {
     $epDevices = @{}
     try {
         $ep = Get-GapsioBlob -Container 'state' -Name 'endpoint-latest.json'
-        foreach ($d in @(Get-GapsioProp $ep 'devices')) { if ($d -and $d.deviceId) { $epDevices[[string]$d.deviceId] = $d } }   # snapshots of older versions
-        $ids = @($ai | ForEach-Object { [string]$_.LocalDeviceId } | Where-Object { $_ } | Sort-Object -Unique)
-        if ($ids.Count -and -not $epDevices.Count -and (Get-GapsioPagedMeta -Module 'endpoint' -Name 'devices')) {
-            $ix = Get-GapsioPagedIndexRaw -Module 'endpoint' -Name 'devices'
-            $idx = @{}; $ciId = $ix.cols['deviceId']; $ciPage = $ix.cols['page']
-            if ($null -ne $ciId) { foreach ($r in $ix.rows) { $idx[$r[$ciId]] = [int]$r[$ciPage] } }
-            $pages = @{}
-            foreach ($id in $ids) {
-                if (-not $idx.ContainsKey($id)) { continue }
-                $p = $idx[$id]; if (-not $pages.ContainsKey($p)) { $pages[$p] = @(Get-GapsioPage -Module 'endpoint' -Name 'devices' -Page $p) }
-                foreach ($d in $pages[$p]) { if ([string]$d.deviceId -eq $id) { $epDevices[$id] = $d } }
-            }
-        }
+        $inline = @{}; foreach ($d in @(Get-GapsioProp $ep 'devices')) { if ($d -and $d.deviceId) { $inline[[string]$d.deviceId] = $d } }   # snapshots of older versions
+        $ix = if (-not $inline.Count -and (Get-GapsioPagedMeta -Module 'endpoint' -Name 'devices')) { Get-GapsioPagedIndexRaw -Module 'endpoint' -Name 'devices' } else { $null }
+        $epDevices = Resolve-GapsioAgentDevices -AgentsInfo $ai -Index $ix -Inline $inline
     }
-    catch { }
+    catch { Add-GapsioWarning "Local agents: the device state of the endpoint module could not be read: $($_.Exception.Message)" }
 
     $agents = Get-GapsioAgentInventory -Directory $dir -Registry $reg -AgentsInfo $ai -Ca $ca -EndpointDevices $epDevices
     $policies = Get-GapsioAgentPolicySummary -Policies $ca.Policies -Agents $agents
@@ -749,6 +827,7 @@ function Invoke-GapsioAgentsCollection {
             localAgents       = $local.Count
             localDevices      = @($local | ForEach-Object { $_.device.id } | Where-Object { $_ } | Select-Object -Unique).Count
             localAutoApprove  = @($local | Where-Object { $_.autoApprove }).Count
+            localNoRuntimeProtection = @($local | Where-Object { $_.device -and $_.device.runtimeProtection -in 'NotConfigured', 'Off', 'Conflict' } | ForEach-Object { $_.device.id } | Select-Object -Unique).Count
             withEntraId       = @($cloud | Where-Object { $_.agentId }).Count
             agentUsers        = @($cloud | Where-Object { $_.agentUserId }).Count
             blueprints        = @($dir.Blueprints).Count

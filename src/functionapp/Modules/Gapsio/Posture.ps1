@@ -61,6 +61,61 @@ function Get-GapsioPolicyDeviceMap {
 }
 #endregion
 
+#region Runtime protection for local AI agents (configured by policy)
+# Defender Antivirus setting AiAgentProtection (Defender CSP ./Device/Vendor/MSFT/Defender/Configuration/AiAgentProtection:
+# 0 = disabled, 1 = block, 2 = audit), deployed with the Intune antivirus profile "Microsoft Defender AI agent runtime
+# protection" or a Defender portal policy. Windows only. Defender does not report the effective value per device
+# through Advanced Hunting (checked November 2026), so this is the configured value: which mode do the assigned
+# policies set for each device. A value set locally (Set-MpPreference, script) is not visible here.
+$script:GapsioAiAgentProtectionSetting = '_defender_configuration_aiagentprotection$'
+
+function ConvertTo-GapsioAiAgentMode {
+    # Mode of a Settings Catalog value: by the option's display name, otherwise by the numeric suffix of the option ID.
+    param([string]$Value, [string]$Display)
+    $t = ([string]$Display).ToLowerInvariant()
+    if ($t -match 'block') { return 'Block' }
+    if ($t -match 'audit') { return 'Audit' }
+    if ($t -match 'disab|default|not configured|^off$') { return 'Off' }
+    switch -Regex ([string]$Value) { '(^|_)1$' { return 'Block' } '(^|_)2$' { return 'Audit' } '(^|_)0$' { return 'Off' } }
+    'Unknown'
+}
+
+function Set-GapsioDeviceAiAgentProtection {
+    <#
+    .SYNOPSIS
+    Sets aiAgentProtection on every device: Block, Audit, Off, NotConfigured (no assigned policy reaches the device),
+    Conflict (the policies that reach it set different modes – Intune then applies none of them), Unknown (a policy
+    sets a value that cannot be read) or NotSupported (not Windows). Returns the policies and the device counts per mode for the snapshot.
+    #>
+    param([object[]]$SettingValues, [hashtable]$Devices, [hashtable]$Targets)
+    $rows = @($SettingValues | Where-Object { $_ -and ([string]$_.definitionId) -match $script:GapsioAiAgentProtectionSetting })
+    $policies = @($rows | Group-Object policyId | ForEach-Object {
+            $f = $_.Group[0]
+            [pscustomobject]@{ id = [string]$f.policyId; name = [string]$f.policyName; platform = [string]$f.platform; assigned = [bool](Test-GapsioAssigned $f.assignments)
+                mode = (ConvertTo-GapsioAiAgentMode -Value ([string]$f.value) -Display ([string]$f.display)); devices = 0 }
+        } | Sort-Object name, id)
+    $assigned = @($policies | Where-Object assigned)
+    $map = @{}
+    if ($assigned.Count -and $Devices -and $Devices.Count) {
+        $platforms = @{}; foreach ($p in $assigned) { $platforms[$p.id] = $p.platform }
+        $map = Get-GapsioPolicyDeviceMap -Devices $Devices -Targets $Targets -PolicyPlatform $platforms
+    }
+    $modes = @{}   # deviceId -> modes of the policies that reach it
+    foreach ($p in $assigned) {
+        $p.devices = @($map[$p.id]).Count
+        foreach ($id in @($map[$p.id])) { if (-not $modes.ContainsKey($id)) { $modes[$id] = [System.Collections.Generic.HashSet[string]]::new() }; [void]$modes[$id].Add($p.mode) }
+    }
+    $counts = [ordered]@{ Block = 0; Audit = 0; Off = 0; Conflict = 0; NotConfigured = 0; Unknown = 0 }
+    foreach ($d in @($Devices.Values)) {
+        if (([string]$d.os) -notmatch '^Windows') { $d.aiAgentProtection = 'NotSupported'; continue }
+        $m = $modes[[string]$d.deviceId]
+        $d.aiAgentProtection = if (-not $m -or -not $m.Count) { 'NotConfigured' } elseif ($m.Count -gt 1) { 'Conflict' } else { @($m)[0] }   # Unknown: a policy sets a value this version cannot read
+        $counts[$d.aiAgentProtection]++
+    }
+    [ordered]@{ policies = @($policies); devices = $counts }
+}
+#endregion
+
 #region Policy conflicts
 function Get-GapsioSettingShortName {
     # Readable name of a Settings Catalog definition ID (ASR rules by their name).
