@@ -309,6 +309,19 @@
           "why": "Sensitivity labels"
         }
       ]
+    },
+    {
+      "id": "Digest",
+      "default": false,
+      "module": "digest",
+      "name": "Change digest: message center posts about Defender, Intune, Entra, Purview and Agent 365 – deadlines, major changes and what Microsoft asks the tenant to do",
+      "permissions": [
+        {
+          "resource": "graph",
+          "value": "ServiceMessage.Read.All",
+          "why": "Microsoft 365 message center posts of the tenant (admin/serviceAnnouncement/messages)"
+        }
+      ]
     }
   ]
 }

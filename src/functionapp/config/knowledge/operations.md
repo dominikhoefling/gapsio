@@ -3,7 +3,7 @@
 ## Runs
 
 - Scheduled daily (times below, UTC) and on demand via **Collect now** in the portal. The preview modules run every
-  six hours (`officepreview` at :15, `purviewpreview` at :45; fixed schedules).
+  six hours (`officepreview` at :15, `purviewpreview` at :45; fixed schedules), the change digest daily at 04:05.
 - After the endpoint run (scheduled or on demand) Gapsio checks once a day for a new release and refreshes the
   assistant's knowledge index when the assistant is enabled.
 - Logs: Application Insights in the Gapsio resource group.
@@ -16,7 +16,7 @@ Set by the install script; change them in the Function App configuration or via 
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`, `purviewpreview`) – derived from `-Features` |
+| `GAPSIO_MODULES` | `endpoint,agents` | Enabled modules (`endpoint`, `agents`, `access`, `licensing`, `officepreview`, `purviewpreview`, `digest`) – derived from `-Features` |
 | `GAPSIO_FEATURES` | `hunting,indicators` | Endpoint data sources (`hunting`, `indicators`, `coverage`, `response`, `detections`, `inventory`, `audit`) – derived from `-Features` |
 | `GAPSIO_SCHEDULE_ENDPOINT` | `0 17 2 * * *` | Schedule of the endpoint collection (NCRONTAB, UTC) |
 | `GAPSIO_SCHEDULE_AGENTS` | `0 32 2 * * *` | Schedule of the agents collection |
@@ -39,6 +39,7 @@ Set by the install script; change them in the Function App configuration or via 
 | `GAPSIO_MAX_GROUP_MEMBERS` | `10000` | Cap when resolving group members (Access module) |
 | `GAPSIO_PAGE_SIZE` | `2000` | Devices per stored page (`state/endpoint-devices/NNNN.json`) |
 | `GAPSIO_FINDING_ROLLUP` | `200` | Above this many devices, identical per-device findings are rolled up into one finding with the device count |
+| `GAPSIO_DIGEST_SERVICES` | – | Regular expression for more services in the [change digest](modules/digest.md), e.g. `Microsoft Teams\|SharePoint` |
 | `GAPSIO_ASSISTANT` | `false` | Portal assistant on/off (`-Assistant`, [installation](installation.md#optional-portal-assistant)) |
 | `GAPSIO_AI_ENDPOINT` | – | Azure OpenAI endpoint (`https://<name>.openai.azure.com/`, `-AssistantEndpoint`) |
 | `GAPSIO_AI_DEPLOYMENT` | `gpt-4.1-mini` | Chat deployment (`-AssistantDeployment`) |

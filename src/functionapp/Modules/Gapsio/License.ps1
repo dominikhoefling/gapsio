@@ -110,7 +110,7 @@ $script:GapsioMaskText = '••••••••'
 # Property names whose string values are enumerations/codes the portal needs for filters, charts and colours – never identifiers.
 $script:GapsioMaskKeepNames = @('severity', 'category', 'status', 'os', 'osPlatform', 'type', 'scope', 'platform', 'mode', 'agentType', 'source', 'kind', 'level', 'via', 'state', 'present',
     'active', 'module', 'audience', 'principalType', 'dataSource', 'operator', 'assignmentType', 'operation', 'result', 'action', 'avMode', 'avModeText', 'sensorHealth', 'exposure',
-    'assetValue', 'joinType', 'deviceType', 'managedBy', 'usage', 'publishedStatus', 'lifecycle', 'networkProtectionSource', 'plan', 'tier', 'confidence', 'isServer', 'detail', 'aiAgentProtection', 'runtimeProtection', '_masked')
+    'assetValue', 'joinType', 'deviceType', 'managedBy', 'usage', 'publishedStatus', 'lifecycle', 'networkProtectionSource', 'plan', 'tier', 'confidence', 'isServer', 'detail', 'aiAgentProtection', 'runtimeProtection', 'priority', 'area', 'actBy', '_masked')
 # Property names whose whole subtree consists of codes (feature → GOOD/BAD, rule → mode, counts …).
 $script:GapsioMaskKeepParents = @('checks', 'asr', 'effective', 'targets', 'controls', 'riskLevels', 'sources', 'summary', 'charts', 'groups', 'modes', 'counts', 'dataSources', 'permissionGroups', 'sevCount')
 

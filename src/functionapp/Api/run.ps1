@@ -40,13 +40,13 @@ if (-not $principal.ok) { Send-Response -Status $principal.status -Body $princip
 
 $route = ([string]$Request.Params.segments).Trim('/').ToLowerInvariant()
 $method = ([string]$Request.Method).ToUpperInvariant()
-$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'assistant', 'changes', 'runs', 'baseline', 'controls', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
+$adminRoutes = @('endpoint', 'devices', 'device', 'coverage', 'agents', 'access', 'licensing', 'officepreview', 'purviewpreview', 'digest', 'assistant', 'changes', 'runs', 'baseline', 'controls', 'run', 'acceptances', 'acceptances/revoke', 'acceptances/log', 'assignments', 'assignments/clear', 'directory/search', 'license')
 if ($route -in $adminRoutes -and -not $principal.isAdmin) {
     Send-Response -Status 403 -Body 'This view requires the Gapsio.Admin role.'
     return
 }
 $modules = Get-GapsioModules
-$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } '^licensing$' { 'licensing' } '^officepreview$' { 'officepreview' } '^purviewpreview$' { 'purviewpreview' } default { $null } }
+$routeModule = switch -Regex ($route) { '^endpoint$|^baseline$|^devices?$|^coverage$' { 'endpoint' } '^agents$' { 'agents' } '^access(/me)?$' { 'access' } '^licensing$' { 'licensing' } '^officepreview$' { 'officepreview' } '^purviewpreview$' { 'purviewpreview' } '^digest$' { 'digest' } default { $null } }
 if ($routeModule -and $modules -notcontains $routeModule) {
     Send-Response -Status 404 -Body "The module '$routeModule' is not enabled in this installation."
     return
@@ -122,6 +122,7 @@ try {
         # The office module wrote office-preview-latest.json before it got a change history; read that until the next run
         'officepreview' { Send-Snapshot -Name 'officepreview-latest.json' -Fallback 'office-preview-latest.json' }
         'purviewpreview' { Send-Snapshot -Name 'purview-preview-latest.json' }
+        'digest' { Send-Snapshot -Name 'digest-latest.json' }
         'assistant' {
             # Optional chat helper (GAPSIO_ASSISTANT). Admins only; POST with the CSRF header; the model sees a server-built summary only.
             if (-not (Test-GapsioAssistant)) { Send-Response -Status 404 -Body 'The assistant is not enabled in this installation.'; return }

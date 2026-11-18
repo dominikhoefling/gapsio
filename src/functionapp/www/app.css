@@ -401,3 +401,6 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
   tr, .fact { break-inside: avoid; }
   a { color: inherit !important; text-decoration: none !important; }
 }
+
+/* Tags inside table cells (new, updated, major change …) keep a gap to the text before them */
+td .tag { margin-left: 8px; }

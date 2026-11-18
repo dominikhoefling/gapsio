@@ -42,6 +42,24 @@
     'v.devices': ['Devices', 'Geräte'], 'v.baseline': ['Baseline', 'Baseline'], 'v.officepreview': ['MDO private preview', 'MDO Private Preview'], 'v.officeantiphish': ['Anti-phish drift', 'Anti-Phishing-Drift'], 'v.officepolicymap': ['Policy map', 'Policy-Map'], 'v.officechanges': ['Policy changes', 'Richtlinienänderungen'], 'v.officequarantine': ['Quarantine', 'Quarantäne'], 'v.officeteams': ['Teams protection', 'Teams-Schutz'], 'v.agents': ['Agents', 'Agents'], 'v.agentca': ['Conditional Access', 'Conditional Access'],
     'v.access': ['Roles and paths', 'Rollen und Wege'], 'v.whocan': ['Who can do what?', 'Wer kann was?'], 'v.mine': ['My permissions', 'Meine Rechte'], 'v.changes': ['Changes', 'Änderungen'],
     'nav.licensing': ['Licences', 'Lizenzen'], 'v.licensing': ['Licence indication', 'Lizenz-Indikation'],
+    'nav.digest': ['Microsoft changes', 'Microsoft-Änderungen'], 'v.digest': ['Change digest', 'Change-Digest'], 'mod.digest': ['Change digest', 'Change-Digest'], 'cat.ServiceChange': ['Microsoft change', 'Microsoft-Änderung'],
+    'dg.lede': ['What Microsoft announces for Defender, Intune, Entra, Purview and Agent 365 in your tenant\'s message center – sorted by what needs action first. Posts with a deadline and major changes also appear under Findings, where you can assign them and document them as handled.', 'Was Microsoft im Nachrichtencenter Ihres Tenants zu Defender, Intune, Entra, Purview und Agent 365 ankündigt – sortiert nach dem, was zuerst zu tun ist. Beiträge mit Frist und größere Änderungen erscheinen auch unter Befunde; dort lassen sie sich zuweisen und als erledigt dokumentieren.'],
+    'dg.source': ['Classification from the fields and sections Microsoft provides – no AI. Texts from Microsoft are in English.', 'Einordnung aus den Feldern und Abschnitten, die Microsoft liefert – ohne KI. Texte von Microsoft sind auf Englisch.'],
+    'dg.unavailable': ['The message center could not be read in the last run – see the notices below. The list shows the state of {0}.', 'Das Nachrichtencenter konnte im letzten Lauf nicht gelesen werden – siehe Hinweise unten. Die Liste zeigt den Stand vom {0}.'],
+    'dg.unavailable.never': ['The message center could not be read yet – see the notices below. The feature needs the permission ServiceMessage.Read.All.', 'Das Nachrichtencenter konnte noch nicht gelesen werden – siehe Hinweise unten. Die Funktion benötigt das Recht ServiceMessage.Read.All.'],
+    'dg.f.items': ['posts about security products', 'Beiträge zu Sicherheitsprodukten'], 'dg.f.new': ['new in the last 7 days', 'neu in den letzten 7 Tagen'], 'dg.f.deadlines': ['with a deadline', 'mit Frist'],
+    'dg.f.next': ['next deadline', 'nächste Frist'], 'dg.f.overdue': ['deadline passed', 'Frist abgelaufen'], 'dg.f.major': ['major changes and retirements', 'größere Änderungen und Abkündigungen'],
+    'dg.col.priority': ['Priority', 'Priorität'], 'dg.col.action': ['To do', 'Zu tun'], 'dg.col.post': ['Post', 'Beitrag'], 'dg.col.product': ['Product', 'Produkt'], 'dg.col.published': ['Published', 'Veröffentlicht'],
+    'dgp.High': ['High', 'Hoch'], 'dgp.Medium': ['Medium', 'Mittel'], 'dgp.Low': ['Low', 'Niedrig'], 'dgp.Info': ['Info', 'Info'],
+    'dga.ActBy': ['Act by {0}', 'Handeln bis {0}'], 'dga.Overdue': ['Deadline passed ({0})', 'Frist abgelaufen ({0})'], 'dga.Plan': ['Plan for the change', 'Änderung einplanen'], 'dga.Check': ['Check: prevent or fix an issue', 'Prüfen: Problem vermeiden oder beheben'], 'dga.Info': ['For information', 'Zur Information'],
+    'dga.f.ActBy': ['Act by a deadline', 'Handeln bis Frist'], 'dga.f.Overdue': ['Deadline passed', 'Frist abgelaufen'], 'dga.f.Plan': ['Plan for the change', 'Änderung einplanen'], 'dga.f.Check': ['Check', 'Prüfen'], 'dga.f.Info': ['For information', 'Zur Information'],
+    'dg.days': ['in {0} day(s)', 'in {0} Tag(en)'], 'dg.today': ['today', 'heute'],
+    'dg.tag.new': ['New', 'Neu'], 'dg.tag.updated': ['Updated', 'Aktualisiert'], 'dg.tag.major': ['Major change', 'Größere Änderung'], 'dg.tag.retirement': ['Retirement', 'Abkündigung'],
+    'dg.filter.action': ['To do', 'Zu tun'], 'dg.filter.area': ['Product', 'Produkt'], 'dg.filter.recent': ['Only new or updated (7 days)', 'Nur neu oder aktualisiert (7 Tage)'],
+    'dg.d.todo': ['What Microsoft asks you to do', 'Was Microsoft von Ihnen verlangt'], 'dg.d.when': ['When', 'Wann'], 'dg.d.impact': ['Effect on your organisation', 'Auswirkung auf Ihre Organisation'], 'dg.d.summary': ['Summary', 'Zusammenfassung'],
+    'dg.d.services': ['Services', 'Dienste'], 'dg.d.tags': ['Tags', 'Tags'], 'dg.d.roadmap': ['Microsoft 365 roadmap', 'Microsoft-365-Roadmap'], 'dg.d.open': ['Open in the message center', 'Im Nachrichtencenter öffnen'], 'dg.d.updated': ['Last updated', 'Zuletzt aktualisiert'],
+    'dg.none': ['No posts about security products in the message center.', 'Keine Beiträge zu Sicherheitsprodukten im Nachrichtencenter.'],
+    'ov.dg.new': ['new posts (7 days)', 'neue Beiträge (7 Tage)'], 'ov.dg.deadlines': ['posts with a deadline', 'Beiträge mit Frist'], 'ov.dg.next': ['next deadline', 'nächste Frist'], 'ov.dg.due': ['due within 14 days', 'fällig in 14 Tagen'],
     'li.product': ['Product', 'Produkt'], 'lp.MDE': ['Defender for Endpoint', 'Defender for Endpoint'], 'lp.MDO': ['Defender for Office 365', 'Defender for Office 365'],
     'li.sec.mde': ['Defender for Endpoint', 'Defender for Endpoint'], 'li.sec.mdo': ['Defender for Office 365', 'Defender for Office 365'],
     'li.mdo.lede': ['Licensed per user (mailbox). Purchased vs. assigned units and the users holding a plan. Plan 2 adds Threat Explorer, automated investigation, attack simulation and campaign views – these work tenant-wide, which is why Microsoft expects Plan 2 for every user who benefits.', 'Lizenziert pro Benutzer (Postfach). Gekaufte vs. zugewiesene Einheiten und die Benutzer mit Plan. Plan 2 ergänzt Threat Explorer, automatische Untersuchung, Angriffssimulation und Kampagnenansicht – diese wirken mandantenweit, weshalb Microsoft Plan 2 für jeden Benutzer erwartet, der davon profitiert.'],
@@ -669,7 +687,7 @@
 
   const SEV = ['Critical', 'High', 'Medium', 'Low'];
   const SEV_VAR = { Critical: '--sev-krit', High: '--sev-hoch', Medium: '--sev-mittel', Low: '--sev-niedrig' };
-  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, purview: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
+  const state = { me: null, endpoint: null, agents: null, access: null, licensing: null, officePreview: null, purview: null, digest: null, mine: null, changes: {}, runs: null, view: null, acceptances: null, assignments: null };
   const modules = () => arr(state.me && state.me.modules).length ? arr(state.me.modules) : ['endpoint', 'agents'];
   const hasMod = (m) => modules().includes(m);
 
@@ -1148,6 +1166,7 @@
   async function loadAgents(force) { if (!state.agents || force) state.agents = await api('agents'); return state.agents; }
   async function loadOfficePreview(force) { if (!state.officePreview || force) state.officePreview = await api('officepreview'); return state.officePreview; }
   async function loadPurview(force) { if (!state.purview || force) state.purview = await api('purviewpreview'); return state.purview; }
+  async function loadDigest(force) { if (!state.digest || force) state.digest = await api('digest'); return state.digest; }
   async function loadAcceptances(force) {
     if (!state.acceptances || force) {
       await Promise.all([
@@ -1531,8 +1550,9 @@
     },
 
     async overview(main) {
-      let ep = null, ac = null, ag = null, li = null, epErr = null, acErr = null, agErr = null;
+      let ep = null, ac = null, ag = null, li = null, dg = null, epErr = null, acErr = null, agErr = null;
       await Promise.all([
+        hasMod('digest') ? loadDigest().then(x => dg = x).catch(() => null) : null,
         loadEndpoint().then(x => ep = x).catch(e => epErr = e),
         hasMod('agents') ? loadAgents().then(x => ag = x).catch(e => agErr = e) : null,
         hasMod('access') ? loadAccess().then(x => ac = x).catch(e => acErr = e) : null,
@@ -1595,6 +1615,12 @@
           fact(num(s.usersNoDevice), t('li.usersNoDevice')), fact(num(s.servers), t('li.servers'))));
       }
 
+      if (dg && dg.summary && arr(dg.items).length) {
+        const s = dg.summary;
+        main.append(h('h2', null, h('a', { href: '#/digest' }, t('nav.digest'))), h('div', { class: 'facts' },
+          fact(num(s.new7d), t('ov.dg.new')), fact(num(s.deadlines), t('ov.dg.deadlines')), fact(s.nextDeadline ? fmtDay(s.nextDeadline) : '–', t('ov.dg.next')), fact(num(s.due14d), t('ov.dg.due'))));
+      }
+
       const runs = await api('runs').catch(() => []);
       const trend = trendCharts(arr(runs), contentWidth());
       if (trend) main.append(h('h2', null, t('ov.trend')), trend);
@@ -1614,14 +1640,14 @@
 
     async findings(main, params) {
       main.append(h('h1', null, t('v.findings')), h('p', { class: 'lede' }, t('f.lede')));
-      let ep = null, ag = null, ac = null, li = null, of = null, err = null;
+      let ep = null, ag = null, ac = null, li = null, of = null, dg = null, err = null;
       await Promise.all([loadEndpoint().then(x => ep = x).catch(e => err = e), hasMod('agents') ? loadAgents().then(x => ag = x).catch(() => null) : null,
         hasMod('access') ? loadAccess().then(x => ac = x).catch(() => null) : null, hasMod('licensing') ? loadLicensing().then(x => li = x).catch(() => null) : null,
-        hasMod('officepreview') ? loadOfficePreview().then(x => of = x).catch(() => null) : null]);
-      if (!ep && !ag && !ac && !li && !of) { main.append(noData(err, 'endpoint')); return; }
+        hasMod('officepreview') ? loadOfficePreview().then(x => of = x).catch(() => null) : null, hasMod('digest') ? loadDigest().then(x => dg = x).catch(() => null) : null]);
+      if (!ep && !ag && !ac && !li && !of && !dg) { main.append(noData(err, 'endpoint')); return; }
       await loadAcceptances();
       const acc = acceptedMap(), asg = assignedMap();
-      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' })), ...arr(li && li.findings).map(f => ({ ...f, module: 'licensing' })), ...arr(of && of.findings).filter(f => f && f.key).map(f => ({ ...f, module: 'officepreview' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
+      const rows = [...arr(ep && ep.findings).map(f => ({ ...f, module: 'endpoint' })), ...arr(ag && ag.findings).map(f => ({ ...f, module: 'agents' })), ...arr(ac && ac.findings).map(f => ({ ...f, module: 'access' })), ...arr(li && li.findings).map(f => ({ ...f, module: 'licensing' })), ...arr(of && of.findings).filter(f => f && f.key).map(f => ({ ...f, module: 'officepreview' })), ...arr(dg && dg.findings).filter(f => f && f.key).map(f => ({ ...f, module: 'digest' }))].map(f => ({ ...f, accepted: acc[f.key] || null, assigned: asg[f.key] ? asg[f.key].assignee : null }));
       const cats = [...new Set(rows.map(r => r.category))].sort();
       const assignees = [...new Set(rows.filter(r => r.assigned).map(r => r.assigned.displayName))].sort();
       const table = dataTable({
@@ -3253,6 +3279,41 @@
       main.append(h('p', { class: 'muted small' }, t('m.asof', fmtDate(m.generatedAt))));
     },
 
+    async digest(main) {
+      main.append(h('h1', null, t('v.digest')), h('p', { class: 'lede' }, t('dg.lede')), h('p', { class: 'muted small' }, t('dg.source')));
+      let dg; try { dg = await loadDigest(); } catch (e) { main.append(noData(e, 'digest')); return; }
+      const s = dg.summary || {};
+      if (dg.status === 'unavailable') main.append(h('div', { class: 'card' }, dg.dataFrom ? t('dg.unavailable', fmtDate(dg.dataFrom)) : t('dg.unavailable.never')));
+      const fact = (b, sub) => h('div', { class: 'fact' }, h('b', null, b), h('span', null, sub));
+      main.append(h('div', { class: 'facts' }, fact(num(s.items), t('dg.f.items')), fact(num(s.new7d), t('dg.f.new')), fact(num(s.deadlines), t('dg.f.deadlines')),
+        fact(s.nextDeadline ? fmtDay(s.nextDeadline) : '–', t('dg.f.next')), fact(num(s.overdue), t('dg.f.overdue')), fact(num(s.majorChanges), t('dg.f.major'))));
+      const items = arr(dg.items);
+      const rank = { High: 0, Medium: 1, Low: 2, Info: 3 };
+      const actionText = (r) => r.action === 'ActBy' ? `${t('dga.ActBy', fmtDay(r.actBy))} (${r.daysLeft === 0 ? t('dg.today') : t('dg.days', r.daysLeft)})` : r.action === 'Overdue' ? t('dga.Overdue', fmtDay(r.actBy)) : code('dga', r.action);
+      const tags = (r) => [r.isNew ? ['dg.tag.new', 'tag'] : null, r.isUpdated ? ['dg.tag.updated', 'tag'] : null, r.retirement ? ['dg.tag.retirement', 'tag warn'] : (r.isMajorChange ? ['dg.tag.major', 'tag warn'] : null)].filter(Boolean);
+      // Texts from Microsoft keep their line breaks (lists) – one paragraph per line
+      const para = (text) => text ? h('div', null, String(text).split('\n').map(l => h('p', { class: 'small', style: 'margin:2px 0' }, l))) : null;
+      main.append(dataTable({
+        name: 'digest', rows: items, sort: (a, b) => (rank[a.priority] - rank[b.priority]) || String(a.actBy || '9999').localeCompare(String(b.actBy || '9999')) || String(b.published || '').localeCompare(String(a.published || '')),
+        search: r => `${r.id} ${r.title} ${arr(r.services).join(' ')} ${arr(r.tags).join(' ')} ${r.summary || ''} ${r.todo || ''}`,
+        filters: [
+          { label: t('dg.filter.action'), options: ['ActBy', 'Overdue', 'Plan', 'Check', 'Info'].filter(a => items.some(r => r.action === a)), optionLabel: a => t(`dga.f.${a}`), test: (r, v) => r.action === v },
+          { label: t('dg.filter.area'), options: [...new Set(items.map(r => r.area).filter(Boolean))].sort(), test: (r, v) => r.area === v },
+          { type: 'check', label: t('dg.filter.recent'), test: r => r.isNew === true || r.isUpdated === true }],
+        columns: [
+          { title: t('dg.col.priority'), cell: r => h('span', { class: `sev sev-${r.priority === 'Info' ? 'Low' : r.priority}` }, code('dgp', r.priority)), text: r => code('dgp', r.priority) },
+          { title: t('dg.col.action'), cell: r => h('span', { class: r.action === 'ActBy' && r.daysLeft <= 14 ? 'state bad' : (r.action === 'ActBy' || r.action === 'Overdue') ? 'state warn' : '' }, actionText(r)), text: r => actionText(r) },
+          { title: t('dg.col.post'), cell: r => h('span', null, r.title || '–', tags(r).map(x => h('span', { class: x[1] }, t(x[0]))), h('br'), h('span', { class: 'muted small mono' }, r.id || '')), text: r => `${r.id} ${r.title}` },
+          { title: t('dg.col.product'), cell: r => h('span', null, r.area || '–', h('br'), h('span', { class: 'muted small' }, arr(r.services).slice(0, 2).join(', '))), text: r => `${r.area} ${arr(r.services).join(', ')}` },
+          { title: t('dg.col.published'), text: r => fmtDay(r.published) }],
+        detail: r => dl([[t('dg.d.todo'), para(r.todo)], [t('dg.d.when'), para(r.when)], [t('dg.d.impact'), para(r.impact)], [t('dg.d.summary'), para(r.summary)],
+          [t('dg.d.services'), arr(r.services).join(', ') || null], [t('dg.d.tags'), arr(r.tags).join(', ') || null], [t('dg.d.roadmap'), arr(r.roadmapIds).join(', ') || null], [t('dg.d.updated'), r.updated ? fmtDate(r.updated) : null],
+          [t('dv.links'), /^https:\/\/admin\.microsoft\.com\//.test(r.url || '') ? h('a', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, t('dg.d.open')) : null]]),
+        empty: t('dg.none')
+      }));
+      const wb = warningsBlock(dg.warnings); if (wb) main.append(wb);
+    },
+
     async license(main) {
       main.append(h('h1', null, t('v.license')), h('p', { class: 'lede' }, t('lic.lede', num(communityRows() || 10))));
       if (state.me && state.me.assistantNeedsLicense) main.append(h('div', { class: 'card' }, t('lic.assistant')));
@@ -3336,6 +3397,7 @@
     { group: 'nav.agents', admin: true, module: 'agents', items: ['agents', 'agentca'] },
     { group: 'nav.access', admin: true, module: 'access', items: ['access', 'whocan'] },
     { group: 'nav.licensing', admin: true, module: 'licensing', items: ['licensing'] },
+    { group: 'nav.digest', admin: true, module: 'digest', items: ['digest'] },
     { group: 'nav.everyone', admin: false, module: 'access', items: ['mine'] },
     { group: 'nav.history', admin: true, items: ['changes', 'accepted', 'evidence'] },
     { group: 'nav.settings', admin: true, items: ['license'] }
@@ -3343,7 +3405,7 @@
   const VIEW_MODULE = {
     agents: 'agents', agentca: 'agents',
     access: 'access', whocan: 'access', mine: 'access',
-    licensing: 'licensing',
+    licensing: 'licensing', digest: 'digest',
     officepreview: 'officepreview', officeantiphish: 'officepreview', officepolicymap: 'officepreview', officechanges: 'officepreview', officequarantine: 'officepreview', officeteams: 'officepreview',
     purview: 'purviewpreview', purviewdevices: 'purviewpreview', purviewlicensing: 'purviewpreview', purviewaccess: 'purviewpreview', purviewhunting: 'purviewpreview'
   };
@@ -3407,7 +3469,7 @@
     actions.replaceChildren(h('label', { class: 'lang-switch' }, t('language'), langSel));
     if (isAdmin) {
       actions.append(
-        h('button', { type: 'button', onclick: async () => { state.endpoint = state.agents = state.access = state.licensing = state.mine = null; state.changes = {}; await route(); toast(t('reloaded')); } }, t('reload')),
+        h('button', { type: 'button', onclick: async () => { state.endpoint = state.agents = state.access = state.licensing = state.mine = state.officePreview = state.purview = state.digest = null; state.changes = {}; await route(); toast(t('reloaded')); } }, t('reload')),
         h('button', { type: 'button', class: 'primary', onclick: (e) => runNow('all', e.currentTarget) }, t('run.now')));
     }
   }
@@ -3469,7 +3531,7 @@
   }
 
   function updateMeta() {
-    const ts = [state.endpoint, state.agents, state.access, state.mine, state.licensing, state.officePreview, state.purview]
+    const ts = [state.endpoint, state.agents, state.access, state.mine, state.licensing, state.officePreview, state.purview, state.digest]
       .map(x => x && x.generatedAt).filter(Boolean).sort().pop();
     $('#meta').textContent = ts ? t('data.as.of', fmtDate(ts)) : 'Gapsio';
   }

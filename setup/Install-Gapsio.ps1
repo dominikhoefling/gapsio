@@ -25,6 +25,7 @@
       Access      optional   Admin roles: active, eligible via PIM, requestable via access packages
       Licensing   optional   Defender for Endpoint licence indication: SKUs, licensed users, onboarded devices without a licensed user
     OfficePreview optional  Defender for Office 365 telemetry-based private preview (policy map, anti-phish drift)
+      Digest      optional   Change digest: message center posts about Defender, Intune, Entra and Purview – deadlines and what to do
       Inventory   optional   Device inventory via Intune Remediations (use -DeviceInventory, deploys a detection script)
     Show the exact permissions without installing:  ./setup/Install-Gapsio.ps1 -ShowPermissions -Features Hunting,Agents
 
@@ -129,7 +130,7 @@ if ($DeviceInventory -and $RemoveDeviceInventory) { throw '-DeviceInventory and 
 $featureList = @($Features) + $(if ($DeviceInventory) { 'Inventory' })
 $featureList = @($featureList | Where-Object { -not ($RemoveDeviceInventory -and $_ -eq 'Inventory') })
 $featureList = Resolve-GapsioFeatures -Features $featureList
-$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' }) + $(if ($featureList -contains 'PurviewPreview') { 'purviewpreview' })
+$modules = @('endpoint') + $(if ($featureList -contains 'Agents') { 'agents' }) + $(if ($featureList -contains 'Access') { 'access' }) + $(if ($featureList -contains 'Licensing') { 'licensing' }) + $(if ($featureList -contains 'OfficePreview') { 'officepreview' }) + $(if ($featureList -contains 'PurviewPreview') { 'purviewpreview' }) + $(if ($featureList -contains 'Digest') { 'digest' })
 $endpointFeatures = @($featureList | Where-Object { $_ -in 'Hunting', 'Indicators', 'Coverage', 'Inventory', 'Response', 'Detections', 'Audit' } | ForEach-Object { $_.ToLowerInvariant() })
 
 if ($ShowPermissions) {
@@ -519,7 +520,7 @@ if (-not $SkipFirstRun -and -not $SkipCode) {
     Write-Note 'New Graph permissions take effect with the next token of the managed identity (usually within an hour, at most 24 hours). Until then the portal shows HTTP 403 notices.'
     try {
         $keys = Invoke-Az -Arguments @('functionapp', 'keys', 'list', '-g', $ResourceGroup, '-n', $infra.FunctionAppName, '-o', 'json') | ConvertFrom-Json
-        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' }) + $(if ($modules -contains 'purviewpreview') { 'CollectPurviewPreview' })
+        $fns = @('CollectEndpoint') + $(if ($modules -contains 'agents') { 'CollectAgents' }) + $(if ($modules -contains 'access') { 'CollectAccess' }) + $(if ($modules -contains 'licensing') { 'CollectLicensing' }) + $(if ($modules -contains 'officepreview') { 'CollectOfficePreview' }) + $(if ($modules -contains 'purviewpreview') { 'CollectPurviewPreview' }) + $(if ($modules -contains 'digest') { 'CollectDigest' })
         foreach ($fn in $fns) {
             Invoke-RestMethod -Method Post -Uri "https://$($infra.HostName)/admin/functions/$fn" -Headers @{ 'x-functions-key' = $keys.masterKey } -ContentType 'application/json' -Body '{"input":""}' | Out-Null
         }
