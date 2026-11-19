@@ -1780,7 +1780,8 @@ $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' 
 $r = Call 'run' -Method 'POST' -Principal $adminP -Query @{ module = 'endpoint' } -Headers @{ 'X-Gapsio' = '1' }; Assert ([int]$r.StatusCode -eq 202 -and $queue.Count -eq 1 -and ($r.Body | ConvertFrom-Json).queued -eq $false) 'A second run request within two minutes is not queued again'
 
 Write-Host '== Change digest (message center)' -ForegroundColor Cyan
-# Fictitious message center posts in the two layouts Microsoft uses (bracket headings, bold headings)
+# Fictitious message center posts in the layouts Microsoft uses (bracket headings, bold headings, and the headings of posts
+# since mid-2026), two of them filed under a service that is not a security product – as found in a real tenant
 $mcNow = [DateTime]::UtcNow
 function McDay { param([int]$Days) $mcNow.Date.AddDays($Days).AddHours(8).ToString('yyyy-MM-ddTHH:mm:ssZ') }
 function McPost { param($Id, $Title, $Services, $Category, $Published, $Body, $ActBy, [switch]$Major, $Tags = @(), $Ends = 120, $Summary)
@@ -1800,7 +1801,10 @@ $fixtures.messages = @(
     (McPost 'MC1200006' 'Microsoft Teams: new meeting recap layout' 'Microsoft Teams' 'stayInformed' -1 -Body '<p>Not a security post.</p>'),
     (McPost 'MC1200007' 'Microsoft Defender for Office 365: quarantine notifications can be delayed' 'Microsoft Defender for Office 365' 'preventOrFixIssue' -4 -Body '<p>Some notifications are delayed. A fix is rolling out.</p>'),
     (McPost 'MC1200008' 'Microsoft Intune: an old post that Microsoft has taken down' 'Microsoft Intune' 'planForChange' -200 -ActBy -150 -Ends -30 -Body '<p>Expired.</p>'),
-    (McPost 'MC1200009' 'Microsoft Agent 365: registry shows tools of connected platforms' 'Microsoft Agent 365' 'planForChange' -40 -Body '<p>The registry lists more tools.</p>')
+    (McPost 'MC1200009' 'Microsoft Agent 365: registry shows tools of connected platforms' 'Microsoft Agent 365' 'planForChange' -40 -Body '<p>The registry lists more tools.</p>'),
+    (McPost 'MC1200010' '(Updated) Microsoft Agent 365: usage insights for agents in the admin center' 'Microsoft 365 suite' 'stayInformed' -50 `
+        -Body '<p><b>[What and Why:]</b></p><p>Admins get usage insights for agents.</p><p><b>[Rollout Schedule:]</b></p><p>General availability: rollout starts next month.</p><p><b>[Impact on Your Organization:]</b></p><p><b>Who is affected:</b></p><p>- Admins who manage agents.</p><p><b>What will happen:</b></p><p>- A new report appears.</p><p><b>[Action Required/Recommendations:]</b></p><p>- Review who can open the report.</p><p>- Inform your admins.</p><p><b>[Compliance considerations:]</b></p><p>None identified.</p>'),
+    (McPost 'MC1200011' 'Microsoft Defender for Office 365: new page for email submissions' 'Microsoft Defender XDR' 'stayInformed' -50 -Body '<p>[What and why:]</p><p>The submissions page moves.</p><p>[Schedule]</p><p>Next quarter.</p><p>[Action required, Recommendations:]</p><p>No action is needed.</p>')
 )
 & $mod {
     param($A)
@@ -1809,17 +1813,29 @@ $fixtures.messages = @(
     $sec1 = Get-GapsioDigestSections "Intro.`n[When this will happen:]`nNext month.`n[How this will affect your organization:]`nUsers see a prompt.`n[What you need to do to prepare:]`n• Update.`n• Inform.`n[Compliance considerations:]`nNone."
     $sec2 = Get-GapsioDigestSections "Intro.`nWhen this will happen:`nNext month.`nHow this affects your organization:`nUsers see a prompt.`nWhat you can do to prepare:`nUpdate."
     & $A ($sec1.intro -eq 'Intro.' -and $sec1.when -eq 'Next month.' -and $sec1.impact -eq 'Users see a prompt.' -and $sec1.todo -eq "• Update.`n• Inform." -and $sec2.when -eq 'Next month.' -and $sec2.impact -eq 'Users see a prompt.' -and $sec2.todo -eq 'Update.') 'Digest: sections are found with bracket headings and with plain headings; other sections are not mixed in'
+    $sec3 = Get-GapsioDigestSections (ConvertFrom-GapsioDigestHtml '<p><b>[What and Why:]</b></p><p>A feature changes.</p><p><b>[Rollout Schedule:]</b></p><p>Late next month.</p><p><b>[Impact on Your Organization:]</b></p><p><b>Who is affected:</b></p><p>- Admins.</p><p><b>What will happen:</b></p><p>- A setting moves.</p><p><b>[Action Required/Recommendations:]</b></p><p>- Review the setting.</p><p><b>[Compliance considerations:]</b></p><p>None.</p>')
+    $todoHeads = @('Action required and recommendations:', '[Action Required / Recommendations]', 'Action required, Recommendations:', 'Recommended actions:', '[Action required]') | ForEach-Object { (Get-GapsioDigestSections "Intro.`n$_`nDo it.").todo }
+    & $A ($sec3.intro -eq 'A feature changes.' -and $sec3.when -eq 'Late next month.' -and $sec3.impact -eq "Who is affected:`n• Admins.`nWhat will happen:`n• A setting moves." -and $sec3.todo -eq '• Review the setting.' -and (@($todoHeads | Where-Object { $_ -eq 'Do it.' }).Count -eq 5) -and (Get-GapsioDigestSections "x`n[Schedule]`nSoon.`nImpact on your organisation:`nLittle.").when -eq 'Soon.') "Digest: the headings of posts since mid-2026 are read (what and why, rollout schedule, impact, action required); sub-headings stay text, dashes become list items ($($sec3.impact -replace "`n", ' / '))"
+    $areas = @(
+        (Get-GapsioDigestArea -Services 'Microsoft Defender XDR' -Title '(Updated) Microsoft Defender for Office 365: move messages'),
+        (Get-GapsioDigestArea -Services 'Microsoft Purview' -Title 'Microsoft Purview: integration with Entra internet access'),
+        (Get-GapsioDigestArea -Services 'Microsoft Defender XDR', 'Microsoft Purview' -Title 'Retirement notice: hunting API'),
+        (Get-GapsioDigestArea -Services 'Windows' -Title 'How to use Microsoft Intune to update certificates'),
+        (Get-GapsioDigestArea -Services 'Dynamics 365 Apps' -Title 'Business Central: new page'),
+        (Get-GapsioDigestArea -Services 'Microsoft 365 Copilot Chat' -Title 'Microsoft 365 Copilot: use Microsoft Agent 365 agents'))
+    & $A (($areas -join ',') -eq 'Office,Purview,Purview,Intune,Other,Agents') "Digest: the product the title starts with decides the area, then the services, then a product anywhere in the title ($($areas -join ','))"
     & $A ((Get-GapsioDigestSections 'Just one paragraph without headings.').intro -eq 'Just one paragraph without headings.' -and (Get-GapsioDigestClip ('word ' * 100) 50).Length -le 52 -and (Get-GapsioDigestClip ('word ' * 100) 50).EndsWith(' …')) 'Digest: a post without headings is all introduction; long texts are cut at a word with a mark'
 } ${function:Assert}
 $savedMods = $env:GAPSIO_MODULES; $env:GAPSIO_MODULES = "$savedMods,digest"
 $rd = Invoke-GapsioDigestCollection 6>$null
 $dg = $blobs['state/digest-latest.json'] | ConvertFrom-Json -Depth 32
 $di = @{}; foreach ($x in $dg.items) { $di[$x.id] = $x }
-Assert ($dg.status -eq 'ok' -and @($dg.items).Count -eq 7 -and $dg.summary.posts -eq 9 -and -not $di.ContainsKey('MC1200006') -and -not $di.ContainsKey('MC1200008') -and @($dg.warnings).Count -eq 0) "Digest: only posts about security products that have not expired ($(@($dg.items).Count) of $($dg.summary.posts))"
+Assert ($dg.status -eq 'ok' -and @($dg.items).Count -eq 9 -and $dg.summary.posts -eq 11 -and -not $di.ContainsKey('MC1200006') -and -not $di.ContainsKey('MC1200008') -and @($dg.warnings).Count -eq 0) "Digest: only posts about security products that have not expired ($(@($dg.items).Count) of $($dg.summary.posts))"
 Assert ($dg.summary.posts -eq @($fixtures.messages).Count -and $di.ContainsKey('MC1200009') -and $fixtures.messagesPrefer -match '^odata\.maxpagesize=\d+$') "Digest: every page of the message center is read, the page size is asked for in the Prefer header (posts $($dg.summary.posts), Prefer '$($fixtures.messagesPrefer)')"
 Assert ($di['MC1200001'].action -eq 'ActBy' -and $di['MC1200001'].priority -eq 'High' -and $di['MC1200001'].daysLeft -eq 10 -and $di['MC1200001'].actBy -eq $mcNow.Date.AddDays(10).ToString('yyyy-MM-dd') -and $di['MC1200001'].area -eq 'Intune' -and $di['MC1200001'].isNew -and $di['MC1200001'].summary -eq 'Older Company Portal versions stop enrolling devices.' -and $di['MC1200001'].todo -eq "• Update the app on all devices.`n• Tell your helpdesk & users." -and $di['MC1200001'].when -eq 'Support ends on the date named in this post.' -and (@($di['MC1200001'].roadmapIds) -join ',') -eq '490001,490002') "Digest: deadline in 10 days is High, with Microsoft's summary and its 'what you need to do' section ($($di['MC1200001'].action)/$($di['MC1200001'].priority)/$($di['MC1200001'].daysLeft))"
 Assert ($di['MC1200002'].action -eq 'Plan' -and $di['MC1200002'].priority -eq 'Medium' -and $di['MC1200002'].retirement -and $di['MC1200002'].area -eq 'Defender' -and $di['MC1200002'].todo -eq 'Switch to the Defender deployment tool.' -and $di['MC1200002'].impact -eq 'New devices cannot use the old package.') 'Digest: retirement without a deadline is "plan", Medium; sections with bold headings are read'
 Assert ($di['MC1200003'].priority -eq 'Medium' -and $di['MC1200003'].area -eq 'Entra' -and $di['MC1200005'].action -eq 'Overdue' -and $di['MC1200005'].daysLeft -eq -5 -and $di['MC1200004'].action -eq 'Info' -and $di['MC1200004'].priority -eq 'Info' -and $di['MC1200007'].action -eq 'Check' -and $di['MC1200007'].area -eq 'Office' -and $di['MC1200009'].action -eq 'Plan' -and $di['MC1200009'].priority -eq 'Low' -and $di['MC1200009'].area -eq 'Agents') 'Digest: deadline in 45 days Medium, passed deadline overdue, information, issue to check, plain plan-for-change Low'
+Assert ($di['MC1200010'].area -eq 'Agents' -and $di['MC1200010'].when -eq 'General availability: rollout starts next month.' -and $di['MC1200010'].todo -eq "• Review who can open the report.`n• Inform your admins." -and $di['MC1200010'].impact -match '^Who is affected:' -and $di['MC1200010'].summary -eq 'Admins get usage insights for agents.' -and $di['MC1200011'].area -eq 'Office' -and $di['MC1200011'].when -eq 'Next quarter.' -and $di['MC1200011'].todo -eq 'No action is needed.' -and $dg.summary.areas.Agents -eq 2 -and $dg.summary.areas.Office -eq 2) "Digest: a post Microsoft filed under another service is kept when its title names the product; Defender for Office 365 under Defender XDR counts as Office (areas $(($dg.summary.areas.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', '))"
 Assert ($dg.items[0].id -eq 'MC1200001' -and $dg.summary.deadlines -eq 2 -and $dg.summary.nextDeadline -eq $di['MC1200001'].actBy -and $dg.summary.due14d -eq 1 -and $dg.summary.overdue -eq 1 -and $dg.summary.new7d -eq 4 -and $dg.summary.majorChanges -eq 2 -and $dg.summary.areas.Defender -eq 2) "Digest: most urgent post first; summary (deadlines $($dg.summary.deadlines), next $($dg.summary.nextDeadline), new $($dg.summary.new7d), major $($dg.summary.majorChanges))"
 $df = @($dg.findings)
 Assert ($df.Count -eq 4 -and @($df | Where-Object { $_.category -ne 'ServiceChange' }).Count -eq 0 -and $df[0].severity -eq 'High' -and $df[0].title.en -eq "Microsoft asks for action by $($di['MC1200001'].actBy): Microsoft Intune: move to the new Company Portal before support ends" -and $df[0].detail.en -match 'Microsoft: • Update the app on all devices\.' -and $df[0].detail.de -match 'hat eine Frist' -and @($df | Where-Object { $_.title.en -match '^Deadline passed on' -and $_.severity -eq 'Medium' }).Count -eq 1 -and @($df | Where-Object { $_.title.en -match '^Retirement announced' -and $_.severity -eq 'Low' }).Count -eq 1 -and @($df | Where-Object { $_.title.en -match 'Agent 365|Purview|quarantine' }).Count -eq 0) "Digest findings: deadline (High, Medium), passed deadline, retirement – nothing for information, issues or plain changes ($($df.Count))"
@@ -1836,7 +1852,7 @@ Assert ($f1.Count -eq 1 -and $f1[0].severity -eq 'Medium' -and $f1[0].title.en -
 $fixtures.messagesDenied = $true
 $rd3 = Invoke-GapsioDigestCollection 6>$null 3>$null
 $dg3 = $blobs['state/digest-latest.json'] | ConvertFrom-Json -Depth 32
-Assert ($dg3.status -eq 'unavailable' -and @($dg3.items).Count -eq 7 -and @($dg3.findings).Count -eq 4 -and $dg3.dataFrom -eq $dg2.dataFrom -and $rd3.changes -eq 0 -and @($dg3.warnings | Where-Object { $_ -match '^Message center \(ServiceMessage\.Read\.All\): HTTP 403' }).Count -eq 1) "Digest: a failed read keeps the last known posts and findings, says since when, and reports no change ($($dg3.status), $(@($dg3.items).Count) posts, $($rd3.changes) changes)"
+Assert ($dg3.status -eq 'unavailable' -and @($dg3.items).Count -eq 9 -and @($dg3.findings).Count -eq 4 -and $dg3.dataFrom -eq $dg2.dataFrom -and $rd3.changes -eq 0 -and @($dg3.warnings | Where-Object { $_ -match '^Message center \(ServiceMessage\.Read\.All\): HTTP 403' }).Count -eq 1) "Digest: a failed read keeps the last known posts and findings, says since when, and reports no change ($($dg3.status), $(@($dg3.items).Count) posts, $($rd3.changes) changes)"
 $fixtures.messagesDenied = $false
 # More services by setting; an invalid expression is ignored with a notice
 $env:GAPSIO_DIGEST_SERVICES = 'Microsoft Teams'
@@ -1845,7 +1861,7 @@ Assert (@(($blobs['state/digest-latest.json'] | ConvertFrom-Json -Depth 32).item
 $env:GAPSIO_DIGEST_SERVICES = '(['
 $null = Invoke-GapsioDigestCollection 6>$null 3>$null
 $dg4 = $blobs['state/digest-latest.json'] | ConvertFrom-Json -Depth 32
-Assert (@($dg4.items).Count -eq 7 -and @($dg4.warnings | Where-Object { $_ -match 'GAPSIO_DIGEST_SERVICES is not a valid regular expression' }).Count -eq 1) 'Digest: an invalid service expression is ignored with a notice'
+Assert (@($dg4.items).Count -eq 9 -and @($dg4.warnings | Where-Object { $_ -match 'GAPSIO_DIGEST_SERVICES is not a valid regular expression' }).Count -eq 1) 'Digest: an invalid service expression is ignored with a notice'
 $env:GAPSIO_DIGEST_SERVICES = $null
 $r = Call 'digest' -Principal $adminP; Assert ([int]$r.StatusCode -eq 200 -and ($r.Body | ConvertFrom-Json -Depth 32).module -eq 'digest') 'api/digest serves the digest to admins'
 $r = Call 'digest' -Principal $userP; Assert ([int]$r.StatusCode -eq 403) 'api/digest: non-admin gets 403'
