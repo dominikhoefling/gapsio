@@ -152,9 +152,12 @@ function Get-GapsioDigestMessages {
     .SYNOPSIS
     Message center posts of the tenant. Returns @{ ok; messages } – ok is $false when the call failed (permission
     ServiceMessage.Read.All missing), so the snapshot can say "could not be read" instead of "nothing announced".
+    All pages are read: the service returns the oldest posts first, so the first page alone misses what is new.
+    The page size goes into the Prefer header as Microsoft documents it (default 100, at most 1000) – a $top in
+    the query caps the whole list at that number and returns no link to the next page.
     #>
     $sel = 'id,title,category,severity,services,tags,isMajorChange,startDateTime,endDateTime,lastModifiedDateTime,actionRequiredByDateTime,details,body'
-    $r = Invoke-GapsioGraphSafe -All -Context 'Message center (ServiceMessage.Read.All)' -Path "admin/serviceAnnouncement/messages?`$select=$sel&`$top=100"
+    $r = Invoke-GapsioGraphSafe -All -Context 'Message center (ServiceMessage.Read.All)' -Path "admin/serviceAnnouncement/messages?`$select=$sel" -Headers @{ Prefer = 'odata.maxpagesize=250' }
     [pscustomobject]@{ ok = ($null -ne $r); messages = @($r | Where-Object { $_ }) }
 }
 

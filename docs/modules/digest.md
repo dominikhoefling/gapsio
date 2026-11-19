@@ -12,7 +12,8 @@ products, puts the ones that need action first and turns deadlines into findings
 
 The Microsoft 365 message center of the tenant, read through Microsoft Graph
 (`admin/serviceAnnouncement/messages`, v1.0). Permission: `ServiceMessage.Read.All` (application, read-only) – it
-allows reading message center posts and nothing else.
+allows reading message center posts and nothing else. Gapsio reads the whole list, page by page – the message
+center returns the oldest posts first.
 
 Posts are kept when one of their services matches Defender, Intune, Entra, Purview, Sentinel, Security Copilot,
 Agent 365 or Exchange Online Protection. Add more with the app setting `GAPSIO_DIGEST_SERVICES` (a regular expression

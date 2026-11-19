@@ -6,6 +6,13 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+### Fixed
+- **Change digest: only the oldest 100 posts of the message center were read.** The message center returns its
+  posts oldest first and in pages; the request limited the list to the first 100 and so missed everything newer –
+  in a tenant with more than 100 posts the digest showed no recent announcement and no recent deadline. All pages
+  are read now. Found by checking the digest against a real tenant. After the update the next run reports the
+  posts that were missing as new.
+
 ## [0.11.0] – 2026-11-18
 
 From the weekly news digest. No new permissions.

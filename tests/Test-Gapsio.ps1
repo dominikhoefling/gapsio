@@ -744,7 +744,17 @@ $queue = [System.Collections.Generic.List[string]]::new()
             '^agentRegistry/agentInstances' { if ($script:Fx.agents.registry404) { throw (New-GapsioHttpException -Status 404 -Message 'HTTP 404 Not Found') }; if ($script:Fx.agents.registry502) { throw (New-GapsioHttpException -Status 502 -Message 'HTTP 502 for GET https://graph.microsoft.com/beta/agentRegistry/agentInstances :: {"error":{"code":"UnknownError","message":""}}') }; return (V $script:Fx.agents.registry) }
             '^deviceManagement/managedDevices\?' { return (V $script:Fx.managedDevices) }
             '^subscribedSkus' { return (V $script:Fx.skus) }
-            '^admin/serviceAnnouncement/messages' { if ($script:Fx.messagesDenied) { throw (New-GapsioHttpException -Status 403 -Message 'HTTP 403 for GET https://graph.microsoft.com/v1.0/admin/serviceAnnouncement/messages :: {"error":{"code":"UnknownError","message":"Forbidden"}}') }; return (V $script:Fx.messages) }
+            '^admin/serviceAnnouncement/messages' { if ($script:Fx.messagesDenied) { throw (New-GapsioHttpException -Status 403 -Message 'HTTP 403 for GET https://graph.microsoft.com/v1.0/admin/serviceAnnouncement/messages :: {"error":{"code":"UnknownError","message":"Forbidden"}}') }
+                # Like the service: oldest posts first, in pages with a link to the next one; a $top in the query caps
+                # the whole list and returns no link (found against a real tenant, where only the oldest 100 posts came back)
+                $script:Fx.messagesPrefer = [string]$Headers['Prefer']
+                $mcAll = @($script:Fx.messages); $mcPage = 5
+                if ($Uri -match '\$top=') { return (V @($mcAll | Select-Object -First $mcPage)) }
+                $mcSkip = if ($Uri -match '\$skip=(\d+)') { [int]$Matches[1] } else { 0 }
+                $mcRes = V @($mcAll | Select-Object -Skip $mcSkip -First $mcPage)
+                if ($mcSkip + $mcPage -lt $mcAll.Count) { $mcRes | Add-Member -NotePropertyName '@odata.nextLink' -NotePropertyValue "https://graph.microsoft.com/v1.0/admin/serviceAnnouncement/messages?`$skip=$($mcSkip + $mcPage)" }
+                return $mcRes
+            }
             '^security/rules/detectionRules' { if ($Uri -notmatch '/v1\.0/') { throw 'detection rules must be read from v1.0 first' }; return (V $script:Fx.detectionRules) }
             '^users\?\$select=id,userPrincipalName,displayName,accountEnabled,userType,assignedPlans' { return (V @($script:Users.Values)) }
             '^identity/conditionalAccess/policies' { return (V $script:Fx.agents.policies) }
@@ -1806,6 +1816,7 @@ $rd = Invoke-GapsioDigestCollection 6>$null
 $dg = $blobs['state/digest-latest.json'] | ConvertFrom-Json -Depth 32
 $di = @{}; foreach ($x in $dg.items) { $di[$x.id] = $x }
 Assert ($dg.status -eq 'ok' -and @($dg.items).Count -eq 7 -and $dg.summary.posts -eq 9 -and -not $di.ContainsKey('MC1200006') -and -not $di.ContainsKey('MC1200008') -and @($dg.warnings).Count -eq 0) "Digest: only posts about security products that have not expired ($(@($dg.items).Count) of $($dg.summary.posts))"
+Assert ($dg.summary.posts -eq @($fixtures.messages).Count -and $di.ContainsKey('MC1200009') -and $fixtures.messagesPrefer -match '^odata\.maxpagesize=\d+$') "Digest: every page of the message center is read, the page size is asked for in the Prefer header (posts $($dg.summary.posts), Prefer '$($fixtures.messagesPrefer)')"
 Assert ($di['MC1200001'].action -eq 'ActBy' -and $di['MC1200001'].priority -eq 'High' -and $di['MC1200001'].daysLeft -eq 10 -and $di['MC1200001'].actBy -eq $mcNow.Date.AddDays(10).ToString('yyyy-MM-dd') -and $di['MC1200001'].area -eq 'Intune' -and $di['MC1200001'].isNew -and $di['MC1200001'].summary -eq 'Older Company Portal versions stop enrolling devices.' -and $di['MC1200001'].todo -eq "• Update the app on all devices.`n• Tell your helpdesk & users." -and $di['MC1200001'].when -eq 'Support ends on the date named in this post.' -and (@($di['MC1200001'].roadmapIds) -join ',') -eq '490001,490002') "Digest: deadline in 10 days is High, with Microsoft's summary and its 'what you need to do' section ($($di['MC1200001'].action)/$($di['MC1200001'].priority)/$($di['MC1200001'].daysLeft))"
 Assert ($di['MC1200002'].action -eq 'Plan' -and $di['MC1200002'].priority -eq 'Medium' -and $di['MC1200002'].retirement -and $di['MC1200002'].area -eq 'Defender' -and $di['MC1200002'].todo -eq 'Switch to the Defender deployment tool.' -and $di['MC1200002'].impact -eq 'New devices cannot use the old package.') 'Digest: retirement without a deadline is "plan", Medium; sections with bold headings are read'
 Assert ($di['MC1200003'].priority -eq 'Medium' -and $di['MC1200003'].area -eq 'Entra' -and $di['MC1200005'].action -eq 'Overdue' -and $di['MC1200005'].daysLeft -eq -5 -and $di['MC1200004'].action -eq 'Info' -and $di['MC1200004'].priority -eq 'Info' -and $di['MC1200007'].action -eq 'Check' -and $di['MC1200007'].area -eq 'Office' -and $di['MC1200009'].action -eq 'Plan' -and $di['MC1200009'].priority -eq 'Low' -and $di['MC1200009'].area -eq 'Agents') 'Digest: deadline in 45 days Medium, passed deadline overdue, information, issue to check, plain plan-for-change Low'
