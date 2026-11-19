@@ -16,9 +16,14 @@ allows reading message center posts and nothing else. Gapsio reads the whole lis
 center returns the oldest posts first.
 
 Posts are kept when one of their services matches Defender, Intune, Entra, Purview, Sentinel, Security Copilot,
-Agent 365 or Exchange Online Protection. Add more with the app setting `GAPSIO_DIGEST_SERVICES` (a regular expression
+Agent 365 or Exchange Online Protection – or when the title names one of these products. The title counts because
+Microsoft files some posts under another service: posts about Agent 365 under *Microsoft 365 suite*, posts about
+Intune or Defender also under *Windows*. Add more with the app setting `GAPSIO_DIGEST_SERVICES` (a regular expression
 on the service names, for example `Microsoft Teams|SharePoint`). Posts Microsoft has taken off the message center are
 dropped.
+
+The area a post is shown under follows the product its title starts with: *Microsoft Defender for Office 365: …* is
+listed under Office, although Microsoft files it under the service *Microsoft Defender XDR*.
 
 The collection runs daily at 04:05 UTC and on demand (**Collect now**).
 
@@ -34,8 +39,11 @@ No model is involved. Gapsio uses the fields Microsoft sets and the sections Mic
 | Check | Category *prevent or fix issue* | Low |
 | For information | Everything else | Info |
 
-For every post the view shows Microsoft's own sections, when the post has them: **What you need to do to prepare**,
-**When this will happen**, **How this will affect your organization** and the summary. Microsoft writes these in
+For every post the view shows Microsoft's own sections, when the post has them: what to do, when it happens, how it
+affects the organization, and the summary. Microsoft uses two layouts, and both are read: *What you need to do to
+prepare*, *When this will happen*, *How this will affect your organization* in older posts; *Action
+required/Recommendations*, *Rollout schedule*, *Impact on your organization* and *What and why* in posts since
+mid-2026. Microsoft writes these in
 English; Gapsio does not translate or rephrase them. A link opens the post in the message center.
 
 ## Findings

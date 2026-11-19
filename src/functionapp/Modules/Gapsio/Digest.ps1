@@ -6,17 +6,24 @@
 # Agent 365 and related security services are kept.
 #
 # No model is involved: the classification uses the fields Microsoft sets (category, isMajorChange, tags,
-# actionRequiredByDateTime) and the sections Microsoft writes into the post ("When this will happen", "How this will
-# affect your organization", "What you need to do to prepare"). Texts from Microsoft stay in English.
+# actionRequiredByDateTime) and the sections Microsoft writes into the post – "When this will happen", "How this will
+# affect your organization", "What you need to do to prepare" in older posts; "What and why", "Rollout schedule",
+# "Impact on your organization", "Action required/Recommendations" in posts since mid-2026. Texts from Microsoft
+# stay in English.
 # Posts with a deadline, and major changes, become findings – so they can be assigned, documented as handled
 # (accepted with a note) and sent to Teams like every other finding.
 
 # Services whose posts are kept (regular expression on the service names of a post); extend with GAPSIO_DIGEST_SERVICES.
 $script:GapsioDigestServices = 'Defender|Intune|Entra|Purview|Sentinel|Security Copilot|Agent 365|Exchange Online Protection'
+# Products named in the title of a post that Microsoft filed under another service: in real tenants posts about
+# Agent 365 come under "Microsoft 365 suite", posts about Intune and Defender also under "Windows".
+$script:GapsioDigestTitleProducts = '\b(Defender|Intune|Entra|Purview|Sentinel|Security Copilot|Agent 365)\b'
+# Headings of both post layouts. Sub-headings inside a section ("Who is affected", "What will happen") stay text.
 $script:GapsioDigestHeadings = [ordered]@{
-    when   = 'when (this|will this) (will )?happen'
-    impact = 'how (this|will this) (will )?affects? your organi[sz]ation'
-    todo   = 'what you (need to|can|should) do( to prepare)?'
+    intro  = 'what and why'
+    when   = 'when (this|will this) (will )?happen|(rollout )?schedule'
+    impact = 'how (this|will this) (will )?affects? your organi[sz]ation|impact on your organi[sz]ation'
+    todo   = 'what you (need to|can|should) do( to prepare)?|action required(\s*(/|,|and|&)\s*recommendations)?|recommended actions?'
     other  = 'compliance considerations?|learn more|additional information|message summary|before you begin'
 }
 
@@ -29,15 +36,17 @@ function ConvertFrom-GapsioDigestHtml {
     $t = $t -replace '(?i)<br\s*/?>|</p>|</div>|</li>|</h[1-6]>|</tr>|</ul>|</ol>', "`n"
     $t = $t -replace '<[^>]+>', ''
     $t = [System.Net.WebUtility]::HtmlDecode($t) -replace "`u{00A0}", ' '
-    (@($t -split "`n" | ForEach-Object { ($_ -replace '\s+', ' ').Trim() } | Where-Object { $_ -and $_ -ne '•' }) -join "`n")
+    # Newer posts write list items as paragraphs that start with a dash
+    (@($t -split "`n" | ForEach-Object { ($_ -replace '\s+', ' ').Trim() -replace '^[-–]\s+', '• ' } | Where-Object { $_ -and $_ -ne '•' }) -join "`n")
 }
 
 function Get-GapsioDigestSections {
     <#
     .SYNOPSIS
-    Splits the text of a post at the headings Microsoft uses ("[When this will happen:]", "How this will affect your
-    organization:", "What you need to do to prepare:" – with or without brackets and colon). Returns intro, when,
-    impact, todo (empty string when a section is missing).
+    Splits the text of a post at the headings Microsoft uses – "[When this will happen:]", "How this will affect your
+    organization:", "What you need to do to prepare:" and, since mid-2026, "[What and Why:]", "[Rollout Schedule:]",
+    "[Impact on Your Organization:]", "[Action Required/Recommendations:]" – with or without brackets and colon.
+    Returns intro, when, impact, todo (empty string when a section is missing).
     #>
     param([AllowNull()][string]$Text)
     $out = [ordered]@{ intro = ''; when = ''; impact = ''; todo = '' }
@@ -66,15 +75,22 @@ function Get-GapsioDigestClip {
 }
 
 function Get-GapsioDigestArea {
-    # Product family of a post, used for the filter in the portal (first match wins).
-    param([string[]]$Services)
-    $s = ($Services -join ' | ')
-    if ($s -match 'Agent 365') { return 'Agents' }
-    if ($s -match 'Defender for Office|Exchange Online Protection') { return 'Office' }
-    if ($s -match 'Intune') { return 'Intune' }
-    if ($s -match 'Entra') { return 'Entra' }
-    if ($s -match 'Purview') { return 'Purview' }
-    if ($s -match 'Defender|Sentinel|Security Copilot') { return 'Defender' }
+    <#
+    .SYNOPSIS
+    Product family of a post, used for the filter in the portal. The product the title starts with decides
+    ("Microsoft Defender for Office 365: …" is filed under the service "Microsoft Defender XDR"), then the services,
+    then a product named anywhere in the title.
+    #>
+    param([string[]]$Services, [string]$Title)
+    $of = {
+        param([string]$s)
+        if ($s -match 'Agent 365') { 'Agents' } elseif ($s -match 'Defender for Office|Exchange Online Protection') { 'Office' }
+        elseif ($s -match 'Intune') { 'Intune' } elseif ($s -match '\bEntra\b') { 'Entra' } elseif ($s -match 'Purview') { 'Purview' }
+        elseif ($s -match 'Defender|Sentinel|Security Copilot') { 'Defender' } else { $null }
+    }
+    $lead = ''
+    if ((([string]$Title) -replace '^\s*\([^)]{1,20}\)\s*', '') -match '^([^:|]{3,60})[:|]') { $lead = $Matches[1] }
+    foreach ($s in @($lead, ($Services -join ' | '), [string]$Title)) { if ($s) { $a = & $of $s; if ($a) { return $a } } }
     'Other'
 }
 
@@ -121,7 +137,7 @@ function ConvertTo-GapsioDigestItem {
         state      = "$action$(if ($actBy) { " by $($actBy.ToString('yyyy-MM-dd'))" })"
         id         = $id
         title      = [string](Get-GapsioProp $Message 'title')
-        area       = Get-GapsioDigestArea -Services $services
+        area       = Get-GapsioDigestArea -Services $services -Title ([string](Get-GapsioProp $Message 'title'))
         services   = $services
         category   = $category
         severity   = [string](Get-GapsioProp $Message 'severity')
@@ -197,7 +213,8 @@ function Get-GapsioDigestFindings {
 function Invoke-GapsioDigestCollection {
     <#
     .SYNOPSIS
-    Run of the change digest: reads the message center, keeps the posts about security products that have not expired,
+    Run of the change digest: reads the message center, keeps the posts about security products (by service or by
+    the product named in the title) that have not expired,
     writes the snapshot (state/digest-latest.json) with drift and run history. When the message center cannot be
     read, the snapshot keeps the posts of the last successful run and says so (status, dataFrom).
     #>
@@ -211,7 +228,8 @@ function Invoke-GapsioDigestCollection {
     $src = Get-GapsioDigestMessages
     $items = @(foreach ($m in $src.messages) {
             $svc = (@(Get-GapsioProp $m 'services') -join ' | ')
-            if ($svc -notmatch $pattern) { continue }
+            # A product in the title counts as well: Microsoft files posts about Agent 365 or Intune under other services
+            if ($svc -notmatch $pattern -and [string](Get-GapsioProp $m 'title') -notmatch $script:GapsioDigestTitleProducts) { continue }
             $it = ConvertTo-GapsioDigestItem -Message $m -Now $started
             if ($it.expires -and (ConvertTo-GapsioUtc $it.expires) -lt $started) { continue }   # Microsoft has taken the post off the message center
             $it

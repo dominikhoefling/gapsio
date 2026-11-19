@@ -10,8 +10,17 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 - **Change digest: only the oldest 100 posts of the message center were read.** The message center returns its
   posts oldest first and in pages; the request limited the list to the first 100 and so missed everything newer –
   in a tenant with more than 100 posts the digest showed no recent announcement and no recent deadline. All pages
-  are read now. Found by checking the digest against a real tenant. After the update the next run reports the
-  posts that were missing as new.
+  are read now. After the update the next run reports the posts that were missing as new.
+- **Change digest: the sections of posts since mid-2026 were not recognised.** Microsoft renamed the headings of
+  message center posts (*What and why*, *Rollout schedule*, *Impact on your organization*, *Action
+  required/Recommendations*); such posts showed only the summary, and their findings did not quote what Microsoft
+  asks for. Both layouts are read now.
+- **Change digest: posts filed under another service were dropped.** Microsoft files posts about Agent 365 under
+  *Microsoft 365 suite* and some posts about Intune and Defender under *Windows*. A post is now also kept when its
+  title names a security product. Posts about Defender for Office 365, which Microsoft files under *Microsoft
+  Defender XDR*, are listed under Office.
+
+All three were found by checking the digest against the message center of a real tenant.
 
 ## [0.11.0] – 2026-11-18
 
