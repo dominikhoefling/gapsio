@@ -6,6 +6,10 @@ a **patch** version only fixes bugs. Update with `./setup/Update-Gapsio.ps1 -Res
 
 ## [Unreleased]
 
+## [0.11.1] – 2026-11-20
+
+Fixes for the change digest. No new permissions.
+
 ### Fixed
 - **Change digest: only the oldest 100 posts of the message center were read.** The message center returns its
   posts oldest first and in pages; the request limited the list to the first 100 and so missed everything newer –
